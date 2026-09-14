@@ -32,6 +32,7 @@ export async function onRequestPost({ request, env }) {
     local_unit_id,
     description,
     citizen_phone,
+    photo_url, // optional — set by a prior call to /api/grievances/upload-photo
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
     form_loaded_at, // ms timestamp from when the form rendered
@@ -120,10 +121,10 @@ export async function onRequestPost({ request, env }) {
 
     await env.DB.prepare(
       `INSERT INTO grievances
-        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL')`
+        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url)
+       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?)`
     )
-      .bind(id, trackingRef, normalizedPhone, description.trim(), category_id, local_unit_id)
+      .bind(id, trackingRef, normalizedPhone, description.trim(), category_id, local_unit_id, photo_url || null)
       .run();
 
     return new Response(
