@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Import jurisdiction data — GrievIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #14181D;
+    --paper: #ECEEF1;
+    --card: #FFFFFF;
+    --line: #D7DBE0;
+    --steel: #3A4552;
+    --steel-2: #59657A;
+    --red: #C23B2C;
+    --red-tint: #F7E4E0;
+    --green: #2F6B4F;
+    --green-tint: #E4EFE8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Public Sans', sans-serif;
+  }
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 26px 24px;
+  }
+  header h1 {
+    font-family: 'Source Serif 4', serif;
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+  header p { margin: 0; color: #B9C0C9; font-size: 14px; }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-family: 'Source Serif 4', serif;
+    font-size: 17px;
+    margin: 0 0 10px;
+  }
+  .card p { font-size: 14px; color: var(--steel); line-height: 1.55; }
+  .card ul { font-size: 14px; color: var(--steel); line-height: 1.6; padding-left: 20px; }
+  .drop-zone {
+    border: 1px dashed var(--steel-2);
+    border-radius: 4px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--steel);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .drop-zone:hover { border-color: var(--ink); color: var(--ink); }
+  input[type="file"] { display: none; }
+  .file-name {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--steel-2);
+  }
+  button.import-btn {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.import-btn:disabled { background: var(--steel-2); cursor: not-allowed; }
+  .summary-box {
+    display: none;
+    border-radius: 4px;
+    padding: 18px;
+    margin-top: 18px;
+    font-size: 14px;
+  }
+  .summary-box.ok { background: var(--green-tint); border: 1px solid #a9c497; }
+  .summary-box.err { background: var(--red-tint); border: 1px solid #dba393; color: var(--red); }
+  .summary-box ul { margin: 8px 0 0; padding-left: 18px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .stat-row b { color: var(--ink); }
+  .error-list { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Import jurisdiction data</h1>
+  <p>Bulk-load MP/MLA/municipal body/ward structure from a CSV. Requires you to be logged in as an authorized representative.</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>CSV format</h2>
+    <p>One row per ward or village. Required columns: <code>mp_constituency_name</code>, <code>mla_constituency_name</code>, <code>local_unit_name</code>, <code>unit_type</code> (RURAL or URBAN). Everything else is optional but recommended.</p>
+    <ul>
+      <li>MP, MLA, and municipal body rows that repeat across many wards are only created once — matched by name.</li>
+      <li>Re-uploading the same CSV updates existing rows instead of duplicating them.</li>
+      <li><code>localities</code> should be a semicolon-separated list, e.g. <code>Hazratganj; Ashok Marg</code>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Upload CSV</h2>
+    <div class="drop-zone" id="dropZone">Click to choose a CSV file</div>
+    <input type="file" id="fileInput" accept=".csv,text/csv" />
+    <div class="file-name" id="fileName"></div>
+    <button class="import-btn" id="importBtn" disabled>Run import</button>
+
+    <div class="summary-box" id="summaryBox"></div>
+  </div>
+</main>
+
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileNameEl = document.getElementById('fileName');
+  const importBtn = document.getElementById('importBtn');
+  const summaryBox = document.getElementById('summaryBox');
+  let csvText = null;
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileNameEl.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      csvText = e.target.result;
+      importBtn.disabled = false;
+    };
+    reader.readAsText(file);
+  });
+
+  importBtn.addEventListener('click', async () => {
+    if (!csvText) return;
+    importBtn.disabled = true;
+    importBtn.textContent = 'Importing...';
+    summaryBox.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/admin/import-jurisdiction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csv: csvText }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        summaryBox.className = 'summary-box err';
+        summaryBox.innerHTML = '<b>Import failed:</b> ' + (data.error || 'Unknown error.');
+        summaryBox.style.display = 'block';
+        return;
+      }
+
+      const s = data.summary;
+      let html = '<b>Import complete</b>';
+      html += '<div class="stat-row"><span>Rows processed</span><b>' + s.rowsProcessed + '</b></div>';
+      html += '<div class="stat-row"><span>MP constituencies created</span><b>' + s.mpCreated + '</b></div>';
+      html += '<div class="stat-row"><span>MLA constituencies created</span><b>' + s.mlaCreated + '</b></div>';
+      html += '<div class="stat-row"><span>Municipal bodies created</span><b>' + s.municipalBodyCreated + '</b></div>';
+      html += '<div class="stat-row"><span>Wards/villages created</span><b>' + s.localUnitsCreated + '</b></div>';
+      html += '<div class="stat-row"><span>Wards/villages updated</span><b>' + s.localUnitsUpdated + '</b></div>';
+      if (s.errors && s.errors.length > 0) {
+        html += '<div class="error-list"><b>' + s.errors.length + ' row(s) had issues:</b><ul>';
+        s.errors.forEach((e) => { html += '<li>' + e + '</li>'; });
+        html += '</ul></div>';
+      }
+      summaryBox.className = 'summary-box ok';
+      summaryBox.innerHTML = html;
+      summaryBox.style.display = 'block';
+    } catch (err) {
+      summaryBox.className = 'summary-box err';
+      summaryBox.innerHTML = '<b>Network error.</b> Please try again.';
+      summaryBox.style.display = 'block';
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = 'Run import';
+    }
+  });
+</script>
+
+</body>
+</html>
