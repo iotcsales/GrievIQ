@@ -82,10 +82,25 @@ export async function onRequestGet(context) {
     const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTier);
     const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
 
+    // photo_url is stored as a JSON array string (see
+    // functions/api/grievances/submit.js) — parse defensively since it
+    // may be null for older test rows or malformed if ever hand-edited.
+    let photoUrls = [];
+    if (grievance.photo_url) {
+      try {
+        const parsed = JSON.parse(grievance.photo_url);
+        if (Array.isArray(parsed)) photoUrls = parsed;
+      } catch {
+        photoUrls = [];
+      }
+    }
+
     visible.push({
       id: grievance.id,
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
+      locationDetail: grievance.location_detail || null,
+      photoUrls,
       status: grievance.status,
       localUnit: {
         id: chain.localUnit.id,
