@@ -143,14 +143,41 @@
     color: var(--ink);
   }
 
-  .photo-preview {
-    display: none;
-    width: 100%;
-    max-height: 240px;
-    object-fit: cover;
-    border-radius: 3px;
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
     margin-top: 14px;
+  }
+
+  .photo-thumb {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 3px;
+    overflow: hidden;
     border: 1px solid var(--line);
+  }
+
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .photo-thumb button {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(20, 20, 20, 0.75);
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
   }
 
   button.submit {
@@ -268,13 +295,13 @@
     </div>
 
     <div class="card">
-      <h2>Add a photo (optional)</h2>
-      <div class="hint">A photo helps your representative understand the issue faster.</div>
+      <h2>Add photos (optional)</h2>
+      <div class="hint">Up to 3 photos. They help your representative understand the issue faster.</div>
 
-      <label for="photo" class="photo-label" id="photoLabel">Take or choose a photo</label>
-      <input type="file" id="photo" accept="image/*" capture="environment" class="photo-input" />
+      <label for="photo" class="photo-label" id="photoLabel">Take or choose photos</label>
+      <input type="file" id="photo" accept="image/*" capture="environment" multiple class="photo-input" />
 
-      <img id="photoPreview" class="photo-preview" alt="Selected photo preview" />
+      <div class="photo-grid" id="photoGrid"></div>
       <div class="field-error" id="photoError"></div>
     </div>
 
@@ -341,50 +368,78 @@
     return digits.length >= 10 && digits.length <= 13;
   }
 
+  const MAX_PHOTOS = 3;
   const photoInput = document.getElementById('photo');
-  const photoPreview = document.getElementById('photoPreview');
+  const photoGrid = document.getElementById('photoGrid');
   const photoLabel = document.getElementById('photoLabel');
   const photoError = document.getElementById('photoError');
+  let selectedPhotos = []; // array of File objects
+
+  function renderPhotoGrid() {
+    photoGrid.innerHTML = '';
+    selectedPhotos.forEach((file, index) => {
+      const reader = new FileReader();
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      const img = document.createElement('img');
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '×';
+      removeBtn.setAttribute('aria-label', 'Remove photo');
+      removeBtn.addEventListener('click', () => {
+        selectedPhotos.splice(index, 1);
+        renderPhotoGrid();
+      });
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.readAsDataURL(file);
+      thumb.appendChild(img);
+      thumb.appendChild(removeBtn);
+      photoGrid.appendChild(thumb);
+    });
+    photoLabel.textContent = selectedPhotos.length > 0
+      ? `Add more (${selectedPhotos.length}/${MAX_PHOTOS} added)`
+      : 'Take or choose photos';
+    photoLabel.style.display = selectedPhotos.length >= MAX_PHOTOS ? 'none' : 'inline-block';
+  }
 
   photoInput.addEventListener('change', () => {
-    const file = photoInput.files[0];
     photoError.style.display = 'none';
-    if (!file) {
-      photoPreview.style.display = 'none';
-      return;
+    const newFiles = Array.from(photoInput.files);
+
+    for (const file of newFiles) {
+      if (selectedPhotos.length >= MAX_PHOTOS) {
+        photoError.textContent = `You can add up to ${MAX_PHOTOS} photos.`;
+        photoError.style.display = 'block';
+        break;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        photoError.textContent = 'Each photo must be smaller than 5MB.';
+        photoError.style.display = 'block';
+        continue;
+      }
+      selectedPhotos.push(file);
     }
-    if (file.size > 5 * 1024 * 1024) {
-      photoError.textContent = 'Photo must be smaller than 5MB. Please choose a smaller one.';
-      photoError.style.display = 'block';
-      photoInput.value = '';
-      photoPreview.style.display = 'none';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      photoPreview.src = e.target.result;
-      photoPreview.style.display = 'block';
-      photoLabel.textContent = 'Change photo';
-    };
-    reader.readAsDataURL(file);
+
+    photoInput.value = ''; // allow re-selecting the same file later
+    renderPhotoGrid();
   });
 
-  async function uploadPhotoIfPresent() {
-    const file = photoInput.files[0];
-    if (!file) return null;
-
-    const fd = new FormData();
-    fd.append('photo', file);
-
-    const res = await fetch('/api/grievances/upload-photo', {
-      method: 'POST',
-      body: fd,
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Photo upload failed.');
+  async function uploadAllPhotos() {
+    const urls = [];
+    for (const file of selectedPhotos) {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const res = await fetch('/api/grievances/upload-photo', {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Photo upload failed.');
+      }
+      urls.push(data.photo_url);
     }
-    return data.photo_url;
+    return urls;
   }
 
   form.addEventListener('submit', async (e) => {
@@ -422,10 +477,10 @@
     submitBtn.textContent = 'Filing...';
 
     try {
-      let photo_url = null;
-      if (photoInput.files[0]) {
-        submitBtn.textContent = 'Uploading photo...';
-        photo_url = await uploadPhotoIfPresent();
+      let photo_urls = [];
+      if (selectedPhotos.length > 0) {
+        submitBtn.textContent = 'Uploading photos...';
+        photo_urls = await uploadAllPhotos();
         submitBtn.textContent = 'Filing...';
       }
 
@@ -437,7 +492,7 @@
           local_unit_id,
           description,
           citizen_phone: phone,
-          photo_url,
+          photo_urls,
           website,
           form_loaded_at: formLoadedAt,
         }),
