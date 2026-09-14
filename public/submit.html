@@ -292,6 +292,10 @@
       <select id="localUnit" required>
         <option value="" disabled selected>Choose your ward or village</option>
       </select>
+
+      <label for="locationDetail">Landmark or street address</label>
+      <div class="hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
+      <textarea id="locationDetail" placeholder="e.g. Near the water tank on Station Road" style="min-height: 60px; margin-bottom: 0;"></textarea>
     </div>
 
     <div class="card">
@@ -451,6 +455,7 @@
     const phone = document.getElementById('phone').value.trim();
     const category_id = document.getElementById('category').value;
     const local_unit_id = document.getElementById('localUnit').value;
+    const location_detail = document.getElementById('locationDetail').value.trim();
     const website = document.getElementById('website').value;
 
     let hasError = false;
@@ -492,6 +497,7 @@
           local_unit_id,
           description,
           citizen_phone: phone,
+          location_detail,
           photo_urls,
           website,
           form_loaded_at: formLoadedAt,
