@@ -4,9 +4,291 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GrievIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #14181D;
+    --paper: #ECEEF1;
+    --card: #FFFFFF;
+    --line: #D7DBE0;
+    --steel: #3A4552;
+    --steel-2: #59657A;
+    --red: #C23B2C;
+    --red-tint: #F7E4E0;
+    --green: #2F6B4F;
+    --green-tint: #E4EFE8;
+    --gold: #A9822E;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Public Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .masthead {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 28px 24px 22px;
+  }
+  .masthead-inner {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .masthead-title {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: 0.01em;
+    margin: 0 0 4px;
+  }
+  .masthead-sub {
+    font-size: 14px;
+    color: #B9C0C9;
+    margin: 0;
+  }
+  .mandate-strip {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .mandate-chip {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--steel);
+  }
+  .mandate-chip b { color: var(--ink); }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 8px 24px 60px;
+  }
+  .register-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+  }
+  .register-title {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 0;
+  }
+  .register-count {
+    font-size: 13px;
+    color: var(--steel-2);
+  }
+  .case-row {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    gap: 16px;
+    align-items: start;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .signal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-top: 5px;
+  }
+  .signal-dot.red { background: var(--red); }
+  .signal-dot.green { background: none; border: 2px solid var(--green); width: 8px; height: 8px; margin-top: 6px; }
+  .case-main .tracking-ref {
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  .case-main .category {
+    color: var(--steel-2);
+    font-size: 13px;
+  }
+  .case-main .description {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--steel);
+    line-height: 1.5;
+    max-width: 46ch;
+  }
+  .case-meta {
+    text-align: right;
+    min-width: 150px;
+  }
+  .elapsed {
+    font-size: 13px;
+    color: var(--steel-2);
+    margin-bottom: 8px;
+  }
+  .elapsed.overdue { color: var(--red); font-weight: 600; }
+  .ladder {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+  .ladder-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .ladder-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--line);
+  }
+  .ladder-dot.filled { background: var(--red); }
+  .ladder-dot.current { background: var(--ink); }
+  .ladder-label {
+    font-size: 9px;
+    color: var(--steel-2);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-top: 4px;
+  }
+  .badge.escalated { background: var(--red-tint); color: var(--red); }
+  .badge.resolved { background: var(--green-tint); color: var(--green); }
+  .empty-state {
+    padding: 60px 0;
+    text-align: center;
+    color: var(--steel-2);
+  }
+  .empty-state p { font-size: 14px; margin: 0; }
+  .notice {
+    max-width: 520px;
+    margin: 80px auto;
+    padding: 0 24px;
+    text-align: center;
+  }
+  .notice h1 {
+    font-family: 'Source Serif 4', serif;
+    font-size: 22px;
+  }
+  .notice p { color: var(--steel); font-size: 14px; line-height: 1.6; }
+</style>
 </head>
 <body>
-<h1>GrievIQ</h1>
-<p>Coming soon.</p>
+
+<div id="app"></div>
+
+<script>
+const TIER_LABELS = { LOCAL: 'Local', MAYOR: 'Mayor', MLA: 'MLA', MP: 'MP' };
+
+function timeAgo(days) {
+  if (days < 1) return 'Filed today';
+  if (days === 1) return 'Filed 1 day ago';
+  return 'Filed ' + Math.floor(days) + ' days ago';
+}
+
+function renderLadder(chainTierList, currentTierIndex, viewingAsTier) {
+  return '<div class="ladder">' + chainTierList.map(function(tier, i) {
+    var filled = i <= currentTierIndex;
+    var isCurrent = tier === viewingAsTier;
+    var dotClass = 'ladder-dot' + (filled ? ' filled' : '') + (isCurrent ? ' current' : '');
+    return '<div class="ladder-step"><div class="' + dotClass + '"></div>' +
+      '<div class="ladder-label">' + TIER_LABELS[tier] + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function renderCase(c) {
+  var dotClass = c.isRedIndicator ? 'signal-dot red' : 'signal-dot green';
+  var elapsedClass = c.ackOverdue || c.isRedIndicator ? 'elapsed overdue' : 'elapsed';
+  var badge = '';
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
+    badge = '<span class="badge resolved">' + c.status.toLowerCase() + '</span>';
+  } else if (c.hasEscalatedPastMyTier) {
+    badge = '<span class="badge escalated">now with ' + TIER_LABELS[c.currentTopTier] + '</span>';
+  }
+  return '<div class="case-row">' +
+    '<div class="' + dotClass + '"></div>' +
+    '<div class="case-main">' +
+      '<div class="tracking-ref">' + c.trackingRef + '</div>' +
+      '<div class="category">' + c.category.name + ' &middot; ' + c.localUnit.name + '</div>' +
+      '<p class="description">' + c.description + '</p>' +
+      badge +
+    '</div>' +
+    '<div class="case-meta">' +
+      '<div class="' + elapsedClass + '">' + timeAgo(c.elapsedDays) + '</div>' +
+      renderLadder(c.chainTierList, c.currentTierIndex, c.viewingAsTier) +
+    '</div>' +
+  '</div>';
+}
+
+function renderMandateChips(mandates) {
+  return mandates.map(function(m) {
+    return '<div class="mandate-chip">' + m.name + ' &mdash; <b>' + m.label + '</b></div>';
+  }).join('');
+}
+
+function renderNotice(title, message) {
+  document.getElementById('app').innerHTML =
+    '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
+}
+
+async function init() {
+  var meRes = await fetch('/api/me');
+  if (!meRes.ok) {
+    if (meRes.status === 403) {
+      renderNotice('Not yet provisioned', 'This account is not currently registered as a representative in GrievIQ. Contact your administrator to be added to a jurisdiction.');
+    } else {
+      renderNotice('Session issue', 'Your login could not be verified. Please refresh the page.');
+    }
+    return;
+  }
+  var me = await meRes.json();
+
+  var casesRes = await fetch('/api/grievances');
+  var casesData = await casesRes.json();
+  var cases = casesData.grievances || [];
+
+  var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
+
+  var primaryMandate = me.mandates[0];
+
+  var html =
+    '<div class="masthead"><div class="masthead-inner">' +
+      '<p class="masthead-title">GrievIQ</p>' +
+      '<p class="masthead-sub">' + primaryMandate.name + ' &mdash; ' + primaryMandate.label + '</p>' +
+    '</div></div>' +
+    '<div class="mandate-strip">' + renderMandateChips(me.mandates) + '</div>' +
+    '<main>' +
+      '<div class="register-header">' +
+        '<h2 class="register-title">Case register</h2>' +
+        '<span class="register-count">' + cases.length + ' case' + (cases.length === 1 ? '' : 's') +
+          (redCount > 0 ? ' &middot; ' + redCount + ' need attention' : '') + '</span>' +
+      '</div>';
+
+  if (cases.length === 0) {
+    html += '<div class="empty-state"><p>No cases currently in your jurisdiction.</p></div>';
+  } else {
+    html += cases.map(renderCase).join('');
+  }
+
+  html += '</main>';
+  document.getElementById('app').innerHTML = html;
+}
+
+init();
+</script>
+
 </body>
 </html>

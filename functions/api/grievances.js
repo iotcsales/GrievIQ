@@ -104,6 +104,12 @@ export async function onRequestGet(context) {
       isRedIndicator: isUnresolved,
       hasEscalatedPastMyTier: result.currentTierIndex > myTierIndex,
       currentTopTier: result.currentTier.tier,
+      // Full tier sequence for this case's chain (3 or 4 tiers depending
+      // on rural/urban/Mayor status) plus how far up it currently sits —
+      // lets the UI draw an honest escalation ladder without needing to
+      // know the chain length in advance.
+      chainTierList: chain.tiers.map((t) => t.tier),
+      currentTierIndex: result.currentTierIndex,
     });
   }
 
