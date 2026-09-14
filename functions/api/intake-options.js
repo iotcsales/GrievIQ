@@ -10,7 +10,7 @@ export async function onRequestGet({ env }) {
     ).all();
 
     const unitsResult = await env.DB.prepare(
-      `SELECT id, name, unit_type FROM local_units ORDER BY name ASC`
+      `SELECT id, name, unit_type, localities FROM local_units ORDER BY name ASC`
     ).all();
 
     return new Response(

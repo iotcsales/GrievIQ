@@ -119,6 +119,43 @@
     top: -9999px;
   }
 
+  .area-suggestions {
+    display: none;
+    border: 1px solid var(--line);
+    border-top: none;
+    border-radius: 0 0 3px 3px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: -14px;
+    margin-bottom: 18px;
+    background: #fff;
+  }
+
+  .area-suggestion {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--paper);
+  }
+
+  .area-suggestion:last-child { border-bottom: none; }
+
+  .area-suggestion:hover,
+  .area-suggestion.active {
+    background: var(--paper);
+  }
+
+  .area-suggestion .match-name {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .area-suggestion .match-context {
+    font-size: 0.82rem;
+    color: var(--slate-light);
+    margin-top: 1px;
+  }
+
   .photo-input {
     display: none;
   }
@@ -288,10 +325,12 @@
     <div class="card">
       <h2>Where is this happening?</h2>
 
-      <label for="localUnit">Your area</label>
-      <select id="localUnit" required>
-        <option value="" disabled selected>Choose your ward or village</option>
-      </select>
+      <label for="localUnitSearch">Your area</label>
+      <div class="hint">Type your neighborhood, colony, or ward name — e.g. "Hazratganj" or "Aliganj".</div>
+      <input type="text" id="localUnitSearch" autocomplete="off" placeholder="Start typing your area..." />
+      <input type="hidden" id="localUnitId" />
+      <div class="area-suggestions" id="areaSuggestions"></div>
+      <div class="field-error" id="areaError">Please select your area from the list.</div>
 
       <label for="locationDetail">Landmark or street address</label>
       <div class="hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
@@ -339,6 +378,7 @@
   const submitBtn = document.getElementById('submitBtn');
   const successBox = document.getElementById('successBox');
   const errorBox = document.getElementById('errorBox');
+  let localUnitsData = [];
 
   async function loadOptions() {
     try {
@@ -353,13 +393,7 @@
         categorySelect.appendChild(opt);
       });
 
-      const unitSelect = document.getElementById('localUnit');
-      (data.localUnits || []).forEach(unit => {
-        const opt = document.createElement('option');
-        opt.value = unit.id;
-        opt.textContent = unit.name + (unit.unit_type === 'RURAL' ? ' (village)' : ' (ward)');
-        unitSelect.appendChild(opt);
-      });
+      localUnitsData = data.localUnits || [];
     } catch (err) {
       errorBox.style.display = 'block';
       document.getElementById('errorMessage').textContent =
@@ -371,6 +405,90 @@
     const digits = value.replace(/\D/g, '');
     return digits.length >= 10 && digits.length <= 13;
   }
+
+  // --- Area search / autocomplete ---
+  const localUnitSearch = document.getElementById('localUnitSearch');
+  const localUnitIdField = document.getElementById('localUnitId');
+  const areaSuggestions = document.getElementById('areaSuggestions');
+  const areaError = document.getElementById('areaError');
+
+  function parseLocalities(unit) {
+    return (unit.localities || '')
+      .split(';')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  function unitTypeLabel(unit) {
+    return unit.unit_type === 'RURAL' ? 'village' : 'ward';
+  }
+
+  function searchAreas(query) {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+
+    const results = [];
+    localUnitsData.forEach(unit => {
+      const localities = parseLocalities(unit);
+      const nameMatch = unit.name.toLowerCase().includes(q);
+      const matchedLocality = localities.find(loc => loc.toLowerCase().includes(q));
+
+      if (nameMatch || matchedLocality) {
+        results.push({
+          unit,
+          matchedLocality: matchedLocality || null,
+        });
+      }
+    });
+    return results.slice(0, 8);
+  }
+
+  function renderSuggestions(results) {
+    areaSuggestions.innerHTML = '';
+    if (results.length === 0) {
+      areaSuggestions.style.display = 'none';
+      return;
+    }
+    results.forEach(({ unit, matchedLocality }) => {
+      const item = document.createElement('div');
+      item.className = 'area-suggestion';
+      const nameLine = document.createElement('div');
+      nameLine.className = 'match-name';
+      nameLine.textContent = unit.name + ' (' + unitTypeLabel(unit) + ')';
+      item.appendChild(nameLine);
+      if (matchedLocality) {
+        const contextLine = document.createElement('div');
+        contextLine.className = 'match-context';
+        contextLine.textContent = 'Includes: ' + matchedLocality;
+        item.appendChild(contextLine);
+      }
+      item.addEventListener('click', () => {
+        localUnitIdField.value = unit.id;
+        localUnitSearch.value = unit.name + ' (' + unitTypeLabel(unit) + ')';
+        areaSuggestions.style.display = 'none';
+        areaError.style.display = 'none';
+      });
+      areaSuggestions.appendChild(item);
+    });
+    areaSuggestions.style.display = 'block';
+  }
+
+  localUnitSearch.addEventListener('input', () => {
+    localUnitIdField.value = ''; // typing invalidates any prior selection
+    renderSuggestions(searchAreas(localUnitSearch.value));
+  });
+
+  localUnitSearch.addEventListener('focus', () => {
+    if (localUnitSearch.value.trim().length >= 2 && !localUnitIdField.value) {
+      renderSuggestions(searchAreas(localUnitSearch.value));
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== localUnitSearch && !areaSuggestions.contains(e.target)) {
+      areaSuggestions.style.display = 'none';
+    }
+  });
 
   const MAX_PHOTOS = 3;
   const photoInput = document.getElementById('photo');
@@ -454,13 +572,14 @@
     const description = document.getElementById('description').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const category_id = document.getElementById('category').value;
-    const local_unit_id = document.getElementById('localUnit').value;
+    const local_unit_id = document.getElementById('localUnitId').value;
     const location_detail = document.getElementById('locationDetail').value.trim();
     const website = document.getElementById('website').value;
 
     let hasError = false;
     document.getElementById('descriptionError').style.display = 'none';
     document.getElementById('phoneError').style.display = 'none';
+    areaError.style.display = 'none';
 
     if (description.length < 15) {
       document.getElementById('descriptionError').style.display = 'block';
@@ -470,10 +589,13 @@
       document.getElementById('phoneError').style.display = 'block';
       hasError = true;
     }
-    if (!category_id || !local_unit_id) {
+    if (!local_unit_id) {
+      areaError.style.display = 'block';
+      hasError = true;
+    }
+    if (!category_id) {
       errorBox.style.display = 'block';
-      document.getElementById('errorMessage').textContent =
-        'Please choose a category and your area.';
+      document.getElementById('errorMessage').textContent = 'Please choose a category.';
       hasError = true;
     }
     if (hasError) return;
