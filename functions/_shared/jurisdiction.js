@@ -32,11 +32,6 @@ export async function resolveChain(env, localUnitId) {
     ).bind(localUnit.municipal_body_id).first();
   }
 
-  // Build the ordered tier list. LOCAL is always first. MAYOR is included
-  // only when this local unit's municipal body exists AND has_mayor is set
-  // — this is the one place rural vs. urban (and "urban with vs. without
-  // an empowered Mayor") actually shows up, and it falls out naturally
-  // from the data rather than being branched in code.
   const tiers = [
     {
       tier: "LOCAL",
@@ -74,4 +69,40 @@ export async function resolveChain(env, localUnitId) {
   });
 
   return { localUnit, municipalBody, mla, mp, tiers };
+}
+
+// Given a representative's mandate (their tier + which jurisdiction row
+// they hold it in), returns every local_unit id that falls under that
+// jurisdiction — i.e. every ward/village whose grievances this rep has
+// any claim to see. A LOCAL mandate covers exactly one local unit; every
+// tier above that covers however many local units sit beneath it.
+export async function getLocalUnitIdsForMandate(env, mandate) {
+  if (mandate.tier === "LOCAL") {
+    return [mandate.id];
+  }
+
+  if (mandate.tier === "MAYOR") {
+    const { results } = await env.DB.prepare(
+      "SELECT id FROM local_units WHERE municipal_body_id = ?"
+    ).bind(mandate.id).all();
+    return results.map((r) => r.id);
+  }
+
+  if (mandate.tier === "MLA") {
+    const { results } = await env.DB.prepare(
+      "SELECT id FROM local_units WHERE mla_constituency_id = ?"
+    ).bind(mandate.id).all();
+    return results.map((r) => r.id);
+  }
+
+  if (mandate.tier === "MP") {
+    const { results } = await env.DB.prepare(
+      `SELECT lu.id FROM local_units lu
+       JOIN mla_constituencies mla ON lu.mla_constituency_id = mla.id
+       WHERE mla.mp_constituency_id = ?`
+    ).bind(mandate.id).all();
+    return results.map((r) => r.id);
+  }
+
+  return [];
 }
