@@ -22,8 +22,8 @@ export async function onRequestPost({ request, env }) {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     await env.DB.prepare(
-      `INSERT INTO grievance_otp (id, email, otp_code, purpose, channel, verified, expires_at, created_at)
-       VALUES (?, ?, ?, 'STATUS_CHECK', 'EMAIL', 0, ?, ?)`
+      `INSERT INTO grievance_otp (id, phone, email, otp_code, purpose, channel, verified, expires_at, created_at)
+       VALUES (?, '', ?, ?, 'STATUS_CHECK', 'EMAIL', 0, ?, ?)`
     ).bind(crypto.randomUUID(), email, code, expiresAt, new Date().toISOString()).run();
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
