@@ -311,7 +311,75 @@
   }
   .tier-status.breached { color: var(--brick); font-weight: 500; }
 
-  .footer-actions {
+    .confirm-card {
+    background: var(--navy-dim);
+    border: 1px solid var(--navy);
+    border-radius: var(--radius);
+    padding: 18px 18px 20px;
+    margin-bottom: 24px;
+  }
+  .confirm-card .section-title { margin-bottom: 4px; }
+  .confirm-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .confirm-actions button.primary, .confirm-actions button.secondary {
+    width: auto;
+    flex: 1;
+  }
+  button.secondary {
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--navy);
+    background: transparent;
+    border: 1.5px solid var(--navy);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  button.secondary:hover { background: var(--navy-dim); }
+  .reason-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 12px;
+  }
+  .reason-chip {
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 100px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .reason-chip.selected {
+    border-color: var(--navy);
+    background: var(--paper);
+    color: var(--navy);
+    font-weight: 600;
+  }
+  textarea#dispute-note {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    resize: vertical;
+    min-height: 64px;
+    margin-bottom: 4px;
+  }
+  .confirm-note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+  }.footer-actions {
     margin-top: 32px;
     text-align: center;
   }
@@ -402,6 +470,29 @@
     </div>
 
     <div id="status-banners"></div>
+
+    <div id="confirm-card" class="confirm-card" style="display:none;">
+      <h2 class="section-title">Has this been fixed?</h2>
+      <p class="section-note">The representative handling this case marked it resolved. Let us know if that's right.</p>
+      <div id="confirm-error"></div>
+      <div class="confirm-actions" id="confirm-actions">
+        <button type="button" class="primary" id="btn-confirm-yes">Yes, this fixed it</button>
+        <button type="button" class="secondary" id="btn-confirm-no">No, still a problem</button>
+      </div>
+      <div id="dispute-form" style="display:none;">
+        <div class="reason-options" id="reason-options">
+          <button type="button" class="reason-chip" data-reason="NOT_FIXED">Not fixed at all</button>
+          <button type="button" class="reason-chip" data-reason="PARTIALLY_FIXED">Partially fixed</button>
+          <button type="button" class="reason-chip" data-reason="CAME_BACK">Fixed, but came back</button>
+          <button type="button" class="reason-chip" data-reason="WRONG_ISSUE">Wrong issue fixed</button>
+          <button type="button" class="reason-chip" data-reason="OTHER">Other</button>
+        </div>
+        <textarea id="dispute-note" maxlength="200" placeholder="Add a short note (optional, required for &quot;Other&quot;)"></textarea>
+        <div class="confirm-actions">
+          <button type="button" class="primary" id="btn-dispute-submit">Submit</button>
+        </div>
+      </div>
+    </div>
 
     <h2 class="section-title">Where this case stands</h2>
     <p class="section-note">A case stays visible to every level it reaches — moving up never means the level below stops seeing it.</p>
@@ -619,8 +710,10 @@
 
     const pill = document.getElementById('status-pill');
     const resolved = c.status === 'RESOLVED' || c.status === 'CLOSED';
-    pill.textContent = resolved ? 'Resolved' : 'Open';
+    pill.textContent = resolved ? 'Resolved' : (c.status === 'PENDING_CONFIRMATION' ? 'Awaiting your confirmation' : 'Open');
     pill.className = 'status-pill' + (resolved ? ' resolved' : '');
+
+    showConfirmCard(c.status === 'PENDING_CONFIRMATION');
 
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
@@ -654,6 +747,114 @@
     if (days === 1) return '1 day ago';
     return `${Math.floor(days)} days ago`;
   }
+
+  // --- Confirm / dispute resolution ---
+  const confirmCard = document.getElementById('confirm-card');
+  const confirmActions = document.getElementById('confirm-actions');
+  const disputeForm = document.getElementById('dispute-form');
+  const confirmError = document.getElementById('confirm-error');
+  const btnConfirmYes = document.getElementById('btn-confirm-yes');
+  const btnConfirmNo = document.getElementById('btn-confirm-no');
+  const btnDisputeSubmit = document.getElementById('btn-dispute-submit');
+  const reasonChips = Array.from(document.querySelectorAll('.reason-chip'));
+  const disputeNote = document.getElementById('dispute-note');
+  let selectedReason = null;
+
+  function showConfirmCard(show) {
+    confirmCard.style.display = show ? 'block' : 'none';
+    if (show) {
+      confirmActions.style.display = 'flex';
+      disputeForm.style.display = 'none';
+      selectedReason = null;
+      reasonChips.forEach(c => c.classList.remove('selected'));
+      disputeNote.value = '';
+      renderError(confirmError, '');
+      btnConfirmYes.disabled = false;
+      btnConfirmYes.textContent = 'Yes, this fixed it';
+      btnConfirmNo.disabled = false;
+    }
+  }
+
+  reasonChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      selectedReason = chip.getAttribute('data-reason');
+      reasonChips.forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+
+  btnConfirmNo.addEventListener('click', () => {
+    confirmActions.style.display = 'none';
+    disputeForm.style.display = 'block';
+  });
+
+  btnConfirmYes.addEventListener('click', async () => {
+    renderError(confirmError, '');
+    btnConfirmYes.disabled = true;
+    btnConfirmNo.disabled = true;
+    btnConfirmYes.innerHTML = '<span class="spinner"></span>Confirming…';
+    try {
+      const res = await fetch(API_BASE + '/api/grievances/confirm-resolution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        renderError(confirmError, data.error || 'Something went wrong. Please try again.');
+        btnConfirmYes.disabled = false;
+        btnConfirmNo.disabled = false;
+        btnConfirmYes.textContent = 'Yes, this fixed it';
+        return;
+      }
+      confirmCard.innerHTML = '<p class="confirm-note">Thanks for confirming — this case is now marked resolved.</p>';
+      const pill = document.getElementById('status-pill');
+      pill.textContent = 'Resolved';
+      pill.className = 'status-pill resolved';
+    } catch (err) {
+      renderError(confirmError, 'Could not reach GrievIQ. Check your connection and try again.');
+      btnConfirmYes.disabled = false;
+      btnConfirmNo.disabled = false;
+      btnConfirmYes.textContent = 'Yes, this fixed it';
+    }
+  });
+
+  btnDisputeSubmit.addEventListener('click', async () => {
+    renderError(confirmError, '');
+    if (!selectedReason) {
+      renderError(confirmError, 'Choose the option that best describes what happened.');
+      return;
+    }
+    const note = disputeNote.value.trim();
+    if (selectedReason === 'OTHER' && !note) {
+      renderError(confirmError, 'Please add a short note for "Other".');
+      return;
+    }
+    btnDisputeSubmit.disabled = true;
+    btnDisputeSubmit.innerHTML = '<span class="spinner"></span>Submitting…';
+    try {
+      const res = await fetch(API_BASE + '/api/grievances/dispute-resolution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, reason: selectedReason, note }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        renderError(confirmError, data.error || 'Something went wrong. Please try again.');
+        btnDisputeSubmit.disabled = false;
+        btnDisputeSubmit.textContent = 'Submit';
+        return;
+      }
+      confirmCard.innerHTML = '<p class="confirm-note">Thanks — we\'ve reopened this case and shared your note with the representative.</p>';
+      const pill = document.getElementById('status-pill');
+      pill.textContent = 'Open';
+      pill.className = 'status-pill';
+    } catch (err) {
+      renderError(confirmError, 'Could not reach GrievIQ. Check your connection and try again.');
+      btnDisputeSubmit.disabled = false;
+      btnDisputeSubmit.textContent = 'Submit';
+    }
+  });
 })();
 </script>
 </body>
