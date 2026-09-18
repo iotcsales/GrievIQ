@@ -1,0 +1,51 @@
+// functions/api/grievances/confirm-resolution.js
+//
+// Citizen-facing: confirms a PENDING_CONFIRMATION case is actually fixed.
+// Identity proof reuses the OTP verification the citizen already completed
+// on /status moments earlier (grievance_otp.verified = 1, purpose =
+// STATUS_CHECK, within the last 15 minutes) rather than asking for a
+// second code.
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const { email, trackingRef } = await request.json();
+
+    if (!email || !trackingRef) {
+      return new Response(JSON.stringify({ error: 'email and trackingRef are required' }), { status: 400 });
+    }
+
+    const recentOtp = await env.DB.prepare(
+      `SELECT id FROM grievance_otp
+       WHERE email = ? AND purpose = 'STATUS_CHECK' AND verified = 1
+       AND created_at >= datetime('now', '-15 minutes')
+       ORDER BY created_at DESC LIMIT 1`
+    ).bind(email).first();
+
+    if (!recentOtp) {
+      return new Response(JSON.stringify({ error: 'Please verify your email again before confirming' }), { status: 401 });
+    }
+
+    const grievance = await env.DB.prepare(
+      'SELECT id, status, citizen_email FROM grievances WHERE tracking_ref = ?'
+    ).bind(trackingRef).first();
+
+    if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email.toLowerCase()) {
+      return new Response(JSON.stringify({ error: 'Case not found for this email' }), { status: 404 });
+    }
+
+    if (grievance.status !== 'PENDING_CONFIRMATION') {
+      return new Response(JSON.stringify({ error: 'This case is not awaiting confirmation' }), { status: 409 });
+    }
+
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      `UPDATE grievances
+       SET status = 'RESOLVED', citizen_confirmed = 1, citizen_confirmed_at = ?, updated_at = ?
+       WHERE id = ?`
+    ).bind(now, now, grievance.id).run();
+
+    return new Response(JSON.stringify({ confirmed: true }), { status: 200 });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: 'Unexpected error', detail: err.message }), { status: 500 });
+  }
+}
