@@ -1,3 +1,6 @@
+import { resolveChain } from "../../_shared/jurisdiction.js";
+import { computeEscalation } from "../../_shared/escalation.js";
+
 export async function onRequestPost({ request, env }) {
   try {
     const { email, trackingRef, code } = await request.json();
@@ -23,15 +26,57 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare('UPDATE grievance_otp SET verified = 1 WHERE id = ?').bind(otpRow.id).run();
 
     const grievance = await env.DB.prepare(
-      `SELECT tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at, citizen_email
+      `SELECT tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
+              citizen_email, local_unit_id, category_id
        FROM grievances WHERE tracking_ref = ?`
     ).bind(trackingRef).first();
 
-    if (!grievance || grievance.citizen_email.toLowerCase() !== email.toLowerCase()) {
+    if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email.toLowerCase()) {
       return new Response(JSON.stringify({ error: 'Case not found for this email' }), { status: 404 });
     }
 
-    return new Response(JSON.stringify({ verified: true, case: grievance }), { status: 200 });
+    const chain = await resolveChain(env, grievance.local_unit_id);
+    if (!chain) {
+      return new Response(JSON.stringify({ error: 'Could not resolve jurisdiction for this case' }), { status: 500 });
+    }
+
+    const category = await env.DB.prepare(
+      "SELECT * FROM grievance_categories WHERE id = ?"
+    ).bind(grievance.category_id).first();
+    if (!category) {
+      return new Response(JSON.stringify({ error: 'Could not resolve category for this case' }), { status: 500 });
+    }
+
+    const result = computeEscalation(grievance, category, chain.tiers);
+    const isUnresolved = grievance.status !== 'RESOLVED' && grievance.status !== 'CLOSED';
+
+    const tiers = chain.tiers.map((t, i) => ({
+      tier: t.tier,
+      label: t.label,
+      visible: i <= result.currentTierIndex,
+      // Past-SLA red state: this tier is actively overdue if it's part of
+      // the visible chain and the case is still unresolved. Mirrors the
+      // rep dashboard's isRedIndicator, just per-tier for the citizen view.
+      slaBreached: i <= result.currentTierIndex && isUnresolved,
+    }));
+
+    return new Response(JSON.stringify({
+      verified: true,
+      case: {
+        trackingRef: grievance.tracking_ref,
+        description: grievance.description,
+        status: grievance.status,
+        localUnitName: chain.localUnit.name,
+        createdAt: grievance.created_at,
+        acknowledgedAt: grievance.acknowledged_at,
+        resolvedAt: grievance.resolved_at,
+        elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
+        ackOverdue: result.ackOverdue,
+        needsLegalReview: result.needsLegalReview,
+        currentTierIndex: result.currentTierIndex,
+        tiers,
+      },
+    }), { status: 200 });
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Unexpected error', detail: err.message }), { status: 500 });
   }
