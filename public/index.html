@@ -194,7 +194,7 @@
     margin-top: 4px;
   }
   .badge.escalated { background: var(--red-tint); color: var(--red); }
-  .badge.resolved { background: var(--green-tint); color: var(--green); }
+  .badge.resolved { background: var(--green-tint); color: var(--green); font-weight: 700; font-size: 12px; padding: 4px 9px; }
   .badge.pending { background: var(--gold-tint); color: var(--gold); }
   .dispute-note {
     margin: 8px 0 0;
@@ -264,6 +264,13 @@ const DISPUTE_REASON_LABELS = {
   OTHER: 'Citizen disputed resolution',
 };
 
+function formatDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
+    ', ' + d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+}
+
 function timeAgo(days) {
   if (days < 1) return 'Filed today';
   if (days === 1) return 'Filed 1 day ago';
@@ -294,7 +301,8 @@ function renderDisputeNote(c) {
   var note = c.citizenDisputeNote
     ? ' &mdash; "' + c.citizenDisputeNote + '"'
     : '';
-  return '<div class="dispute-note"><b>' + label + '</b>' + note + '</div>';
+  var when = c.citizenDisputeAt ? ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
+  return '<div class="dispute-note"><b>' + label + '</b>' + when + note + '</div>';
 }
 
 function renderResolveControl(c) {
@@ -313,7 +321,8 @@ function renderCase(c) {
   var elapsedClass = c.ackOverdue || c.isRedIndicator ? 'elapsed overdue' : 'elapsed';
   var badge = '';
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
-    badge = '<span class="badge resolved">' + c.status.toLowerCase() + '</span>';
+    var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
+    badge = '<span class="badge resolved">' + c.status.toLowerCase() + resolvedWhen + '</span>';
   } else if (c.status === 'PENDING_CONFIRMATION') {
     badge = '<span class="badge pending">awaiting citizen confirmation</span>';
   } else if (c.hasEscalatedPastMyTier) {
