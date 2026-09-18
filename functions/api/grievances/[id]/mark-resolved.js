@@ -7,10 +7,9 @@
 // that resolves once SMS/phone OTP ships), there's no way to reach them
 // for confirmation, so the case goes straight to RESOLVED.
 
-import { getVerifiedRep } from "../../_shared/get-verified-rep.js";
-import { getLocalUnitIdsForMandate, resolveChain } from "../../_shared/jurisdiction.js";
-import { computeEscalation } from "../../_shared/escalation.js";
-
+import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
+import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
+import { computeEscalation } from "../../../_shared/escalation.js";
 export async function onRequestPost(context) {
   const { request, env, params } = context;
   const grievanceId = params.id;
