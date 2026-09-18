@@ -19,6 +19,7 @@
     --green: #2F6B4F;
     --green-tint: #E4EFE8;
     --gold: #A9822E;
+    --gold-tint: #F5EDDD;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -106,6 +107,7 @@
   }
   .signal-dot.red { background: var(--red); }
   .signal-dot.green { background: none; border: 2px solid var(--green); width: 8px; height: 8px; margin-top: 6px; }
+  .signal-dot.gold { background: var(--gold); }
   .case-main .tracking-ref {
     font-weight: 600;
     font-size: 14px;
@@ -193,6 +195,42 @@
   }
   .badge.escalated { background: var(--red-tint); color: var(--red); }
   .badge.resolved { background: var(--green-tint); color: var(--green); }
+  .badge.pending { background: var(--gold-tint); color: var(--gold); }
+  .dispute-note {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    background: var(--red-tint);
+    border-left: 3px solid var(--red);
+    font-size: 12.5px;
+    color: var(--steel);
+    line-height: 1.5;
+    max-width: 46ch;
+  }
+  .dispute-note b { color: var(--red); }
+  .resolve-btn {
+    margin-top: 10px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .resolve-btn:hover { background: var(--ink); color: var(--paper); }
+  .resolve-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--card);
+    color: var(--ink);
+  }
+  .resolve-error {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--red);
+  }
   .empty-state {
     padding: 60px 0;
     text-align: center;
@@ -218,6 +256,13 @@
 
 <script>
 const TIER_LABELS = { LOCAL: 'Local', MAYOR: 'Mayor', MLA: 'MLA', MP: 'MP' };
+const DISPUTE_REASON_LABELS = {
+  NOT_FIXED: 'Citizen says: not fixed at all',
+  PARTIALLY_FIXED: 'Citizen says: partially fixed',
+  CAME_BACK: 'Citizen says: fixed, but came back',
+  WRONG_ISSUE: 'Citizen says: wrong issue was fixed',
+  OTHER: 'Citizen disputed resolution',
+};
 
 function timeAgo(days) {
   if (days < 1) return 'Filed today';
@@ -243,12 +288,34 @@ function renderPhotoThumbs(photoUrls) {
   }).join('') + '</div>';
 }
 
+function renderDisputeNote(c) {
+  if (!c.citizenDisputeReason) return '';
+  var label = DISPUTE_REASON_LABELS[c.citizenDisputeReason] || 'Citizen disputed resolution';
+  var note = c.citizenDisputeNote
+    ? ' &mdash; "' + c.citizenDisputeNote + '"'
+    : '';
+  return '<div class="dispute-note"><b>' + label + '</b>' + note + '</div>';
+}
+
+function renderResolveControl(c) {
+  var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
+  var isPending = c.status === 'PENDING_CONFIRMATION';
+  if (isFinal || isPending) return '';
+  return '<button class="resolve-btn" data-id="' + c.id + '">Mark resolved</button>' +
+    '<div class="resolve-error" id="resolve-error-' + c.id + '"></div>';
+}
+
 function renderCase(c) {
-  var dotClass = c.isRedIndicator ? 'signal-dot red' : 'signal-dot green';
+  var dotClass = 'signal-dot green';
+  if (c.status === 'PENDING_CONFIRMATION') dotClass = 'signal-dot gold';
+  else if (c.isRedIndicator) dotClass = 'signal-dot red';
+
   var elapsedClass = c.ackOverdue || c.isRedIndicator ? 'elapsed overdue' : 'elapsed';
   var badge = '';
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
     badge = '<span class="badge resolved">' + c.status.toLowerCase() + '</span>';
+  } else if (c.status === 'PENDING_CONFIRMATION') {
+    badge = '<span class="badge pending">awaiting citizen confirmation</span>';
   } else if (c.hasEscalatedPastMyTier) {
     badge = '<span class="badge escalated">now with ' + TIER_LABELS[c.currentTopTier] + '</span>';
   }
@@ -264,6 +331,8 @@ function renderCase(c) {
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
       badge +
+      renderDisputeNote(c) +
+      renderResolveControl(c) +
     '</div>' +
     '<div class="case-meta">' +
       '<div class="' + elapsedClass + '">' + timeAgo(c.elapsedDays) + '</div>' +
@@ -281,6 +350,36 @@ function renderMandateChips(mandates) {
 function renderNotice(title, message) {
   document.getElementById('app').innerHTML =
     '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
+}
+
+function attachResolveHandlers() {
+  document.querySelectorAll('.resolve-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      var errorEl = document.getElementById('resolve-error-' + id);
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Marking resolved…';
+      try {
+        var res = await fetch('/api/grievances/' + id + '/mark-resolved', { method: 'POST' });
+        var data = await res.json();
+        if (!res.ok || data.error) {
+          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          btn.disabled = false;
+          btn.textContent = 'Mark resolved';
+          return;
+        }
+        if (data.warning) {
+          errorEl.textContent = data.warning;
+        }
+        await init();
+      } catch (err) {
+        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        btn.disabled = false;
+        btn.textContent = 'Mark resolved';
+      }
+    });
+  });
 }
 
 async function init() {
@@ -324,6 +423,7 @@ async function init() {
 
   html += '</main>';
   document.getElementById('app').innerHTML = html;
+  attachResolveHandlers();
 }
 
 init();

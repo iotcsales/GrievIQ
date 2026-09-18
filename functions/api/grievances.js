@@ -125,6 +125,8 @@ export async function onRequestGet(context) {
       // know the chain length in advance.
       chainTierList: chain.tiers.map((t) => t.tier),
       currentTierIndex: result.currentTierIndex,
+      citizenDisputeReason: grievance.citizen_dispute_reason || null,
+      citizenDisputeNote: grievance.citizen_dispute_note || null,
     });
   }
 
