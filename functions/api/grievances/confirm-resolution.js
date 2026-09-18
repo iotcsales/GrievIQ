@@ -44,6 +44,11 @@ export async function onRequestPost({ request, env }) {
        WHERE id = ?`
     ).bind(now, now, grievance.id).run();
 
+    await env.DB.prepare(
+      `INSERT INTO grievance_events (id, grievance_id, event_type, actor, created_at)
+       VALUES (?, ?, 'CITIZEN_CONFIRMED', 'citizen', ?)`
+    ).bind(crypto.randomUUID(), grievance.id, now).run();
+
     return new Response(JSON.stringify({ confirmed: true }), { status: 200 });
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Unexpected error', detail: err.message }), { status: 500 });

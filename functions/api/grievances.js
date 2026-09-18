@@ -48,6 +48,23 @@ export async function onRequestGet(context) {
     `SELECT * FROM grievances WHERE local_unit_id IN (${placeholders}) ORDER BY created_at ASC`
   ).bind(...allUnitIds).all();
 
+  // Pull every event for these grievances in one query, then keep
+  // overwriting a per-grievance map as we go through them in ascending
+  // order — so each grievance ends up mapped to its single most recent
+  // event. This is what decides whether a dispute banner is still
+  // current, rather than trusting columns that never get cleared.
+  const grievanceIds = grievanceRows.map((g) => g.id);
+  const eventsByGrievance = new Map();
+  if (grievanceIds.length > 0) {
+    const eventPlaceholders = grievanceIds.map(() => "?").join(",");
+    const { results: eventRows } = await env.DB.prepare(
+      `SELECT * FROM grievance_events WHERE grievance_id IN (${eventPlaceholders}) ORDER BY created_at ASC, rowid ASC`
+    ).bind(...grievanceIds).all();
+    for (const event of eventRows) {
+      eventsByGrievance.set(event.grievance_id, event);
+    }
+  }
+
   const chainCache = new Map();
   const categoryCache = new Map();
   const visible = [];
@@ -81,6 +98,7 @@ export async function onRequestGet(context) {
 
     const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTier);
     const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
+    const latestEvent = eventsByGrievance.get(grievance.id) || null;
 
     // photo_url is stored as a JSON array string (see
     // functions/api/grievances/submit.js) — parse defensively since it
@@ -125,8 +143,10 @@ export async function onRequestGet(context) {
       // know the chain length in advance.
       chainTierList: chain.tiers.map((t) => t.tier),
       currentTierIndex: result.currentTierIndex,
-      citizenDisputeReason: grievance.citizen_dispute_reason || null,
-      citizenDisputeNote: grievance.citizen_dispute_note || null,
+      citizenDisputeReason: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.reason : null,
+      citizenDisputeNote: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.note : null,
+      citizenDisputeAt: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.created_at : null,
+      resolvedAt: grievance.resolved_at || null,
     });
   }
 

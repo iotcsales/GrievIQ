@@ -65,6 +65,11 @@ export async function onRequestPost(context) {
      WHERE id = ?`
   ).bind(newStatus, result.currentTier.tier, now, now, grievanceId).run();
 
+  await env.DB.prepare(
+    `INSERT INTO grievance_events (id, grievance_id, event_type, actor, created_at)
+     VALUES (?, ?, 'MARKED_RESOLVED', ?, ?)`
+  ).bind(crypto.randomUUID(), grievanceId, auth.email, now).run();
+
   if (hasEmail) {
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
