@@ -33,6 +33,7 @@ export async function onRequestPost({ request, env }) {
     description,
     citizen_phone,
     location_detail, // optional free-text landmark/address detail
+    citizen_email, // optional — needed for status-update emails and confirm/dispute
     photo_urls, // optional array — set by prior calls to /api/grievances/upload-photo
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
@@ -60,6 +61,10 @@ export async function onRequestPost({ request, env }) {
   }
   if (!isPlausiblePhone(citizen_phone)) {
     errors.push("A valid phone number is required.");
+  }
+  const trimmedEmail = (citizen_email || "").trim();
+  if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    errors.push("Please enter a valid email address, or leave it blank.");
   }
 
   if (errors.length > 0) {
@@ -129,8 +134,8 @@ export async function onRequestPost({ request, env }) {
 
     await env.DB.prepare(
       `INSERT INTO grievances
-        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?)`
+        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email)
+       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?)`
     )
       .bind(
         id,
@@ -140,7 +145,8 @@ export async function onRequestPost({ request, env }) {
         category_id,
         local_unit_id,
         photoUrlJson,
-        (location_detail || "").trim() || null
+        (location_detail || "").trim() || null,
+        trimmedEmail || null
       )
       .run();
 

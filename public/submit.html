@@ -439,6 +439,11 @@
       <input type="tel" id="phone" required placeholder="10-digit mobile number" inputmode="numeric" />
       <div class="field-error" id="phoneError">Please enter a valid mobile number.</div>
 
+      <label for="email">Email address <span style="font-weight:400;color:var(--slate-light);">(optional)</span></label>
+      <input type="email" id="email" placeholder="you@example.com" />
+      <div class="hint">If you want to check regular updates on your complaint's status, please provide your email as well.</div>
+      <div class="field-error" id="emailError">Please enter a valid email address, or leave it blank.</div>
+
       <!-- Honeypot field: real users never see or fill this -->
       <div class="hp-field" aria-hidden="true">
         <label for="website">Website</label>
@@ -785,6 +790,7 @@
 
     const description = document.getElementById('description').value.trim();
     const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
     const category_id = document.getElementById('category').value;
     const local_unit_id = document.getElementById('localUnitId').value;
     const location_detail = document.getElementById('locationDetail').value.trim();
@@ -793,6 +799,7 @@
     let hasError = false;
     document.getElementById('descriptionError').style.display = 'none';
     document.getElementById('phoneError').style.display = 'none';
+    document.getElementById('emailError').style.display = 'none';
     areaError.style.display = 'none';
 
     if (description.length < 15) {
@@ -801,6 +808,10 @@
     }
     if (!isPlausiblePhone(phone)) {
       document.getElementById('phoneError').style.display = 'block';
+      hasError = true;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('emailError').style.display = 'block';
       hasError = true;
     }
     if (!local_unit_id) {
@@ -833,6 +844,7 @@
           local_unit_id,
           description,
           citizen_phone: phone,
+          citizen_email: email,
           location_detail,
           photo_urls,
           website,
