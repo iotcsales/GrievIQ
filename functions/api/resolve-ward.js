@@ -79,7 +79,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const rows = await env.DB.prepare(
-    `SELECT id, name, ward_boundary_geojson FROM local_units WHERE ward_boundary_geojson IS NOT NULL`
+    `SELECT id, name, localities, ward_boundary_geojson FROM local_units WHERE ward_boundary_geojson IS NOT NULL`
   ).all();
 
   for (const row of rows.results || []) {
@@ -95,6 +95,7 @@ export async function onRequestPost({ request, env }) {
         matched: true,
         local_unit_id: row.id,
         local_unit_name: row.name,
+        localities: row.localities || null,
       });
     }
   }

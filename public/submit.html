@@ -135,6 +135,41 @@
     margin-bottom: 4px;
   }
 
+  .match-confirm {
+    background: #fff;
+    border: 1px solid #a9c497;
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin: 4px 0 18px;
+  }
+  .match-confirm p {
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  .match-confirm-btns {
+    display: flex;
+    gap: 10px;
+  }
+  .match-yes, .match-no {
+    font-family: 'Public Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .match-yes {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+  }
+  .match-no {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
   .address-note {
     display: none;
     font-size: 0.85rem;
@@ -402,6 +437,13 @@
       <div class="hint">Start typing your street or landmark and pick a match — we'll try to match it to your ward automatically.</div>
       <div class="address-search-wrap" id="addressSearchContainer"></div>
       <div class="address-note" id="addressNote"></div>
+      <div class="match-confirm" id="matchConfirm" style="display:none;">
+        <p>We matched your address to <b id="matchWardName"></b><span id="matchLocalities"></span>.</p>
+        <div class="match-confirm-btns">
+          <button type="button" class="match-yes" id="matchYesBtn">Looks right</button>
+          <button type="button" class="match-no" id="matchNoBtn">No, let me choose manually</button>
+        </div>
+      </div>
 
       <div class="manual-area-toggle">Or select your area manually:</div>
 
@@ -658,6 +700,26 @@
   });
 
   // --- Google Places address search -> /api/resolve-ward ---
+  function showMatchConfirmation(unitId, unitName, localitiesRaw) {
+    document.getElementById('matchWardName').textContent = unitName;
+    const localitiesEl = document.getElementById('matchLocalities');
+    const localities = (localitiesRaw || '').split(';').map(s => s.trim()).filter(Boolean).slice(0, 3);
+    localitiesEl.textContent = localities.length > 0
+      ? ', which includes ' + localities.join(', ')
+      : '';
+    document.getElementById('matchConfirm').style.display = 'block';
+    addressNote.style.display = 'none';
+
+    document.getElementById('matchYesBtn').onclick = () => {
+      selectUnit({ id: unitId, name: unitName });
+      document.getElementById('matchConfirm').style.display = 'none';
+    };
+    document.getElementById('matchNoBtn').onclick = () => {
+      document.getElementById('matchConfirm').style.display = 'none';
+      localUnitSearch.focus();
+    };
+  }
+
   function showAddressNote(message) {
     addressNote.textContent = message;
     addressNote.style.display = 'block';
@@ -673,8 +735,7 @@
       const data = await res.json();
 
       if (data.matched) {
-        selectUnit({ id: data.local_unit_id, name: data.local_unit_name });
-        addressNote.style.display = 'none';
+        showMatchConfirmation(data.local_unit_id, data.local_unit_name, data.localities);
       } else {
         showAddressNote("We couldn't automatically match that address to a known ward yet. Please search for your area manually below.");
       }
