@@ -133,7 +133,7 @@ function renderReport(data) {
   var rows = data.cases.map(function(c) {
     return '<tr><td>' + c.trackingRef + '</td><td>' + c.category + '</td><td>' + c.localUnit + '</td>' +
       '<td>' + statusTag(c.status) + (c.disputed ? '<span class="tag disputed">disputed</span>' : '') + '</td>' +
-      '<td>' + fmtDate(c.createdAt) + '</td><td>' + fmtDate(c.resolvedAt) + '</td><td>' + (c.followupCount > 0 ? c.followupCount : '<span class="tag disputed">none</span>') + '</t
+      '<td>' + fmtDate(c.createdAt) + '</td><td>' + fmtDate(c.resolvedAt) + '</td><td>' + (c.followupCount > 0 ? c.followupCount : '<span class="tag disputed">none</span>') + '</td></tr>';
   }).join('');
 
   return '<main>' +
