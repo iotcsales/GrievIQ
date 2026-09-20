@@ -61,7 +61,10 @@ export async function onRequestGet(context) {
       `SELECT * FROM grievance_events WHERE grievance_id IN (${eventPlaceholders}) ORDER BY created_at ASC, rowid ASC`
     ).bind(...grievanceIds).all();
     for (const event of eventRows) {
-      eventsByGrievance.set(event.grievance_id, event);
+      if (!eventsByGrievance.has(event.grievance_id)) {
+        eventsByGrievance.set(event.grievance_id, []);
+      }
+      eventsByGrievance.get(event.grievance_id).push(event);
     }
   }
 
@@ -98,7 +101,10 @@ export async function onRequestGet(context) {
 
     const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTier);
     const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
-    const latestEvent = eventsByGrievance.get(grievance.id) || null;
+    const grievanceEvents = eventsByGrievance.get(grievance.id) || [];
+    const latestEvent = grievanceEvents.length ? grievanceEvents[grievanceEvents.length - 1] : null;
+    const followupEvents = grievanceEvents.filter((e) => e.event_type === 'FOLLOW_UP');
+    const latestFollowup = followupEvents.length ? followupEvents[followupEvents.length - 1] : null;
 
     // photo_url is stored as a JSON array string (see
     // functions/api/grievances/submit.js) — parse defensively since it
@@ -147,8 +153,15 @@ export async function onRequestGet(context) {
       citizenDisputeNote: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.note : null,
       citizenDisputeAt: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.created_at : null,
       resolvedAt: grievance.resolved_at || null,
-    acknowledgedAt: grievance.acknowledged_at || null,
-  });
+      acknowledgedAt: grievance.acknowledged_at || null,
+      currentDepartment: latestFollowup ? latestFollowup.reason : null,
+      followupHistory: followupEvents.map((e) => ({
+        department: e.reason,
+        note: e.note,
+        actor: e.actor,
+        createdAt: e.created_at,
+      })),
+    });
 }
 
   return Response.json({
