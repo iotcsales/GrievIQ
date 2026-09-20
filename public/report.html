@@ -151,7 +151,7 @@ function renderReport(data) {
     '<h3 class="section-title">By category</h3>' + renderBreakdown(s.byCategory) +
     '<h3 class="section-title">By status</h3>' + renderBreakdown(s.byStatus) +
     '<h3 class="section-title">Case detail</h3>' +
-    '<table><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<table><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<p class="footer-note">Dispute and escalation rates reflect the complete, permanent case history and cannot be filtered out of this report. Generated ' + new Date().toLocaleString('en-IN') + '.</p>' +
   '</main>';
 }
