@@ -312,7 +312,23 @@ function renderResolveControl(c) {
   return '<button class="resolve-btn" data-id="' + c.id + '">Mark resolved</button>' +
     '<div class="resolve-error" id="resolve-error-' + c.id + '"></div>';
 }
-
+function renderFollowupControl(c) {
+  var deptLine = c.currentDepartment
+    ? '<p class="location-detail">Forwarded to: <b>' + c.currentDepartment + '</b></p>'
+    : '';
+  var history = (c.followupHistory || []).map(function(f) {
+    var noteText = f.note ? ' — ' + f.note : '';
+    return '<div class="dispute-note"><b>' + f.department + '</b>' + noteText +
+      ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(f.createdAt) + ')</span></div>';
+  }).join('');
+  var options = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other']
+    .map(function(d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
+  return deptLine + history +
+    '<select class="followup-dept" id="followup-dept-' + c.id + '">' + options + '</select> ' +
+    '<input class="followup-note" id="followup-note-' + c.id + '" type="text" placeholder="Note (optional)" /> ' +
+    '<button class="resolve-btn followup-btn" data-id="' + c.id + '">Log follow-up</button>' +
+    '<div class="resolve-error followup-error" id="followup-error-' + c.id + '"></div>';
+}
 function renderAcknowledgeControl(c) {
   if (c.acknowledgedAt) {
     return '<span class="badge acknowledged">acknowledged ' + formatDate(c.acknowledgedAt) + '</span>';
@@ -349,7 +365,8 @@ function renderCase(c) {
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
       badge +
-           renderDisputeNote(c) +
+        renderDisputeNote(c) +
+        renderFollowupControl(c) +
         renderAcknowledgeControl(c) +
         renderResolveControl(c) +
     '</div>' +
@@ -392,6 +409,38 @@ function renderNotice(title, message) {
             errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
             btn.disabled = false;
             btn.textContent = 'Acknowledge';
+          }
+        });
+      });
+    }
+    function attachFollowupHandlers() {
+      document.querySelectorAll('.followup-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var id = btn.getAttribute('data-id');
+          var dept = document.getElementById('followup-dept-' + id).value;
+          var note = document.getElementById('followup-note-' + id).value;
+          var errorEl = document.getElementById('followup-error-' + id);
+          errorEl.textContent = '';
+          btn.disabled = true;
+          btn.textContent = 'Logging…';
+          try {
+            var res = await fetch('/api/grievances/' + id + '/add-followup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ department: dept, note: note })
+            });
+            var data = await res.json();
+            if (!res.ok || data.error) {
+              errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+              btn.disabled = false;
+              btn.textContent = 'Log follow-up';
+              return;
+            }
+            await init();
+          } catch (err) {
+            errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+            btn.disabled = false;
+            btn.textContent = 'Log follow-up';
           }
         });
       });
@@ -469,6 +518,7 @@ async function init() {
   document.getElementById('app').innerHTML = html;
   attachResolveHandlers();
   attachAcknowledgeHandlers();
+  attachFollowupHandlers();
 }
 
 init();
