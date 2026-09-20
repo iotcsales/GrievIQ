@@ -204,6 +204,48 @@
     border: 1px solid var(--navy);
   }
   .review-banner strong { color: var(--navy); }
+  .followup-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 14px;
+  }
+  .followup-section .followup-current {
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .followup-entry {
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+  .followup-entry:first-child {
+    border-top: none;
+  }
+  .followup-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 14px;
+  }
+  .followup-section .followup-current {
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .followup-entry {
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+  .followup-entry:first-child {
+    border-top: none;
+  }
 
   /* --- Status screen --- */
   .case-head {
@@ -470,6 +512,7 @@
     </div>
 
     <div id="status-banners"></div>
+    <div id="status-followup" class="followup-section" style="display:none;"></div>
 
     <div id="confirm-card" class="confirm-card" style="display:none;">
       <h2 class="section-title">Has this been fixed?</h2>
@@ -723,6 +766,20 @@
     if (c.ackOverdue && !resolved) {
       banners.innerHTML += `<div class="warn-banner"><strong>Not yet acknowledged.</strong> This should have happened by now — it may be worth following up directly.</div>`;
     }
+
+      const followupBox = document.getElementById('status-followup');
+      if (c.currentDepartment) {
+        let historyHtml = '';
+        (c.followupHistory || []).slice().reverse().forEach((f) => {
+          const when = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '';
+          historyHtml += `<div class="followup-entry"><strong>${escapeHtml(f.department)}</strong>${when ? ' — ' + when : ''}${f.note ? '<br>' + escapeHtml(f.note) : ''}</div>`;
+        });
+        followupBox.innerHTML = `<div class="followup-current">Forwarded to: ${escapeHtml(c.currentDepartment)}</div>${historyHtml}`;
+        followupBox.style.display = '';
+      } else {
+        followupBox.innerHTML = '';
+        followupBox.style.display = 'none';
+      }
 
     const ladder = document.getElementById('ladder');
     ladder.innerHTML = '';
