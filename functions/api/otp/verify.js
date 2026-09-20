@@ -26,7 +26,7 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare('UPDATE grievance_otp SET verified = 1 WHERE id = ?').bind(otpRow.id).run();
 
     const grievance = await env.DB.prepare(
-      `SELECT tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
+      `SELECT id, tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
               citizen_email, local_unit_id, category_id
        FROM grievances WHERE tracking_ref = ?`
     ).bind(trackingRef).first();
@@ -46,6 +46,13 @@ export async function onRequestPost({ request, env }) {
     if (!category) {
       return new Response(JSON.stringify({ error: 'Could not resolve category for this case' }), { status: 500 });
     }
+
+    const { results: followupRows } = await env.DB.prepare(
+      `SELECT reason, note, actor, created_at FROM grievance_events
+       WHERE grievance_id = ? AND event_type = 'FOLLOW_UP'
+       ORDER BY created_at ASC, rowid ASC`
+    ).bind(grievance.id).all();
+    const latestFollowup = followupRows.length ? followupRows[followupRows.length - 1] : null;
 
     const result = computeEscalation(grievance, category, chain.tiers);
     const isUnresolved = grievance.status !== 'RESOLVED' && grievance.status !== 'CLOSED';
@@ -75,6 +82,13 @@ export async function onRequestPost({ request, env }) {
         needsLegalReview: result.needsLegalReview,
         currentTierIndex: result.currentTierIndex,
         tiers,
+        currentDepartment: latestFollowup ? latestFollowup.reason : null,
+        followupHistory: followupRows.map((e) => ({
+          department: e.reason,
+          note: e.note,
+          actor: e.actor,
+          createdAt: e.created_at,
+        })),
       },
     }), { status: 200 });
   } catch (err) {
