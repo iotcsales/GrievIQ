@@ -147,8 +147,9 @@ export async function onRequestGet(context) {
       citizenDisputeNote: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.note : null,
       citizenDisputeAt: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.created_at : null,
       resolvedAt: grievance.resolved_at || null,
-    });
-  }
+    acknowledgedAt: grievance.acknowledged_at || null,
+  });
+}
 
   return Response.json({
     email: auth.email,
