@@ -47,7 +47,7 @@ export async function onRequestGet(context) {
       to: to || null,
       stats: {
         totalCases: 0, avgAckHours: null, avgResolveHours: null,
-        resolvedCount: 0, disputeRate: null, escalationRate: null,
+        resolvedCount: 0, disputeRate: null, escalationRate: null, noFollowupCount: 0,
         byCategory: {}, byLocalUnit: {}, byStatus: {},
       },
       cases: [],
@@ -71,8 +71,17 @@ export async function onRequestGet(context) {
     const { results: disputeEvents } = await env.DB.prepare(
       `SELECT DISTINCT grievance_id FROM grievance_events WHERE event_type = 'CITIZEN_DISPUTED' AND grievance_id IN (${ph2})`
     ).bind(...grievanceIds).all();
-    disputeEvents.forEach((r) => disputedIds.add(r.grievance_id));
-  }
+          disputeEvents.forEach((r) => disputedIds.add(r.grievance_id));
+    }
+
+    const followupCounts = new Map();
+    if (grievanceIds.length > 0) {
+      const ph3 = grievanceIds.map(() => "?").join(",");
+      const { results: followupEvents } = await env.DB.prepare(
+        `SELECT grievance_id FROM grievance_events WHERE event_type = 'FOLLOW_UP' AND grievance_id IN (${ph3})`
+      ).bind(...grievanceIds).all();
+      followupEvents.forEach((r) => followupCounts.set(r.grievance_id, (followupCounts.get(r.grievance_id) || 0) + 1));
+    }
 
   const categoryCache = new Map();
   const chainCache = new Map();
@@ -129,7 +138,8 @@ export async function onRequestGet(context) {
       acknowledgedAt: g.acknowledged_at || null,
       resolvedAt: g.resolved_at || null,
       disputed: disputedIds.has(g.id),
-    });
+      followupCount: followupCounts.get(g.id) || 0,
+      });
   }
 
   const stats = {
@@ -139,6 +149,7 @@ export async function onRequestGet(context) {
     resolvedCount: resolveCount,
     disputeRate: resolveCount ? Math.round((disputedResolvedCount / resolveCount) * 1000) / 10 : null,
     escalationRate: grievanceRows.length ? Math.round((escalatedCount / grievanceRows.length) * 1000) / 10 : null,
+    noFollowupCount: grievanceRows.filter((g) => !followupCounts.has(g.id)).length,
     byCategory: Object.fromEntries(byCategory),
     byLocalUnit: Object.fromEntries(byLocalUnit),
     byStatus: Object.fromEntries(byStatus),
