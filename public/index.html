@@ -313,6 +313,15 @@ function renderResolveControl(c) {
     '<div class="resolve-error" id="resolve-error-' + c.id + '"></div>';
 }
 
+function renderAcknowledgeControl(c) {
+  if (c.acknowledgedAt) {
+    return '<span class="badge acknowledged">acknowledged ' + formatDate(c.acknowledgedAt) + '</span>';
+  }
+  var overdueNote = c.ackOverdue ? ' <span class="badge escalated">ack overdue</span>' : '';
+  return '<button class="resolve-btn ack-btn" data-id="' + c.id + '">Acknowledge</button>' +
+    '<div class="resolve-error ack-error" id="ack-error-' + c.id + '"></div>' + overdueNote;
+}
+
 function renderCase(c) {
   var dotClass = 'signal-dot green';
   if (c.status === 'PENDING_CONFIRMATION') dotClass = 'signal-dot gold';
@@ -340,8 +349,9 @@ function renderCase(c) {
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
       badge +
-      renderDisputeNote(c) +
-      renderResolveControl(c) +
+           renderDisputeNote(c) +
+        renderAcknowledgeControl(c) +
+        renderResolveControl(c) +
     '</div>' +
     '<div class="case-meta">' +
       '<div class="' + elapsedClass + '">' + timeAgo(c.elapsedDays) + '</div>' +
@@ -360,7 +370,32 @@ function renderNotice(title, message) {
   document.getElementById('app').innerHTML =
     '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
 }
-
+    function attachAcknowledgeHandlers() {
+      document.querySelectorAll('.ack-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var id = btn.getAttribute('data-id');
+          var errorEl = document.getElementById('ack-error-' + id);
+          errorEl.textContent = '';
+          btn.disabled = true;
+          btn.textContent = 'Acknowledging…';
+          try {
+            var res = await fetch('/api/grievances/' + id + '/acknowledge', { method: 'POST' });
+            var data = await res.json();
+            if (!res.ok || data.error) {
+              errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+              btn.disabled = false;
+              btn.textContent = 'Acknowledge';
+              return;
+            }
+            await init();
+          } catch (err) {
+            errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+            btn.disabled = false;
+            btn.textContent = 'Acknowledge';
+          }
+        });
+      });
+    }
 function attachResolveHandlers() {
   document.querySelectorAll('.resolve-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
@@ -433,6 +468,7 @@ async function init() {
   html += '</main>';
   document.getElementById('app').innerHTML = html;
   attachResolveHandlers();
+  attachAcknowledgeHandlers();
 }
 
 init();
