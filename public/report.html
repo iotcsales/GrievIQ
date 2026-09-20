@@ -133,7 +133,7 @@ function renderReport(data) {
   var rows = data.cases.map(function(c) {
     return '<tr><td>' + c.trackingRef + '</td><td>' + c.category + '</td><td>' + c.localUnit + '</td>' +
       '<td>' + statusTag(c.status) + (c.disputed ? '<span class="tag disputed">disputed</span>' : '') + '</td>' +
-      '<td>' + fmtDate(c.createdAt) + '</td><td>' + fmtDate(c.resolvedAt) + '</td></tr>';
+      '<td>' + fmtDate(c.createdAt) + '</td><td>' + fmtDate(c.resolvedAt) + '</td><td>' + (c.followupCount > 0 ? c.followupCount : '<span class="tag disputed">none</span>') + '</t
   }).join('');
 
   return '<main>' +
@@ -146,6 +146,7 @@ function renderReport(data) {
       '<div class="stat-card"><div class="stat-value">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">Avg. time to acknowledge</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + s.resolvedCount + '</div><div class="stat-label">Resolved cases</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + (s.escalationRate === null ? '—' : s.escalationRate + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + s.noFollowupCount + '</div><div class="stat-label">No follow-up yet</div></div>' +
     '</div>' +
     '<h3 class="section-title">By category</h3>' + renderBreakdown(s.byCategory) +
     '<h3 class="section-title">By status</h3>' + renderBreakdown(s.byStatus) +
