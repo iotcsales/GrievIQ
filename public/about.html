@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>About us — GrievIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
+    --teal: #0E7C6B; --teal-dark: #0A5A4E; --teal-tint: #E4F3EF;
+    --border: #E7E4DC; --radius: 14px;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .trust-strip {
+    background: var(--ink); color: #C7C2B8; font-size: 11px; padding: 7px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-shell { max-width: 560px; margin: 0 auto; padding: 20px 20px 60px; min-height: 100vh; }
+  .app-card {
+    background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); padding: 28px 24px 26px; margin-top: 20px;
+  }
+  header.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  header.brand .logo-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: var(--teal);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  header.brand .logo-mark svg { width: 17px; height: 17px; }
+  header.brand span.brand-name { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; }
+  .back-link { display: inline-block; font-size: 12.5px; color: var(--teal-dark); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+  h1 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 23px; line-height: 1.3; margin: 18px 0 8px; }
+  h2 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
+  p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 14px; }
+  .note-box {
+    background: var(--teal-tint); border-radius: 12px; padding: 14px 16px;
+    font-size: 13px; color: var(--teal-dark); margin: 18px 0;
+  }
+  .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: 11.5px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+</style>
+</head>
+<body>
+  <div class="trust-strip"><span>Independent citizen grievance escalation & redressal platform</span><span>EN</span></div>
+  <div class="card-shell">
+    <div class="app-card">
+      <a href="/status" class="back-link">← Back</a>
+      <header class="brand">
+        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <span class="brand-name">GrievIQ</span>
+      </header>
+      <h1>About us</h1>
+      <p>GrievIQ is an independent civic-tech platform that helps citizens track grievances filed with their elected representatives — corporators, mayors, MLAs, and MPs — and see exactly where a case stands as it moves up the chain when it isn't addressed in time.</p>
+      <p>Every grievance is matched to the correct ward, so you're not complaining to a general city queue — you're routed to the specific representative accountable for your area, with a clear, transparent escalation path if they don't respond in time.</p>
+      <div class="note-box">GrievIQ is not officially operated by, endorsed by, or affiliated with any government body, including Lucknow Nagar Nigam or the Government of Uttar Pradesh.</div>
+      <p>GrievIQ is built and maintained by IOTC (Indus Overseas Tech. Corp.) as an independent tool to make civic accountability more visible. We're currently piloting in Lucknow, Uttar Pradesh, with a goal of expanding coverage and, in time, working directly with local governments to make this a recognized part of how citizens engage with their representatives.</p>
+      <h2>Questions or feedback?</h2>
+      <p>Reach us at <a href="mailto:support@grieviq.in" style="color:var(--teal-dark);">support@grieviq.in</a>.</p>
+      <div class="footer-block">
+        <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
+        <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
