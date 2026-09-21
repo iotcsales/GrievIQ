@@ -20,6 +20,8 @@
     --green-tint: #E4EFE8;
     --gold: #A9822E;
     --gold-tint: #F5EDDD;
+    --brand: #1B5FA8;
+    --brand-tint: #E8F0FA;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -30,31 +32,91 @@
     font-family: 'Public Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  .masthead {
-    background: var(--ink);
-    color: var(--paper);
-    padding: 28px 24px 22px;
+  .console-header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
   }
-  .masthead-inner {
+  .console-header-inner {
     max-width: 760px;
     margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-  .masthead-title {
+  .console-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .console-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .console-title {
     font-family: 'Source Serif 4', serif;
-    font-weight: 700;
-    font-size: 26px;
-    letter-spacing: 0.01em;
-    margin: 0 0 4px;
-  }
-  .masthead-sub {
-    font-size: 14px;
-    color: #B9C0C9;
+    font-weight: 600;
+    font-size: 16px;
     margin: 0;
+    color: var(--ink);
+  }
+  .console-subtitle {
+    font-size: 12.5px;
+    color: var(--steel-2);
+    margin: 2px 0 0;
+  }
+  .console-header-right {
+    text-align: right;
+  }
+  .console-ward {
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0;
+    color: var(--ink);
+  }
+  .console-role {
+    font-size: 12.5px;
+    color: var(--steel-2);
+    margin: 2px 0 0;
+  }
+  .tab-bar {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  .tab-btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--steel-2);
+    background: none;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    padding: 12px 6px;
+    margin-bottom: -1px;
+    cursor: pointer;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active {
+    color: var(--brand);
+    border-bottom-color: var(--brand);
   }
   .mandate-strip {
     max-width: 760px;
     margin: 0 auto;
-    padding: 16px 24px;
+    padding: 12px 24px 0;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -263,6 +325,11 @@ const DISPUTE_REASON_LABELS = {
   WRONG_ISSUE: 'Citizen says: wrong issue was fixed',
   OTHER: 'Citizen disputed resolution',
 };
+const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+var activeTab = 'cases';
+var currentMe = null;
+var currentCases = [];
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -387,64 +454,125 @@ function renderNotice(title, message) {
   document.getElementById('app').innerHTML =
     '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
 }
-    function attachAcknowledgeHandlers() {
-      document.querySelectorAll('.ack-btn').forEach(function(btn) {
-        btn.addEventListener('click', async function() {
-          var id = btn.getAttribute('data-id');
-          var errorEl = document.getElementById('ack-error-' + id);
-          errorEl.textContent = '';
-          btn.disabled = true;
-          btn.textContent = 'Acknowledging…';
-          try {
-            var res = await fetch('/api/grievances/' + id + '/acknowledge', { method: 'POST' });
-            var data = await res.json();
-            if (!res.ok || data.error) {
-              errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-              btn.disabled = false;
-              btn.textContent = 'Acknowledge';
-              return;
-            }
-            await init();
-          } catch (err) {
-            errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
-            btn.disabled = false;
-            btn.textContent = 'Acknowledge';
-          }
-        });
-      });
+
+function renderApp() {
+  var me = currentMe;
+  var cases = currentCases;
+  var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
+  var primaryMandate = me.mandates[0];
+
+  var html =
+    '<div class="console-header"><div class="console-header-inner">' +
+      '<div class="console-header-left">' +
+        '<div class="console-icon">' + LAYERS_ICON + '</div>' +
+        '<div><p class="console-title">GrievIQ Representative console</p><p class="console-subtitle">Grievance escalation service</p></div>' +
+      '</div>' +
+      '<div class="console-header-right">' +
+        '<p class="console-ward">' + primaryMandate.name + '</p>' +
+        '<p class="console-role">' + primaryMandate.label + '</p>' +
+      '</div>' +
+    '</div></div>' +
+    '<div class="mandate-strip">' + renderMandateChips(me.mandates) + '</div>' +
+    '<div class="tab-bar">' +
+      '<button class="tab-btn' + (activeTab === 'cases' ? ' active' : '') + '" data-tab="cases">Cases</button>' +
+      '<button class="tab-btn' + (activeTab === 'report' ? ' active' : '') + '" data-tab="report">Report</button>' +
+    '</div>' +
+    '<main>';
+
+  if (activeTab === 'cases') {
+    html +=
+      '<div class="register-header">' +
+        '<h2 class="register-title">Case register</h2>' +
+        '<span class="register-count">' + cases.length + ' case' + (cases.length === 1 ? '' : 's') +
+          (redCount > 0 ? ' &middot; ' + redCount + ' need attention' : '') + '</span>' +
+      '</div>';
+    if (cases.length === 0) {
+      html += '<div class="empty-state"><p>No cases currently in your jurisdiction.</p></div>';
+    } else {
+      html += cases.map(renderCase).join('');
     }
-    function attachFollowupHandlers() {
-      document.querySelectorAll('.followup-btn').forEach(function(btn) {
-        btn.addEventListener('click', async function() {
-          var id = btn.getAttribute('data-id');
-          var dept = document.getElementById('followup-dept-' + id).value;
-          var note = document.getElementById('followup-note-' + id).value;
-          var errorEl = document.getElementById('followup-error-' + id);
-          errorEl.textContent = '';
-          btn.disabled = true;
-          btn.textContent = 'Logging…';
-          try {
-            var res = await fetch('/api/grievances/' + id + '/add-followup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ department: dept, note: note })
-            });
-            var data = await res.json();
-            if (!res.ok || data.error) {
-              errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-              btn.disabled = false;
-              btn.textContent = 'Log follow-up';
-              return;
-            }
-            await init();
-          } catch (err) {
-            errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
-            btn.disabled = false;
-            btn.textContent = 'Log follow-up';
-          }
+  } else {
+    html += '<div class="empty-state"><p>Performance report — coming in the next build step.</p></div>';
+  }
+
+  html += '</main>';
+  document.getElementById('app').innerHTML = html;
+
+  attachTabHandlers();
+  if (activeTab === 'cases') {
+    attachResolveHandlers();
+    attachAcknowledgeHandlers();
+    attachFollowupHandlers();
+  }
+}
+
+function attachTabHandlers() {
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activeTab = btn.getAttribute('data-tab');
+      renderApp();
+    });
+  });
+}
+
+function attachAcknowledgeHandlers() {
+  document.querySelectorAll('.ack-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      var errorEl = document.getElementById('ack-error-' + id);
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Acknowledging…';
+      try {
+        var res = await fetch('/api/grievances/' + id + '/acknowledge', { method: 'POST' });
+        var data = await res.json();
+        if (!res.ok || data.error) {
+          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          btn.disabled = false;
+          btn.textContent = 'Acknowledge';
+          return;
+        }
+        await init();
+      } catch (err) {
+        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        btn.disabled = false;
+        btn.textContent = 'Acknowledge';
+      }
+    });
+  });
+}
+function attachFollowupHandlers() {
+  document.querySelectorAll('.followup-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      var dept = document.getElementById('followup-dept-' + id).value;
+      var note = document.getElementById('followup-note-' + id).value;
+      var errorEl = document.getElementById('followup-error-' + id);
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Logging…';
+      try {
+        var res = await fetch('/api/grievances/' + id + '/add-followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ department: dept, note: note })
         });
-      });
-    }
+        var data = await res.json();
+        if (!res.ok || data.error) {
+          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          btn.disabled = false;
+          btn.textContent = 'Log follow-up';
+          return;
+        }
+        await init();
+      } catch (err) {
+        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        btn.disabled = false;
+        btn.textContent = 'Log follow-up';
+      }
+    });
+  });
+}
 function attachResolveHandlers() {
   document.querySelectorAll('.resolve-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
@@ -485,40 +613,13 @@ async function init() {
     }
     return;
   }
-  var me = await meRes.json();
+  currentMe = await meRes.json();
 
   var casesRes = await fetch('/api/grievances');
   var casesData = await casesRes.json();
-  var cases = casesData.grievances || [];
+  currentCases = casesData.grievances || [];
 
-  var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
-
-  var primaryMandate = me.mandates[0];
-
-  var html =
-    '<div class="masthead"><div class="masthead-inner">' +
-      '<p class="masthead-title">GrievIQ</p>' +
-      '<p class="masthead-sub">' + primaryMandate.name + ' &mdash; ' + primaryMandate.label + '</p>' +
-    '</div></div>' +
-    '<div class="mandate-strip">' + renderMandateChips(me.mandates) + '</div>' +
-    '<main>' +
-      '<div class="register-header">' +
-        '<h2 class="register-title">Case register</h2>' +
-        '<span class="register-count">' + cases.length + ' case' + (cases.length === 1 ? '' : 's') +
-          (redCount > 0 ? ' &middot; ' + redCount + ' need attention' : '') + '</span>' +
-      '</div>';
-
-  if (cases.length === 0) {
-    html += '<div class="empty-state"><p>No cases currently in your jurisdiction.</p></div>';
-  } else {
-    html += cases.map(renderCase).join('');
-  }
-
-  html += '</main>';
-  document.getElementById('app').innerHTML = html;
-  attachResolveHandlers();
-  attachAcknowledgeHandlers();
-  attachFollowupHandlers();
+  renderApp();
 }
 
 init();
