@@ -6,6 +6,8 @@
 <title>GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root {
     --ink: #14181D;
@@ -578,7 +580,7 @@ function renderReportTab(cases, me) {
     '<div class="report-header">' +
       '<div><h2 class="report-title">Performance report</h2>' +
       '<p class="report-subtitle">' + scopeName + ' &middot; All time</p></div>' +
-      '<button type="button" class="export-pdf-btn" disabled title="Coming in the next build step">Export PDF</button>' +
+      '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Export PDF</button>' +
     '</div>' +
     '<div class="stat-grid">' +
       '<div class="stat-card"><div class="stat-number">' + total + '</div><div class="stat-label">Total cases</div></div>' +
@@ -663,7 +665,91 @@ function renderApp() {
     attachResolveHandlers();
     attachAcknowledgeHandlers();
     attachFollowupHandlers();
+  } else if (activeTab === 'report') {
+    attachExportPdfHandler();
   }
+}
+
+function attachExportPdfHandler() {
+  var btn = document.getElementById('export-pdf-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    generateReportPdf();
+  });
+}
+
+function generateReportPdf() {
+  var me = currentMe;
+  var cases = activeMandateId === null
+    ? currentCases
+    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
+
+  var scopeName = 'All wards';
+  if (activeMandateId !== null) {
+    var activeMandate = me.mandates.find(function(m) { return m.id === activeMandateId; });
+    if (activeMandate) scopeName = activeMandate.name;
+  }
+
+  var total = cases.length;
+  var resolvedCount = cases.filter(function(c) {
+    return c.status === 'RESOLVED' || c.status === 'CLOSED';
+  }).length;
+  var escalatedCount = cases.filter(function(c) { return c.currentTierIndex > 0; }).length;
+  var noFollowupCount = cases.filter(function(c) {
+    return !c.followupHistory || c.followupHistory.length === 0;
+  }).length;
+  var escalationRate = total > 0 ? Math.round((escalatedCount / total) * 100) : 0;
+
+  var jsPDFCtor = window.jspdf.jsPDF;
+  var doc = new jsPDFCtor();
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('GrievIQ Performance Report', 14, 18);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text(scopeName + ' - All time', 14, 26);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text('Generated ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), 14, 32);
+  doc.setTextColor(0);
+
+  var statY = 42;
+  var stats = [
+    ['Total cases', String(total)],
+    ['Escalation rate', escalationRate + '%'],
+    ['Resolved', String(resolvedCount)],
+    ['No follow-up', String(noFollowupCount)]
+  ];
+  var colWidth = 46;
+  stats.forEach(function(s, i) {
+    var x = 14 + i * colWidth;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(s[1], x, statY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(s[0], x, statY + 5);
+    doc.setTextColor(0);
+  });
+
+  var tableRows = cases.map(function(c) {
+    var count = (c.followupHistory || []).length;
+    return [c.trackingRef, c.category.name, count + (count === 1 ? ' follow-up' : ' follow-ups')];
+  });
+
+  doc.autoTable({
+    head: [['Tracking ref', 'Category', 'Follow-ups']],
+    body: tableRows,
+    startY: statY + 14,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [27, 95, 168] }
+  });
+
+  var fileScope = scopeName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  doc.save('grieviq-report-' + fileScope + '.pdf');
 }
 
 function attachMandateHandlers() {
