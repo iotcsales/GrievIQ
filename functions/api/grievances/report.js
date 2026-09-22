@@ -14,9 +14,21 @@ import { getVerifiedRep } from "../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 
+// Timestamps in this table come in two shapes: full ISO strings with a
+// "T" and trailing "Z" (e.g. from newer writes), and legacy plain
+// "YYYY-MM-DD HH:MM:SS" UTC strings with neither. Appending "Z" to an
+// already-ISO string produces an invalid double-Z timestamp that
+// silently parses to NaN -- so only convert the legacy shape.
+function toUtcMs(iso) {
+  if (iso.indexOf("T") !== -1) {
+    return new Date(iso).getTime();
+  }
+  return new Date(iso.replace(" ", "T") + "Z").getTime();
+}
+
 function hoursBetween(startIso, endIso) {
-  const start = new Date(startIso.replace(" ", "T") + "Z").getTime();
-  const end = new Date(endIso.replace(" ", "T") + "Z").getTime();
+  const start = toUtcMs(startIso);
+  const end = toUtcMs(endIso);
   return (end - start) / (1000 * 60 * 60);
 }
 
