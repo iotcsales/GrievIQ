@@ -18,9 +18,9 @@
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env);
+  const auth = await getVerifiedAdmin(request, env, "run_import");
   if (!auth.ok) {
-    return Response.json({ error: auth.error }, { status: auth.status });
+  return Response.json({ error: auth.error }, { status: auth.status });
   }
 
   let body;
@@ -90,6 +90,20 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
+    await env.DB.prepare(
+    `INSERT INTO admin_events (id, actor_email, action, target, detail)
+     VALUES (?, ?, ?, ?, ?)`
+  ).bind(
+    crypto.randomUUID(),
+    auth.email,
+    "import_ward_boundaries",
+    "local_units",
+    JSON.stringify({
+      featuresInFile: features.length,
+      matchedCount: matched.length,
+      unmatchedCount: unmatched.length,
+    })
+  ).run();
   return Response.json({
     success: true,
     summary: {
