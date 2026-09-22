@@ -106,7 +106,7 @@ async function findOrCreateByName(env, table, name, extraFieldsOnCreate, extraFi
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env);
+  const auth = await getVerifiedAdmin(request, env, "run_import");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
@@ -276,5 +276,16 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  return Response.json({ success: true, summary });
+      await env.DB.prepare(
+      `INSERT INTO admin_events (id, actor_email, action, target, detail)
+       VALUES (?, ?, ?, ?, ?)`
+    ).bind(
+      crypto.randomUUID(),
+      auth.email,
+      "import_jurisdiction",
+      "local_units",
+      JSON.stringify(summary)
+    ).run();
+
+    return Response.json({ success: true, summary });
 }
