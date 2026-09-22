@@ -121,15 +121,24 @@
     flex-wrap: wrap;
     gap: 10px;
   }
-  .mandate-chip {
+    .mandate-chip {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 4px;
     padding: 6px 12px;
     font-size: 13px;
     color: var(--steel);
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .mandate-chip:hover { border-color: var(--brand); }
+  .mandate-chip.active {
+    background: var(--brand-tint);
+    border-color: var(--brand);
+    color: var(--brand);
   }
   .mandate-chip b { color: var(--ink); }
+  .mandate-chip.active b { color: var(--brand); }
   main {
     max-width: 760px;
     margin: 0 auto;
@@ -328,6 +337,7 @@ const DISPUTE_REASON_LABELS = {
 const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 var activeTab = 'cases';
+var activeMandateId = null;
 var currentMe = null;
 var currentCases = [];
 
@@ -445,9 +455,14 @@ function renderCase(c) {
 }
 
 function renderMandateChips(mandates) {
-  return mandates.map(function(m) {
-    return '<div class="mandate-chip">' + m.name + ' &mdash; <b>' + m.label + '</b></div>';
+  var allActive = activeMandateId === null ? ' active' : '';
+  var allChip = '<button type="button" class="mandate-chip' + allActive + '" data-mandate-id="">All wards</button>';
+  var chips = mandates.map(function(m) {
+    var isActive = activeMandateId === m.id ? ' active' : '';
+    return '<button type="button" class="mandate-chip' + isActive + '" data-mandate-id="' + m.id + '">' +
+      m.name + ' &mdash; <b>' + m.label + '</b></button>';
   }).join('');
+  return allChip + chips;
 }
 
 function renderNotice(title, message) {
@@ -457,7 +472,9 @@ function renderNotice(title, message) {
 
 function renderApp() {
   var me = currentMe;
-  var cases = currentCases;
+  var cases = activeMandateId === null
+    ? currentCases
+    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
   var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
   var primaryMandate = me.mandates[0];
 
@@ -499,11 +516,22 @@ function renderApp() {
   document.getElementById('app').innerHTML = html;
 
   attachTabHandlers();
+  attachMandateHandlers();
   if (activeTab === 'cases') {
     attachResolveHandlers();
     attachAcknowledgeHandlers();
     attachFollowupHandlers();
   }
+}
+
+function attachMandateHandlers() {
+  document.querySelectorAll('.mandate-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-mandate-id');
+      activeMandateId = id === '' ? null : id;
+      renderApp();
+    });
+  });
 }
 
 function attachTabHandlers() {
