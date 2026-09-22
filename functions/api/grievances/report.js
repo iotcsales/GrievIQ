@@ -33,16 +33,38 @@ export async function onRequestGet(context) {
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
 
+  // "all" unions local units across every mandate the rep holds, the
+  // same pattern grievances.js uses -- each unit still remembers which
+  // specific mandate covers it, since escalation-past-my-tier is
+  // computed relative to that unit's own mandate, not one shared tier.
+  const wantsAll = mandateId === "all";
+
   let mandate = auth.mandates[0];
-  if (mandateId) {
-    const found = auth.mandates.find((m) => m.id === mandateId);
-    if (found) mandate = found;
+  let unitToMandate = null;
+  let unitIds;
+
+  if (wantsAll) {
+    unitToMandate = new Map();
+    for (const m of auth.mandates) {
+      const ids = await getLocalUnitIdsForMandate(env, m);
+      for (const id of ids) {
+        if (!unitToMandate.has(id)) unitToMandate.set(id, m);
+      }
+    }
+    unitIds = Array.from(unitToMandate.keys());
+  } else {
+    if (mandateId) {
+      const found = auth.mandates.find((m) => m.id === mandateId);
+      if (found) mandate = found;
+    }
+    unitIds = await getLocalUnitIdsForMandate(env, mandate);
   }
 
-  const unitIds = await getLocalUnitIdsForMandate(env, mandate);
+  const responseMandate = wantsAll ? { id: "all", name: "All wards", label: "" } : mandate;
+
   if (unitIds.length === 0) {
     return Response.json({
-      mandate,
+      mandate: responseMandate,
       from: from || null,
       to: to || null,
       stats: {
@@ -121,7 +143,8 @@ export async function onRequestGet(context) {
       if (disputedIds.has(g.id)) disputedResolvedCount++;
     }
 
-    const myTierIndex = chain.tiers.findIndex((t) => t.tier === mandate.tier);
+    const myTierForThisUnit = unitToMandate ? unitToMandate.get(g.local_unit_id).tier : mandate.tier;
+    const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTierForThisUnit);
     const result = computeEscalation(g, category, chain.tiers);
     if (result.currentTierIndex > myTierIndex) escalatedCount++;
 
@@ -156,7 +179,7 @@ export async function onRequestGet(context) {
   };
 
   return Response.json({
-    mandate,
+    mandate: responseMandate,
     from: from || null,
     to: to || null,
     stats,
