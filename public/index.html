@@ -40,7 +40,7 @@
     padding: 16px 24px;
   }
   .console-header-inner {
-    max-width: 760px;
+    max-width: 780px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
@@ -90,7 +90,7 @@
     margin: 2px 0 0;
   }
   .tab-bar {
-    max-width: 760px;
+    max-width: 780px;
     margin: 0 auto;
     padding: 0 24px;
     display: flex;
@@ -116,14 +116,14 @@
     border-bottom-color: var(--brand);
   }
   .mandate-strip {
-    max-width: 760px;
+    max-width: 780px;
     margin: 0 auto;
     padding: 12px 24px 0;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
   }
-    .mandate-chip {
+  .mandate-chip {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 4px;
@@ -142,7 +142,7 @@
   .mandate-chip b { color: var(--ink); }
   .mandate-chip.active b { color: var(--brand); }
   main {
-    max-width: 760px;
+    max-width: 780px;
     margin: 0 auto;
     padding: 8px 24px 60px;
   }
@@ -317,6 +317,8 @@
     border-bottom: 2px solid var(--ink);
     padding-bottom: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
   }
   .report-title {
     font-family: 'Source Serif 4', serif;
@@ -329,20 +331,61 @@
     color: var(--steel-2);
     margin: 3px 0 0;
   }
+  .report-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
   .export-pdf-btn {
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     color: #fff;
     background: var(--brand);
     border: none;
     border-radius: 4px;
-    padding: 8px 14px;
+    padding: 8px 13px;
     cursor: pointer;
+  }
+  .export-pdf-btn.secondary-btn {
+    background: var(--card);
+    color: var(--brand);
+    border: 1.5px solid var(--brand);
   }
   .export-pdf-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  .date-range-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .date-range-row .field { display: flex; flex-direction: column; gap: 4px; }
+  .date-range-row .field label { font-size: 11px; color: var(--steel-2); font-weight: 600; }
+  .date-range-row .field input {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  .apply-btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--ink);
+    border: none;
+    border-radius: 4px;
+    padding: 7px 14px;
+    cursor: pointer;
   }
   .stat-grid {
     display: grid;
@@ -359,11 +402,11 @@
   .stat-number {
     font-family: 'Source Serif 4', serif;
     font-weight: 700;
-    font-size: 26px;
+    font-size: 24px;
     color: var(--ink);
   }
   .stat-label {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--steel-2);
     margin-top: 3px;
   }
@@ -375,32 +418,25 @@
     letter-spacing: 0.03em;
     margin: 0 0 8px;
   }
-  .report-row {
+  .breakdown-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 11px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--line);
-    font-size: 13.5px;
+    font-size: 13px;
   }
-  .report-row .report-ref {
-    font-weight: 600;
-    margin-right: 8px;
-  }
-  .report-row .report-cat {
+  .report-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+  .report-table th, .report-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  .report-table th { color: var(--steel-2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .report-tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
+  .report-tag.resolved { background: var(--green-tint); color: var(--green); }
+  .report-tag.pending { background: var(--gold-tint); color: var(--gold); }
+  .report-tag.open { background: var(--red-tint); color: var(--red); }
+  .report-tag.disputed { background: var(--red-tint); color: var(--red); margin-left: 4px; }
+  .footer-note {
+    margin-top: 24px;
+    font-size: 11.5px;
     color: var(--steel-2);
-  }
-  .followup-count {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 3px;
-    background: var(--paper);
-    color: var(--steel-2);
-  }
-  .followup-count.has-followups {
-    background: var(--green-tint);
-    color: var(--green);
   }
   .notice {
     max-width: 520px;
@@ -413,6 +449,10 @@
     font-size: 22px;
   }
   .notice p { color: var(--steel); font-size: 14px; line-height: 1.6; }
+  @media print {
+    .console-header, .tab-bar, .mandate-strip, .no-print, .export-pdf-btn { display: none !important; }
+    body { background: white; }
+  }
 </style>
 </head>
 <body>
@@ -435,6 +475,10 @@ var activeMandateId = null;
 var currentMe = null;
 var currentCases = [];
 
+var reportData = null;
+var reportFrom = '';
+var reportTo = '';
+
 function formatDate(iso) {
   if (!iso) return '';
   var d = new Date(iso);
@@ -442,10 +486,26 @@ function formatDate(iso) {
     ', ' + d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
 
+function formatDateOnly(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function fmtHours(h) {
+  if (h === null || h === undefined) return '—';
+  if (h < 24) return Math.round(h) + ' hrs';
+  return Math.round((h / 24) * 10) / 10 + ' days';
+}
+
 function timeAgo(days) {
   if (days < 1) return 'Filed today';
   if (days === 1) return 'Filed 1 day ago';
   return 'Filed ' + Math.floor(days) + ' days ago';
+}
+
+function mandateIdForApi() {
+  return activeMandateId === null ? 'all' : activeMandateId;
 }
 
 function renderLadder(chainTierList, currentTierIndex, viewingAsTier) {
@@ -559,52 +619,70 @@ function renderMandateChips(mandates) {
   return allChip + chips;
 }
 
-function renderReportTab(cases, me) {
-  var scopeName = 'All wards';
-  if (activeMandateId !== null) {
-    var activeMandate = me.mandates.find(function(m) { return m.id === activeMandateId; });
-    if (activeMandate) scopeName = activeMandate.name;
+function renderBreakdown(obj) {
+  var entries = Object.entries(obj);
+  if (entries.length === 0) return '<p style="font-size:13px;color:var(--steel-2);">No data.</p>';
+  return entries.map(function(e) {
+    return '<div class="breakdown-row"><span>' + e[0] + '</span><span><b>' + e[1] + '</b></span></div>';
+  }).join('');
+}
+
+function renderReportTab() {
+  if (reportData === null) {
+    return '<div class="empty-state"><p>Loading report…</p></div>';
+  }
+  if (reportData.error) {
+    return '<div class="empty-state"><p>Could not load the report. Please try again.</p></div>';
   }
 
-  var total = cases.length;
-  var resolvedCount = cases.filter(function(c) {
-    return c.status === 'RESOLVED' || c.status === 'CLOSED';
-  }).length;
-  var escalatedCount = cases.filter(function(c) { return c.currentTierIndex > 0; }).length;
-  var noFollowupCount = cases.filter(function(c) {
-    return !c.followupHistory || c.followupHistory.length === 0;
-  }).length;
-  var escalationRate = total > 0 ? Math.round((escalatedCount / total) * 100) : 0;
+  var s = reportData.stats;
+  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
+  var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
 
   var html =
     '<div class="report-header">' +
       '<div><h2 class="report-title">Performance report</h2>' +
-      '<p class="report-subtitle">' + scopeName + ' &middot; All time</p></div>' +
-      '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Export PDF</button>' +
+      '<p class="report-subtitle">' + scopeName + ' &middot; ' + rangeLabel + '</p></div>' +
+      '<div class="report-actions">' +
+        '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Download PDF</button>' +
+        '<button type="button" class="export-pdf-btn secondary-btn" id="print-btn">Print report</button>' +
+        '<button type="button" class="export-pdf-btn secondary-btn" id="csv-btn">Download CSV</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="date-range-row no-print">' +
+      '<div class="field"><label>From</label><input type="date" id="report-from" value="' + reportFrom + '"></div>' +
+      '<div class="field"><label>To</label><input type="date" id="report-to" value="' + reportTo + '"></div>' +
+      '<button type="button" class="apply-btn" id="report-apply-btn">Apply</button>' +
     '</div>' +
     '<div class="stat-grid">' +
-      '<div class="stat-card"><div class="stat-number">' + total + '</div><div class="stat-label">Total cases</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + escalationRate + '%</div><div class="stat-label">Escalation rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + resolvedCount + '</div><div class="stat-label">Resolved</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + noFollowupCount + '</div><div class="stat-label">No follow-up</div></div>' +
-    '</div>';
+      '<div class="stat-card"><div class="stat-number">' + s.totalCases + '</div><div class="stat-label">Total cases</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">Avg. time to acknowledge</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgResolveHours) + '</div><div class="stat-label">Avg. time to resolve</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + s.resolvedCount + '</div><div class="stat-label">Resolved</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : s.escalationRate + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : s.disputeRate + '%') + '</div><div class="stat-label">Dispute rate</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + s.noFollowupCount + '</div><div class="stat-label">No follow-up</div></div>' +
+    '</div>' +
+    '<p class="report-list-title">By category</p>' + renderBreakdown(s.byCategory) +
+    '<p class="report-list-title" style="margin-top:20px;">By status</p>' + renderBreakdown(s.byStatus);
 
-  if (total === 0) {
+  if (reportData.cases.length === 0) {
     html += '<div class="empty-state"><p>No cases in this scope yet.</p></div>';
     return html;
   }
 
-  html += '<p class="report-list-title">Case activity</p>';
-  html += cases.map(function(c) {
-    var count = (c.followupHistory || []).length;
-    var countClass = count > 0 ? 'followup-count has-followups' : 'followup-count';
-    var countLabel = count + (count === 1 ? ' follow-up' : ' follow-ups');
-    return '<div class="report-row">' +
-      '<div><span class="report-ref">' + c.trackingRef + '</span>' +
-      '<span class="report-cat">' + c.category.name + '</span></div>' +
-      '<span class="' + countClass + '">' + countLabel + '</span>' +
-    '</div>';
+  html += '<p class="report-list-title" style="margin-top:20px;">Case detail</p>';
+  html += '<table class="report-table"><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>';
+  html += reportData.cases.map(function(c) {
+    var statusCls = (c.status === 'RESOLVED' || c.status === 'CLOSED') ? 'resolved' : c.status === 'PENDING_CONFIRMATION' ? 'pending' : 'open';
+    var disputedTag = c.disputed ? ' <span class="report-tag disputed">disputed</span>' : '';
+    return '<tr><td>' + c.trackingRef + '</td><td>' + c.category + '</td><td>' + c.localUnit + '</td>' +
+      '<td><span class="report-tag ' + statusCls + '">' + c.status.toLowerCase().replace('_', ' ') + '</span>' + disputedTag + '</td>' +
+      '<td>' + formatDateOnly(c.createdAt) + '</td><td>' + formatDateOnly(c.resolvedAt) + '</td><td>' + c.followupCount + '</td></tr>';
   }).join('');
+  html += '</tbody></table>';
+
+  html += '<p class="footer-note">Dispute and escalation rates reflect the complete, permanent case history and cannot be filtered out of this report.</p>';
 
   return html;
 }
@@ -652,8 +730,8 @@ function renderApp() {
     } else {
       html += cases.map(renderCase).join('');
     }
-   } else {
-    html += renderReportTab(cases, me);
+  } else {
+    html += renderReportTab();
   }
 
   html += '</main>';
@@ -666,39 +744,97 @@ function renderApp() {
     attachAcknowledgeHandlers();
     attachFollowupHandlers();
   } else if (activeTab === 'report') {
-    attachExportPdfHandler();
+    attachReportHandlers();
   }
 }
 
-function attachExportPdfHandler() {
-  var btn = document.getElementById('export-pdf-btn');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
-    generateReportPdf();
+async function loadReportTab() {
+  reportData = null;
+  renderApp();
+  try {
+    var qs = new URLSearchParams();
+    qs.set('mandateId', mandateIdForApi());
+    if (reportFrom) qs.set('from', reportFrom);
+    if (reportTo) qs.set('to', reportTo);
+    var res = await fetch('/api/grievances/report?' + qs.toString());
+    reportData = await res.json();
+  } catch (err) {
+    reportData = { error: true };
+  }
+  renderApp();
+}
+
+function attachTabHandlers() {
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activeTab = btn.getAttribute('data-tab');
+      if (activeTab === 'report') {
+        loadReportTab();
+      } else {
+        renderApp();
+      }
+    });
   });
 }
 
-function generateReportPdf() {
-  var me = currentMe;
-  var cases = activeMandateId === null
-    ? currentCases
-    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
+function attachMandateHandlers() {
+  document.querySelectorAll('.mandate-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-mandate-id');
+      activeMandateId = id === '' ? null : id;
+      if (activeTab === 'report') {
+        loadReportTab();
+      } else {
+        renderApp();
+      }
+    });
+  });
+}
 
-  var scopeName = 'All wards';
-  if (activeMandateId !== null) {
-    var activeMandate = me.mandates.find(function(m) { return m.id === activeMandateId; });
-    if (activeMandate) scopeName = activeMandate.name;
+function attachReportHandlers() {
+  var applyBtn = document.getElementById('report-apply-btn');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function() {
+      reportFrom = document.getElementById('report-from').value;
+      reportTo = document.getElementById('report-to').value;
+      loadReportTab();
+    });
   }
+  var pdfBtn = document.getElementById('export-pdf-btn');
+  if (pdfBtn) pdfBtn.addEventListener('click', generateReportPdf);
+  var printBtn = document.getElementById('print-btn');
+  if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
+  var csvBtn = document.getElementById('csv-btn');
+  if (csvBtn) csvBtn.addEventListener('click', downloadReportCsv);
+}
 
-  var total = cases.length;
-  var resolvedCount = cases.filter(function(c) {
-    return c.status === 'RESOLVED' || c.status === 'CLOSED';
-  }).length;
-  var escalatedCount = cases.filter(function(c) { return c.currentTierIndex > 0; }).length;
-  var noFollowupCount = cases.filter(function(c) {
-    return !c.followupHistory || c.followupHistory.length === 0;
-  }).length;
-  var escalationRate = total > 0 ? Math.round((escalatedCount / total) * 100) : 0;
+function toCsvRow(vals) {
+  return vals.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+}
+
+function downloadReportCsv() {
+  if (!reportData || reportData.error) return;
+  var headers = ['Tracking Ref', 'Category', 'Local Unit', 'Status', 'Created At', 'Acknowledged At', 'Resolved At', 'Follow-ups', 'Disputed'];
+  var rows = reportData.cases.map(function(c) {
+    return toCsvRow([c.trackingRef, c.category, c.localUnit, c.status, c.createdAt, c.acknowledgedAt || '', c.resolvedAt || '', c.followupCount, c.disputed ? 'Yes' : 'No']);
+  });
+  var csv = toCsvRow(headers) + '\n' + rows.join('\n');
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'grieviq-report-' + reportData.mandate.id + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function generateReportPdf() {
+  if (!reportData || reportData.error) return;
+  var s = reportData.stats;
+  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
+  var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
 
   var jsPDFCtor = window.jspdf.jsPDF;
   var doc = new jsPDFCtor();
@@ -709,66 +845,49 @@ function generateReportPdf() {
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
-  doc.text(scopeName + ' - All time', 14, 26);
+  doc.text(scopeName, 14, 26);
   doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text('Generated ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), 14, 32);
+  doc.text(rangeLabel + '  |  Generated ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), 14, 32);
   doc.setTextColor(0);
 
   var statY = 42;
   var stats = [
-    ['Total cases', String(total)],
-    ['Escalation rate', escalationRate + '%'],
-    ['Resolved', String(resolvedCount)],
-    ['No follow-up', String(noFollowupCount)]
+    ['Total', String(s.totalCases)],
+    ['Avg. ack', fmtHours(s.avgAckHours)],
+    ['Avg. resolve', fmtHours(s.avgResolveHours)],
+    ['Resolved', String(s.resolvedCount)],
+    ['Escalation', s.escalationRate === null ? '—' : s.escalationRate + '%'],
+    ['Dispute', s.disputeRate === null ? '—' : s.disputeRate + '%'],
+    ['No follow-up', String(s.noFollowupCount)]
   ];
-  var colWidth = 46;
-  stats.forEach(function(s, i) {
+  var colWidth = 26;
+  stats.forEach(function(st, i) {
     var x = 14 + i * colWidth;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text(s[1], x, statY);
+    doc.setFontSize(11);
+    doc.text(st[1], x, statY);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(6.5);
     doc.setTextColor(100);
-    doc.text(s[0], x, statY + 5);
+    doc.text(st[0], x, statY + 5);
     doc.setTextColor(0);
   });
 
-  var tableRows = cases.map(function(c) {
-    var count = (c.followupHistory || []).length;
-    return [c.trackingRef, c.category.name, count + (count === 1 ? ' follow-up' : ' follow-ups')];
+  var tableRows = reportData.cases.map(function(c) {
+    return [c.trackingRef, c.category, c.status.toLowerCase().replace('_', ' '), formatDateOnly(c.createdAt), formatDateOnly(c.resolvedAt), String(c.followupCount)];
   });
 
   doc.autoTable({
-    head: [['Tracking ref', 'Category', 'Follow-ups']],
+    head: [['Tracking ref', 'Category', 'Status', 'Filed', 'Resolved', 'Follow-ups']],
     body: tableRows,
-    startY: statY + 14,
-    styles: { fontSize: 9 },
+    startY: statY + 12,
+    styles: { fontSize: 8 },
     headStyles: { fillColor: [27, 95, 168] }
   });
 
   var fileScope = scopeName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   doc.save('grieviq-report-' + fileScope + '.pdf');
-}
-
-function attachMandateHandlers() {
-  document.querySelectorAll('.mandate-chip').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-mandate-id');
-      activeMandateId = id === '' ? null : id;
-      renderApp();
-    });
-  });
-}
-
-function attachTabHandlers() {
-  document.querySelectorAll('.tab-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      activeTab = btn.getAttribute('data-tab');
-      renderApp();
-    });
-  });
 }
 
 function attachAcknowledgeHandlers() {
