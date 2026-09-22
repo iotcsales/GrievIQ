@@ -10,7 +10,7 @@
 // mechanism as the rep dashboard). Anyone not logged in via Access gets
 // rejected before any database work happens.
 
-import { verifyAccessJwt } from "../../_shared/verify-access-jwt.js";
+import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
 
 function slugify(text) {
   return String(text)
@@ -106,14 +106,9 @@ async function findOrCreateByName(env, table, name, extraFieldsOnCreate, extraFi
 }
 
 export async function onRequestPost({ request, env }) {
-  try {
-    const jwt = request.headers.get("Cf-Access-Jwt-Assertion");
-    await verifyAccessJwt(jwt, {
-      teamDomain: env.ACCESS_TEAM_DOMAIN,
-      aud: env.ACCESS_AUD,
-    });
-  } catch (err) {
-    return Response.json({ error: "Not authorized." }, { status: 401 });
+  const auth = await getVerifiedAdmin(request, env);
+  if (!auth.ok) {
+    return Response.json({ error: auth.error }, { status: auth.status });
   }
 
   let body;
