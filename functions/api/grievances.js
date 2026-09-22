@@ -28,17 +28,17 @@ export async function onRequestGet(context) {
   // Map every local unit this rep has any mandate over to which of their
   // mandate tiers covers it — a rep only ever checks visibility against
   // their own tier for cases under that specific mandate.
-  const unitToMandateTier = new Map();
+  const unitToMandate = new Map();
   for (const mandate of auth.mandates) {
     const unitIds = await getLocalUnitIdsForMandate(env, mandate);
     for (const unitId of unitIds) {
-      if (!unitToMandateTier.has(unitId)) {
-        unitToMandateTier.set(unitId, mandate.tier);
+      if (!unitToMandate.has(unitId)) {
+        unitToMandate.set(unitId, mandate);
       }
     }
   }
 
-  const allUnitIds = Array.from(unitToMandateTier.keys());
+  const allUnitIds = Array.from(unitToMandate.keys());
   if (allUnitIds.length === 0) {
     return Response.json({ email: auth.email, mandates: auth.mandates, grievances: [] });
   }
@@ -73,7 +73,8 @@ export async function onRequestGet(context) {
   const visible = [];
 
   for (const grievance of grievanceRows) {
-    const myTier = unitToMandateTier.get(grievance.local_unit_id);
+    const myMandate = unitToMandate.get(grievance.local_unit_id);
+    const myTier = myMandate.tier;
 
     let chain = chainCache.get(grievance.local_unit_id);
     if (chain === undefined) {
@@ -137,6 +138,7 @@ export async function onRequestGet(context) {
       ackOverdue: result.ackOverdue,
       needsLegalReview: result.needsLegalReview,
       viewingAsTier: myTier,
+      mandateId: myMandate.id,
       // Red indicator: stays on for this rep as long as the case is
       // unresolved, regardless of whether it has since escalated further
       // above them — visibility here means responsibility, not a handoff.
