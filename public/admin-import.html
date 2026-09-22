@@ -3,113 +3,123 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Import jurisdiction data — GrievIQ</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<title>Import jurisdiction data — GrievIQ Admin</title>
 <style>
   :root {
-    --ink: #14181D;
-    --paper: #ECEEF1;
-    --card: #FFFFFF;
-    --line: #D7DBE0;
-    --steel: #3A4552;
-    --steel-2: #59657A;
-    --red: #C23B2C;
-    --red-tint: #F7E4E0;
-    --green: #2F6B4F;
-    --green-tint: #E4EFE8;
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'Public Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
   }
   header {
-    background: var(--ink);
-    color: #fff;
-    padding: 26px 24px;
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-  header h1 {
-    font-family: 'Source Serif 4', serif;
-    font-size: 22px;
-    margin: 0 0 4px;
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
   }
-  header p { margin: 0; color: #B9C0C9; font-size: 14px; }
-  main {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 28px 24px 60px;
-  }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 22px;
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 24px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
     margin-bottom: 20px;
   }
-  .card h2 {
-    font-family: 'Source Serif 4', serif;
-    font-size: 17px;
-    margin: 0 0 10px;
-  }
-  .card p { font-size: 14px; color: var(--steel); line-height: 1.55; }
-  .card ul { font-size: 14px; color: var(--steel); line-height: 1.6; padding-left: 20px; }
-  .drop-zone {
-    border: 1px dashed var(--steel-2);
+  .panel h2 { font-size: 15px; margin: 0 0 10px; }
+  .panel p { font-size: 14px; color: var(--admin-muted); line-height: 1.55; }
+  .panel ul { font-size: 14px; color: var(--admin-muted); line-height: 1.6; padding-left: 20px; }
+  .panel code {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
     border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 13px;
+  }
+  .drop-zone {
+    border: 1px dashed var(--admin-border);
+    border-radius: 8px;
     padding: 28px;
     text-align: center;
     cursor: pointer;
-    color: var(--steel);
+    color: var(--admin-muted);
     font-weight: 600;
     font-size: 14px;
+    background: #11151c;
   }
-  .drop-zone:hover { border-color: var(--ink); color: var(--ink); }
+  .drop-zone:hover { border-color: var(--admin-accent); color: var(--admin-text); }
   input[type="file"] { display: none; }
-  .file-name {
-    margin-top: 10px;
-    font-size: 13px;
-    color: var(--steel-2);
-  }
+  .file-name { margin-top: 10px; font-size: 13px; color: var(--admin-muted); }
   button.import-btn {
     margin-top: 16px;
     width: 100%;
-    background: var(--ink);
+    background: var(--admin-accent);
     color: #fff;
     border: none;
-    border-radius: 3px;
+    border-radius: 6px;
     padding: 13px;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
   }
-  button.import-btn:disabled { background: var(--steel-2); cursor: not-allowed; }
+  button.import-btn:hover { background: #3d6be0; }
+  button.import-btn:disabled { background: #2c3543; color: var(--admin-muted); cursor: not-allowed; }
   .summary-box {
     display: none;
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 18px;
     margin-top: 18px;
     font-size: 14px;
   }
-  .summary-box.ok { background: var(--green-tint); border: 1px solid #a9c497; }
-  .summary-box.err { background: var(--red-tint); border: 1px solid #dba393; color: var(--red); }
+  .summary-box.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; color: var(--admin-text); }
+  .summary-box.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
   .summary-box ul { margin: 8px 0 0; padding-left: 18px; }
   .stat-row { display: flex; justify-content: space-between; padding: 4px 0; }
-  .stat-row b { color: var(--ink); }
-  .error-list { color: var(--red); }
+  .stat-row b { color: var(--admin-text); }
+  .error-list { color: var(--admin-danger); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Import jurisdiction data</h1>
-  <p>Bulk-load MP/MLA/municipal body/ward structure from a CSV. Requires you to be logged in as an authorized representative.</p>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-import.html" class="active">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-staff.html">Staff</a>
+  </nav>
 </header>
 
 <main>
-  <div class="card">
+  <h1>Import jurisdiction data</h1>
+  <p class="subtitle">Bulk-load MP/MLA/municipal body/ward structure from a CSV. Requires you to be logged in as an authorized admin.</p>
+
+  <div class="panel">
     <h2>CSV format</h2>
     <p>One row per ward or village. Required columns: <code>mp_constituency_name</code>, <code>mla_constituency_name</code>, <code>local_unit_name</code>, <code>unit_type</code> (RURAL or URBAN). Everything else is optional but recommended.</p>
     <ul>
@@ -119,7 +129,7 @@
     </ul>
   </div>
 
-  <div class="card">
+  <div class="panel">
     <h2>Upload CSV</h2>
     <div class="drop-zone" id="dropZone">Click to choose a CSV file</div>
     <input type="file" id="fileInput" accept=".csv,text/csv" />
