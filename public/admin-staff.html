@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GrievIQ Admin — Staff</title>
+<style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-import.html">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-staff.html" class="active">Staff</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Staff &amp; roles</h1>
+  <p class="subtitle">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
+
+  <div class="panel">
+    <h2>Add staff member</h2>
+    <div class="add-form">
+      <input type="email" id="new-email" placeholder="name@example.com" />
+      <select id="new-role">
+        <option value="operations_admin">Operations Admin</option>
+        <option value="data_moderator">Data Moderator</option>
+        <option value="auditor">Auditor (read-only)</option>
+        <option value="super_admin">Super Admin</option>
+      </select>
+      <button class="primary" id="add-btn">Add staff</button>
+    </div>
+    <div id="status-msg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Current staff</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="staff-rows">
+        <tr><td colspan="4" class="muted">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const ROLE_LABELS = {
+  super_admin: "Super Admin",
+  operations_admin: "Operations Admin",
+  data_moderator: "Data Moderator",
+  auditor: "Auditor",
+};
+
+function setStatus(msg, type) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg || "";
+  el.className = type || "";
+}
+
+async function loadStaff() {
+  const tbody = document.getElementById("staff-rows");
+  tbody.innerHTML = '<tr><td colspan="4" class="muted">Loading...</td></tr>';
+  try {
+    const res = await fetch("/api/admin/staff");
+    const data = await res.json();
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">Error: ${data.error || "failed to load"}</td></tr>`;
+      return;
+    }
+    if (!data.staff || data.staff.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">No staff yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = "";
+    data.staff.forEach((s) => {
+      const tr = document.createElement("tr");
+      const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString() : "";
+      tr.innerHTML = `
+        <td>${s.email}</td>
+        <td><span class="role-badge role-${s.role}">${ROLE_LABELS[s.role] || s.role}</span></td>
+        <td class="muted">${addedDate}</td>
+        <td>
+          <div class="row-actions">
+            <select data-email="${s.email}" class="role-select">
+              ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === s.role ? "selected" : ""}>${ROLE_LABELS[r]}</option>`).join("")}
+            </select>
+            <button data-email="${s.email}" class="save-role-btn">Save</button>
+            <button data-email="${s.email}" class="danger remove-btn">Remove</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll(".save-role-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.dataset.email;
+        const select = document.querySelector(`.role-select[data-email="${email}"]`);
+        const role = select.value;
+        setStatus("Saving...", "");
+        try {
+          const res = await fetch("/api/admin/staff", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, role }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setStatus(data.error || "Failed to update role.", "error");
+            return;
+          }
+          setStatus(`Updated ${email} to ${ROLE_LABELS[role]}.`, "success");
+          loadStaff();
+        } catch (err) {
+          setStatus("Network error while updating role.", "error");
+        }
+      });
+    });
+
+    document.querySelectorAll(".remove-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.dataset.email;
+        if (!confirm(`Remove ${email} from staff? They will lose admin access immediately.`)) {
+          return;
+        }
+        setStatus("Removing...", "");
+        try {
+          const res = await fetch("/api/admin/staff", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setStatus(data.error || "Failed to remove staff member.", "error");
+            return;
+          }
+          setStatus(`Removed ${email}.`, "success");
+          loadStaff();
+        } catch (err) {
+          setStatus("Network error while removing staff member.", "error");
+        }
+      });
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">Network error loading staff.</td></tr>';
+  }
+}
+
+document.getElementById("add-btn").addEventListener("click", async () => {
+  const email = document.getElementById("new-email").value.trim();
+  const role = document.getElementById("new-role").value;
+  if (!email) {
+    setStatus("Enter an email address.", "error");
+    return;
+  }
+  setStatus("Adding...", "");
+  try {
+    const res = await fetch("/api/admin/staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || "Failed to add staff member.", "error");
+      return;
+    }
+    setStatus(`Added ${email} as ${ROLE_LABELS[role]}.`, "success");
+    document.getElementById("new-email").value = "";
+    loadStaff();
+  } catch (err) {
+    setStatus("Network error while adding staff member.", "error");
+  }
+});
+
+loadStaff();
+</script>
+
+</body>
+</html>
