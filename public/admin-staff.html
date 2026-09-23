@@ -64,6 +64,36 @@
   .role-operations_admin { background: #1f3040; color: #6fb0e8; }
   .role-data_moderator { background: #233a2b; color: #7fce8f; }
   .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
   select, input[type="email"] {
     background: #11151c;
     border: 1px solid var(--admin-border);
@@ -104,6 +134,7 @@
     <a href="/admin-import-wards.html">Ward boundaries</a>
     <a href="/admin-jurisdiction.html">Jurisdiction</a>
     <a href="/admin-staff.html">Staff</a>
+    <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
@@ -273,6 +304,21 @@ document.getElementById("add-btn").addEventListener("click", async () => {
   } catch (err) {
     setStatus("Network error while adding staff member.", "error");
   }
+});
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+}
+
+const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+applyTheme(savedTheme);
+
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const current = localStorage.getItem("griq-admin-theme") || "dark";
+  const next = current === "light" ? "dark" : "light";
+  localStorage.setItem("griq-admin-theme", next);
+  applyTheme(next);
 });
 
 loadStaff();
