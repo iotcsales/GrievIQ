@@ -110,6 +110,7 @@
   <h1>Jurisdiction hierarchy</h1>
   <p class="subtitle">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
 
+  <input type="text" id="search-box" placeholder="Search by MP, MLA, ward/village, or representative name..." style="width:100%; background:#11151c; border:1px solid var(--admin-border); color:var(--admin-text); border-radius:8px; padding:10px 14px; font-size:14px; margin-bottom:16px;" />
   <div class="tree" id="tree">
     <div class="node-row">Loading...</div>
   </div>
@@ -181,14 +182,32 @@ async function loadTree() {
   }
 }
 
+function matchesSearch(text, query) {
+  return text && text.toLowerCase().includes(query);
+}
+
 function renderTree() {
   const treeEl = document.getElementById("tree");
   treeEl.innerHTML = "";
 
-  DATA.mps.forEach((mp) => {
-    const mlasUnder = DATA.mlas.filter((m) => m.mp_constituency_id === mp.id);
-    const isOpen = expandedMps.has(mp.id);
+  const query = document.getElementById("search-box").value.trim().toLowerCase();
+  const searching = query.length > 0;
 
+  DATA.mps.forEach((mp) => {
+    let mlasUnder = DATA.mlas.filter((m) => m.mp_constituency_id === mp.id);
+
+    if (searching) {
+      const mpMatches = matchesSearch(mp.mp_name, query);
+      mlasUnder = mlasUnder.filter((mla) => {
+        const mlaMatches = matchesSearch(mla.mla_name, query);
+        const wardsUnder = DATA.localUnits.filter((w) => w.mla_constituency_id === mla.id);
+        const wardMatches = wardsUnder.some((w) => matchesSearch(w.name, query) || matchesSearch(w.rep_name, query));
+        return mpMatches || mlaMatches || wardMatches;
+      });
+      if (!mpMatches && mlasUnder.length === 0) return;
+    }
+
+    const isOpen = searching ? true : expandedMps.has(mp.id);
     const row = document.createElement("div");
     row.className = "node-row mp";
     row.innerHTML = `
@@ -204,8 +223,16 @@ function renderTree() {
 
     if (isOpen) {
       mlasUnder.forEach((mla) => {
-        const wardsUnder = DATA.localUnits.filter((w) => w.mla_constituency_id === mla.id);
-        const mlaOpen = expandedMlas.has(mla.id);
+        let wardsUnder = DATA.localUnits.filter((w) => w.mla_constituency_id === mla.id);
+
+        if (searching) {
+          const mlaMatches = matchesSearch(mla.mla_name, query);
+          if (!mlaMatches) {
+            wardsUnder = wardsUnder.filter((w) => matchesSearch(w.name, query) || matchesSearch(w.rep_name, query));
+          }
+        }
+
+        const mlaOpen = searching ? true : expandedMlas.has(mla.id);
 
         const mlaRow = document.createElement("div");
         mlaRow.className = "node-row mla";
@@ -321,7 +348,8 @@ document.getElementById("edit-save").addEventListener("click", async () => {
     }
     document.getElementById("edit-modal").classList.remove("open");
     setStatus("Contact updated.", "success");
-    await loadTree();
+    
+loadTree();
   } catch (err) {
     setStatus("Network error while saving.", "error");
   }
@@ -397,6 +425,8 @@ document.getElementById("reassign-save").addEventListener("click", async () => {
     setStatus("Network error while reassigning.", "error");
   }
 });
+
+document.getElementById("search-box").addEventListener("input", renderTree);
 
 loadTree();
 </script>
