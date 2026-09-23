@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GrievIQ Admin — Jurisdiction</title>
+<style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a { color: var(--admin-muted); text-decoration: none; font-size: 14px; margin-left: 20px; }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 24px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; }
+  .tree { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; overflow: hidden; }
+  .node-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--admin-border);
+    font-size: 14px;
+  }
+  .node-row:last-child { border-bottom: none; }
+  .node-row.mp { background: #202838; font-weight: 600; }
+  .node-row.mla { background: #1a2130; padding-left: 40px; }
+  .node-row.ward { padding-left: 64px; }
+  .toggle-btn {
+    background: none; border: none; color: var(--admin-muted); cursor: pointer;
+    font-size: 12px; width: 16px; flex-shrink: 0;
+  }
+  .node-name { flex: 1; min-width: 140px; }
+  .node-name .missing { color: var(--admin-warn); font-style: italic; font-size: 12px; }
+  .node-contact { color: var(--admin-muted); font-size: 13px; min-width: 220px; }
+  .node-contact .missing { color: var(--admin-warn); }
+  .node-count { color: var(--admin-muted); font-size: 12px; }
+  .row-actions { display: flex; gap: 6px; }
+  button.small-btn {
+    font-size: 12px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--admin-border); background: #232a36; color: var(--admin-text); cursor: pointer;
+  }
+  button.small-btn:hover { background: #2b3341; }
+  .hidden { display: none; }
+
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--admin-panel); border: 1px solid var(--admin-border);
+    border-radius: 10px; padding: 22px; width: 380px; max-width: 90vw;
+  }
+  .modal h3 { margin: 0 0 14px; font-size: 15px; }
+  .modal label { display: block; font-size: 13px; color: var(--admin-muted); margin: 12px 0 4px; }
+  .modal input, .modal select {
+    width: 100%; background: #11151c; border: 1px solid var(--admin-border);
+    color: var(--admin-text); border-radius: 6px; padding: 8px 10px; font-size: 14px;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: var(--admin-success); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-import.html">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" class="active">Jurisdiction</a>
+    <a href="/admin-staff.html">Staff</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Jurisdiction hierarchy</h1>
+  <p class="subtitle">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
+
+  <div class="tree" id="tree">
+    <div class="node-row">Loading...</div>
+  </div>
+  <div id="status-msg"></div>
+</main>
+
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <h3 id="edit-modal-title">Edit contact</h3>
+    <label>Name</label>
+    <input type="text" id="edit-name" />
+    <label>Phone</label>
+    <input type="text" id="edit-phone" />
+    <label>Email</label>
+    <input type="text" id="edit-email" />
+    <div class="modal-actions">
+      <button class="small-btn" id="edit-cancel">Cancel</button>
+      <button class="small-btn primary" id="edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="reassign-modal">
+  <div class="modal">
+    <h3 id="reassign-modal-title">Reassign</h3>
+    <p style="font-size:13px; color: var(--admin-muted);" id="reassign-modal-desc"></p>
+    <label id="reassign-select-label">New parent</label>
+    <select id="reassign-select"></select>
+    <div class="modal-actions">
+      <button class="small-btn" id="reassign-cancel">Cancel</button>
+      <button class="small-btn primary" id="reassign-save">Reassign</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = { mps: [], mlas: [], municipalBodies: [], localUnits: [] };
+let expandedMps = new Set();
+let expandedMlas = new Set();
+
+function setStatus(msg, type) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg || "";
+  el.className = type || "";
+}
+
+function fmtContact(name, phone, email) {
+  const parts = [];
+  parts.push(name ? name : '<span class="missing">no name</span>');
+  parts.push(phone ? phone : '<span class="missing">no phone</span>');
+  parts.push(email ? email : '<span class="missing">no email</span>');
+  return parts.join(" · ");
+}
+
+async function loadTree() {
+  const treeEl = document.getElementById("tree");
+  treeEl.innerHTML = '<div class="node-row">Loading...</div>';
+  try {
+    const res = await fetch("/api/admin/jurisdiction");
+    const data = await res.json();
+    if (!res.ok) {
+      treeEl.innerHTML = `<div class="node-row">Error: ${data.error || "failed to load"}</div>`;
+      return;
+    }
+    DATA = data;
+    renderTree();
+  } catch (err) {
+    treeEl.innerHTML = '<div class="node-row">Network error loading jurisdiction data.</div>';
+  }
+}
+
+function renderTree() {
+  const treeEl = document.getElementById("tree");
+  treeEl.innerHTML = "";
+
+  DATA.mps.forEach((mp) => {
+    const mlasUnder = DATA.mlas.filter((m) => m.mp_constituency_id === mp.id);
+    const isOpen = expandedMps.has(mp.id);
+
+    const row = document.createElement("div");
+    row.className = "node-row mp";
+    row.innerHTML = `
+      <button class="toggle-btn" data-toggle-mp="${mp.id}">${isOpen ? "▾" : "▸"}</button>
+      <div class="node-name">${mp.mp_name || '<span class="missing">unnamed MP</span>'}</div>
+      <div class="node-contact">${fmtContact(mp.mp_name, mp.mp_phone, mp.mp_email)}</div>
+      <div class="node-count">${mlasUnder.length} MLA${mlasUnder.length === 1 ? "" : "s"}</div>
+      <div class="row-actions">
+        <button class="small-btn" data-edit="mp" data-id="${mp.id}">Edit</button>
+      </div>
+    `;
+    treeEl.appendChild(row);
+
+    if (isOpen) {
+      mlasUnder.forEach((mla) => {
+        const wardsUnder = DATA.localUnits.filter((w) => w.mla_constituency_id === mla.id);
+        const mlaOpen = expandedMlas.has(mla.id);
+
+        const mlaRow = document.createElement("div");
+        mlaRow.className = "node-row mla";
+        mlaRow.innerHTML = `
+          <button class="toggle-btn" data-toggle-mla="${mla.id}">${mlaOpen ? "▾" : "▸"}</button>
+          <div class="node-name">${mla.mla_name || '<span class="missing">unnamed MLA</span>'}</div>
+          <div class="node-contact">${fmtContact(mla.mla_name, mla.mla_phone, mla.mla_email)}</div>
+          <div class="node-count">${wardsUnder.length} ward${wardsUnder.length === 1 ? "" : "s"}</div>
+          <div class="row-actions">
+            <button class="small-btn" data-edit="mla" data-id="${mla.id}">Edit</button>
+            <button class="small-btn" data-reassign="mla" data-id="${mla.id}">Reassign</button>
+          </div>
+        `;
+        treeEl.appendChild(mlaRow);
+
+        if (mlaOpen) {
+          wardsUnder.forEach((ward) => {
+            const mb = ward.municipal_body_id ? DATA.municipalBodies.find((m) => m.id === ward.municipal_body_id) : null;
+            const wardRow = document.createElement("div");
+            wardRow.className = "node-row ward";
+            let mayorHtml = "";
+            if (mb && mb.has_mayor) {
+              mayorHtml = ` &nbsp;|&nbsp; Mayor: ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}
+                <button class="small-btn" data-edit="mayor" data-id="${mb.id}">Edit mayor</button>`;
+            }
+            wardRow.innerHTML = `
+              <div style="width:16px;"></div>
+              <div class="node-name">${ward.name} <span class="node-count">(${ward.unit_type})</span></div>
+              <div class="node-contact">${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${mayorHtml}</div>
+              <div class="row-actions">
+                <button class="small-btn" data-edit="ward" data-id="${ward.id}">Edit</button>
+                <button class="small-btn" data-reassign="ward" data-id="${ward.id}">Reassign</button>
+              </div>
+            `;
+            treeEl.appendChild(wardRow);
+          });
+        }
+      });
+    }
+  });
+
+  treeEl.querySelectorAll("[data-toggle-mp]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.toggleMp;
+      if (expandedMps.has(id)) expandedMps.delete(id); else expandedMps.add(id);
+      renderTree();
+    });
+  });
+  treeEl.querySelectorAll("[data-toggle-mla]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.toggleMla;
+      if (expandedMlas.has(id)) expandedMlas.delete(id); else expandedMlas.add(id);
+      renderTree();
+    });
+  });
+  treeEl.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => openEditModal(btn.dataset.edit, btn.dataset.id));
+  });
+  treeEl.querySelectorAll("[data-reassign]").forEach((btn) => {
+    btn.addEventListener("click", () => openReassignModal(btn.dataset.reassign, btn.dataset.id));
+  });
+}
+
+// --- Edit contact modal ---
+let editContext = null;
+
+function findRecord(type, id) {
+  if (type === "mp") return DATA.mps.find((m) => m.id === id);
+  if (type === "mla") return DATA.mlas.find((m) => m.id === id);
+  if (type === "ward") return DATA.localUnits.find((w) => w.id === id);
+  if (type === "mayor") return DATA.municipalBodies.find((m) => m.id === id);
+  return null;
+}
+
+function openEditModal(type, id) {
+  const record = findRecord(type, id);
+  if (!record) return;
+  editContext = { type, id };
+
+  const name = type === "mp" ? record.mp_name : type === "mla" ? record.mla_name : type === "ward" ? record.rep_name : record.mayor_name;
+  const phone = type === "mp" ? record.mp_phone : type === "mla" ? record.mla_phone : type === "ward" ? record.rep_phone : record.mayor_phone;
+  const email = type === "mp" ? record.mp_email : type === "mla" ? record.mla_email : type === "ward" ? record.rep_email : record.mayor_email;
+
+  const labels = { mp: "MP", mla: "MLA", ward: "Ward representative", mayor: "Mayor" };
+  document.getElementById("edit-modal-title").textContent = `Edit ${labels[type]}`;
+  document.getElementById("edit-name").value = name || "";
+  document.getElementById("edit-phone").value = phone || "";
+  document.getElementById("edit-email").value = email || "";
+  document.getElementById("edit-modal").classList.add("open");
+}
+
+document.getElementById("edit-cancel").addEventListener("click", () => {
+  document.getElementById("edit-modal").classList.remove("open");
+});
+
+document.getElementById("edit-save").addEventListener("click", async () => {
+  if (!editContext) return;
+  const name = document.getElementById("edit-name").value.trim();
+  const phone = document.getElementById("edit-phone").value.trim();
+  const email = document.getElementById("edit-email").value.trim();
+
+  setStatus("Saving...", "");
+  try {
+    const res = await fetch("/api/admin/jurisdiction", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_contact", type: editContext.type, id: editContext.id, name, phone, email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || "Failed to save.", "error");
+      return;
+    }
+    document.getElementById("edit-modal").classList.remove("open");
+    setStatus("Contact updated.", "success");
+    await loadTree();
+  } catch (err) {
+    setStatus("Network error while saving.", "error");
+  }
+});
+
+// --- Reassign modal ---
+let reassignContext = null;
+
+function openReassignModal(type, id) {
+  reassignContext = { type, id };
+  const select = document.getElementById("reassign-select");
+  select.innerHTML = "";
+
+  if (type === "mla") {
+    const mla = DATA.mlas.find((m) => m.id === id);
+    document.getElementById("reassign-modal-title").textContent = "Reassign MLA constituency";
+    document.getElementById("reassign-modal-desc").textContent =
+      `Move "${mla.mla_name || id}" under a different MP constituency. This changes which MP's mandate covers this MLA's wards.`;
+    document.getElementById("reassign-select-label").textContent = "New MP constituency";
+    DATA.mps.forEach((mp) => {
+      const opt = document.createElement("option");
+      opt.value = mp.id;
+      opt.textContent = mp.mp_name || mp.id;
+      if (mp.id === mla.mp_constituency_id) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } else if (type === "ward") {
+    const ward = DATA.localUnits.find((w) => w.id === id);
+    document.getElementById("reassign-modal-title").textContent = "Reassign ward";
+    document.getElementById("reassign-modal-desc").textContent =
+      `Move "${ward.name}" under a different MLA constituency. This changes which MLA's mandate covers this ward.`;
+    document.getElementById("reassign-select-label").textContent = "New MLA constituency";
+    DATA.mlas.forEach((mla) => {
+      const opt = document.createElement("option");
+      opt.value = mla.id;
+      opt.textContent = mla.mla_name || mla.id;
+      if (mla.id === ward.mla_constituency_id) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  document.getElementById("reassign-modal").classList.add("open");
+}
+
+document.getElementById("reassign-cancel").addEventListener("click", () => {
+  document.getElementById("reassign-modal").classList.remove("open");
+});
+
+document.getElementById("reassign-save").addEventListener("click", async () => {
+  if (!reassignContext) return;
+  const newParentId = document.getElementById("reassign-select").value;
+
+  if (!confirm("This will immediately change which representative's mandate covers this. Continue?")) {
+    return;
+  }
+
+  setStatus("Reassigning...", "");
+  try {
+    const res = await fetch("/api/admin/jurisdiction", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reassign", type: reassignContext.type, id: reassignContext.id, newParentId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || "Failed to reassign.", "error");
+      return;
+    }
+    document.getElementById("reassign-modal").classList.remove("open");
+    setStatus("Reassigned successfully.", "success");
+    await loadTree();
+  } catch (err) {
+    setStatus("Network error while reassigning.", "error");
+  }
+});
+
+loadTree();
+</script>
+
+</body>
+</html>
