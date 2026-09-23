@@ -289,7 +289,7 @@ function openEditModal(type, id) {
   const phone = type === "mp" ? record.mp_phone : type === "mla" ? record.mla_phone : type === "ward" ? record.rep_phone : record.mayor_phone;
   const email = type === "mp" ? record.mp_email : type === "mla" ? record.mla_email : type === "ward" ? record.rep_email : record.mayor_email;
 
-  const labels = { mp: "MP", mla: "MLA", ward: "Ward representative", mayor: "Mayor" };
+  const labels = { mp: "MP", mla: "MLA", ward: record.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan", mayor: "Mayor" };
   document.getElementById("edit-modal-title").textContent = `Edit ${labels[type]}`;
   document.getElementById("edit-name").value = name || "";
   document.getElementById("edit-phone").value = phone || "";
