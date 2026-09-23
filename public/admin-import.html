@@ -102,6 +102,44 @@
   .stat-row { display: flex; justify-content: space-between; padding: 4px 0; }
   .stat-row b { color: var(--admin-text); }
   .error-list { color: var(--admin-danger); }
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .panel code { background: #f0f2f5; }
+  html.light-theme .drop-zone { background: #f8f9fb; }
+  html.light-theme button.import-btn { background: var(--admin-accent); border: none; color: #fff; }
+  html.light-theme button.import-btn:hover { background: #2f5bd0; }
+  html.light-theme button.import-btn:disabled { background: #dde1e6; color: var(--admin-muted); }
+  html.light-theme .summary-box.ok { border-color: #b7dcc2; }
+  html.light-theme .summary-box.err { border-color: #e8c3bf; }
 </style>
 </head>
 <body>
@@ -112,7 +150,7 @@
     <a href="/admin-import.html" class="active">Import</a>
     <a href="/admin-import-wards.html">Ward boundaries</a>
     <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-staff.html">Staff</a>
+    <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
@@ -208,6 +246,20 @@
       importBtn.disabled = false;
       importBtn.textContent = 'Run import';
     }
+  });
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+
+  const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+  applyTheme(savedTheme);
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = localStorage.getItem("griq-admin-theme") || "dark";
+    const next = current === "light" ? "dark" : "light";
+    localStorage.setItem("griq-admin-theme", next);
+    applyTheme(next);
   });
 </script>
 
