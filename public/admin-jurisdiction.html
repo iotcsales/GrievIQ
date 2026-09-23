@@ -110,7 +110,13 @@
   <h1>Jurisdiction hierarchy</h1>
   <p class="subtitle">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
 
-  <input type="text" id="search-box" placeholder="Search by MP, MLA, ward/village, or representative name..." style="width:100%; background:#11151c; border:1px solid var(--admin-border); color:var(--admin-text); border-radius:8px; padding:10px 14px; font-size:14px; margin-bottom:16px;" />
+  <div style="position:relative; margin-bottom:16px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none;">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input type="text" id="search-box" placeholder="Search by MP, MLA, ward/village, or representative name..." style="width:100%; background:#11151c; border:1px solid var(--admin-border); color:var(--admin-text); border-radius:8px; padding:10px 14px 10px 38px; font-size:14px;" />
+  </div>
   <div class="tree" id="tree">
     <div class="node-row">Loading...</div>
   </div>
