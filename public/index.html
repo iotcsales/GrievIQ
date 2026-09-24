@@ -536,7 +536,7 @@ function renderDisputeNote(c) {
   return '<div class="dispute-note"><b>' + label + '</b>' + when + note + '</div>';
 }
 
-function renderResolveControl(c) {
+function renderNudgeNote(c) { if (!c.adminNudges || !c.adminNudges.length) return ''; var n = c.adminNudges[c.adminNudges.length - 1]; var esc = function(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }; var count = c.adminNudges.length > 1 ? ' &middot; ' + c.adminNudges.length + ' reminders so far' : ''; return '<div class="dispute-note"><b>Reminder from GrievIQ admin</b> <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(n.createdAt) + count + ')</span>' + (n.note ? ' &mdash; "' + esc(n.note) + '"' : '') + '</div>'; } function renderResolveControl(c) {
   var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
   var isPending = c.status === 'PENDING_CONFIRMATION';
   if (isFinal || isPending) return '';
@@ -596,7 +596,7 @@ function renderCase(c) {
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
       badge +
-        renderDisputeNote(c) +
+        renderDisputeNote(c) + renderNudgeNote(c) +
         renderFollowupControl(c) +
         renderAcknowledgeControl(c) +
         renderResolveControl(c) +

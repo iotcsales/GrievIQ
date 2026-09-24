@@ -52,7 +52,7 @@ export async function onRequestPost({ request, env }) {
        WHERE grievance_id = ? AND event_type = 'FOLLOW_UP'
        ORDER BY created_at ASC, rowid ASC`
     ).bind(grievance.id).all();
-    const latestFollowup = followupRows.length ? followupRows[followupRows.length - 1] : null;
+    const latestFollowup = followupRows.length ? followupRows[followupRows.length - 1] : null; const { results: nudgeRows } = await env.DB.prepare("SELECT created_at FROM grievance_events WHERE grievance_id = ? AND event_type = 'ADMIN_NUDGE' ORDER BY created_at ASC, rowid ASC").bind(grievance.id).all();
 
     const result = computeEscalation(grievance, category, chain.tiers);
     const isUnresolved = grievance.status !== 'RESOLVED' && grievance.status !== 'CLOSED';
@@ -82,7 +82,7 @@ export async function onRequestPost({ request, env }) {
         needsLegalReview: result.needsLegalReview,
         currentTierIndex: result.currentTierIndex,
         tiers,
-        currentDepartment: latestFollowup ? latestFollowup.reason : null,
+        reminderCount: nudgeRows.length, lastReminderAt: nudgeRows.length ? nudgeRows[nudgeRows.length - 1].created_at : null, currentDepartment: latestFollowup ? latestFollowup.reason : null,
         followupHistory: followupRows.map((e) => ({
           department: e.reason,
           note: e.note,

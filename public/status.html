@@ -639,7 +639,7 @@
       banners.innerHTML += `<div class="warn-banner"><strong>Not yet acknowledged.</strong> This should have happened by now — it may be worth following up directly.</div>`;
     }
 
-      const followupBox = document.getElementById('status-followup');
+      if (c.lastReminderAt && !resolved) { banners.innerHTML += '<div class="review-banner"><strong>Reminder sent.</strong> The GrievIQ team reminded your representative about this case on ' + new Date(c.lastReminderAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + '.</div>'; } const followupBox = document.getElementById('status-followup');
       if (c.currentDepartment) {
         let historyHtml = '';
         (c.followupHistory || []).slice().reverse().forEach((f) => {

@@ -103,7 +103,7 @@ export async function onRequestGet(context) {
     const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTier);
     const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
     const grievanceEvents = eventsByGrievance.get(grievance.id) || [];
-    const latestEvent = grievanceEvents.length ? grievanceEvents[grievanceEvents.length - 1] : null;
+    const substantiveEvents = grievanceEvents.filter((e) => e.event_type !== 'ADMIN_NUDGE'); const latestEvent = substantiveEvents.length ? substantiveEvents[substantiveEvents.length - 1] : null; const nudgeEvents = grievanceEvents.filter((e) => e.event_type === 'ADMIN_NUDGE');
     const followupEvents = grievanceEvents.filter((e) => e.event_type === 'FOLLOW_UP');
     const latestFollowup = followupEvents.length ? followupEvents[followupEvents.length - 1] : null;
 
@@ -157,7 +157,7 @@ export async function onRequestGet(context) {
       resolvedAt: grievance.resolved_at || null,
       acknowledgedAt: grievance.acknowledged_at || null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
-      followupHistory: followupEvents.map((e) => ({
+      adminNudges: nudgeEvents.map((e) => ({ note: e.note, createdAt: e.created_at })), followupHistory: followupEvents.map((e) => ({
         department: e.reason,
         note: e.note,
         actor: e.actor,
