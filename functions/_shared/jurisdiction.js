@@ -106,3 +106,40 @@ export async function getLocalUnitIdsForMandate(env, mandate) {
 
   return [];
 }
+
+// Returns a SQL fragment that limits a query on grievances (aliased "g")
+// to one mandate's jurisdiction -- the same wards getLocalUnitIdsForMandate
+// returns, but expressed as a JOIN on the jurisdiction tables instead of a
+// long "IN (?,?,...)" list. D1 caps bound parameters per query at about
+// 100, so an MP (or a large MLA) mandate covering 100+ wards would break an
+// IN list; this always uses exactly one parameter.
+//
+// Usage: `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where}` .bind(...s.binds)
+export function mandateScope(mandate) {
+  if (mandate.tier === "LOCAL") {
+    return { join: "", where: "g.local_unit_id = ?", binds: [mandate.id] };
+  }
+  if (mandate.tier === "MAYOR") {
+    return {
+      join: "JOIN local_units lu_scope ON lu_scope.id = g.local_unit_id",
+      where: "lu_scope.municipal_body_id = ?",
+      binds: [mandate.id],
+    };
+  }
+  if (mandate.tier === "MLA") {
+    return {
+      join: "JOIN local_units lu_scope ON lu_scope.id = g.local_unit_id",
+      where: "lu_scope.mla_constituency_id = ?",
+      binds: [mandate.id],
+    };
+  }
+  if (mandate.tier === "MP") {
+    return {
+      join: "JOIN local_units lu_scope ON lu_scope.id = g.local_unit_id " +
+            "JOIN mla_constituencies mla_scope ON mla_scope.id = lu_scope.mla_constituency_id",
+      where: "mla_scope.mp_constituency_id = ?",
+      binds: [mandate.id],
+    };
+  }
+  return { join: "", where: "0", binds: [] };
+}

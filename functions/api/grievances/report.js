@@ -11,7 +11,7 @@
 // showing.
 
 import { getVerifiedRep } from "../../_shared/get-verified-rep.js";
-import { getLocalUnitIdsForMandate, resolveChain } from "../../_shared/jurisdiction.js";
+import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 
 // Timestamps in this table come in two shapes: full ISO strings with a
@@ -88,34 +88,53 @@ export async function onRequestGet(context) {
     });
   }
 
-  const placeholders = unitIds.map(() => "?").join(",");
-  const params = [...unitIds];
+  // Fetch one mandate at a time, scoped by a JOIN on the jurisdiction
+  // tables (see mandateScope) rather than "IN (?,?,...)" lists of ward or
+  // case ids -- D1 caps bound parameters at about 100 per query, which an
+  // MP or large MLA mandate would exceed.
+  const mandatesToQuery = wantsAll ? auth.mandates : [mandate];
   let dateClause = "";
-  if (from) { dateClause += " AND created_at >= ?"; params.push(from); }
-  if (to) { dateClause += " AND created_at <= ?"; params.push(to + " 23:59:59"); }
+  const dateBinds = [];
+  if (from) { dateClause += " AND g.created_at >= ?"; dateBinds.push(from); }
+  if (to) { dateClause += " AND g.created_at <= ?"; dateBinds.push(to + " 23:59:59"); }
 
-  const { results: grievanceRows } = await env.DB.prepare(
-    `SELECT * FROM grievances WHERE local_unit_id IN (${placeholders}) ${dateClause} ORDER BY created_at ASC`
-  ).bind(...params).all();
-
-  const grievanceIds = grievanceRows.map((g) => g.id);
+  const grievanceById = new Map();
   const disputedIds = new Set();
-  if (grievanceIds.length > 0) {
-    const ph2 = grievanceIds.map(() => "?").join(",");
-    const { results: disputeEvents } = await env.DB.prepare(
-      `SELECT DISTINCT grievance_id FROM grievance_events WHERE event_type = 'CITIZEN_DISPUTED' AND grievance_id IN (${ph2})`
-    ).bind(...grievanceIds).all();
-          disputeEvents.forEach((r) => disputedIds.add(r.grievance_id));
+  const followupEventIds = new Set();
+  const followupCounts = new Map();
+
+  for (const m of mandatesToQuery) {
+    const s = mandateScope(m);
+
+    const { results: gRows } = await env.DB.prepare(
+      `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ${dateClause} ORDER BY g.created_at ASC`
+    ).bind(...s.binds, ...dateBinds).all();
+    for (const g of gRows) {
+      if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
 
-    const followupCounts = new Map();
-    if (grievanceIds.length > 0) {
-      const ph3 = grievanceIds.map(() => "?").join(",");
-      const { results: followupEvents } = await env.DB.prepare(
-        `SELECT grievance_id FROM grievance_events WHERE event_type = 'FOLLOW_UP' AND grievance_id IN (${ph3})`
-      ).bind(...grievanceIds).all();
-      followupEvents.forEach((r) => followupCounts.set(r.grievance_id, (followupCounts.get(r.grievance_id) || 0) + 1));
+    const { results: disputeEvents } = await env.DB.prepare(
+      `SELECT DISTINCT e.grievance_id FROM grievance_events e
+       JOIN grievances g ON g.id = e.grievance_id ${s.join}
+       WHERE e.event_type = 'CITIZEN_DISPUTED' AND ${s.where}`
+    ).bind(...s.binds).all();
+    disputeEvents.forEach((row) => disputedIds.add(row.grievance_id));
+
+    const { results: followupEvents } = await env.DB.prepare(
+      `SELECT e.id, e.grievance_id FROM grievance_events e
+       JOIN grievances g ON g.id = e.grievance_id ${s.join}
+       WHERE e.event_type = 'FOLLOW_UP' AND ${s.where}`
+    ).bind(...s.binds).all();
+    for (const row of followupEvents) {
+      if (followupEventIds.has(row.id)) continue; // counted once even if two mandates cover it
+      followupEventIds.add(row.id);
+      followupCounts.set(row.grievance_id, (followupCounts.get(row.grievance_id) || 0) + 1);
     }
+  }
+
+  const grievanceRows = Array.from(grievanceById.values()).sort((a, b) =>
+    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0
+  );
 
   const categoryCache = new Map();
   const chainCache = new Map();

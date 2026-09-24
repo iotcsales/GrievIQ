@@ -14,7 +14,7 @@
 // of them.
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
-import { getLocalUnitIdsForMandate, resolveChain } from "../_shared/jurisdiction.js";
+import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 
 export async function onRequestGet(context) {
@@ -43,29 +43,49 @@ export async function onRequestGet(context) {
     return Response.json({ email: auth.email, mandates: auth.mandates, grievances: [] });
   }
 
-  const placeholders = allUnitIds.map(() => "?").join(",");
-  const { results: grievanceRows } = await env.DB.prepare(
-    `SELECT * FROM grievances WHERE local_unit_id IN (${placeholders}) ORDER BY created_at ASC`
-  ).bind(...allUnitIds).all();
-
-  // Pull every event for these grievances in one query, then keep
-  // overwriting a per-grievance map as we go through them in ascending
-  // order — so each grievance ends up mapped to its single most recent
-  // event. This is what decides whether a dispute banner is still
-  // current, rather than trusting columns that never get cleared.
-  const grievanceIds = grievanceRows.map((g) => g.id);
-  const eventsByGrievance = new Map();
-  if (grievanceIds.length > 0) {
-    const eventPlaceholders = grievanceIds.map(() => "?").join(",");
-    const { results: eventRows } = await env.DB.prepare(
-      `SELECT * FROM grievance_events WHERE grievance_id IN (${eventPlaceholders}) ORDER BY created_at ASC, rowid ASC`
-    ).bind(...grievanceIds).all();
-    for (const event of eventRows) {
-      if (!eventsByGrievance.has(event.grievance_id)) {
-        eventsByGrievance.set(event.grievance_id, []);
-      }
-      eventsByGrievance.get(event.grievance_id).push(event);
+  // Fetch cases and their events one mandate at a time, scoped by a JOIN
+  // on the jurisdiction tables (see mandateScope) rather than an
+  // "IN (?,?,...)" list of ward ids -- D1 caps bound parameters at about
+  // 100 per query, which an MP or large MLA mandate would exceed.
+  const grievanceById = new Map();
+  const eventById = new Map();
+  for (const mandate of auth.mandates) {
+    const s = mandateScope(mandate);
+    const { results: gRows } = await env.DB.prepare(
+      `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ORDER BY g.created_at ASC`
+    ).bind(...s.binds).all();
+    for (const g of gRows) {
+      if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
+    const { results: eRows } = await env.DB.prepare(
+      `SELECT e.*, e.rowid AS event_rowid FROM grievance_events e
+       JOIN grievances g ON g.id = e.grievance_id ${s.join}
+       WHERE ${s.where}`
+    ).bind(...s.binds).all();
+    for (const e of eRows) {
+      if (!eventById.has(e.id)) eventById.set(e.id, e);
+    }
+  }
+
+  const grievanceRows = Array.from(grievanceById.values()).sort((a, b) =>
+    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0
+  );
+
+  // Group every event under its grievance, oldest first -- so each
+  // grievance's list ends with its single most recent event. This is what
+  // decides whether a dispute banner is still current, rather than
+  // trusting columns that never get cleared.
+  const eventsByGrievance = new Map();
+  const sortedEvents = Array.from(eventById.values()).sort((a, b) => {
+    if (a.created_at < b.created_at) return -1;
+    if (a.created_at > b.created_at) return 1;
+    return a.event_rowid - b.event_rowid;
+  });
+  for (const event of sortedEvents) {
+    if (!eventsByGrievance.has(event.grievance_id)) {
+      eventsByGrievance.set(event.grievance_id, []);
+    }
+    eventsByGrievance.get(event.grievance_id).push(event);
   }
 
   const chainCache = new Map();
