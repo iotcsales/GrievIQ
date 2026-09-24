@@ -720,6 +720,7 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
   applyTheme(next);
 });
 
+   document.getElementById("search-box").value = new URLSearchParams(location.search).get("q") || "";
 loadTree();
 </script>
 

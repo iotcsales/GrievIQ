@@ -13,7 +13,7 @@
 
 import { verifyAccessJwt } from "./verify-access-jwt.js";
 
-const PERMISSIONS = {
+export const PERMISSIONS = {
   manage_admins: ["super_admin"],
   run_import: ["super_admin", "operations_admin"],
   review_queue: ["super_admin", "operations_admin", "data_moderator"],

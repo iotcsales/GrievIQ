@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+    --admin-input: #11151c;
+    --admin-track: #2a313d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  header .service-tag { font-size: 12px; color: var(--admin-muted); font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .who-line { font-size: 12px; color: var(--admin-muted); text-align: right; line-height: 1.4; }
+  .who-line b { color: var(--admin-text); font-weight: 600; }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 1150px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  p.section-sub { color: var(--admin-muted); margin: 0 0 18px; font-size: 13px; line-height: 1.5; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--admin-accent); outline-offset: 2px;
+  }
+  select, input[type="text"], input[type="search"], textarea {
+    background: var(--admin-input);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select { min-width: 170px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+
+  /* Summary banner */
+  .banner { border-left: 4px solid var(--admin-warn); }
+  .banner.all-good { border-left-color: var(--admin-success); }
+  .banner .headline { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .banner .note { font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+  .banner .note-empty { color: var(--admin-muted); font-style: italic; }
+  .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Headline cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
+    padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
+  }
+  a.card:hover { border-color: var(--admin-accent); }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
+  .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
+  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+
+  /* Coverage bars */
+  .bar-group { margin-bottom: 22px; }
+  .bar-group:last-child { margin-bottom: 0; }
+  .bar-group h3 { font-size: 13px; font-weight: 600; color: var(--admin-muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-group .group-note { font-size: 13px; color: var(--admin-muted); }
+  .bar-row { margin-bottom: 12px; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .bar-top .name { font-weight: 600; }
+  .bar-top .frac { color: var(--admin-muted); white-space: nowrap; }
+  .bar-top .frac b { color: var(--admin-text); }
+  .bar-track { height: 10px; background: var(--admin-track); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--admin-accent); border-radius: 6px; }
+  .bar-fill.low { background: var(--admin-warn); }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor;
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .tag.complete { color: var(--admin-success); }
+  .tag.partial { color: var(--admin-accent); }
+  .tag.low { color: var(--admin-warn); }
+
+  /* Ward table */
+  .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: block; font-size: 13px; color: var(--admin-muted); margin-bottom: 6px; }
+  .filters .check label { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: var(--admin-text); font-size: 14px; cursor: pointer; }
+  .filters input[type="search"] { min-width: 220px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--admin-muted); font-weight: 600; padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border); white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--admin-border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ward-name { font-weight: 600; }
+  .ward-sub { font-size: 12px; color: var(--admin-muted); margin-top: 3px; line-height: 1.4; }
+  .ok-mark { color: var(--admin-success); font-weight: 700; }
+  .missing { color: var(--admin-warn); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .na { color: var(--admin-muted); }
+  .attn { color: var(--admin-danger); font-weight: 700; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .empty, .error-msg { padding: 28px; text-align: center; font-size: 14px; color: var(--admin-muted); }
+  .error-msg { color: var(--admin-danger); }
+
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.5; }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+    --admin-input: #ffffff;
+    --admin-track: #e6e9ee;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme .bar-fill.low { background: #c98a00; }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="header-right">
+    <nav>
+      <a href="/admin-dashboard.html" class="active">Dashboard</a>
+      <a href="/admin-import.html">Import</a>
+      <a href="/admin-import-wards.html">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html">Jurisdiction</a>
+      <a href="/admin-exceptions.html">Exceptions</a>
+      <a href="/admin-reviews.html">Reviews</a>
+      <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    </nav>
+    <div class="who-line" id="who-line"></div>
+  </div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="subtitle">How complete our ward and representative data is, and what needs attention now. Figures are worked out live from the database each time this page loads.</p>
+    </div>
+    <button type="button" id="rti-btn" disabled>Download RTI tracker (CSV)</button>
+  </div>
+
+  <div id="notice-area"></div>
+
+  <div class="result-bar">
+    <span id="updated-at">Loading…</span>
+    <button id="refresh-btn" type="button">Refresh</button>
+  </div>
+
+  <div id="content"></div>
+</main>
+
+<dialog id="note-dialog">
+  <h2>Edit data-collection note</h2>
+  <p class="ctx">Shown under the summary on this dashboard, for example the status of an RTI request. Every change is logged.</p>
+  <label for="note-text" class="sr-only">Data-collection note</label>
+  <textarea id="note-text" maxlength="1000"></textarea>
+  <div class="hint">Up to 1,000 characters. Leave it blank to remove the note.</div>
+  <div class="dialog-error" id="note-error" role="alert"></div>
+  <div class="dlg-actions">
+    <button type="button" id="note-cancel">Cancel</button>
+    <button type="button" class="primary" id="note-save">Save note</button>
+  </div>
+</dialog>
+
+<script>
+  let data = null;
+  const filters = { q: "", gap: "", type: "", onlyGaps: false };
+
+  const ROLE_LABELS = {
+    super_admin: "Super admin",
+    operations_admin: "Operations admin",
+    data_moderator: "Data moderator",
+    auditor: "Auditor",
+  };
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function toDate(s) {
+    if (!s) return null;
+    return s.indexOf("T") !== -1 ? new Date(s) : new Date(s.replace(" ", "T") + "Z");
+  }
+
+  function dateTime(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) +
+      ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function dateOnly(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function plural(n, one, many) { return n === 1 ? one : (many || one + "s"); }
+
+  // ---- Gap helpers ----------------------------------------------------
+  const FIELD_WORDS = { name: "name", phone: "phone", email: "email" };
+
+  function missingFields(level) {
+    if (!level) return [];
+    return ["name", "phone", "email"].filter((f) => !level[f]);
+  }
+
+  function wardGaps(w) {
+    const gaps = [];
+    missingFields(w.rep).forEach((f) => gaps.push("Ward rep " + FIELD_WORDS[f]));
+    missingFields(w.mayor).forEach((f) => gaps.push("Mayor " + FIELD_WORDS[f]));
+    missingFields(w.mla).forEach((f) => gaps.push("MLA " + FIELD_WORDS[f]));
+    missingFields(w.mp).forEach((f) => gaps.push("MP " + FIELD_WORDS[f]));
+    if (!w.hasBoundary) gaps.push("Boundary shape");
+    return gaps;
+  }
+
+  function hasGapAt(w, key) {
+    if (key === "rep") return missingFields(w.rep).length > 0;
+    if (key === "mayor") return missingFields(w.mayor).length > 0;
+    if (key === "mla") return missingFields(w.mla).length > 0;
+    if (key === "mp") return missingFields(w.mp).length > 0;
+    if (key === "boundary") return !w.hasBoundary;
+    if (key === "reach") return !w.fullyReachable;
+    return false;
+  }
+
+  // ---- Rendering ------------------------------------------------------
+  function statusTag(n, total) {
+    if (total > 0 && n === total) return '<span class="tag complete">Complete</span>';
+    if (total > 0 && n / total >= 0.5) return '<span class="tag partial">Partial</span>';
+    return '<span class="tag low">Low</span>';
+  }
+
+  function barRow(label, n, total) {
+    const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+    const low = !(total > 0 && n / total >= 0.5);
+    return '<div class="bar-row">' +
+      '<div class="bar-top"><span class="name">' + escapeHtml(label) + statusTag(n, total) + '</span>' +
+      '<span class="frac"><b>' + n + '</b> / ' + total + ' (' + pct + '%)</span></div>' +
+      '<div class="bar-track" aria-hidden="true"><div class="bar-fill' + (low ? ' low' : '') + '" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+  }
+
+  function countWhere(list, fn) { return list.reduce((n, x) => n + (fn(x) ? 1 : 0), 0); }
+
+  function renderBanner(wards) {
+    const total = wards.length;
+    const noEmail = countWhere(wards, (w) => !w.rep.email);
+    const headline = noEmail === 0
+      ? "All " + total + " wards and villages have a ward representative email on file."
+      : noEmail + " of " + total + " wards and villages have no ward representative email on file, so citizens can't file complaints there yet.";
+
+    const note = data.note || {};
+    const noteHtml = note.value
+      ? '<div class="note">' + escapeHtml(note.value) + '</div>'
+      : (data.canEditNote ? '<div class="note note-empty">No data-collection note.</div>' : '');
+
+    let meta = "";
+    if (note.value && note.updatedAt) {
+      const by = note.updatedBy && note.updatedBy !== "system" ? " by " + escapeHtml(note.updatedBy) : "";
+      meta = "Note updated" + by + " on " + escapeHtml(dateOnly(note.updatedAt));
+    }
+    const editBtn = data.canEditNote ? '<button type="button" class="small" id="edit-note-btn">Edit note</button>' : "";
+
+    return '<div class="panel banner' + (noEmail === 0 ? ' all-good' : '') + '">' +
+      '<div class="headline">' + escapeHtml(headline) + '</div>' +
+      noteHtml +
+      ((meta || editBtn) ? '<div class="note-meta"><span>' + meta + '</span>' + editBtn + '</div>' : '') +
+    '</div>';
+  }
+
+  function card(num, total, label, hint, href, allowed) {
+    const numHtml = '<div class="num">' + num + (total != null ? ' <small>of ' + total + '</small>' : '') + '</div>';
+    const inner = numHtml + '<div class="label">' + escapeHtml(label) + '</div>' +
+      '<div class="hint">' + escapeHtml(hint) + '</div>';
+    if (allowed) return '<a class="card" href="' + href + '">' + inner + '<div class="go">Open →</div></a>';
+    return '<div class="card">' + inner + '</div>';
+  }
+
+  function renderCards(wards) {
+    const total = wards.length;
+    const fileable = countWhere(wards, (w) => w.rep.email);
+    const boundaries = countWhere(wards, (w) => w.hasBoundary);
+    const L = data.links || {};
+    return '<div class="cards">' +
+      card(fileable, total, "Wards open for filing", "Have a ward representative email, so citizens can file there.", "/admin-jurisdiction.html", L.jurisdiction) +
+      card(data.needsAttentionTotal, null, "Cases needing attention", "Not acknowledged in time, escalated, disputed or in legal review.", "/admin-exceptions.html", L.exceptions) +
+      card(data.pendingReviews, null, "Pending reviews", "Representative details suggested by citizens, waiting for a decision.", "/admin-reviews.html", L.reviews) +
+      card(boundaries, total, "Boundaries mapped", "Wards with a boundary shape, so addresses can be matched to them.", "/admin-import-wards.html", L.wardBoundaries) +
+    '</div>';
+  }
+
+  function levelBars(title, wards, key, note) {
+    const total = wards.length;
+    return '<div class="bar-group"><h3>' + escapeHtml(title) + '</h3>' +
+      (note ? '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(note) + '</p>' : '') +
+      barRow("Name on file", countWhere(wards, (w) => w[key].name), total) +
+      barRow("Phone on file", countWhere(wards, (w) => w[key].phone), total) +
+      barRow("Email on file", countWhere(wards, (w) => w[key].email), total) +
+    '</div>';
+  }
+
+  function renderCoverage(wards) {
+    const total = wards.length;
+    const mayorWards = wards.filter((w) => w.mayor);
+    const mayorHtml = mayorWards.length
+      ? '<div class="bar-group"><h3>Mayor</h3>' +
+          '<p class="section-sub" style="margin-bottom:10px">Only wards whose municipal body has a Mayor: ' + mayorWards.length + ' of ' + total + '.</p>' +
+          barRow("Email on file", countWhere(mayorWards, (w) => w.mayor.email), mayorWards.length) +
+        '</div>'
+      : '<div class="bar-group"><h3>Mayor</h3><p class="group-note">No ward currently has a Mayor level in its escalation chain.</p></div>';
+
+    return '<div class="panel">' +
+      '<h2>Ward coverage</h2>' +
+      '<p class="section-sub">Each bar counts wards and villages. MLA and MP details are counted once per ward, so one missing MLA number can affect many wards.</p>' +
+      levelBars("Ward representative", wards, "rep") +
+      mayorHtml +
+      levelBars("MLA", wards, "mla") +
+      levelBars("MP", wards, "mp") +
+      '<div class="bar-group"><h3>Across all levels</h3>' +
+        barRow("Ward boundary shape loaded", countWhere(wards, (w) => w.hasBoundary), total) +
+        barRow("Fully reachable (every level has an email)", countWhere(wards, (w) => w.fullyReachable), total) +
+      '</div>' +
+    '</div>';
+  }
+
+  function levelCell(level) {
+    if (!level) return '<span class="na" title="No Mayor level for this ward">—</span>';
+    const miss = missingFields(level);
+    if (miss.length === 0) return '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">All on file</span>';
+    return '<span class="missing">Missing ' + miss.join(", ") + '</span>';
+  }
+
+  function fieldCell(ok) {
+    return ok
+      ? '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">On file</span>'
+      : '<span class="missing">Missing</span>';
+  }
+
+  function wardLink(w) {
+    if (!(data.links && data.links.jurisdiction)) return escapeHtml(w.name);
+    return '<a href="/admin-jurisdiction.html?q=' + encodeURIComponent(w.name) + '" style="color:inherit">' + escapeHtml(w.name) + '</a>';
+  }
+
+  function filteredWards() {
+    const q = filters.q.trim().toLowerCase();
+    return data.wards.filter((w) => {
+      if (filters.type && w.unitType !== filters.type) return false;
+      if (filters.gap && !hasGapAt(w, filters.gap)) return false;
+      if (filters.onlyGaps && wardGaps(w).length === 0) return false;
+      if (q) {
+        const hay = [w.name, w.mlaConstituency, w.mlaName, w.mpName, w.repName, w.municipalBody].join(" ").toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderTableSection() {
+    return '<div class="panel">' +
+      '<h2>Ward by ward</h2>' +
+      '<p class="section-sub">The same figures as the bars above, for each ward and village. Click a ward name to open it on the Jurisdiction page and fix its details. "Needs attention" uses the same rules as the Exceptions page.</p>' +
+      '<div class="filters">' +
+        '<div><label for="f-q">Search</label><input type="search" id="f-q" placeholder="Ward, MLA, MP or rep name" value="' + escapeHtml(filters.q) + '" /></div>' +
+        '<div><label for="f-gap">Missing at</label><select id="f-gap">' +
+          '<option value="">Any level</option>' +
+          '<option value="rep">Ward representative</option>' +
+          '<option value="mayor">Mayor</option>' +
+          '<option value="mla">MLA</option>' +
+          '<option value="mp">MP</option>' +
+          '<option value="boundary">Boundary shape</option>' +
+          '<option value="reach">Not fully reachable</option>' +
+        '</select></div>' +
+        '<div><label for="f-type">Type</label><select id="f-type">' +
+          '<option value="">Urban and rural</option>' +
+          '<option value="URBAN">Urban wards</option>' +
+          '<option value="RURAL">Rural villages</option>' +
+        '</select></div>' +
+        '<div class="check"><label><input type="checkbox" id="f-gaps"' + (filters.onlyGaps ? ' checked' : '') + ' /> Only wards with gaps</label></div>' +
+      '</div>' +
+      '<div class="result-bar"><span id="table-count"></span></div>' +
+      '<div class="table-wrap" id="table-area"></div>' +
+    '</div>';
+  }
+
+  function renderTable() {
+    const rows = filteredWards();
+    document.getElementById("table-count").innerHTML =
+      'Showing <b>' + rows.length + '</b> of ' + data.wards.length + ' ' + plural(data.wards.length, "ward");
+    const area = document.getElementById("table-area");
+    if (rows.length === 0) {
+      area.innerHTML = '<div class="empty">No wards match these filters.</div>';
+      return;
+    }
+    area.innerHTML = '<table><thead><tr>' +
+      '<th>Ward / village</th>' +
+      '<th>Rep name</th><th>Rep phone</th><th>Rep email</th>' +
+      '<th>Mayor</th><th>MLA</th><th>MP</th><th>Boundary</th>' +
+      '<th class="num">Open</th><th class="num">Needs attention</th>' +
+      '</tr></thead><tbody>' +
+      rows.map((w) => {
+        const sub = [w.unitType === "URBAN" ? "Urban ward" : w.unitType === "RURAL" ? "Rural village" : "",
+          w.mlaConstituency ? "MLA: " + w.mlaConstituency : ""].filter(Boolean).join(" · ");
+        return '<tr>' +
+          '<td><div class="ward-name">' + wardLink(w) + '</div><div class="ward-sub">' + escapeHtml(sub) + '</div></td>' +
+          '<td>' + fieldCell(w.rep.name) + '</td>' +
+          '<td>' + fieldCell(w.rep.phone) + '</td>' +
+          '<td>' + fieldCell(w.rep.email) + '</td>' +
+          '<td>' + levelCell(w.mayor) + '</td>' +
+          '<td>' + levelCell(w.mla) + '</td>' +
+          '<td>' + levelCell(w.mp) + '</td>' +
+          '<td>' + fieldCell(w.hasBoundary) + '</td>' +
+          '<td class="num">' + w.openCases + '</td>' +
+          '<td class="num">' + (w.needsAttention ? '<span class="attn">' + w.needsAttention + '</span>' : '0') + '</td>' +
+        '</tr>';
+      }).join("") +
+      '</tbody></table>';
+  }
+
+  function render() {
+    const wards = data.wards;
+    document.getElementById("who-line").innerHTML =
+      '<b>' + escapeHtml(ROLE_LABELS[data.role] || data.role) + '</b><br>All wards';
+    document.getElementById("updated-at").textContent = "Figures as of " + dateTime(data.generatedAt);
+    document.getElementById("rti-btn").disabled = false;
+
+    document.getElementById("content").innerHTML =
+      renderBanner(wards) + renderCards(wards) + renderCoverage(wards) + renderTableSection();
+
+    document.getElementById("f-gap").value = filters.gap;
+    document.getElementById("f-type").value = filters.type;
+    document.getElementById("f-q").addEventListener("input", (e) => { filters.q = e.target.value; renderTable(); });
+    document.getElementById("f-gap").addEventListener("change", (e) => { filters.gap = e.target.value; renderTable(); });
+    document.getElementById("f-type").addEventListener("change", (e) => { filters.type = e.target.value; renderTable(); });
+    document.getElementById("f-gaps").addEventListener("change", (e) => { filters.onlyGaps = e.target.checked; renderTable(); });
+    const editBtn = document.getElementById("edit-note-btn");
+    if (editBtn) editBtn.addEventListener("click", openNote);
+
+    renderTable();
+  }
+
+  function showNotice(kind, text) {
+    document.getElementById("notice-area").innerHTML =
+      '<div class="notice ' + kind + '" role="' + (kind === "err" ? "alert" : "status") + '">' + escapeHtml(text) + '</div>';
+  }
+
+  async function load() {
+    document.getElementById("updated-at").textContent = "Loading…";
+    try {
+      const res = await fetch("/api/admin/dashboard");
+      const body = await res.json();
+      if (!res.ok) {
+        let msg = body.error || "Could not load the dashboard.";
+        if (body.error === "NOT_ADMIN") msg = "Your account is not an admin.";
+        if (body.error === "INSUFFICIENT_ROLE") msg = "Your role doesn't have access to the dashboard.";
+        document.getElementById("updated-at").textContent = "";
+        document.getElementById("content").innerHTML = '<div class="panel"><div class="error-msg">' + escapeHtml(msg) + '</div></div>';
+        return;
+      }
+      data = body;
+      render();
+    } catch (err) {
+      document.getElementById("updated-at").textContent = "";
+      document.getElementById("content").innerHTML = '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div></div>';
+    }
+  }
+
+  // ---- RTI tracker CSV --------------------------------------------------
+  function csvCell(v) {
+    const s = String(v == null ? "" : v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function downloadRti() {
+    if (!data) return;
+    const header = ["Ward / village", "Type", "MLA constituency", "MLA", "MP", "Ward rep name on file", "Missing"];
+    const rows = data.wards
+      .map((w) => ({ w, gaps: wardGaps(w) }))
+      .filter((x) => x.gaps.length > 0)
+      .map(({ w, gaps }) => [
+        w.name,
+        w.unitType === "URBAN" ? "Urban ward" : w.unitType === "RURAL" ? "Rural village" : (w.unitType || ""),
+        w.mlaConstituency || "",
+        w.mlaName || "",
+        w.mpName || "",
+        w.repName || "",
+        gaps.join("; "),
+      ]);
+    const csv = [header].concat(rows).map((r) => r.map(csvCell).join(",")).join("\r\n");
+    // BOM so Excel reads Hindi names correctly.
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "grieviq-rti-tracker-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---- Note editing -------------------------------------------------------
+  const noteDialog = document.getElementById("note-dialog");
+
+  function openNote() {
+    document.getElementById("note-text").value = (data.note && data.note.value) || "";
+    document.getElementById("note-error").textContent = "";
+    noteDialog.showModal();
+    document.getElementById("note-text").focus();
+  }
+
+  async function saveNote() {
+    const btn = document.getElementById("note-save");
+    const errEl = document.getElementById("note-error");
+    errEl.textContent = "";
+    btn.disabled = true;
+    try {
+      const res = await fetch("/api/admin/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_note", note: document.getElementById("note-text").value }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        let msg = body.error || "Could not save the note.";
+        if (body.error === "INSUFFICIENT_ROLE") msg = "Your role can't edit this note.";
+        errEl.textContent = msg;
+        return;
+      }
+      data.note = body.note;
+      noteDialog.close();
+      render();
+      showNotice("ok", "Note saved.");
+    } catch (err) {
+      errEl.textContent = "Could not reach the server. Try again.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("note-cancel").addEventListener("click", () => noteDialog.close());
+  document.getElementById("note-save").addEventListener("click", saveNote);
+  document.getElementById("rti-btn").addEventListener("click", downloadRti);
+  document.getElementById("refresh-btn").addEventListener("click", () => {
+    document.getElementById("notice-area").innerHTML = "";
+    load();
+  });
+
+  // ---- Theme --------------------------------------------------------------
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+
+  const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+  applyTheme(savedTheme);
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = localStorage.getItem("griq-admin-theme") || "dark";
+    const next = current === "light" ? "dark" : "light";
+    localStorage.setItem("griq-admin-theme", next);
+    applyTheme(next);
+  });
+
+  load();
+</script>
+
+</body>
+</html>
