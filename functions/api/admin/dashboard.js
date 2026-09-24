@@ -146,6 +146,7 @@ export async function onRequestGet({ request, env }) {
       wardBoundaries: can(role, "run_import"),
       exceptions: can(role, "exceptions_queue"),
       reviews: can(role, "review_queue"),
+      cases: can(role, "view_cases"),
     },
     generatedAt: new Date().toISOString(),
   });

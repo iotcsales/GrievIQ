@@ -229,6 +229,7 @@
   <div class="header-right">
     <nav>
       <a href="/admin-dashboard.html" class="active">Dashboard</a>
+      <a href="/admin-cases.html">Cases</a>
       <a href="/admin-import.html">Import</a>
       <a href="/admin-import-wards.html">Ward boundaries</a>
       <a href="/admin-jurisdiction.html">Jurisdiction</a>
@@ -455,6 +456,13 @@
     return '<a href="/admin-jurisdiction.html?q=' + encodeURIComponent(w.name) + '" style="color:inherit">' + escapeHtml(w.name) + '</a>';
   }
 
+  function caseCount(w, n, attention) {
+    const text = attention && n ? '<span class="attn">' + n + '</span>' : String(n);
+    if (!n || !(data.links && data.links.cases)) return text;
+    const href = "/admin-cases.html?ward=" + encodeURIComponent(w.id) + (attention ? "&attention=1" : "&status=unresolved");
+    return '<a href="' + href + '" style="color:inherit" title="See these cases">' + text + '</a>';
+  }
+
   function filteredWards() {
     const q = filters.q.trim().toLowerCase();
     return data.wards.filter((w) => {
@@ -472,7 +480,7 @@
   function renderTableSection() {
     return '<div class="panel">' +
       '<h2>Ward by ward</h2>' +
-      '<p class="section-sub">The same figures as the bars above, for each ward and village. Click a ward name to open it on the Jurisdiction page and fix its details. "Needs attention" uses the same rules as the Exceptions page.</p>' +
+      '<p class="section-sub">The same figures as the bars above, for each ward and village. Click a ward name to open it on the Jurisdiction page and fix its details, or a case number to see those cases. "Needs attention" uses the same rules as the Exceptions page.</p>' +
       '<div class="filters">' +
         '<div><label for="f-q">Search</label><input type="search" id="f-q" placeholder="Ward, MLA, MP or rep name" value="' + escapeHtml(filters.q) + '" /></div>' +
         '<div><label for="f-gap">Missing at</label><select id="f-gap">' +
@@ -523,8 +531,8 @@
           '<td>' + levelCell(w.mla) + '</td>' +
           '<td>' + levelCell(w.mp) + '</td>' +
           '<td>' + fieldCell(w.hasBoundary) + '</td>' +
-          '<td class="num">' + w.openCases + '</td>' +
-          '<td class="num">' + (w.needsAttention ? '<span class="attn">' + w.needsAttention + '</span>' : '0') + '</td>' +
+          '<td class="num">' + caseCount(w, w.openCases, false) + '</td>' +
+          '<td class="num">' + caseCount(w, w.needsAttention, true) + '</td>' +
         '</tr>';
       }).join("") +
       '</tbody></table>';

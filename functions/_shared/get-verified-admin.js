@@ -18,7 +18,7 @@ export const PERMISSIONS = {
   run_import: ["super_admin", "operations_admin"],
   review_queue: ["super_admin", "operations_admin", "data_moderator"],
   exceptions_queue: ["super_admin", "operations_admin"],
-  view_dashboard: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  view_cases: ["super_admin", "operations_admin", "auditor"], view_dashboard: ["super_admin", "operations_admin", "data_moderator", "auditor"],
 };
 
 /**

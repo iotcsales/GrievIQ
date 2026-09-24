@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cases — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+    --admin-input: #11151c;
+    --admin-track: #2a313d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  header .service-tag { font-size: 12px; color: var(--admin-muted); font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .who-line { font-size: 12px; color: var(--admin-muted); text-align: right; line-height: 1.4; }
+  .who-line b { color: var(--admin-text); font-weight: 600; }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 1150px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  p.section-sub { color: var(--admin-muted); margin: 0 0 18px; font-size: 13px; line-height: 1.5; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--admin-accent); outline-offset: 2px;
+  }
+  select, input[type="text"], input[type="search"], textarea {
+    background: var(--admin-input);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select { min-width: 170px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+
+  /* Summary banner */
+  .banner { border-left: 4px solid var(--admin-warn); }
+  .banner.all-good { border-left-color: var(--admin-success); }
+  .banner .headline { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .banner .note { font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+  .banner .note-empty { color: var(--admin-muted); font-style: italic; }
+  .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Headline cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
+    padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
+  }
+  a.card:hover { border-color: var(--admin-accent); }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
+  .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
+  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+
+  /* Coverage bars */
+  .bar-group { margin-bottom: 22px; }
+  .bar-group:last-child { margin-bottom: 0; }
+  .bar-group h3 { font-size: 13px; font-weight: 600; color: var(--admin-muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-group .group-note { font-size: 13px; color: var(--admin-muted); }
+  .bar-row { margin-bottom: 12px; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .bar-top .name { font-weight: 600; }
+  .bar-top .frac { color: var(--admin-muted); white-space: nowrap; }
+  .bar-top .frac b { color: var(--admin-text); }
+  .bar-track { height: 10px; background: var(--admin-track); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--admin-accent); border-radius: 6px; }
+  .bar-fill.low { background: var(--admin-warn); }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor;
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .tag.complete { color: var(--admin-success); }
+  .tag.partial { color: var(--admin-accent); }
+  .tag.low { color: var(--admin-warn); }
+
+  /* Ward table */
+  .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: block; font-size: 13px; color: var(--admin-muted); margin-bottom: 6px; }
+  .filters .check label { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: var(--admin-text); font-size: 14px; cursor: pointer; }
+  .filters input[type="search"] { min-width: 220px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--admin-muted); font-weight: 600; padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border); white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--admin-border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ward-name { font-weight: 600; }
+  .ward-sub { font-size: 12px; color: var(--admin-muted); margin-top: 3px; line-height: 1.4; }
+  .ok-mark { color: var(--admin-success); font-weight: 700; }
+  .missing { color: var(--admin-warn); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .na { color: var(--admin-muted); }
+  .attn { color: var(--admin-danger); font-weight: 700; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .empty, .error-msg { padding: 28px; text-align: center; font-size: 14px; color: var(--admin-muted); }
+  .error-msg { color: var(--admin-danger); }
+
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.5; }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+    --admin-input: #ffffff;
+    --admin-track: #e6e9ee;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme .bar-fill.low { background: #c98a00; }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+
+  /* Cases page */
+  .status {
+    display: inline-block; font-size: 12px; font-weight: 600; border-radius: 4px;
+    padding: 2px 8px; white-space: nowrap; border: 1px solid currentColor;
+  }
+  .status.OPEN { color: var(--admin-accent); }
+  .status.PENDING_CONFIRMATION { color: var(--admin-warn); }
+  .status.RESOLVED, .status.CLOSED { color: var(--admin-success); }
+  .badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    border: 1px solid currentColor; border-radius: 4px;
+    padding: 2px 7px; margin: 0 4px 4px 0; white-space: nowrap;
+  }
+  .badge.ACK_OVERDUE { color: var(--admin-warn); }
+  .badge.ESCALATED { color: var(--admin-danger); }
+  .badge.DISPUTED { color: var(--admin-danger); }
+  .badge.LEGAL_REVIEW { color: var(--admin-accent); }
+  tr.case-row { cursor: pointer; }
+  tr.case-row:hover td { background: rgba(76, 124, 240, 0.06); }
+  .case-link { color: var(--admin-text); font-weight: 600; text-decoration: none; }
+  .case-link:hover { text-decoration: underline; }
+  .muted { color: var(--admin-muted); }
+  .back-link { display: inline-block; font-size: 14px; color: var(--admin-accent); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+
+  /* Identity bar (MoJ pattern): tells the user which case they are in */
+  .identity-bar {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 4px solid var(--admin-accent);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;
+  }
+  .identity-bar .ref { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .identity-bar .facts { font-size: 14px; color: var(--admin-muted); margin-top: 6px; line-height: 1.6; }
+  .identity-bar .facts b { color: var(--admin-text); font-weight: 600; }
+  .identity-bar .badges { margin-top: 10px; }
+
+  .detail-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+  .detail-grid .panel { margin-bottom: 0; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field .k { font-size: 12px; font-weight: 600; color: var(--admin-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .field .v { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .masked { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .mask-note { font-size: 12px; color: var(--admin-muted); margin-top: 6px; line-height: 1.5; }
+  .photos { display: flex; flex-wrap: wrap; gap: 10px; }
+  .photos a { display: block; border: 1px solid var(--admin-border); border-radius: 8px; overflow: hidden; }
+  .photos img { display: block; width: 120px; height: 120px; object-fit: cover; }
+  .tiers { list-style: none; margin: 0; padding: 0; }
+  .tiers li { font-size: 14px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid var(--admin-border); display: flex; gap: 10px; }
+  .tiers li:last-child { border-bottom: none; }
+  .tiers .mark { width: 18px; flex: none; font-weight: 700; }
+  .tiers li.reached .mark { color: var(--admin-danger); }
+  .tiers li.current { font-weight: 600; }
+  .tiers .who { color: var(--admin-muted); }
+
+  /* Timeline (MoJ / DWP pattern): record of events in date order */
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid var(--admin-border); }
+  .timeline li { position: relative; padding: 0 0 20px 14px; }
+  .timeline li:last-child { padding-bottom: 0; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -25px; top: 5px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--admin-panel); border: 2px solid var(--admin-accent);
+  }
+  .timeline li.warn::before { border-color: var(--admin-danger); }
+  .timeline li.done::before { border-color: var(--admin-success); }
+  .timeline .t-title { font-size: 14px; font-weight: 600; }
+  .timeline .t-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 2px; }
+  .timeline .t-body { font-size: 13.5px; margin-top: 6px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
+  @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="header-right">
+    <nav>
+      <a href="/admin-dashboard.html">Dashboard</a>
+      <a href="/admin-cases.html" class="active">Cases</a>
+      <a href="/admin-import.html">Import</a>
+      <a href="/admin-import-wards.html">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html">Jurisdiction</a>
+      <a href="/admin-exceptions.html">Exceptions</a>
+      <a href="/admin-reviews.html">Reviews</a>
+      <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    </nav>
+    <div class="who-line" id="who-line"></div>
+  </div>
+</header>
+
+<main>
+  <div id="list-view" hidden>
+    <h1>Cases</h1>
+    <p class="subtitle">Every complaint across all wards, read-only. Open a case to see its full history. Citizens' phone numbers and email addresses are always partly hidden, and each case you open is recorded in the access log.</p>
+
+    <div class="panel">
+      <div class="filters" style="margin-bottom:0">
+        <div><label for="f-q">Tracking number</label><input type="search" id="f-q" placeholder="e.g. GRV-58P3PP" /></div>
+        <div><label for="f-status">Status</label><select id="f-status">
+          <option value="open">Open</option>
+          <option value="waiting">Awaiting citizen</option>
+          <option value="unresolved">Open or awaiting citizen</option>
+          <option value="done">Resolved or closed</option>
+          <option value="all">All cases</option>
+        </select></div>
+        <div><label for="f-ward">Ward / village</label><select id="f-ward"><option value="">All wards</option></select></div>
+        <div class="check"><label><input type="checkbox" id="f-attn" /> Only cases needing attention</label></div>
+        <div><button id="refresh-btn" type="button">Refresh</button></div>
+      </div>
+    </div>
+
+    <div id="notice-area"></div>
+    <div class="result-bar">
+      <span id="result-count">Loading…</span>
+      <span id="updated-at"></span>
+    </div>
+    <div class="panel" style="padding:0;"><div class="table-wrap" style="border:none" id="table-area"></div></div>
+  </div>
+
+  <div id="detail-view" hidden></div>
+</main>
+
+<script>
+  const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
+  const STATUS_LABELS = { OPEN: "Open", PENDING_CONFIRMATION: "Awaiting citizen", RESOLVED: "Resolved", CLOSED: "Closed" };
+  const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review" };
+  const EVENT_LABELS = {
+    ACKNOWLEDGED: "Acknowledged by representative",
+    FOLLOW_UP: "Follow-up logged",
+    MARKED_RESOLVED: "Marked resolved by representative",
+    CITIZEN_CONFIRMED: "Citizen confirmed it is resolved",
+    CITIZEN_DISPUTED: "Citizen disputed the resolution",
+    ADMIN_NUDGE: "Reminder sent by GrievIQ admin",
+  };
+
+  let cases = [];
+  const params = new URLSearchParams(location.search);
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function toDate(s) {
+    if (!s) return null;
+    return s.indexOf("T") !== -1 ? new Date(s) : new Date(s.replace(" ", "T") + "Z");
+  }
+  function dateOnly(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  }
+  function dateTime(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return dateOnly(s) + ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  }
+  function days(n) {
+    if (n == null) return "";
+    const whole = Math.floor(n);
+    return whole < 1 ? "Under a day" : whole + (whole === 1 ? " day" : " days");
+  }
+  function statusTag(s) { return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(STATUS_LABELS[s] || s) + '</span>'; }
+  function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(FLAG_LABELS[f] || f) + '</span>').join(""); }
+  function whoLine(role) {
+    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] || role || "") + '</b><br>All wards · Read-only';
+  }
+  function errorText(body, fallback) {
+    if (body && body.error === "NOT_ADMIN") return "Your account is not an admin.";
+    if (body && body.error === "INSUFFICIENT_ROLE") return "Your role doesn't have access to case details.";
+    return (body && body.error) || fallback;
+  }
+
+  // ---- List ---------------------------------------------------------------
+  function matchesStatus(c, v) {
+    if (v === "open") return c.status !== "RESOLVED" && c.status !== "CLOSED" && c.status !== "PENDING_CONFIRMATION";
+    if (v === "waiting") return c.status === "PENDING_CONFIRMATION";
+    if (v === "unresolved") return c.status !== "RESOLVED" && c.status !== "CLOSED";
+    if (v === "done") return c.status === "RESOLVED" || c.status === "CLOSED";
+    return true;
+  }
+
+  function renderList() {
+    const q = document.getElementById("f-q").value.trim().toLowerCase();
+    const st = document.getElementById("f-status").value;
+    const ward = document.getElementById("f-ward").value;
+    const attn = document.getElementById("f-attn").checked;
+
+    const rows = cases.filter((c) =>
+      matchesStatus(c, st) &&
+      (!ward || c.ward.id === ward) &&
+      (!attn || c.flags.length > 0) &&
+      (!q || String(c.trackingRef || "").toLowerCase().indexOf(q) !== -1)
+    );
+
+    document.getElementById("result-count").innerHTML = 'Showing <b>' + rows.length + '</b> of ' + cases.length + ' cases';
+    const area = document.getElementById("table-area");
+    if (rows.length === 0) {
+      area.innerHTML = '<div class="empty">No cases match these filters.</div>';
+      return;
+    }
+    area.innerHTML = '<table><thead><tr>' +
+      '<th>Case</th><th>Ward / village</th><th>Status</th><th>Filed</th><th>Open for</th><th>Current level</th><th>Issues</th>' +
+      '</tr></thead><tbody>' +
+      rows.map((c) =>
+        '<tr class="case-row" data-id="' + escapeHtml(c.id) + '">' +
+          '<td><a class="case-link" href="?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a>' +
+            '<div class="ward-sub">' + escapeHtml(c.category) + '</div></td>' +
+          '<td>' + escapeHtml(c.ward.name) + '</td>' +
+          '<td>' + statusTag(c.status) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(dateOnly(c.createdAt)) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(days(c.daysOpen)) + '</td>' +
+          '<td>' + (c.currentLevel ? escapeHtml(c.currentLevel) : '<span class="muted">—</span>') + '</td>' +
+          '<td>' + (badges(c.flags) || '<span class="muted">None</span>') + '</td>' +
+        '</tr>'
+      ).join("") +
+      '</tbody></table>';
+
+    area.querySelectorAll("tr.case-row").forEach((tr) => {
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        location.href = "?case=" + encodeURIComponent(tr.dataset.id);
+      });
+    });
+  }
+
+  function fillWardFilter() {
+    const sel = document.getElementById("f-ward");
+    const seen = new Map();
+    cases.forEach((c) => { if (c.ward.id && !seen.has(c.ward.id)) seen.set(c.ward.id, c.ward.name); });
+    const wanted = params.get("ward") || "";
+    if (wanted && !seen.has(wanted)) seen.set(wanted, "Selected ward (no cases)");
+    const opts = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    sel.innerHTML = '<option value="">All wards</option>' +
+      opts.map(([id, name]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>').join("");
+    sel.value = wanted;
+  }
+
+  async function loadList() {
+    document.getElementById("result-count").textContent = "Loading…";
+    try {
+      const res = await fetch("/api/admin/cases");
+      const body = await res.json();
+      if (!res.ok) {
+        document.getElementById("result-count").textContent = "";
+        document.getElementById("table-area").innerHTML = '<div class="error-msg">' + escapeHtml(errorText(body, "Could not load cases.")) + '</div>';
+        return;
+      }
+      whoLine(body.role);
+      cases = body.cases;
+      document.getElementById("updated-at").textContent = "Updated " + (toDate(body.generatedAt) || new Date()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      fillWardFilter();
+      renderList();
+    } catch (err) {
+      document.getElementById("result-count").textContent = "";
+      document.getElementById("table-area").innerHTML = '<div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div>';
+    }
+  }
+
+  function initList() {
+    document.getElementById("list-view").hidden = false;
+    if (params.get("status")) document.getElementById("f-status").value = params.get("status");
+    if (params.get("attention") === "1") document.getElementById("f-attn").checked = true;
+    ["f-q"].forEach((id) => document.getElementById(id).addEventListener("input", renderList));
+    ["f-status", "f-ward", "f-attn"].forEach((id) => document.getElementById(id).addEventListener("change", renderList));
+    document.getElementById("refresh-btn").addEventListener("click", loadList);
+    loadList();
+  }
+
+  // ---- Detail -------------------------------------------------------------
+  function timelineItems(c) {
+    const items = [{ cls: "", title: "Complaint filed", meta: dateTime(c.createdAt), body: "" }];
+    c.events.forEach((e) => {
+      const cls = e.type === "CITIZEN_DISPUTED" || e.type === "ADMIN_NUDGE" ? "warn"
+        : (e.type === "MARKED_RESOLVED" || e.type === "CITIZEN_CONFIRMED") ? "done" : "";
+      const body = [e.reason ? "Reason: " + e.reason : "", e.note || ""].filter(Boolean).join("\n");
+      items.push({
+        cls,
+        title: EVENT_LABELS[e.type] || e.type,
+        meta: dateTime(e.at) + (e.actor ? " · " + e.actor : ""),
+        body,
+      });
+    });
+    return items;
+  }
+
+  function renderDetail(body) {
+    const c = body.case;
+    const view = document.getElementById("detail-view");
+    const wardType = c.ward.type === "URBAN" ? "Urban ward" : c.ward.type === "RURAL" ? "Rural village" : "";
+
+    const photos = c.photos.length
+      ? '<div class="photos">' + c.photos.map((u, i) =>
+          '<a href="' + escapeHtml(u) + '" target="_blank" rel="noopener noreferrer" title="Open photo ' + (i + 1) + ' full size">' +
+          '<img src="' + escapeHtml(u) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy" /></a>').join("") + '</div>'
+      : '<span class="muted">No photo attached.</span>';
+
+    const tiers = c.level
+      ? '<ul class="tiers">' + c.level.tiers.map((t, i) =>
+          '<li class="' + (t.reached ? 'reached' : '') + (i === c.level.index ? ' current' : '') + '">' +
+            '<span class="mark" aria-hidden="true">' + (t.reached ? '●' : '○') + '</span>' +
+            '<span>' + escapeHtml(t.label) + (i === c.level.index ? ' (current level)' : '') +
+            ' <span class="who">— ' + (t.name ? escapeHtml(t.name) : 'no name on file') + '</span>' +
+            (t.reached ? '<span class="sr-only"> (reached)</span>' : '') + '</span></li>').join("") + '</ul>'
+      : '<span class="muted">Escalation details unavailable.</span>';
+
+    const contact = [c.citizen.phone ? '<div class="masked">Phone: ' + escapeHtml(c.citizen.phone) + '</div>' : '',
+                     c.citizen.email ? '<div class="masked">Email: ' + escapeHtml(c.citizen.email) + '</div>' : '']
+                    .join("") || '<span class="muted">None on file.</span>';
+
+    view.innerHTML =
+      '<a class="back-link" href="/admin-cases.html" id="back-link">← All cases</a>' +
+      '<div class="identity-bar">' +
+        '<div class="ref">' + escapeHtml(c.trackingRef) + ' ' + statusTag(c.status) + '</div>' +
+        '<div class="facts"><b>' + escapeHtml(c.ward.name) + '</b>' + (wardType ? ' · ' + wardType : '') +
+          ' · ' + escapeHtml(c.category) + ' · Filed ' + escapeHtml(dateOnly(c.createdAt)) +
+          ' · ' + (c.status === "RESOLVED" || c.status === "CLOSED" ? 'Took ' : 'Open for ') + escapeHtml(days(c.daysOpen).toLowerCase()) + '</div>' +
+        (c.flags.length ? '<div class="badges">' + badges(c.flags) + '</div>' : '') +
+      '</div>' +
+      '<div class="detail-grid">' +
+        '<div class="panel">' +
+          '<div class="field"><div class="k">What the citizen reported</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
+          '<div class="field"><div class="k">Location</div><div class="v">' + (c.locationDetail ? escapeHtml(c.locationDetail) : '<span class="muted">Not given.</span>') + '</div></div>' +
+          '<div class="field"><div class="k">Photos</div>' + photos + '</div>' +
+        '</div>' +
+        '<div class="panel">' +
+          '<div class="field"><div class="k">Escalation</div>' + tiers + '</div>' +
+          '<div class="field"><div class="k">Citizen contact</div><div class="v">' + contact + '</div>' +
+            '<div class="mask-note">Partly hidden for every admin role. Admins contact representatives, not citizens.</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="panel" style="margin-top:20px">' +
+        '<h2 style="margin-bottom:16px">History</h2>' +
+        '<ol class="timeline">' + timelineItems(c).map((it) =>
+          '<li class="' + it.cls + '"><div class="t-title">' + escapeHtml(it.title) + '</div>' +
+          '<div class="t-meta">' + escapeHtml(it.meta) + '</div>' +
+          (it.body ? '<div class="t-body">' + escapeHtml(it.body) + '</div>' : '') + '</li>').join("") +
+        '</ol>' +
+        '<p class="access-note">You opened this case on ' + escapeHtml(dateTime(body.viewedAt)) + '. This was recorded in the admin access log.</p>' +
+      '</div>';
+
+    document.getElementById("back-link").addEventListener("click", (e) => {
+      if (document.referrer && document.referrer.indexOf("/admin-cases") !== -1 && history.length > 1) {
+        e.preventDefault();
+        history.back();
+      }
+    });
+    document.title = c.trackingRef + " — Cases — GrievIQ Admin";
+  }
+
+  async function initDetail(id) {
+    const view = document.getElementById("detail-view");
+    view.hidden = false;
+    view.innerHTML = '<p class="muted">Loading case…</p>';
+    try {
+      const res = await fetch("/api/admin/cases?id=" + encodeURIComponent(id));
+      const body = await res.json();
+      if (!res.ok) {
+        view.innerHTML = '<a class="back-link" href="/admin-cases.html">← All cases</a>' +
+          '<div class="panel"><div class="error-msg">' + escapeHtml(errorText(body, "Could not load this case.")) + '</div></div>';
+        return;
+      }
+      whoLine(body.role);
+      renderDetail(body);
+    } catch (err) {
+      view.innerHTML = '<a class="back-link" href="/admin-cases.html">← All cases</a>' +
+        '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and reload the page.</div></div>';
+    }
+  }
+
+  // ---- Theme --------------------------------------------------------------
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+  const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+  applyTheme(savedTheme);
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = localStorage.getItem("griq-admin-theme") || "dark";
+    const next = current === "light" ? "dark" : "light";
+    localStorage.setItem("griq-admin-theme", next);
+    applyTheme(next);
+  });
+
+  if (params.get("case")) initDetail(params.get("case")); else initList();
+</script>
+
+</body>
+</html>
