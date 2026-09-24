@@ -61,6 +61,20 @@
   textarea { resize: vertical; min-height: 100px; }
   .field-error { color: var(--brick); font-size: 12.5px; margin: -14px 0 16px; display: none; }
   .hp-field { position: absolute; left: -9999px; top: -9999px; }
+  details.rep-ask {
+    border: 1.5px solid var(--border); border-radius: 12px; padding: 0; margin: 4px 0 20px;
+    background: var(--paper);
+  }
+  details.rep-ask summary {
+    cursor: pointer; padding: 13px 16px; font-size: 13.5px; font-weight: 600; color: var(--teal-dark);
+    list-style: none;
+  }
+  details.rep-ask summary::-webkit-details-marker { display: none; }
+  details.rep-ask summary::before { content: "+"; display: inline-block; width: 16px; font-weight: 700; }
+  details.rep-ask[open] summary::before { content: "\2212"; }
+  details.rep-ask summary:focus-visible { outline: 3px solid rgba(14,124,107,0.35); outline-offset: 2px; border-radius: 10px; }
+  details.rep-ask .rep-ask-body { padding: 0 16px 6px; }
+  details.rep-ask .rep-ask-body .hint { margin: 0 0 14px; }
 
   .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
   .chip {
@@ -247,6 +261,24 @@
         <div class="hint">If you want to check regular updates on your complaint's status, please provide your email as well.</div>
         <div class="field-error" id="emailError">Please enter a valid email address, or leave it blank.</div>
 
+        <details class="rep-ask" id="repAsk" style="display:none;">
+          <summary>Do you know your local representative? (optional)</summary>
+          <div class="rep-ask-body">
+            <div class="hint">We don't yet have full contact details for everyone who represents your area. If you know them, tell us. We check this before using it &mdash; it won't change where your complaint goes.</div>
+            <div id="repTierWrap">
+              <label>Who are you naming?</label>
+              <div class="chip-row" id="repTierChips"></div>
+            </div>
+            <input type="hidden" id="repTier" />
+            <label for="repSuggestName">Their name</label>
+            <input type="text" id="repSuggestName" maxlength="120" autocomplete="off" />
+            <div class="field-error" id="repSuggestNameError">Please enter their full name, or leave this section empty.</div>
+            <label for="repSuggestPhone">Their phone number <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>
+            <input type="tel" id="repSuggestPhone" maxlength="40" inputmode="numeric" autocomplete="off" />
+            <div class="field-error" id="repSuggestPhoneError">Please enter a valid phone number, or leave it blank.</div>
+          </div>
+        </details>
+
         <!-- Honeypot field: real users never see or fill this -->
         <div class="hp-field" aria-hidden="true">
           <label for="website">Website</label>
@@ -371,10 +403,12 @@
       unit.name + (unit.unit_type ? ' (' + unitTypeLabel(unit) + ')' : '');
     areaSelected.style.display = 'flex';
     localUnitSearch.style.display = 'none';
+    updateRepQuestion(unit.id);
   }
 
   function clearSelection() {
     localUnitIdField.value = '';
+    updateRepQuestion(null);
     areaSelected.style.display = 'none';
     localUnitSearch.style.display = 'block';
     localUnitSearch.value = '';
@@ -497,6 +531,56 @@
       // Map preview failed to load; the text confirmation above is still enough to proceed.
       mapEl.style.display = 'none';
     }
+  }
+
+  // --- Optional "Do you know your representative?" question ---
+  // Shown only when the chosen ward is missing a representative's name or
+  // phone (flags from /api/intake-options), and only offers the levels
+  // that are actually missing. Answers are reviewed by an admin before use.
+  function updateRepQuestion(unitId) {
+    const box = document.getElementById('repAsk');
+    const chips = document.getElementById('repTierChips');
+    const tierField = document.getElementById('repTier');
+    const unit = unitId ? localUnitsData.find(u => u.id === unitId) : null;
+
+    chips.innerHTML = '';
+    tierField.value = '';
+    document.getElementById('repSuggestName').value = '';
+    document.getElementById('repSuggestPhone').value = '';
+    document.getElementById('repSuggestNameError').style.display = 'none';
+    document.getElementById('repSuggestPhoneError').style.display = 'none';
+
+    const options = [];
+    if (unit) {
+      if (unit.rep_missing) options.push({ tier: 'LOCAL', label: unit.unit_type === 'RURAL' ? 'Gram Pradhan' : 'Corporator' });
+      if (unit.mla_missing) options.push({ tier: 'MLA', label: 'MLA' });
+      if (unit.mp_missing) options.push({ tier: 'MP', label: 'MP' });
+    }
+
+    if (options.length === 0) {
+      box.style.display = 'none';
+      box.open = false;
+      return;
+    }
+
+    options.forEach(opt => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = opt.label;
+      chip.addEventListener('click', () => {
+        chips.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        tierField.value = opt.tier;
+      });
+      chips.appendChild(chip);
+    });
+
+    // With only one level missing there is nothing to choose.
+    document.getElementById('repTierWrap').style.display = options.length === 1 ? 'none' : 'block';
+    if (options.length === 1) tierField.value = options[0].tier;
+
+    box.style.display = 'block';
   }
 
   // --- Google Places address search -> /api/resolve-ward ---
@@ -690,6 +774,36 @@
       document.getElementById('errorMessage').textContent = 'Please choose a category.';
       hasError = true;
     }
+
+    let rep_suggestion = null;
+    const repBox = document.getElementById('repAsk');
+    document.getElementById('repSuggestNameError').style.display = 'none';
+    document.getElementById('repSuggestPhoneError').style.display = 'none';
+    if (repBox.style.display !== 'none') {
+      const repName = document.getElementById('repSuggestName').value.trim();
+      const repPhone = document.getElementById('repSuggestPhone').value.trim();
+      const repTier = document.getElementById('repTier').value;
+      if (repName || repPhone) {
+        if (!repName || repName.length < 2) {
+          document.getElementById('repSuggestNameError').textContent = 'Please enter their full name, or leave this section empty.';
+          document.getElementById('repSuggestNameError').style.display = 'block';
+          repBox.open = true;
+          hasError = true;
+        } else if (!repTier) {
+          document.getElementById('repSuggestNameError').textContent = 'Please choose who you are naming.';
+          document.getElementById('repSuggestNameError').style.display = 'block';
+          repBox.open = true;
+          hasError = true;
+        } else if (repPhone && !isPlausiblePhone(repPhone)) {
+          document.getElementById('repSuggestPhoneError').style.display = 'block';
+          repBox.open = true;
+          hasError = true;
+        } else {
+          rep_suggestion = { tier: repTier, name: repName, phone: repPhone };
+        }
+      }
+    }
+
     if (hasError) return;
 
     submitBtn.disabled = true;
@@ -714,6 +828,7 @@
           citizen_email: email,
           location_detail,
           photo_urls,
+          rep_suggestion,
           website,
           form_loaded_at: formLoadedAt,
         }),

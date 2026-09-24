@@ -35,6 +35,7 @@ export async function onRequestPost({ request, env }) {
     location_detail, // optional free-text landmark/address detail
     citizen_email, // optional — needed for status-update emails and confirm/dispute
     photo_urls, // optional array — set by prior calls to /api/grievances/upload-photo
+    rep_suggestion, // optional { tier, name, phone } — citizen's unverified guess at a missing rep
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
     form_loaded_at, // ms timestamp from when the form rendered
@@ -65,6 +66,26 @@ export async function onRequestPost({ request, env }) {
   const trimmedEmail = (citizen_email || "").trim();
   if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
     errors.push("Please enter a valid email address, or leave it blank.");
+  }
+
+  // Optional citizen-reported representative. Never applied directly --
+  // saved as a PENDING row in rep_suggestions for an admin to review.
+  let suggestion = null;
+  if (rep_suggestion && typeof rep_suggestion === "object") {
+    const sTier = String(rep_suggestion.tier || "").toUpperCase();
+    const sName = String(rep_suggestion.name || "").trim().slice(0, 120);
+    const sPhone = String(rep_suggestion.phone || "").trim().slice(0, 40);
+    if (sName) {
+      if (!["LOCAL", "MLA", "MP"].includes(sTier)) {
+        errors.push("Please choose which representative you are naming.");
+      } else if (sName.length < 2) {
+        errors.push("Please enter the representative's full name.");
+      } else if (sPhone && !isPlausiblePhone(sPhone)) {
+        errors.push("Please enter a valid phone number for the representative, or leave it blank.");
+      } else {
+        suggestion = { tier: sTier, name: sName, phone: sPhone ? sPhone.replace(/[^\d+]/g, "") : null };
+      }
+    }
   }
 
   if (errors.length > 0) {
@@ -149,6 +170,20 @@ export async function onRequestPost({ request, env }) {
         trimmedEmail || null
       )
       .run();
+
+    // Saving the suggestion must never block the complaint itself.
+    if (suggestion) {
+      try {
+        await env.DB.prepare(
+          `INSERT INTO rep_suggestions (id, grievance_id, local_unit_id, tier, suggested_name, suggested_phone)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+          .bind(crypto.randomUUID(), id, local_unit_id, suggestion.tier, suggestion.name, suggestion.phone)
+          .run();
+      } catch (suggestionErr) {
+        // Ignore -- the grievance is already saved.
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, tracking_ref: trackingRef }),

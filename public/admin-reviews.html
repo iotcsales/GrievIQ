@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reviews — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.reject { color: var(--admin-danger); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+  .review {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .review-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .review-title { font-size: 15px; font-weight: 600; }
+  .review-title .role { color: var(--admin-muted); font-weight: 400; }
+  .corroboration { font-size: 12px; font-weight: 600; color: var(--admin-success); border: 1px solid currentColor; border-radius: 4px; padding: 2px 7px; white-space: nowrap; }
+  .corroboration.single { color: var(--admin-muted); }
+  .scope { font-size: 12.5px; color: var(--admin-warn); margin-top: 4px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .compare .col { border: 1px solid var(--admin-border); border-radius: 8px; padding: 10px 12px; }
+  .compare .col.suggested { border-color: var(--admin-accent); }
+  .compare h3 { font-size: 12px; font-weight: 600; color: var(--admin-muted); margin: 0 0 6px; }
+  .compare .val { font-size: 14px; line-height: 1.6; }
+  .compare .missing { color: var(--admin-warn); font-style: italic; }
+  .meta { font-size: 12.5px; color: var(--admin-muted); line-height: 1.6; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+  .empty, .error-msg { padding: 36px 20px; text-align: center; font-size: 14px; color: var(--admin-muted); background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; }
+  .error-msg { color: var(--admin-danger); }
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(440px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog label { display: block; font-size: 13px; color: var(--admin-muted); margin: 12px 0 5px; }
+  dialog input {
+    width: 100%; background: #11151c; border: 1px solid var(--admin-border);
+    color: var(--admin-text); border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+  }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .scope { margin-top: 12px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme button.reject { color: var(--admin-danger); }
+  html.light-theme dialog input { background: #ffffff; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-import.html">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html">Jurisdiction</a>
+    <a href="/admin-exceptions.html">Exceptions</a>
+    <a href="/admin-reviews.html" class="active">Reviews</a>
+    <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main>
+  <h1>Reviews</h1>
+  <p class="subtitle">Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. Nothing here is used until you approve it. Suggestions made by several citizens independently are listed first.</p>
+
+  <div id="notice-area"></div>
+
+  <div class="result-bar">
+    <span id="result-count">Loading…</span>
+    <button id="refresh-btn" type="button">Refresh</button>
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<dialog id="approve-dialog">
+  <h2 id="approve-title">Approve</h2>
+  <p class="ctx" id="approve-ctx"></p>
+  <label for="approve-name">Name to save</label>
+  <input type="text" id="approve-name" maxlength="120" autocomplete="off" />
+  <div class="hint">Correct the spelling if needed before saving.</div>
+  <label for="approve-phone">Phone to save (optional)</label>
+  <input type="text" id="approve-phone" maxlength="40" autocomplete="off" />
+  <div class="hint" id="approve-phone-hint"></div>
+  <div class="scope" id="approve-scope"></div>
+  <div class="dialog-error" id="approve-error" role="alert"></div>
+  <div class="dlg-actions">
+    <button type="button" id="approve-cancel">Cancel</button>
+    <button type="button" class="primary" id="approve-save">Approve and save</button>
+  </div>
+</dialog>
+
+<script>
+  let groups = [];
+  let active = null;
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function toDate(s) {
+    if (!s) return null;
+    return s.indexOf("T") !== -1 ? new Date(s) : new Date(s.replace(" ", "T") + "Z");
+  }
+
+  function shortDate(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  }
+
+  function valueOrMissing(v, label) {
+    return v ? escapeHtml(v) : '<span class="missing">no ' + label + '</span>';
+  }
+
+  function scopeText(g) {
+    if (g.tier === "LOCAL") return "";
+    return "Approving updates the " + g.roleLabel + " for all " + g.wardsAffected + " ward" + (g.wardsAffected === 1 ? "" : "s") + " in " + g.targetLabel + ".";
+  }
+
+  function renderGroup(g, i) {
+    const where = g.tier === "LOCAL"
+      ? escapeHtml(g.targetLabel)
+      : escapeHtml(g.targetLabel) + ' <span class="role">(reported from ' + escapeHtml(g.wardName || "a ward") + ')</span>';
+    const badge = g.count > 1
+      ? '<span class="corroboration">Suggested by ' + g.count + ' citizens</span>'
+      : '<span class="corroboration single">Suggested by 1 citizen</span>';
+    const phones = g.phones.length ? g.phones.map(escapeHtml).join(", ") : '<span class="missing">no phone given</span>';
+    const refs = g.trackingRefs.slice(0, 5).map(escapeHtml).join(", ") + (g.trackingRefs.length > 5 ? "…" : "");
+    const when = shortDate(g.firstAt) === shortDate(g.lastAt) ? shortDate(g.firstAt) : shortDate(g.firstAt) + " – " + shortDate(g.lastAt);
+    const scope = scopeText(g);
+
+    return '<div class="review">' +
+      '<div class="review-head">' +
+        '<div><div class="review-title">' + escapeHtml(g.roleLabel) + ' for ' + where + '</div>' +
+        (scope ? '<div class="scope">' + escapeHtml(scope) + '</div>' : '') + '</div>' +
+        badge +
+      '</div>' +
+      '<div class="compare">' +
+        '<div class="col"><h3>On file now</h3><div class="val">' +
+          valueOrMissing(g.currentName, "name") + '<br>' + valueOrMissing(g.currentPhone, "phone") + '</div></div>' +
+        '<div class="col suggested"><h3>Citizens suggest</h3><div class="val">' +
+          escapeHtml(g.suggestedName) + '<br>' + phones + '</div></div>' +
+      '</div>' +
+      '<div class="meta">From complaint' + (g.trackingRefs.length === 1 ? ' ' : 's ') + refs + ' · ' + when + '</div>' +
+      '<div class="actions">' +
+        '<button type="button" class="reject" data-reject="' + i + '">Reject</button>' +
+        '<button type="button" class="primary" data-approve="' + i + '">Approve…</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function render() {
+    const list = document.getElementById("list");
+    const total = groups.reduce((n, g) => n + g.count, 0);
+    document.getElementById("result-count").innerHTML =
+      '<span><b>' + groups.length + '</b> to review' + (total !== groups.length ? ' (' + total + ' suggestions)' : '') + '</span>';
+    if (groups.length === 0) {
+      list.innerHTML = '<div class="empty">No suggestions waiting for review.</div>';
+      return;
+    }
+    list.innerHTML = groups.map(renderGroup).join("");
+    list.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => openApprove(Number(b.dataset.approve))));
+    list.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reject(Number(b.dataset.reject))));
+  }
+
+  async function load() {
+    document.getElementById("result-count").textContent = "Loading…";
+    try {
+      const res = await fetch("/api/admin/reviews");
+      const data = await res.json();
+      if (!res.ok) {
+        let msg = data.error || "Could not load suggestions.";
+        if (data.error === "NOT_ADMIN") msg = "Your account is not an admin.";
+        if (data.error === "INSUFFICIENT_ROLE") msg = "Your role doesn't have access to the review queue.";
+        document.getElementById("list").innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
+        document.getElementById("result-count").textContent = "";
+        return;
+      }
+      groups = data.groups || [];
+      render();
+    } catch (err) {
+      document.getElementById("list").innerHTML = '<div class="error-msg">Could not load suggestions. Check your connection and press Refresh.</div>';
+      document.getElementById("result-count").textContent = "";
+    }
+  }
+
+  function showNotice(html, ok) {
+    document.getElementById("notice-area").innerHTML = '<div class="notice ' + (ok ? "ok" : "err") + '">' + html + '</div>';
+  }
+
+  // --- Approve ---
+  const dialog = document.getElementById("approve-dialog");
+
+  function openApprove(i) {
+    active = groups[i];
+    if (!active) return;
+    document.getElementById("approve-title").textContent = "Approve " + active.roleLabel;
+    document.getElementById("approve-ctx").textContent = active.roleLabel + " for " + active.targetLabel +
+      (active.currentName ? ". Currently on file: " + active.currentName + "." : ". No name on file yet.");
+    document.getElementById("approve-name").value = active.suggestedName;
+    document.getElementById("approve-phone").value = active.phones[0] || "";
+    document.getElementById("approve-phone-hint").textContent =
+      active.phones.length > 1 ? "Citizens gave different numbers: " + active.phones.join(", ") + ". Keep the one you've verified." :
+      "Leave blank to keep the phone already on file" + (active.currentPhone ? " (" + active.currentPhone + ")." : ".");
+    document.getElementById("approve-scope").textContent = scopeText(active);
+    document.getElementById("approve-error").textContent = "";
+    document.getElementById("approve-save").disabled = false;
+    dialog.showModal();
+    document.getElementById("approve-name").focus();
+  }
+
+  document.getElementById("approve-cancel").addEventListener("click", () => dialog.close());
+
+  document.getElementById("approve-save").addEventListener("click", async () => {
+    if (!active) return;
+    const name = document.getElementById("approve-name").value.trim();
+    const phone = document.getElementById("approve-phone").value.trim();
+    const errorEl = document.getElementById("approve-error");
+    if (name.length < 2) { errorEl.textContent = "Enter the representative's name."; return; }
+    const btn = document.getElementById("approve-save");
+    btn.disabled = true;
+    errorEl.textContent = "";
+    try {
+      const res = await fetch("/api/admin/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", ids: active.ids, name, phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.error || "Could not approve.";
+        btn.disabled = false;
+        return;
+      }
+      dialog.close();
+      showNotice("Approved. " + escapeHtml(active.roleLabel) + " for " + escapeHtml(active.targetLabel) + " is now saved as <b>" + escapeHtml(name) + "</b>.", true);
+      load();
+    } catch (err) {
+      errorEl.textContent = "Network error. Please try again.";
+      btn.disabled = false;
+    }
+  });
+
+  // --- Reject ---
+  async function reject(i) {
+    const g = groups[i];
+    if (!g) return;
+    if (!confirm('Reject "' + g.suggestedName + '" as ' + g.roleLabel + ' for ' + g.targetLabel + '? Nothing will be changed.')) return;
+    try {
+      const res = await fetch("/api/admin/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", ids: g.ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice(escapeHtml(data.error || "Could not reject."), false);
+        return;
+      }
+      showNotice("Rejected " + escapeHtml(g.suggestedName) + " for " + escapeHtml(g.targetLabel) + ". Nothing was changed.", true);
+      load();
+    } catch (err) {
+      showNotice("Network error. Please try again.", false);
+    }
+  }
+
+  document.getElementById("refresh-btn").addEventListener("click", load);
+
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+
+  const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+  applyTheme(savedTheme);
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = localStorage.getItem("griq-admin-theme") || "dark";
+    const next = current === "light" ? "dark" : "light";
+    localStorage.setItem("griq-admin-theme", next);
+    applyTheme(next);
+  });
+
+  load();
+</script>
+
+</body>
+</html>
