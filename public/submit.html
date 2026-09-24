@@ -184,6 +184,7 @@
         <span class="brand-name">GrievIQ</span>
       </header>
 
+      <a href="/" style="display:inline-block;font-size:13px;color:var(--teal-dark);text-decoration:none;margin-top:6px;">← Back to home</a>
       <h1>File a complaint</h1>
       <p class="lede">Tell us what happened. Your complaint goes straight to your local representative, and stays visible to higher representatives if it isn't resolved in time.</p>
 
@@ -191,7 +192,7 @@
         <h2>Your complaint has been filed</h2>
         <p>Keep this reference number to check on your complaint later.</p>
         <div class="tracking-ref" id="trackingRefDisplay"></div>
-        <p>You can check its status any time using this number and the phone number you gave.</p>
+        <p id="trackHint"></p>
       </div>
 
       <div class="status-box error" id="errorBox">
@@ -846,6 +847,29 @@
       }
 
       document.getElementById('trackingRefDisplay').textContent = data.tracking_ref;
+
+      // Remember the tracking number on this device only (shown on Home).
+      try {
+        const KEY = 'griq-my-reports';
+        const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
+        const list = Array.isArray(saved) ? saved : [];
+        if (!list.some((r) => r.ref === data.tracking_ref)) {
+          list.push({ ref: data.tracking_ref, filedAt: new Date().toISOString() });
+          localStorage.setItem(KEY, JSON.stringify(list.slice(-50)));
+        }
+      } catch (e) { /* storage unavailable -- not needed to file */ }
+
+      const hint = document.getElementById('trackHint');
+      hint.textContent = '';
+      if (email) {
+        hint.append('Track it any time from ');
+        const a = document.createElement('a');
+        a.href = '/status?ref=' + encodeURIComponent(data.tracking_ref);
+        a.textContent = 'Track my reports';
+        hint.append(a, ' using the email you gave (' + email + ').');
+      } else {
+        hint.textContent = "Online tracking needs an email, and you didn't give one. Keep this number and quote it if you contact us at support@grieviq.in.";
+      }
       successBox.style.display = 'block';
       form.style.display = 'none';
       window.scrollTo({ top: 0, behavior: 'smooth' });

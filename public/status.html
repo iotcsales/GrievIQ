@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Check your grievance — GrievIQ</title>
+<title>Track my reports — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -292,6 +292,24 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 
+  .back-link { display: inline-block; font-size: 13px; color: var(--teal-dark); text-decoration: none; margin-bottom: 4px; }
+  .back-link:hover { text-decoration: underline; }
+  .note-muted { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; margin: 14px 0 0; }
+  .report-list { list-style: none; margin: 0; padding: 0; }
+  .report-item {
+    display: block; width: 100%; text-align: left; font-family: inherit; color: var(--ink);
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 14px;
+    padding: 14px 15px; margin-bottom: 10px; cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .report-item:hover, .report-item:focus-visible { border-color: var(--teal); outline: none; }
+  .report-item .ri-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .report-item .ri-ref { font-size: 12px; font-weight: 700; letter-spacing: 0.03em; color: var(--ink-soft); }
+  .report-item .ri-desc { font-size: 14px; line-height: 1.45; margin-bottom: 5px; }
+  .report-item .ri-meta { font-size: 12px; color: var(--ink-soft); }
+  .report-item .status-pill { margin-left: 0; }
+  .status-pill.waiting { background: var(--brick-dim); color: var(--brick); }
+
   .screen { display: none; }
   .screen.active { display: block; }
 
@@ -322,29 +340,27 @@
 
   <!-- SCREEN 1: entry -->
   <section id="screen-entry" class="screen active">
-    <h1>Check your grievance</h1>
-    <p class="lede">Enter your tracking number and the email you gave when you filed. We'll send a code to confirm it's you.</p>
+    <a href="/" class="back-link">← Back to home</a>
+    <h1>Track my reports</h1>
+    <p class="lede" id="entry-lede">Enter the email you gave when you reported. We'll send a code so we know it's you, then show all your reports.</p>
 
     <div id="entry-error"></div>
 
     <form id="entry-form">
-      <div class="field">
-        <label for="tracking-ref">Tracking number</label>
-        <input type="text" id="tracking-ref" placeholder="GRV-XXXXXX" autocomplete="off" required>
-      </div>
       <div class="field">
         <label for="email">Email address</label>
         <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
       </div>
       <button type="submit" class="primary" id="entry-submit">Send code</button>
     </form>
+    <p class="note-muted">Reported without an email? Online tracking needs the email you gave when reporting. Keep your tracking number, and quote it if you contact us at support@grieviq.in.</p>
     <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
   </section>
 
   <!-- SCREEN 2: OTP -->
   <section id="screen-otp" class="screen">
     <h1>Enter the code we sent</h1>
-    <p class="lede" id="otp-lede">We sent a 6-digit code to your email. It expires in 10 minutes.</p>
+    <p class="lede" id="otp-lede">If this email has reports with GrievIQ, we've sent a 6-digit code to it. It expires in 10 minutes.</p>
 
     <div id="otp-error"></div>
 
@@ -366,7 +382,19 @@
     </div>
   </section>
 
-  <!-- SCREEN 3: status -->
+  <!-- SCREEN 3: list of the citizen's reports -->
+  <section id="screen-list" class="screen">
+    <a href="/" class="back-link">← Back to home</a>
+    <h1>Your reports</h1>
+    <p class="lede" id="list-lede"></p>
+    <div id="list-error"></div>
+    <ul class="report-list" id="report-list"></ul>
+    <div class="footer-actions">
+      <button type="button" class="text-link" id="use-other-email">Use a different email</button>
+    </div>
+  </section>
+
+  <!-- SCREEN 4: one report -->
   <section id="screen-status" class="screen">
     <div class="case-head">
       <div class="case-ref" id="status-ref"></div>
@@ -383,6 +411,7 @@
       <h2 class="section-title">Has this been fixed?</h2>
       <p class="section-note">The representative handling this case marked it resolved. Let us know if that's right.</p>
       <div id="confirm-error"></div>
+      <p class="confirm-note" id="confirm-done" style="display:none;"></p>
       <div class="confirm-actions" id="confirm-actions">
         <button type="button" class="primary" id="btn-confirm-yes">Yes, this fixed it</button>
         <button type="button" class="secondary" id="btn-confirm-no">No, still a problem</button>
@@ -408,7 +437,7 @@
     <ol class="ladder" id="ladder"></ol>
 
     <div class="footer-actions">
-      <button type="button" class="text-link" id="check-another">Check another case</button>
+      <button type="button" class="text-link" id="check-another">← All my reports</button>
     </div>
   </section>
 
@@ -423,16 +452,18 @@
 
 <script>
 (function () {
-  const API_BASE = ''; // same-origin: served from grieviq.pages.dev itself
+  const API_BASE = ''; // same-origin
 
   const screens = {
     entry: document.getElementById('screen-entry'),
     otp: document.getElementById('screen-otp'),
+    list: document.getElementById('screen-list'),
     status: document.getElementById('screen-status'),
   };
   function showScreen(name) {
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[name].classList.add('active');
+    window.scrollTo(0, 0);
   }
 
   function renderError(container, message) {
@@ -441,44 +472,60 @@
       : '';
   }
 
+  // Escapes text for safe insertion into HTML.
   function escapeHtml(str) {
     const d = document.createElement('div');
-    d.textContent = str;
-    return d.textContent;
+    d.textContent = str == null ? '' : String(str);
+    return d.innerHTML;
   }
 
-  let state = { trackingRef: '', email: '' };
+  function messageFrom(data, fallback) {
+    return (data && (data.message || data.error)) || fallback;
+  }
 
-  // --- Screen 1: entry ---
+  // A link like /status?ref=GRV-XXXXXX names the report to open after verifying.
+  const params = new URLSearchParams(window.location.search);
+  const linkedRef = (params.get('ref') || '').trim().toUpperCase();
+
+  let state = { email: '', trackingRef: '', reports: [] };
+
+  if (linkedRef) {
+    document.getElementById('entry-lede').textContent =
+      `To see report ${linkedRef}, enter the email you gave when you reported. We'll send a code so we know it's you.`;
+  }
+
+  // --- Screen 1: email ---
   const entryForm = document.getElementById('entry-form');
   const entrySubmit = document.getElementById('entry-submit');
   const entryError = document.getElementById('entry-error');
 
+  async function requestCode(email) {
+    const res = await fetch(API_BASE + '/api/otp/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, trackingRef: linkedRef || undefined }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && !data.error, data };
+  }
+
   entryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     renderError(entryError, '');
-    const trackingRef = document.getElementById('tracking-ref').value.trim().toUpperCase();
     const email = document.getElementById('email').value.trim();
-    if (!trackingRef || !email) return;
+    if (!email) return;
 
     entrySubmit.disabled = true;
     entrySubmit.innerHTML = '<span class="spinner"></span>Sending…';
-
     try {
-      const res = await fetch(API_BASE + '/api/otp/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, trackingRef }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        renderError(entryError, friendlyRequestError(data.error));
+      const r = await requestCode(email);
+      if (!r.ok) {
+        renderError(entryError, messageFrom(r.data, 'Something went wrong. Please try again.'));
         return;
       }
-      state.trackingRef = trackingRef;
       state.email = email;
       document.getElementById('otp-lede').textContent =
-        `We sent a 6-digit code to ${email}. It expires in 10 minutes.`;
+        `If ${email} has reports with GrievIQ, we've sent a 6-digit code to it. It expires in 10 minutes.`;
       resetOtpInputs();
       showScreen('otp');
       focusFirstOtp();
@@ -490,18 +537,7 @@
     }
   });
 
-  function friendlyRequestError(err) {
-    if (!err) return 'Something went wrong. Please try again.';
-    if (err.toLowerCase().includes('does not match')) {
-      return "That email doesn't match the one on file for this tracking number.";
-    }
-    if (err.toLowerCase().includes('no grievance')) {
-      return "We couldn't find a case with that tracking number.";
-    }
-    return err;
-  }
-
-  // --- Screen 2: OTP ---
+  // --- Screen 2: code ---
   const otpForm = document.getElementById('otp-form');
   const otpSubmit = document.getElementById('otp-submit');
   const otpError = document.getElementById('otp-error');
@@ -549,14 +585,9 @@
     btn.disabled = true;
     renderError(otpError, '');
     try {
-      const res = await fetch(API_BASE + '/api/otp/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        renderError(otpError, friendlyRequestError(data.error));
+      const r = await requestCode(state.email);
+      if (!r.ok) {
+        renderError(otpError, messageFrom(r.data, 'Something went wrong. Please try again.'));
       } else {
         resetOtpInputs();
         focusFirstOtp();
@@ -579,20 +610,25 @@
 
     otpSubmit.disabled = true;
     otpSubmit.innerHTML = '<span class="spinner"></span>Verifying…';
-
     try {
       const res = await fetch(API_BASE + '/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, code }),
+        body: JSON.stringify({ email: state.email, code, trackingRef: linkedRef || undefined }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) {
-        renderError(otpError, friendlyVerifyError(data.error));
+        renderError(otpError, messageFrom(data, 'Something went wrong. Please try again.'));
+        if (data.error === 'TOO_MANY_ATTEMPTS' || data.error === 'EXPIRED') resetOtpInputs();
         return;
       }
-      renderStatus(data.case);
-      showScreen('status');
+      state.reports = data.reports || [];
+      renderList();
+      if (data.case) {
+        openCase(data.case);
+      } else {
+        showScreen('list');
+      }
     } catch (err) {
       renderError(otpError, 'Could not reach GrievIQ. Check your connection and try again.');
     } finally {
@@ -601,20 +637,91 @@
     }
   });
 
-  function friendlyVerifyError(err) {
-    if (!err) return 'Something went wrong. Please try again.';
-    if (err.toLowerCase().includes('incorrect')) return "That code didn't match. Check it and try again.";
-    if (err.toLowerCase().includes('expired')) return 'That code has expired. Send a new one.';
-    if (err.toLowerCase().includes('not found')) return "We couldn't find that case for this email.";
-    return err;
+  // --- Screen 3: list ---
+  const STATUS_TEXT = {
+    OPEN: 'Open',
+    PENDING_CONFIRMATION: 'Awaiting your confirmation',
+    RESOLVED: 'Resolved',
+    CLOSED: 'Closed',
+  };
+  function pillClass(status) {
+    if (status === 'RESOLVED' || status === 'CLOSED') return 'status-pill resolved';
+    if (status === 'PENDING_CONFIRMATION') return 'status-pill waiting';
+    return 'status-pill';
+  }
+  function filedDate(s) {
+    if (!s) return '';
+    const d = s.indexOf('T') !== -1 ? new Date(s) : new Date(s.replace(' ', 'T') + 'Z');
+    return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  // --- Screen 3: status ---
-  document.getElementById('check-another').addEventListener('click', () => {
-    document.getElementById('tracking-ref').value = '';
+  function renderList() {
+    const n = state.reports.length;
+    document.getElementById('list-lede').textContent = n
+      ? `${n} ${n === 1 ? 'report' : 'reports'} filed with ${state.email}, newest first.`
+      : `We couldn't find any reports filed with ${state.email}.`;
+    const ul = document.getElementById('report-list');
+    ul.innerHTML = state.reports.map(r => `
+      <li><button type="button" class="report-item" data-ref="${escapeHtml(r.trackingRef)}">
+        <div class="ri-top"><span class="ri-ref">${escapeHtml(r.trackingRef)}</span><span class="${pillClass(r.status)}">${escapeHtml(STATUS_TEXT[r.status] || r.status)}</span></div>
+        <div class="ri-desc">${escapeHtml(r.description)}</div>
+        <div class="ri-meta">${escapeHtml([r.category, r.wardName, 'Filed ' + filedDate(r.createdAt)].filter(Boolean).join(' · '))}</div>
+      </button></li>`).join('');
+    ul.querySelectorAll('.report-item').forEach(btn => {
+      btn.addEventListener('click', () => loadCase(btn.getAttribute('data-ref'), btn));
+    });
+  }
+
+  function updateCachedStatus(ref, status) {
+    const r = state.reports.find(x => x.trackingRef === ref);
+    if (r) { r.status = status; renderList(); }
+  }
+
+  async function loadCase(ref, btn) {
+    const listError = document.getElementById('list-error');
+    renderError(listError, '');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch(API_BASE + '/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: ref, open: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        renderError(entryError, messageFrom(data, 'Please verify your email again.'));
+        document.getElementById('email').value = state.email;
+        showScreen('entry');
+        return;
+      }
+      if (!res.ok || data.error) {
+        renderError(listError, messageFrom(data, 'Could not open that report. Please try again.'));
+        return;
+      }
+      openCase(data.case);
+    } catch (err) {
+      renderError(listError, 'Could not reach GrievIQ. Check your connection and try again.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function openCase(c) {
+    state.trackingRef = c.trackingRef;
+    renderStatus(c);
+    showScreen('status');
+  }
+
+  document.getElementById('use-other-email').addEventListener('click', () => {
+    state = { email: '', trackingRef: '', reports: [] };
     document.getElementById('email').value = '';
     renderError(entryError, '');
     showScreen('entry');
+  });
+
+  // --- Screen 4: one report ---
+  document.getElementById('check-another').addEventListener('click', () => {
+    showScreen('list');
   });
 
   function renderStatus(c) {
@@ -690,8 +797,19 @@
   const disputeNote = document.getElementById('dispute-note');
   let selectedReason = null;
 
+  const confirmDone = document.getElementById('confirm-done');
+  function showConfirmDone(text) {
+    confirmActions.style.display = 'none';
+    disputeForm.style.display = 'none';
+    renderError(confirmError, '');
+    confirmDone.textContent = text;
+    confirmDone.style.display = 'block';
+  }
+
   function showConfirmCard(show) {
     confirmCard.style.display = show ? 'block' : 'none';
+    confirmDone.style.display = 'none';
+    confirmDone.textContent = '';
     if (show) {
       confirmActions.style.display = 'flex';
       disputeForm.style.display = 'none';
@@ -702,6 +820,8 @@
       btnConfirmYes.disabled = false;
       btnConfirmYes.textContent = 'Yes, this fixed it';
       btnConfirmNo.disabled = false;
+      btnDisputeSubmit.disabled = false;
+      btnDisputeSubmit.textContent = 'Submit';
     }
   }
 
@@ -737,7 +857,8 @@
         btnConfirmYes.textContent = 'Yes, this fixed it';
         return;
       }
-      confirmCard.innerHTML = '<p class="confirm-note">Thanks for confirming — this case is now marked resolved.</p>';
+      showConfirmDone('Thanks for confirming — this case is now marked resolved.');
+      updateCachedStatus(state.trackingRef, 'RESOLVED');
       const pill = document.getElementById('status-pill');
       pill.textContent = 'Resolved';
       pill.className = 'status-pill resolved';
@@ -775,7 +896,8 @@
         btnDisputeSubmit.textContent = 'Submit';
         return;
       }
-      confirmCard.innerHTML = '<p class="confirm-note">Thanks — we\'ve reopened this case and shared your note with the representative.</p>';
+      showConfirmDone('Thanks — we\'ve reopened this case and shared your note with the representative.');
+      updateCachedStatus(state.trackingRef, 'OPEN');
       const pill = document.getElementById('status-pill');
       pill.textContent = 'Open';
       pill.className = 'status-pill';

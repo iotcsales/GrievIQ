@@ -115,7 +115,7 @@ export async function onRequestPost({ request, env }) {
   // 2. Emails -- one per unique address; reps without an email still
   //    see the nudge in their console.
   const days = Math.floor(result.elapsedHours / 24);
-  const consoleUrl = new URL(request.url).origin + "/";
+  const consoleUrl = new URL(request.url).origin + "/rep";
   const recipients = [];
   const byEmail = new Map();
 

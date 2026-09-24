@@ -14,12 +14,17 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'email and trackingRef are required' }), { status: 400 });
     }
 
+    // Verified in the last 15 minutes. Compared as ISO timestamps: the
+    // previous check compared an ISO created_at against SQLite's
+    // "YYYY-MM-DD HH:MM:SS" format, which let any verification from
+    // earlier the same day pass.
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const recentOtp = await env.DB.prepare(
       `SELECT id FROM grievance_otp
-       WHERE email = ? AND purpose = 'STATUS_CHECK' AND verified = 1
-       AND created_at >= datetime('now', '-15 minutes')
-       ORDER BY created_at DESC LIMIT 1`
-    ).bind(email).first();
+       WHERE LOWER(email) = LOWER(?) AND purpose = 'STATUS_CHECK' AND verified = 1
+       AND verified_at >= ?
+       ORDER BY verified_at DESC LIMIT 1`
+    ).bind(email, windowStart).first();
 
     if (!recentOtp) {
       return new Response(JSON.stringify({ error: 'Please verify your email again before confirming' }), { status: 401 });

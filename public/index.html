@@ -3,1002 +3,419 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrievIQ</title>
+<title>GrievIQ — Report a civic problem and track it</title>
+<meta name="description" content="Report a civic problem in Lucknow. GrievIQ sends it to your ward's elected representative and moves it up if it isn't dealt with in time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #14181D;
-    --paper: #ECEEF1;
+    --paper: #F6F5F1;
     --card: #FFFFFF;
-    --line: #D7DBE0;
-    --steel: #3A4552;
-    --steel-2: #59657A;
-    --red: #C23B2C;
-    --red-tint: #F7E4E0;
-    --green: #2F6B4F;
-    --green-tint: #E4EFE8;
-    --gold: #A9822E;
-    --gold-tint: #F5EDDD;
-    --brand: #1B5FA8;
-    --brand-tint: #E8F0FA;
+    --ink: #22201C;
+    --ink-soft: #746E63;
+    --teal: #0E7C6B;
+    --teal-dark: #0A5A4E;
+    --teal-tint: #E4F3EF;
+    --brick: #C23B2C;
+    --brick-dim: #FBE8E5;
+    --grey-line: #D8D3C6;
+    --grey-fill: #EDEAE0;
+    --border: #E7E4DC;
+    --radius: 14px;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #17191B; --card: #1F2224; --ink: #EDEBE4; --ink-soft: #A7A79D;
+      --teal: #35A78F; --teal-dark: #7FDCC4; --teal-tint: #163832;
+      --brick: #E08585; --brick-dim: #3A2323;
+      --grey-line: #3A3D3C; --grey-fill: #262927; --border: #34383C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #17191B; --card: #1F2224; --ink: #EDEBE4; --ink-soft: #A7A79D;
+    --teal: #35A78F; --teal-dark: #7FDCC4; --teal-tint: #163832;
+    --brick: #E08585; --brick-dim: #3A2323;
+    --grey-line: #3A3D3C; --grey-fill: #262927; --border: #34383C;
   }
   * { box-sizing: border-box; }
-  html, body {
+  body {
     margin: 0;
-    padding: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Public Sans', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
   }
-  .console-header {
-    background: var(--card);
-    border-bottom: 1px solid var(--line);
-    padding: 16px 24px;
-  }
-  .console-header-inner {
-    max-width: 780px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .console-header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .console-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: var(--brand);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .console-title {
-    font-family: 'Source Serif 4', serif;
-    font-weight: 600;
-    font-size: 16px;
-    margin: 0;
-    color: var(--ink);
-  }
-  .console-subtitle {
-    font-size: 12.5px;
-    color: var(--steel-2);
-    margin: 2px 0 0;
-  }
-  .console-header-right {
-    text-align: right;
-  }
-  .console-ward {
-    font-weight: 700;
-    font-size: 14px;
-    margin: 0;
-    color: var(--ink);
-  }
-  .console-role {
-    font-size: 12.5px;
-    color: var(--steel-2);
-    margin: 2px 0 0;
-  }
-  .tab-bar {
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 0 24px;
-    display: flex;
-    gap: 4px;
-    border-bottom: 1px solid var(--line);
-    background: var(--card);
-  }
-  .tab-btn {
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--steel-2);
-    background: none;
-    border: none;
-    border-bottom: 2.5px solid transparent;
-    padding: 12px 6px;
-    margin-bottom: -1px;
-    cursor: pointer;
-  }
-  .tab-btn:hover { color: var(--ink); }
-  .tab-btn.active {
-    color: var(--brand);
-    border-bottom-color: var(--brand);
-  }
-  .mandate-strip {
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 12px 24px 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .mandate-chip {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 6px 12px;
-    font-size: 13px;
-    color: var(--steel);
-    font-family: inherit;
-    cursor: pointer;
-  }
-  .mandate-chip:hover { border-color: var(--brand); }
-  .mandate-chip.active {
-    background: var(--brand-tint);
-    border-color: var(--brand);
-    color: var(--brand);
-  }
-  .mandate-chip b { color: var(--ink); }
-  .mandate-chip.active b { color: var(--brand); }
-  main {
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 8px 24px 60px;
-  }
-  .register-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 10px;
-    margin-bottom: 4px;
-  }
-  .register-title {
-    font-family: 'Source Serif 4', serif;
-    font-weight: 600;
-    font-size: 19px;
-    margin: 0;
-  }
-  .register-count {
-    font-size: 13px;
-    color: var(--steel-2);
-  }
-  .case-row {
-    display: grid;
-    grid-template-columns: 20px 1fr auto;
-    gap: 16px;
-    align-items: start;
-    padding: 18px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .signal-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-top: 5px;
-  }
-  .signal-dot.red { background: var(--red); }
-  .signal-dot.green { background: none; border: 2px solid var(--green); width: 8px; height: 8px; margin-top: 6px; }
-  .signal-dot.gold { background: var(--gold); }
-  .case-main .tracking-ref {
-    font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 0.02em;
-  }
-  .case-main .category {
-    color: var(--steel-2);
-    font-size: 13px;
-  }
-  .case-main .description {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: var(--steel);
-    line-height: 1.5;
-    max-width: 46ch;
-  }
-  .case-main .location-detail {
-    margin: 4px 0 0;
-    font-size: 12.5px;
-    color: var(--steel-2);
-    font-style: italic;
-    max-width: 46ch;
-  }
-  .photo-thumbs {
-    display: flex;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .photo-thumb {
-    width: 52px;
-    height: 52px;
-    border-radius: 3px;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    display: block;
-  }
-  .photo-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .case-meta {
-    text-align: right;
-    min-width: 150px;
-  }
-  .elapsed {
-    font-size: 13px;
-    color: var(--steel-2);
-    margin-bottom: 8px;
-  }
-  .elapsed.overdue { color: var(--red); font-weight: 600; }
-  .ladder {
-    display: flex;
-    justify-content: flex-end;
-    gap: 5px;
-  }
-  .ladder-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-  }
-  .ladder-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--line);
-  }
-  .ladder-dot.filled { background: var(--red); }
-  .ladder-dot.current { background: var(--ink); }
-  .ladder-label {
-    font-size: 9px;
-    color: var(--steel-2);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 3px;
-    margin-top: 4px;
-  }
-  .badge.escalated { background: var(--red-tint); color: var(--red); }
-  .badge.resolved { background: var(--green-tint); color: var(--green); font-weight: 700; font-size: 12px; padding: 4px 9px; }
-  .badge.pending { background: var(--gold-tint); color: var(--gold); }
-  .dispute-note {
-    margin: 8px 0 0;
-    padding: 8px 10px;
-    background: var(--red-tint);
-    border-left: 3px solid var(--red);
-    font-size: 12.5px;
-    color: var(--steel);
-    line-height: 1.5;
-    max-width: 46ch;
-  }
-  .dispute-note b { color: var(--red); }
-  .resolve-btn {
-    margin-top: 10px;
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ink);
-    background: var(--card);
-    border: 1.5px solid var(--ink);
-    border-radius: 4px;
-    padding: 6px 12px;
-    cursor: pointer;
-  }
-  .resolve-btn:hover { background: var(--ink); color: var(--paper); }
-  .resolve-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: var(--card);
-    color: var(--ink);
-  }
-  .resolve-error {
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--red);
-  }
-  .empty-state {
-    padding: 60px 0;
-    text-align: center;
-    color: var(--steel-2);
-  }
-  .empty-state p { font-size: 14px; margin: 0; }
-  .report-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .report-title {
-    font-family: 'Source Serif 4', serif;
-    font-weight: 600;
-    font-size: 19px;
-    margin: 0;
-  }
-  .report-subtitle {
-    font-size: 13px;
-    color: var(--steel-2);
-    margin: 3px 0 0;
-  }
-  .report-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .export-pdf-btn {
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #fff;
-    background: var(--brand);
-    border: none;
-    border-radius: 4px;
-    padding: 8px 13px;
-    cursor: pointer;
-  }
-  .export-pdf-btn.secondary-btn {
-    background: var(--card);
-    color: var(--brand);
-    border: 1.5px solid var(--brand);
-  }
-  .export-pdf-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .date-range-row {
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
-    padding: 12px 14px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-  }
-  .date-range-row .field { display: flex; flex-direction: column; gap: 4px; }
-  .date-range-row .field label { font-size: 11px; color: var(--steel-2); font-weight: 600; }
-  .date-range-row .field input {
-    font-family: inherit;
-    font-size: 13px;
-    padding: 6px 8px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-  }
-  .apply-btn {
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
+
+  .trust-strip {
     background: var(--ink);
-    border: none;
-    border-radius: 4px;
-    padding: 7px 14px;
-    cursor: pointer;
-  }
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-  .stat-card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 14px 16px;
-  }
-  .stat-number {
-    font-family: 'Source Serif 4', serif;
-    font-weight: 700;
-    font-size: 24px;
-    color: var(--ink);
-  }
-  .stat-label {
-    font-size: 11.5px;
-    color: var(--steel-2);
-    margin-top: 3px;
-  }
-  .report-list-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--steel-2);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    margin: 0 0 8px;
-  }
-  .breakdown-row {
+    color: #C7C2B8;
+    font-size: 11px;
+    padding: 7px 20px;
     display: flex;
     justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 13px;
+    align-items: center;
   }
-  .report-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
-  .report-table th, .report-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
-  .report-table th { color: var(--steel-2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
-  .report-tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
-  .report-tag.resolved { background: var(--green-tint); color: var(--green); }
-  .report-tag.pending { background: var(--gold-tint); color: var(--gold); }
-  .report-tag.open { background: var(--red-tint); color: var(--red); }
-  .report-tag.disputed { background: var(--red-tint); color: var(--red); margin-left: 4px; }
-  .footer-note {
-    margin-top: 24px;
-    font-size: 11.5px;
-    color: var(--steel-2);
+  .trust-strip .emblem {
+    width: 12px; height: 12px; border-radius: 50%; background: #D8B24B; flex-shrink: 0; margin-right: 7px; display: inline-block; vertical-align: middle;
   }
-  .notice {
-    max-width: 520px;
-    margin: 80px auto;
-    padding: 0 24px;
-    text-align: center;
+
+  .card-shell {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 20px 20px 60px;
+    min-height: 100vh;
   }
-  .notice h1 {
+
+  .app-card {
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 28px 24px 26px;
+    margin-top: 20px;
+  }
+
+  header.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  header.brand .logo-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: var(--teal);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  header.brand .logo-mark svg { width: 17px; height: 17px; }
+  header.brand span.brand-name {
     font-family: 'Source Serif 4', serif;
-    font-size: 22px;
+    font-weight: 700;
+    font-size: 17px;
   }
-  .notice p { color: var(--steel); font-size: 14px; line-height: 1.6; }
-  @media print {
-    .console-header, .tab-bar, .mandate-strip, .no-print, .export-pdf-btn { display: none !important; }
-    body { background: white; }
+
+  h1 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 23px;
+    line-height: 1.3;
+    margin: 18px 0 8px;
   }
+  p.lede {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 0 0 24px;
+  }
+  label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field { margin-bottom: 16px; }
+  input[type=text], input[type=email] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  input[type=text]:focus, input[type=email]:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(14,124,107,0.15);
+  }
+  input[type=text]::placeholder, input[type=email]::placeholder { color: var(--grey-line); }
+
+  button.primary {
+    width: 100%;
+    padding: 13px;
+    font-size: 14.5px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #fff;
+    background: var(--teal);
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(14,124,107,0.25);
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button.primary:hover { background: var(--teal-dark); }
+  button.primary:active { transform: scale(0.99); }
+  button.primary:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+  button.primary:focus-visible, input:focus-visible, a.link:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+  }
+  button.text-link {
+    background: none; border: none; padding: 0;
+    font-family: inherit; font-size: 13.5px; color: var(--teal-dark);
+    cursor: pointer; text-decoration: underline; font-weight: 500;
+  }
+  button.text-link:disabled { color: var(--grey-line); cursor: default; text-decoration: none; }
+
+  .otp-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .otp-row input {
+    width: 100%; text-align: center; font-size: 19px; font-weight: 600;
+    letter-spacing: 0.02em; padding: 11px 0;
+  }
+  .helper-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: -4px; margin-bottom: 6px; font-size: 12.5px; color: var(--ink-soft);
+  }
+
+  .error-banner, .warn-banner, .review-banner {
+    border-radius: 12px; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; margin-bottom: 16px;
+  }
+  .error-banner { background: var(--brick-dim); color: var(--brick); border: 1px solid var(--brick); }
+  .warn-banner { background: var(--brick-dim); color: var(--ink); border: 1px solid var(--brick); }
+  .warn-banner strong { color: var(--brick); }
+  .review-banner { background: var(--teal-tint); color: var(--ink); border: 1px solid var(--teal); }
+  .review-banner strong { color: var(--teal-dark); }
+
+  .followup-section {
+    background: var(--teal-tint);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 13.5px;
+  }
+  .followup-section .followup-current {
+    font-weight: 700;
+    color: var(--teal-dark);
+    margin-bottom: 6px;
+  }
+  .followup-entry {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    padding: 7px 0;
+    border-top: 1px solid rgba(14,124,107,0.15);
+  }
+  .followup-entry:first-child { border-top: none; }
+  .followup-entry strong { color: var(--ink); }
+
+  .feedback-card {
+    background: var(--teal-tint);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    color: var(--teal-dark);
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .feedback-card svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .feedback-card { text-decoration: none; }
+
+  .case-head { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 20px; }
+  .case-ref {
+    font-size: 12px; font-weight: 600; color: var(--ink-soft);
+    letter-spacing: 0.03em; margin-bottom: 5px; text-transform: uppercase;
+  }
+  .case-desc {
+    font-family: 'Source Serif 4', serif; font-size: 18px; font-weight: 700;
+    line-height: 1.35; margin-bottom: 7px;
+  }
+  .case-meta { font-size: 12.5px; color: var(--ink-soft); }
+  .status-pill {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 100px; margin-left: 8px; background: var(--grey-fill);
+    color: var(--ink-soft); vertical-align: middle;
+  }
+  .status-pill.resolved { background: var(--teal-tint); color: var(--teal-dark); }
+
+  h2.section-title { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 15.5px; margin: 0 0 4px; }
+  p.section-note { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 18px; }
+
+  .ladder { list-style: none; margin: 0; padding: 0; }
+  .ladder li { position: relative; padding-left: 38px; padding-bottom: 24px; }
+  .ladder li:last-child { padding-bottom: 0; }
+  .ladder li::before {
+    content: ""; position: absolute; left: 10px; top: 24px; bottom: 0; width: 2px;
+    background: var(--grey-line);
+  }
+  .ladder li:last-child::before { display: none; }
+  .ladder li.reached::before { background: var(--teal); }
+  .dot {
+    position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--grey-line); background: var(--card);
+  }
+  .ladder li.reached .dot { border-color: var(--teal); background: var(--teal); }
+  .ladder li.breached .dot { border-color: var(--brick); background: var(--brick); box-shadow: 0 0 0 4px var(--brick-dim);} 
+  .dot svg { width: 12px; height: 12px; position: absolute; top: 4px; left: 4px; }
+  .tier-label { font-weight: 700; font-size: 14px; }
+  .ladder li:not(.reached) .tier-label { color: var(--ink-soft); font-weight: 500; }
+  .tier-status { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .tier-status.breached { color: var(--brick); font-weight: 600; }
+
+  .confirm-card {
+    background: var(--teal-tint);
+    border-radius: 16px;
+    padding: 18px 18px 20px;
+    margin-bottom: 22px;
+  }
+  .confirm-card .section-title { margin-bottom: 4px; color: var(--teal-dark); }
+  .confirm-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .confirm-actions button.primary, .confirm-actions button.secondary { width: auto; flex: 1; }
+  button.secondary {
+    padding: 13px; font-size: 14.5px; font-weight: 600; font-family: inherit;
+    color: var(--teal-dark); background: var(--card); border: 1.5px solid var(--teal);
+    border-radius: 11px; cursor: pointer;
+  }
+  button.secondary:hover { background: var(--teal-tint); }
+  .reason-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+  .reason-chip {
+    padding: 7px 13px; border: 1.5px solid var(--border); border-radius: 100px;
+    font-size: 12.5px; font-family: inherit; cursor: pointer; background: var(--card); color: var(--ink);
+  }
+  .reason-chip.selected { border-color: var(--teal); background: var(--card); color: var(--teal-dark); font-weight: 700; }
+  textarea#dispute-note {
+    width: 100%; padding: 11px 13px; font-size: 13.5px; font-family: inherit;
+    color: var(--ink); background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 11px; resize: vertical; min-height: 60px; margin-bottom: 4px;
+  }
+  .confirm-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 12px; }
+
+  .footer-actions { margin-top: 28px; text-align: center; }
+
+  .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: 11.5px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .spinner {
+    display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -2px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 380px) {
+    .card-shell { padding: 16px 14px 48px; }
+    .app-card { padding: 22px 18px 20px; }
+    h1 { font-size: 21px; }
+  }
+
+  .intro { color: var(--ink-soft); font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 22px; }
+  .stat { background: var(--paper); border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .stat-value { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 22px; line-height: 1.1; }
+  .stat-label { font-size: 11px; color: var(--ink-soft); margin-top: 4px; line-height: 1.3; }
+  .task-card {
+    display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--ink);
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 16px;
+    padding: 16px; margin-bottom: 12px; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .task-card:hover, .task-card:focus-visible { border-color: var(--teal); box-shadow: 0 2px 10px rgba(14,124,107,0.12); outline: none; }
+  .task-card.primary-task { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .task-card.primary-task:hover, .task-card.primary-task:focus-visible { background: var(--teal-dark); border-color: var(--teal-dark); }
+  .task-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--teal-tint); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .task-icon svg { width: 20px; height: 20px; stroke: var(--teal-dark); }
+  .primary-task .task-icon { background: rgba(255,255,255,0.18); }
+  .primary-task .task-icon svg { stroke: #fff; }
+  .task-title { font-weight: 700; font-size: 15px; }
+  .task-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; line-height: 1.4; }
+  .primary-task .task-sub { color: rgba(255,255,255,0.85); }
+  .task-arrow { margin-left: auto; font-size: 18px; color: var(--ink-soft); }
+  .primary-task .task-arrow { color: #fff; }
+  .need-box { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 6px 0 0; }
+  .need-box strong { color: var(--ink); }
+  .emergency { margin-top: 14px; font-size: 12.5px; line-height: 1.5; border-radius: 12px; padding: 10px 13px; background: var(--brick-dim); color: var(--ink); border: 1px solid var(--brick); }
+  .emergency strong { color: var(--brick); }
+  .device-note { font-size: 11.5px; color: var(--ink-soft); margin: -4px 0 12px; }
+  .device-note button { background: none; border: none; padding: 0; font: inherit; color: var(--teal-dark); text-decoration: underline; cursor: pointer; }
+  .rep-link { margin-top: 10px; font-size: 11px; }
+  .rep-link a { color: var(--ink-soft); }
 </style>
 </head>
 <body>
+<div class="trust-strip"><span><span class="emblem"></span>Independent citizen grievance escalation &amp; redressal platform</span><span>EN</span></div>
+<div class="card-shell">
 
-<div id="app"></div>
+  <header class="brand">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <span class="brand-name">GrievIQ</span>
+  </header>
+
+  <div class="app-card">
+    <h1>Get civic problems in Lucknow fixed</h1>
+    <p class="intro">Report a problem like no water, garbage, broken roads or street lights. GrievIQ sends it to your ward's elected representative. If it isn't dealt with in time, it moves up to the next level automatically, and stays visible to everyone it has reached.</p>
+
+    <div class="stats" aria-label="GrievIQ at a glance">
+      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label">Wards reachable</div></div>
+      <div class="stat"><div class="stat-value">Up to 4</div><div class="stat-label">Escalation levels</div></div>
+      <div class="stat"><div class="stat-value" id="stat-device">0</div><div class="stat-label">Reports on this device</div></div>
+    </div>
+
+    <a class="task-card primary-task" href="/submit">
+      <span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>
+      <span><span class="task-title">Report a problem</span><span class="task-sub" style="display:block">Water, sanitation, roads, electricity</span></span>
+      <span class="task-arrow" aria-hidden="true">→</span>
+    </a>
+
+    <a class="task-card" href="/status">
+      <span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span>
+      <span><span class="task-title">Track my reports</span><span class="task-sub" style="display:block" id="track-sub">Check progress with the email you gave</span></span>
+      <span class="task-arrow" aria-hidden="true">→</span>
+    </a>
+    <p class="device-note" id="device-note" style="display:none;">Tracking numbers are saved only on this device. <button type="button" id="forget-device">Forget reports on this device</button></p>
+
+    <p class="need-box"><strong>What you'll need:</strong> your phone number. Add your email to get updates and track your report online.</p>
+
+    <div class="emergency"><strong>Emergency?</strong> For fire, gas leaks, accidents or anyone in danger, call <strong>112</strong>. Don't wait for GrievIQ.</div>
+
+    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
+  </div>
+
+  <div class="footer-block">
+    <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
+    <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+    <div class="rep-link"><a href="/rep">Representatives: sign in</a></div>
+  </div>
+
+</div>
 
 <script>
-const TIER_LABELS = { LOCAL: 'Local', MAYOR: 'Mayor', MLA: 'MLA', MP: 'MP' };
-const DISPUTE_REASON_LABELS = {
-  NOT_FIXED: 'Citizen says: not fixed at all',
-  PARTIALLY_FIXED: 'Citizen says: partially fixed',
-  CAME_BACK: 'Citizen says: fixed, but came back',
-  WRONG_ISSUE: 'Citizen says: wrong issue was fixed',
-  OTHER: 'Citizen disputed resolution',
-};
-const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-var activeTab = 'cases';
-var activeMandateId = null;
-var currentMe = null;
-var currentCases = [];
-
-var reportData = null;
-var reportFrom = '';
-var reportTo = '';
-
-function formatDate(iso) {
-  if (!iso) return '';
-  var d = new Date(iso);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
-    ', ' + d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatDateOnly(iso) {
-  if (!iso) return '—';
-  var d = new Date(iso);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function fmtHours(h) {
-  if (h === null || h === undefined) return '—';
-  if (h < 24) return Math.round(h) + ' hrs';
-  return Math.round((h / 24) * 10) / 10 + ' days';
-}
-
-function timeAgo(days) {
-  if (days < 1) return 'Filed today';
-  if (days === 1) return 'Filed 1 day ago';
-  return 'Filed ' + Math.floor(days) + ' days ago';
-}
-
-function mandateIdForApi() {
-  return activeMandateId === null ? 'all' : activeMandateId;
-}
-
-function renderLadder(chainTierList, currentTierIndex, viewingAsTier) {
-  return '<div class="ladder">' + chainTierList.map(function(tier, i) {
-    var filled = i <= currentTierIndex;
-    var isCurrent = tier === viewingAsTier;
-    var dotClass = 'ladder-dot' + (filled ? ' filled' : '') + (isCurrent ? ' current' : '');
-    return '<div class="ladder-step"><div class="' + dotClass + '"></div>' +
-      '<div class="ladder-label">' + TIER_LABELS[tier] + '</div></div>';
-  }).join('') + '</div>';
-}
-
-function renderPhotoThumbs(photoUrls) {
-  if (!photoUrls || photoUrls.length === 0) return '';
-  return '<div class="photo-thumbs">' + photoUrls.map(function(url) {
-    return '<a class="photo-thumb" href="' + url + '" target="_blank" rel="noopener">' +
-      '<img src="' + url + '" alt="Grievance photo" loading="lazy"></a>';
-  }).join('') + '</div>';
-}
-
-function renderDisputeNote(c) {
-  if (!c.citizenDisputeReason) return '';
-  var label = DISPUTE_REASON_LABELS[c.citizenDisputeReason] || 'Citizen disputed resolution';
-  var note = c.citizenDisputeNote
-    ? ' &mdash; "' + c.citizenDisputeNote + '"'
-    : '';
-  var when = c.citizenDisputeAt ? ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
-  return '<div class="dispute-note"><b>' + label + '</b>' + when + note + '</div>';
-}
-
-function renderNudgeNote(c) { if (!c.adminNudges || !c.adminNudges.length) return ''; var n = c.adminNudges[c.adminNudges.length - 1]; var esc = function(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }; var count = c.adminNudges.length > 1 ? ' &middot; ' + c.adminNudges.length + ' reminders so far' : ''; return '<div class="dispute-note"><b>Reminder from GrievIQ admin</b> <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(n.createdAt) + count + ')</span>' + (n.note ? ' &mdash; "' + esc(n.note) + '"' : '') + '</div>'; } function renderResolveControl(c) {
-  var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
-  var isPending = c.status === 'PENDING_CONFIRMATION';
-  if (isFinal || isPending) return '';
-  return '<button class="resolve-btn" data-id="' + c.id + '">Mark resolved</button>' +
-    '<div class="resolve-error" id="resolve-error-' + c.id + '"></div>';
-}
-function renderFollowupControl(c) {
-  var deptLine = c.currentDepartment
-    ? '<p class="location-detail">Forwarded to: <b>' + c.currentDepartment + '</b></p>'
-    : '';
-  var history = (c.followupHistory || []).map(function(f) {
-    var noteText = f.note ? ' — ' + f.note : '';
-    return '<div class="dispute-note"><b>' + f.department + '</b>' + noteText +
-      ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(f.createdAt) + ')</span></div>';
-  }).join('');
-  var options = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other']
-    .map(function(d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
-  return deptLine + history +
-    '<select class="followup-dept" id="followup-dept-' + c.id + '">' + options + '</select> ' +
-    '<input class="followup-note" id="followup-note-' + c.id + '" type="text" placeholder="Note (optional)" /> ' +
-    '<button class="resolve-btn followup-btn" data-id="' + c.id + '">Log follow-up</button>' +
-    '<div class="resolve-error followup-error" id="followup-error-' + c.id + '"></div>';
-}
-function renderAcknowledgeControl(c) {
-  if (c.acknowledgedAt) {
-    return '<span class="badge acknowledged">acknowledged ' + formatDate(c.acknowledgedAt) + '</span>';
+(function () {
+  // Tracking numbers saved by the complaint form, on this device only.
+  const KEY = 'griq-my-reports';
+  function savedReports() {
+    try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
   }
-  var overdueNote = c.ackOverdue ? ' <span class="badge escalated">ack overdue</span>' : '';
-  return '<button class="resolve-btn ack-btn" data-id="' + c.id + '">Acknowledge</button>' +
-    '<div class="resolve-error ack-error" id="ack-error-' + c.id + '"></div>' + overdueNote;
-}
-
-function renderCase(c) {
-  var dotClass = 'signal-dot green';
-  if (c.status === 'PENDING_CONFIRMATION') dotClass = 'signal-dot gold';
-  else if (c.isRedIndicator) dotClass = 'signal-dot red';
-
-  var elapsedClass = c.ackOverdue || c.isRedIndicator ? 'elapsed overdue' : 'elapsed';
-  var badge = '';
-  if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
-    var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
-    badge = '<span class="badge resolved">' + c.status.toLowerCase() + resolvedWhen + '</span>';
-  } else if (c.status === 'PENDING_CONFIRMATION') {
-    badge = '<span class="badge pending">awaiting citizen confirmation</span>';
-  } else if (c.hasEscalatedPastMyTier) {
-    badge = '<span class="badge escalated">now with ' + TIER_LABELS[c.currentTopTier] + '</span>';
+  function showDevice() {
+    const n = savedReports().length;
+    document.getElementById('stat-device').textContent = n;
+    document.getElementById('track-sub').textContent = n
+      ? `${n} filed on this device · check progress with your email`
+      : 'Check progress with the email you gave';
+    document.getElementById('device-note').style.display = n ? '' : 'none';
   }
-  var locationLine = c.locationDetail
-    ? '<p class="location-detail">' + c.locationDetail + '</p>'
-    : '';
-  return '<div class="case-row">' +
-    '<div class="' + dotClass + '"></div>' +
-    '<div class="case-main">' +
-      '<div class="tracking-ref">' + c.trackingRef + '</div>' +
-      '<div class="category">' + c.category.name + ' &middot; ' + c.localUnit.name + '</div>' +
-      '<p class="description">' + c.description + '</p>' +
-      locationLine +
-      renderPhotoThumbs(c.photoUrls) +
-      badge +
-        renderDisputeNote(c) + renderNudgeNote(c) +
-        renderFollowupControl(c) +
-        renderAcknowledgeControl(c) +
-        renderResolveControl(c) +
-    '</div>' +
-    '<div class="case-meta">' +
-      '<div class="' + elapsedClass + '">' + timeAgo(c.elapsedDays) + '</div>' +
-      renderLadder(c.chainTierList, c.currentTierIndex, c.viewingAsTier) +
-    '</div>' +
-  '</div>';
-}
-
-function renderMandateChips(mandates) {
-  var allActive = activeMandateId === null ? ' active' : '';
-  var allChip = '<button type="button" class="mandate-chip' + allActive + '" data-mandate-id="">All wards</button>';
-  var chips = mandates.map(function(m) {
-    var isActive = activeMandateId === m.id ? ' active' : '';
-    return '<button type="button" class="mandate-chip' + isActive + '" data-mandate-id="' + m.id + '">' +
-      m.name + ' &mdash; <b>' + m.label + '</b></button>';
-  }).join('');
-  return allChip + chips;
-}
-
-function renderBreakdown(obj) {
-  var entries = Object.entries(obj);
-  if (entries.length === 0) return '<p style="font-size:13px;color:var(--steel-2);">No data.</p>';
-  return entries.map(function(e) {
-    return '<div class="breakdown-row"><span>' + e[0] + '</span><span><b>' + e[1] + '</b></span></div>';
-  }).join('');
-}
-
-function renderReportTab() {
-  if (reportData === null) {
-    return '<div class="empty-state"><p>Loading report…</p></div>';
-  }
-  if (reportData.error) {
-    return '<div class="empty-state"><p>Could not load the report. Please try again.</p></div>';
-  }
-
-  var s = reportData.stats;
-  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
-  var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
-
-  var html =
-    '<div class="report-header">' +
-      '<div><h2 class="report-title">Performance report</h2>' +
-      '<p class="report-subtitle">' + scopeName + ' &middot; ' + rangeLabel + '</p></div>' +
-      '<div class="report-actions">' +
-        '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Download PDF</button>' +
-        '<button type="button" class="export-pdf-btn secondary-btn" id="print-btn">Print report</button>' +
-        '<button type="button" class="export-pdf-btn secondary-btn" id="csv-btn">Download CSV</button>' +
-      '</div>' +
-    '</div>' +
-    '<div class="date-range-row no-print">' +
-      '<div class="field"><label>From</label><input type="date" id="report-from" value="' + reportFrom + '"></div>' +
-      '<div class="field"><label>To</label><input type="date" id="report-to" value="' + reportTo + '"></div>' +
-      '<button type="button" class="apply-btn" id="report-apply-btn">Apply</button>' +
-    '</div>' +
-    '<div class="stat-grid">' +
-      '<div class="stat-card"><div class="stat-number">' + s.totalCases + '</div><div class="stat-label">Total cases</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">Avg. time to acknowledge</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgResolveHours) + '</div><div class="stat-label">Avg. time to resolve</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + s.resolvedCount + '</div><div class="stat-label">Resolved</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : s.escalationRate + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : s.disputeRate + '%') + '</div><div class="stat-label">Dispute rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + s.noFollowupCount + '</div><div class="stat-label">No follow-up</div></div>' +
-    '</div>' +
-    '<p class="report-list-title">By category</p>' + renderBreakdown(s.byCategory) +
-    '<p class="report-list-title" style="margin-top:20px;">By status</p>' + renderBreakdown(s.byStatus);
-
-  if (reportData.cases.length === 0) {
-    html += '<div class="empty-state"><p>No cases in this scope yet.</p></div>';
-    return html;
-  }
-
-  html += '<p class="report-list-title" style="margin-top:20px;">Case detail</p>';
-  html += '<table class="report-table"><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>';
-  html += reportData.cases.map(function(c) {
-    var statusCls = (c.status === 'RESOLVED' || c.status === 'CLOSED') ? 'resolved' : c.status === 'PENDING_CONFIRMATION' ? 'pending' : 'open';
-    var disputedTag = c.disputed ? ' <span class="report-tag disputed">disputed</span>' : '';
-    return '<tr><td>' + c.trackingRef + '</td><td>' + c.category + '</td><td>' + c.localUnit + '</td>' +
-      '<td><span class="report-tag ' + statusCls + '">' + c.status.toLowerCase().replace('_', ' ') + '</span>' + disputedTag + '</td>' +
-      '<td>' + formatDateOnly(c.createdAt) + '</td><td>' + formatDateOnly(c.resolvedAt) + '</td><td>' + c.followupCount + '</td></tr>';
-  }).join('');
-  html += '</tbody></table>';
-
-  html += '<p class="footer-note">Dispute and escalation rates reflect the complete, permanent case history and cannot be filtered out of this report.</p>';
-
-  return html;
-}
-
-function renderNotice(title, message) {
-  document.getElementById('app').innerHTML =
-    '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
-}
-
-function renderApp() {
-  var me = currentMe;
-  var cases = activeMandateId === null
-    ? currentCases
-    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
-  var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
-  var primaryMandate = me.mandates[0];
-
-  var html =
-    '<div class="console-header"><div class="console-header-inner">' +
-      '<div class="console-header-left">' +
-        '<div class="console-icon">' + LAYERS_ICON + '</div>' +
-        '<div><p class="console-title">GrievIQ Representative console</p><p class="console-subtitle">Grievance escalation service</p></div>' +
-      '</div>' +
-      '<div class="console-header-right">' +
-        '<p class="console-ward">' + primaryMandate.name + '</p>' +
-        '<p class="console-role">' + primaryMandate.label + '</p>' +
-      '</div>' +
-    '</div></div>' +
-    '<div class="mandate-strip">' + renderMandateChips(me.mandates) + '</div>' +
-    '<div class="tab-bar">' +
-      '<button class="tab-btn' + (activeTab === 'cases' ? ' active' : '') + '" data-tab="cases">Cases</button>' +
-      '<button class="tab-btn' + (activeTab === 'report' ? ' active' : '') + '" data-tab="report">Report</button>' +
-    '</div>' +
-    '<main>';
-
-  if (activeTab === 'cases') {
-    html +=
-      '<div class="register-header">' +
-        '<h2 class="register-title">Case register</h2>' +
-        '<span class="register-count">' + cases.length + ' case' + (cases.length === 1 ? '' : 's') +
-          (redCount > 0 ? ' &middot; ' + redCount + ' need attention' : '') + '</span>' +
-      '</div>';
-    if (cases.length === 0) {
-      html += '<div class="empty-state"><p>No cases currently in your jurisdiction.</p></div>';
-    } else {
-      html += cases.map(renderCase).join('');
-    }
-  } else {
-    html += renderReportTab();
-  }
-
-  html += '</main>';
-  document.getElementById('app').innerHTML = html;
-
-  attachTabHandlers();
-  attachMandateHandlers();
-  if (activeTab === 'cases') {
-    attachResolveHandlers();
-    attachAcknowledgeHandlers();
-    attachFollowupHandlers();
-  } else if (activeTab === 'report') {
-    attachReportHandlers();
-  }
-}
-
-async function loadReportTab() {
-  reportData = null;
-  renderApp();
-  try {
-    var qs = new URLSearchParams();
-    qs.set('mandateId', mandateIdForApi());
-    if (reportFrom) qs.set('from', reportFrom);
-    if (reportTo) qs.set('to', reportTo);
-    var res = await fetch('/api/grievances/report?' + qs.toString());
-    reportData = await res.json();
-  } catch (err) {
-    reportData = { error: true };
-  }
-  renderApp();
-}
-
-function attachTabHandlers() {
-  document.querySelectorAll('.tab-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      activeTab = btn.getAttribute('data-tab');
-      if (activeTab === 'report') {
-        loadReportTab();
-      } else {
-        renderApp();
-      }
-    });
+  document.getElementById('forget-device').addEventListener('click', () => {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    showDevice();
   });
-}
+  showDevice();
 
-function attachMandateHandlers() {
-  document.querySelectorAll('.mandate-chip').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-mandate-id');
-      activeMandateId = id === '' ? null : id;
-      if (activeTab === 'report') {
-        loadReportTab();
-      } else {
-        renderApp();
-      }
-    });
-  });
-}
-
-function attachReportHandlers() {
-  var applyBtn = document.getElementById('report-apply-btn');
-  if (applyBtn) {
-    applyBtn.addEventListener('click', function() {
-      reportFrom = document.getElementById('report-from').value;
-      reportTo = document.getElementById('report-to').value;
-      loadReportTab();
-    });
-  }
-  var pdfBtn = document.getElementById('export-pdf-btn');
-  if (pdfBtn) pdfBtn.addEventListener('click', generateReportPdf);
-  var printBtn = document.getElementById('print-btn');
-  if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
-  var csvBtn = document.getElementById('csv-btn');
-  if (csvBtn) csvBtn.addEventListener('click', downloadReportCsv);
-}
-
-function toCsvRow(vals) {
-  return vals.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
-}
-
-function downloadReportCsv() {
-  if (!reportData || reportData.error) return;
-  var headers = ['Tracking Ref', 'Category', 'Local Unit', 'Status', 'Created At', 'Acknowledged At', 'Resolved At', 'Follow-ups', 'Disputed'];
-  var rows = reportData.cases.map(function(c) {
-    return toCsvRow([c.trackingRef, c.category, c.localUnit, c.status, c.createdAt, c.acknowledgedAt || '', c.resolvedAt || '', c.followupCount, c.disputed ? 'Yes' : 'No']);
-  });
-  var csv = toCsvRow(headers) + '\n' + rows.join('\n');
-  var blob = new Blob([csv], { type: 'text/csv' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'grieviq-report-' + reportData.mandate.id + '-' + new Date().toISOString().slice(0, 10) + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function generateReportPdf() {
-  if (!reportData || reportData.error) return;
-  var s = reportData.stats;
-  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
-  var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
-
-  var jsPDFCtor = window.jspdf.jsPDF;
-  var doc = new jsPDFCtor();
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('GrievIQ Performance Report', 14, 18);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text(scopeName, 14, 26);
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(rangeLabel + '  |  Generated ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), 14, 32);
-  doc.setTextColor(0);
-
-  var statY = 42;
-  var stats = [
-    ['Total', String(s.totalCases)],
-    ['Avg. ack', fmtHours(s.avgAckHours)],
-    ['Avg. resolve', fmtHours(s.avgResolveHours)],
-    ['Resolved', String(s.resolvedCount)],
-    ['Escalation', s.escalationRate === null ? '—' : s.escalationRate + '%'],
-    ['Dispute', s.disputeRate === null ? '—' : s.disputeRate + '%'],
-    ['No follow-up', String(s.noFollowupCount)]
-  ];
-  var colWidth = 26;
-  stats.forEach(function(st, i) {
-    var x = 14 + i * colWidth;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text(st[1], x, statY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(100);
-    doc.text(st[0], x, statY + 5);
-    doc.setTextColor(0);
-  });
-
-  var tableRows = reportData.cases.map(function(c) {
-    return [c.trackingRef, c.category, c.status.toLowerCase().replace('_', ' '), formatDateOnly(c.createdAt), formatDateOnly(c.resolvedAt), String(c.followupCount)];
-  });
-
-  doc.autoTable({
-    head: [['Tracking ref', 'Category', 'Status', 'Filed', 'Resolved', 'Follow-ups']],
-    body: tableRows,
-    startY: statY + 12,
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [27, 95, 168] }
-  });
-
-  var fileScope = scopeName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-  doc.save('grieviq-report-' + fileScope + '.pdf');
-}
-
-function attachAcknowledgeHandlers() {
-  document.querySelectorAll('.ack-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var id = btn.getAttribute('data-id');
-      var errorEl = document.getElementById('ack-error-' + id);
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Acknowledging…';
-      try {
-        var res = await fetch('/api/grievances/' + id + '/acknowledge', { method: 'POST' });
-        var data = await res.json();
-        if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-          btn.disabled = false;
-          btn.textContent = 'Acknowledge';
-          return;
-        }
-        await init();
-      } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
-        btn.disabled = false;
-        btn.textContent = 'Acknowledge';
-      }
-    });
-  });
-}
-function attachFollowupHandlers() {
-  document.querySelectorAll('.followup-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var id = btn.getAttribute('data-id');
-      var dept = document.getElementById('followup-dept-' + id).value;
-      var note = document.getElementById('followup-note-' + id).value;
-      var errorEl = document.getElementById('followup-error-' + id);
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Logging…';
-      try {
-        var res = await fetch('/api/grievances/' + id + '/add-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ department: dept, note: note })
-        });
-        var data = await res.json();
-        if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-          btn.disabled = false;
-          btn.textContent = 'Log follow-up';
-          return;
-        }
-        await init();
-      } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
-        btn.disabled = false;
-        btn.textContent = 'Log follow-up';
-      }
-    });
-  });
-}
-function attachResolveHandlers() {
-  document.querySelectorAll('.resolve-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var id = btn.getAttribute('data-id');
-      var errorEl = document.getElementById('resolve-error-' + id);
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Marking resolved…';
-      try {
-        var res = await fetch('/api/grievances/' + id + '/mark-resolved', { method: 'POST' });
-        var data = await res.json();
-        if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-          btn.disabled = false;
-          btn.textContent = 'Mark resolved';
-          return;
-        }
-        if (data.warning) {
-          errorEl.textContent = data.warning;
-        }
-        await init();
-      } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
-        btn.disabled = false;
-        btn.textContent = 'Mark resolved';
-      }
-    });
-  });
-}
-
-async function init() {
-  var meRes = await fetch('/api/me');
-  if (!meRes.ok) {
-    if (meRes.status === 403) {
-      renderNotice('Not yet provisioned', 'This account is not currently registered as a representative in GrievIQ. Contact your administrator to be added to a jurisdiction.');
-    } else {
-      renderNotice('Session issue', 'Your login could not be verified. Please refresh the page.');
-    }
-    return;
-  }
-  currentMe = await meRes.json();
-
-  var casesRes = await fetch('/api/grievances');
-  var casesData = await casesRes.json();
-  currentCases = casesData.grievances || [];
-
-  renderApp();
-}
-
-init();
+  // Live count of wards citizens can file in (same list the complaint form uses).
+  fetch('/api/intake-options')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && Array.isArray(d.localUnits)) document.getElementById('stat-wards').textContent = d.localUnits.length; })
+    .catch(() => {});
+})();
 </script>
-
 </body>
 </html>
