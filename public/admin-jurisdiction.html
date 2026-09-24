@@ -618,8 +618,8 @@ function openAddModal(mlaId) {
   const ctx = document.getElementById("add-modal-context");
   ctx.className = "modal-context";
   ctx.innerHTML = "Adding under <b>" + escapeText(mlaLabel(mla)) + "</b>";
-  document.getElementById("add-modal").classList.add("open");
-  document.getElementById("add-name").focus();
+  document.getElementById("add-modal").classList.add("open"); document.querySelector("#add-modal .modal").scrollTop = 0; document.querySelector("#add-modal .modal").scrollTop = 0;
+  document.getElementById("add-name").focus({ preventScroll: true });
 }
 
 function closeAddModal() {
@@ -634,7 +634,7 @@ async function submitAdd(keepOpen) {
   const unitType = selectedAddType();
   const repEmail = document.getElementById("add-rep-email").value.trim();
 
-  if (!name) { errorEl.textContent = "Enter a name for the ward or village."; document.getElementById("add-name").focus(); return; }
+  if (!name) { errorEl.textContent = "Enter a name for the ward or village."; document.getElementById("add-name").focus({ preventScroll: true }); return; }
   if (!unitType) { errorEl.textContent = "Choose Urban ward or Rural village."; return; }
   if (repEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(repEmail)) {
     errorEl.textContent = "Enter the representative's email in the format name@example.com.";
@@ -683,7 +683,7 @@ async function submitAdd(keepOpen) {
       const ctx = document.getElementById("add-modal-context");
       ctx.className = "modal-context added";
       ctx.innerHTML = "Added <b>" + escapeText(name) + "</b>. Add the next one under <b>" + escapeText(mlaLabel(mla)) + "</b>";
-      document.getElementById("add-name").focus();
+      document.getElementById("add-name").focus({ preventScroll: true });
     } else {
       closeAddModal();
     }
