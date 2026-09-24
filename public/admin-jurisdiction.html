@@ -131,6 +131,27 @@
     background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
   }
   html.light-theme #search-box { background: #ffffff !important; }
+  .modal.modal-wide { width: 460px; max-height: 90vh; overflow-y: auto; }
+  .modal-context { font-size: 13px; color: var(--admin-muted); margin: -6px 0 4px; line-height: 1.5; }
+  .modal-context b { color: var(--admin-text); }
+  .modal-context.added { color: var(--admin-success); }
+  .modal fieldset { border: none; padding: 0; margin: 12px 0 0; }
+  .modal legend { font-size: 13px; color: var(--admin-muted); padding: 0; margin-bottom: 6px; }
+  .modal label.radio {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 0 18px 0 0; font-size: 14px; color: var(--admin-text); cursor: pointer;
+  }
+  .modal input[type="radio"] { width: auto; margin: 0; accent-color: var(--admin-accent); }
+  .form-section {
+    font-size: 13px; font-weight: 600; margin: 20px 0 0; padding-top: 14px;
+    border-top: 1px solid var(--admin-border);
+  }
+  .form-hint { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .form-error { font-size: 13px; color: var(--admin-danger); margin-top: 12px; min-height: 18px; }
+  .node-row.just-added { box-shadow: inset 3px 0 0 var(--admin-success); background: var(--admin-success-bg); }
+  button.small-btn.add-btn { color: var(--admin-accent); border-style: dashed; }
+  .modal input:focus-visible, .modal select:focus-visible, .modal button:focus-visible,
+  button.small-btn:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -191,10 +212,52 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="add-modal">
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+    <h3 id="add-modal-title">Add ward or village</h3>
+    <p class="modal-context" id="add-modal-context"></p>
+
+    <label for="add-name">Name</label>
+    <input type="text" id="add-name" maxlength="120" autocomplete="off" />
+
+    <fieldset>
+      <legend>Type</legend>
+      <label class="radio"><input type="radio" name="add-type" value="URBAN" /> Urban ward</label>
+      <label class="radio"><input type="radio" name="add-type" value="RURAL" /> Rural village</label>
+    </fieldset>
+
+    <div id="add-mb-wrap" class="hidden">
+      <label for="add-mb">Municipal body</label>
+      <select id="add-mb"></select>
+      <div class="form-hint">Wards under a body with a Mayor escalate to the Mayor before the MLA.</div>
+    </div>
+
+    <div class="form-section" id="add-rep-heading">Representative (optional)</div>
+    <label for="add-rep-name">Name</label>
+    <input type="text" id="add-rep-name" maxlength="120" autocomplete="off" />
+    <label for="add-rep-phone">Phone</label>
+    <input type="text" id="add-rep-phone" maxlength="40" autocomplete="off" />
+    <label for="add-rep-email">Email</label>
+    <input type="email" id="add-rep-email" maxlength="200" autocomplete="off" />
+
+    <label for="add-localities">Localities (optional)</label>
+    <input type="text" id="add-localities" maxlength="1000" placeholder="e.g. Hazratganj; Ashok Marg" autocomplete="off" />
+    <div class="form-hint">Separate neighbourhoods with semicolons. Used to match citizens' addresses to this ward.</div>
+
+    <div class="form-error" id="add-error" role="alert"></div>
+    <div class="modal-actions">
+      <button class="small-btn" id="add-cancel">Cancel</button>
+      <button class="small-btn" id="add-save-another">Save and add another</button>
+      <button class="small-btn primary" id="add-save">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let DATA = { mps: [], mlas: [], municipalBodies: [], localUnits: [] };
 let expandedMps = new Set();
 let expandedMlas = new Set();
+let highlightUnitId = null;
 
 function setStatus(msg, type) {
   const el = document.getElementById("status-msg");
@@ -287,6 +350,7 @@ function renderTree() {
           <div class="node-contact">${fmtContact(mla.mla_name, mla.mla_phone, mla.mla_email)}</div>
           <div class="node-count">${wardsUnder.length} ward${wardsUnder.length === 1 ? "" : "s"}</div>
           <div class="row-actions">
+            <button class="small-btn add-btn" data-add-unit="${mla.id}">+ Add ward/village</button>
             <button class="small-btn" data-edit="mla" data-id="${mla.id}">Edit</button>
             <button class="small-btn" data-reassign="mla" data-id="${mla.id}">Reassign</button>
           </div>
@@ -297,7 +361,8 @@ function renderTree() {
           wardsUnder.forEach((ward) => {
             const mb = ward.municipal_body_id ? DATA.municipalBodies.find((m) => m.id === ward.municipal_body_id) : null;
             const wardRow = document.createElement("div");
-            wardRow.className = "node-row ward";
+            wardRow.className = "node-row ward" + (ward.id === highlightUnitId ? " just-added" : "");
+            wardRow.dataset.unitId = ward.id;
             let mayorHtml = "";
             if (mb && mb.has_mayor) {
               mayorHtml = ` &nbsp;|&nbsp; Mayor: ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}
@@ -339,6 +404,14 @@ function renderTree() {
   treeEl.querySelectorAll("[data-reassign]").forEach((btn) => {
     btn.addEventListener("click", () => openReassignModal(btn.dataset.reassign, btn.dataset.id));
   });
+  treeEl.querySelectorAll("[data-add-unit]").forEach((btn) => {
+    btn.addEventListener("click", () => openAddModal(btn.dataset.addUnit));
+  });
+
+  if (highlightUnitId) {
+    const added = treeEl.querySelector('[data-unit-id="' + CSS.escape(highlightUnitId) + '"]');
+    if (added) added.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 }
 
 // --- Edit contact modal ---
@@ -469,6 +542,165 @@ document.getElementById("reassign-save").addEventListener("click", async () => {
   } catch (err) {
     setStatus("Network error while reassigning.", "error");
   }
+});
+
+// --- Add ward/village modal ---
+let addContext = null;
+
+function escapeText(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function mlaLabel(mla) {
+  const person = mla.mla_name || "unnamed MLA";
+  return mla.name ? person + " (" + mla.name + ")" : person;
+}
+
+function selectedAddType() {
+  const checked = document.querySelector('input[name="add-type"]:checked');
+  return checked ? checked.value : "";
+}
+
+function updateAddTypeUi() {
+  const type = selectedAddType();
+  document.getElementById("add-mb-wrap").classList.toggle("hidden", type !== "URBAN");
+  const role = type === "URBAN" ? "Corporator" : type === "RURAL" ? "Gram Pradhan" : "Representative";
+  document.getElementById("add-rep-heading").textContent = role + " (optional)";
+}
+
+function fillMunicipalBodies(mlaId) {
+  const select = document.getElementById("add-mb");
+  select.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "None";
+  select.appendChild(none);
+  DATA.municipalBodies.forEach((mb) => {
+    const opt = document.createElement("option");
+    opt.value = mb.id;
+    opt.textContent = (mb.name || mb.id) + (mb.has_mayor ? " (has Mayor)" : "");
+    select.appendChild(opt);
+  });
+
+  // Default: the body most urban wards under this MLA already use; if
+  // there is exactly one body in the system, that one.
+  const counts = {};
+  DATA.localUnits
+    .filter((w) => w.mla_constituency_id === mlaId && w.unit_type === "URBAN" && w.municipal_body_id)
+    .forEach((w) => { counts[w.municipal_body_id] = (counts[w.municipal_body_id] || 0) + 1; });
+  let best = "";
+  let bestCount = 0;
+  Object.keys(counts).forEach((id) => { if (counts[id] > bestCount) { best = id; bestCount = counts[id]; } });
+  if (!best && DATA.municipalBodies.length === 1) best = DATA.municipalBodies[0].id;
+  select.value = best;
+}
+
+function clearAddFields(keepTypeAndBody) {
+  document.getElementById("add-name").value = "";
+  document.getElementById("add-rep-name").value = "";
+  document.getElementById("add-rep-phone").value = "";
+  document.getElementById("add-rep-email").value = "";
+  document.getElementById("add-localities").value = "";
+  document.getElementById("add-error").textContent = "";
+  if (!keepTypeAndBody) {
+    document.querySelectorAll('input[name="add-type"]').forEach((r) => { r.checked = false; });
+  }
+}
+
+function openAddModal(mlaId) {
+  const mla = DATA.mlas.find((m) => m.id === mlaId);
+  if (!mla) return;
+  addContext = { mla };
+  clearAddFields(false);
+  fillMunicipalBodies(mlaId);
+  updateAddTypeUi();
+  const ctx = document.getElementById("add-modal-context");
+  ctx.className = "modal-context";
+  ctx.innerHTML = "Adding under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+  document.getElementById("add-modal").classList.add("open");
+  document.getElementById("add-name").focus();
+}
+
+function closeAddModal() {
+  document.getElementById("add-modal").classList.remove("open");
+  addContext = null;
+}
+
+async function submitAdd(keepOpen) {
+  if (!addContext) return;
+  const errorEl = document.getElementById("add-error");
+  const name = document.getElementById("add-name").value.trim();
+  const unitType = selectedAddType();
+  const repEmail = document.getElementById("add-rep-email").value.trim();
+
+  if (!name) { errorEl.textContent = "Enter a name for the ward or village."; document.getElementById("add-name").focus(); return; }
+  if (!unitType) { errorEl.textContent = "Choose Urban ward or Rural village."; return; }
+  if (repEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(repEmail)) {
+    errorEl.textContent = "Enter the representative's email in the format name@example.com.";
+    document.getElementById("add-rep-email").focus();
+    return;
+  }
+
+  const saveBtn = document.getElementById("add-save");
+  const anotherBtn = document.getElementById("add-save-another");
+  saveBtn.disabled = true;
+  anotherBtn.disabled = true;
+  errorEl.textContent = "";
+
+  const mla = addContext.mla;
+  try {
+    const res = await fetch("/api/admin/jurisdiction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "add_unit",
+        mlaId: mla.id,
+        name,
+        unitType,
+        municipalBodyId: unitType === "URBAN" ? document.getElementById("add-mb").value : "",
+        repName: document.getElementById("add-rep-name").value,
+        repPhone: document.getElementById("add-rep-phone").value,
+        repEmail,
+        localities: document.getElementById("add-localities").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || "Could not add this ward or village.";
+      return;
+    }
+
+    expandedMps.add(mla.mp_constituency_id);
+    expandedMlas.add(mla.id);
+    highlightUnitId = data.unit.id;
+    setStatus("Added " + name + " under " + mlaLabel(mla) + ".", "success");
+    await loadTree();
+    setTimeout(() => { highlightUnitId = null; renderTree(); }, 4000);
+
+    if (keepOpen) {
+      clearAddFields(true);
+      const ctx = document.getElementById("add-modal-context");
+      ctx.className = "modal-context added";
+      ctx.innerHTML = "Added <b>" + escapeText(name) + "</b>. Add the next one under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+      document.getElementById("add-name").focus();
+    } else {
+      closeAddModal();
+    }
+  } catch (err) {
+    errorEl.textContent = "Network error. Check your connection and try again.";
+  } finally {
+    saveBtn.disabled = false;
+    anotherBtn.disabled = false;
+  }
+}
+
+document.querySelectorAll('input[name="add-type"]').forEach((r) => r.addEventListener("change", updateAddTypeUi));
+document.getElementById("add-cancel").addEventListener("click", closeAddModal);
+document.getElementById("add-save").addEventListener("click", () => submitAdd(false));
+document.getElementById("add-save-another").addEventListener("click", () => submitAdd(true));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.getElementById("add-modal").classList.contains("open")) closeAddModal();
 });
 
 document.getElementById("search-box").addEventListener("input", renderTree);
