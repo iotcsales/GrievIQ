@@ -88,15 +88,53 @@ async function buildCaseDetail(env, grievance) {
   // Otherwise the current level is simply "currently handling this case".
   // (Previously every level that could see an unresolved case was shown
   // as late, even minutes after filing.)
-  const tiers = chain.tiers.map((t, i) => ({
-    tier: t.tier,
-    label: t.label,
-    visible: i <= result.currentTierIndex,
-    slaBreached: isUnresolved && (
-      i < result.currentTierIndex ||
-      (i === result.currentTierIndex && result.ackOverdue)
-    ),
-  }));
+  // Deadlines, from the category's own time limits (TATs):
+  //  - acknowledgement: filed + ack_sla_hours
+  //  - resolution at level i: filed + resolution_sla_hours x (i + 1);
+  //    when it passes, the case escalates to the next level.
+  // Categories with no resolution limit (e.g. land disputes) go to
+  // legal review instead and have no resolution deadline.
+  const createdStr = String(grievance.created_at || "");
+  const createdMs = createdStr.indexOf("T") !== -1
+    ? new Date(createdStr).getTime()
+    : new Date(createdStr.replace(" ", "T") + "Z").getTime();
+  const HOUR = 3600000;
+  const slaHours = category.resolution_sla_hours || null;
+  const lastIndex = chain.tiers.length - 1;
+  const ackDueAt = !grievance.acknowledged_at && category.ack_sla_hours && !isNaN(createdMs)
+    ? new Date(createdMs + category.ack_sla_hours * HOUR).toISOString()
+    : null;
+
+  // The top level has nowhere to escalate to, so it turns red once its
+  // own time has run out (resolution limit x number of levels).
+  const lastLevelOverdue = isUnresolved && slaHours &&
+    result.currentTierIndex === lastIndex &&
+    result.elapsedHours >= slaHours * chain.tiers.length;
+
+  // A level is "past its usual response time" only when it really is:
+  //  - levels the case has already escalated past (escalation only
+  //    happens once the time limit has run out),
+  //  - the current level, if the case still hasn't been acknowledged
+  //    within the acknowledgement time limit, or
+  //  - the top level, once its own time has run out.
+  // Otherwise the current level is simply "currently handling this case".
+  const tiers = chain.tiers.map((t, i) => {
+    const isCurrent = i === result.currentTierIndex;
+    return {
+      tier: t.tier,
+      label: t.label,
+      visible: i <= result.currentTierIndex,
+      current: isCurrent && isUnresolved,
+      slaBreached: isUnresolved && (
+        i < result.currentTierIndex ||
+        (isCurrent && result.ackOverdue) ||
+        (isCurrent && lastLevelOverdue)
+      ),
+      dueAt: isCurrent && isUnresolved && slaHours && !isNaN(createdMs)
+        ? new Date(createdMs + slaHours * (i + 1) * HOUR).toISOString()
+        : null,
+    };
+  });
 
   return {
     case: {
@@ -112,6 +150,7 @@ async function buildCaseDetail(env, grievance) {
       needsLegalReview: result.needsLegalReview,
       currentTierIndex: result.currentTierIndex,
       tiers,
+      ackDueAt,
       reminderCount: nudgeRows.length,
       lastReminderAt: nudgeRows.length ? nudgeRows[nudgeRows.length - 1].created_at : null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,

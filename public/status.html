@@ -310,6 +310,7 @@
   .report-item .status-pill { margin-left: 0; }
   .status-pill.waiting { background: var(--brick-dim); color: var(--brick); }
 
+  .tier-due { font-size: 12px; color: var(--ink-soft); margin-top: 3px; line-height: 1.45; }
   .screen { display: none; }
   .screen.active { display: block; }
 
@@ -765,18 +766,36 @@
     c.tiers.forEach(t => {
       const li = document.createElement('li');
       li.className = (t.visible ? 'reached ' : '') + (t.slaBreached ? 'breached' : '');
+      const finished = c.status === 'RESOLVED' || c.status === 'CLOSED';
       let statusText = '';
       if (t.slaBreached) statusText = 'Past its usual response time';
-      else if (t.visible) statusText = 'Currently handling this case';
+      else if (t.visible) statusText = finished ? 'Handled this case' : 'Currently handling this case';
       else statusText = 'Not yet reached';
+
+      // Deadlines for the level currently handling the case.
+      let dueHtml = '';
+      if (t.current && !finished) {
+        const lines = [];
+        if (c.ackDueAt) lines.push((c.ackOverdue ? 'Acknowledgement was due by ' : 'Acknowledgement due by ') + formatDue(c.ackDueAt));
+        if (t.dueAt) lines.push((t.slaBreached && !c.ackOverdue ? 'Was due by ' : 'Response due by ') + formatDue(t.dueAt));
+        if (lines.length) dueHtml = `<div class="tier-due">${lines.map(escapeHtml).join('<br>')}</div>`;
+      }
             const dotIcon = t.slaBreached ? '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M12 8v5M12 16h.01"/></svg>' : (t.visible ? '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>' : '');
       li.innerHTML = `
       <span class="dot" aria-hidden="true">${dotIcon}</span>
         <div class="tier-label">${escapeHtml(t.label)}</div>
         <div class="tier-status${t.slaBreached ? ' breached' : ''}">${statusText}</div>
+        ${dueHtml}
       `;
       ladder.appendChild(li);
     });
+  }
+
+  function formatDue(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ', ' +
+      d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
   }
 
   // By calendar day in the citizen's own time zone, not hours elapsed:
