@@ -831,7 +831,7 @@
     const d = new Date(iso);
     if (isNaN(d)) return '';
     return d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short' }) + ', ' +
-      d.toLocaleTimeString(GIQ.locale(), { hour: 'numeric', minute: '2-digit' });
+      d.toLocaleTimeString(GIQ.locale(), /^hi/.test(GIQ.locale())?{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}:{hour:'numeric',minute:'2-digit'});
   }
 
   // By calendar day in the citizen's own time zone, not hours elapsed:
