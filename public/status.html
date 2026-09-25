@@ -728,7 +728,7 @@
     document.getElementById('status-ref').textContent = c.trackingRef;
     document.getElementById('status-desc').textContent = c.description;
     document.getElementById('status-meta').textContent =
-      `${c.localUnitName} · Filed ${formatElapsed(c.elapsedDays)}`;
+      `${c.localUnitName} · Filed ${formatFiled(c.createdAt)}`;
 
     const pill = document.getElementById('status-pill');
     const resolved = c.status === 'RESOLVED' || c.status === 'CLOSED';
@@ -779,10 +779,17 @@
     });
   }
 
-  function formatElapsed(days) {
-    if (days < 1) return 'today';
-    if (days === 1) return '1 day ago';
-    return `${Math.floor(days)} days ago`;
+  // By calendar day in the citizen's own time zone, not hours elapsed:
+  // a report filed last evening is "yesterday", not "today".
+  function formatFiled(createdAt) {
+    if (!createdAt) return '';
+    const d = createdAt.indexOf('T') !== -1 ? new Date(createdAt) : new Date(createdAt.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return '';
+    const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diffDays = Math.round((startOf(new Date()) - startOf(d)) / 86400000);
+    if (diffDays <= 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    return 'on ' + d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   // --- Confirm / dispute resolution ---

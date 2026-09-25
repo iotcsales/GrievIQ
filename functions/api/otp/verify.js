@@ -80,11 +80,22 @@ async function buildCaseDetail(env, grievance) {
   const result = computeEscalation(grievance, category, chain.tiers);
   const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
 
+  // A level is "past its usual response time" only when it really is:
+  //  - levels the case has already escalated past (escalation only
+  //    happens once the time limit has run out), or
+  //  - the current level, if the case still hasn't been acknowledged
+  //    within the acknowledgement time limit.
+  // Otherwise the current level is simply "currently handling this case".
+  // (Previously every level that could see an unresolved case was shown
+  // as late, even minutes after filing.)
   const tiers = chain.tiers.map((t, i) => ({
     tier: t.tier,
     label: t.label,
     visible: i <= result.currentTierIndex,
-    slaBreached: i <= result.currentTierIndex && isUnresolved,
+    slaBreached: isUnresolved && (
+      i < result.currentTierIndex ||
+      (i === result.currentTierIndex && result.ackOverdue)
+    ),
   }));
 
   return {
