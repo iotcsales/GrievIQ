@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Track my reports — GrievIQ</title>
+<title data-i18n="status.page_title">Track my reports — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -327,9 +327,10 @@
     h1 { font-size: 21px; }
   }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
-<div class="trust-strip"><span><span class="emblem"></span>Independent citizen grievance escalation & redressal platform</span><span>EN</span></div>
+<div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
 <div class="card-shell">
 
   <header class="brand">
@@ -341,26 +342,26 @@
 
   <!-- SCREEN 1: entry -->
   <section id="screen-entry" class="screen active">
-    <a href="/" class="back-link">← Back to home</a>
-    <h1>Track my reports</h1>
+    <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
+    <h1 data-i18n="status.title">Track my reports</h1>
     <p class="lede" id="entry-lede">Enter the email you gave when you reported. We'll send a code so we know it's you, then show all your reports.</p>
 
     <div id="entry-error"></div>
 
     <form id="entry-form">
       <div class="field">
-        <label for="email">Email address</label>
+        <label for="email" data-i18n="status.email">Email address</label>
         <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
       </div>
-      <button type="submit" class="primary" id="entry-submit">Send code</button>
+      <button type="submit" class="primary" id="entry-submit" data-i18n="status.send">Send code</button>
     </form>
-    <p class="note-muted">Reported without an email? Online tracking needs the email you gave when reporting. Keep your tracking number, and quote it if you contact us at support@grieviq.in.</p>
-    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
+    <p class="note-muted" data-i18n="status.no_email_note">Reported without an email? Online tracking needs the email you gave when reporting. Keep your tracking number, and quote it if you contact us at support@grieviq.in.</p>
+    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n-html="common.feedback_card">Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
   </section>
 
   <!-- SCREEN 2: OTP -->
   <section id="screen-otp" class="screen">
-    <h1>Enter the code we sent</h1>
+    <h1 data-i18n="status.otp_title">Enter the code we sent</h1>
     <p class="lede" id="otp-lede">If this email has reports with GrievIQ, we've sent a 6-digit code to it. It expires in 10 minutes.</p>
 
     <div id="otp-error"></div>
@@ -374,24 +375,24 @@
         <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit" required>
         <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-digit" required>
       </div>
-      <button type="submit" class="primary" id="otp-submit">Verify code</button>
+      <button type="submit" class="primary" id="otp-submit" data-i18n="status.verify">Verify code</button>
     </form>
 
     <div class="helper-row">
-      <button type="button" class="text-link" id="back-to-entry">Change email</button>
-      <button type="button" class="text-link" id="resend-code">Send a new code</button>
+      <button type="button" class="text-link" id="back-to-entry" data-i18n="status.change_email">Change email</button>
+      <button type="button" class="text-link" id="resend-code" data-i18n="status.new_code">Send a new code</button>
     </div>
   </section>
 
   <!-- SCREEN 3: list of the citizen's reports -->
   <section id="screen-list" class="screen">
-    <a href="/" class="back-link">← Back to home</a>
-    <h1>Your reports</h1>
+    <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
+    <h1 data-i18n="status.list_title">Your reports</h1>
     <p class="lede" id="list-lede"></p>
     <div id="list-error"></div>
     <ul class="report-list" id="report-list"></ul>
     <div class="footer-actions">
-      <button type="button" class="text-link" id="use-other-email">Use a different email</button>
+      <button type="button" class="text-link" id="use-other-email" data-i18n="status.other_email">Use a different email</button>
     </div>
   </section>
 
@@ -409,44 +410,44 @@
     <div id="status-followup" class="followup-section" style="display:none;"></div>
 
     <div id="confirm-card" class="confirm-card" style="display:none;">
-      <h2 class="section-title">Has this been fixed?</h2>
-      <p class="section-note">The representative handling this case marked it resolved. Let us know if that's right.</p>
+      <h2 class="section-title" data-i18n="status.confirm_title">Has this been fixed?</h2>
+      <p class="section-note" data-i18n="status.confirm_lede">The representative handling this case marked it resolved. Let us know if that's right.</p>
       <div id="confirm-error"></div>
       <p class="confirm-note" id="confirm-done" style="display:none;"></p>
       <div class="confirm-actions" id="confirm-actions">
-        <button type="button" class="primary" id="btn-confirm-yes">Yes, this fixed it</button>
-        <button type="button" class="secondary" id="btn-confirm-no">No, still a problem</button>
+        <button type="button" class="primary" id="btn-confirm-yes" data-i18n="status.yes_fixed">Yes, this fixed it</button>
+        <button type="button" class="secondary" id="btn-confirm-no" data-i18n="status.no_problem">No, still a problem</button>
       </div>
       <div id="dispute-form" style="display:none;">
         <div class="reason-options" id="reason-options">
-          <button type="button" class="reason-chip" data-reason="NOT_FIXED">Not fixed at all</button>
-          <button type="button" class="reason-chip" data-reason="PARTIALLY_FIXED">Partially fixed</button>
-          <button type="button" class="reason-chip" data-reason="CAME_BACK">Fixed, but came back</button>
-          <button type="button" class="reason-chip" data-reason="WRONG_ISSUE">Wrong issue fixed</button>
-          <button type="button" class="reason-chip" data-reason="OTHER">Other</button>
+          <button type="button" class="reason-chip" data-reason="NOT_FIXED" data-i18n="status.r_not_fixed">Not fixed at all</button>
+          <button type="button" class="reason-chip" data-reason="PARTIALLY_FIXED" data-i18n="status.r_partial">Partially fixed</button>
+          <button type="button" class="reason-chip" data-reason="CAME_BACK" data-i18n="status.r_came_back">Fixed, but came back</button>
+          <button type="button" class="reason-chip" data-reason="WRONG_ISSUE" data-i18n="status.r_wrong">Wrong issue fixed</button>
+          <button type="button" class="reason-chip" data-reason="OTHER" data-i18n="status.r_other">Other</button>
         </div>
-        <textarea id="dispute-note" maxlength="200" placeholder="Add a short note (optional, required for &quot;Other&quot;)"></textarea>
+        <textarea id="dispute-note" maxlength="200" placeholder="Add a short note (optional, required for &quot;Other&quot;)" data-i18n-ph="status.note_ph"></textarea>
         <div class="confirm-actions">
-          <button type="button" class="primary" id="btn-dispute-submit">Submit</button>
+          <button type="button" class="primary" id="btn-dispute-submit" data-i18n="status.submit">Submit</button>
         </div>
       </div>
     </div>
 
-    <h2 class="section-title">Where this case stands</h2>
-    <p class="section-note">A case stays visible to every level it reaches — moving up never means the level below stops seeing it.</p>
+    <h2 class="section-title" data-i18n="status.where_title">Where this case stands</h2>
+    <p class="section-note" data-i18n="status.where_lede">A case stays visible to every level it reaches — moving up never means the level below stops seeing it.</p>
 
     <ol class="ladder" id="ladder"></ol>
 
     <div class="footer-actions">
-      <button type="button" class="text-link" id="check-another">← All my reports</button>
+      <button type="button" class="text-link" id="check-another" data-i18n="status.all_reports">← All my reports</button>
     </div>
   </section>
 
   </div>
 
   <div class="footer-block">
-    <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
-    <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+    <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+    <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
   </div>
 
 </div>
@@ -480,8 +481,20 @@
     return d.innerHTML;
   }
 
+  // Server replies carry a code; show it in the page's language.
+  const SERVER_KEYS = {
+    TOO_MANY_REQUESTS: 'srv.too_many_requests', TOO_MANY_ATTEMPTS: 'srv.too_many_attempts',
+    EXPIRED: 'srv.expired', VERIFY_AGAIN: 'srv.verify_again',
+    "Enter a valid email address.": 'srv.invalid_email', "Enter all 6 digits of the code.": 'status.code_digits',
+  };
   function messageFrom(data, fallback) {
-    return (data && (data.message || data.error)) || fallback;
+    const e = data && data.error;
+    if (e === 'INCORRECT' && data.attemptsLeft != null) {
+      return data.attemptsLeft === 1 ? GIQ.t('srv.incorrect_one') : GIQ.t('srv.incorrect', { n: data.attemptsLeft });
+    }
+    if (e && SERVER_KEYS[e]) return GIQ.t(SERVER_KEYS[e]);
+    if (GIQ.lang === 'en') return (data && (data.message || data.error)) || fallback;
+    return fallback;
   }
 
   // A link like /status?ref=GRV-XXXXXX names the report to open after verifying.
@@ -490,10 +503,13 @@
 
   let state = { email: '', trackingRef: '', reports: [] };
 
-  if (linkedRef) {
-    document.getElementById('entry-lede').textContent =
-      `To see report ${linkedRef}, enter the email you gave when you reported. We'll send a code so we know it's you.`;
+  function setEntryLede() {
+    document.getElementById('entry-lede').textContent = linkedRef
+      ? GIQ.t('status.lede_ref', { ref: linkedRef })
+      : GIQ.t('status.lede');
   }
+  setEntryLede();
+  let lastCase = null;
 
   // --- Screen 1: email ---
   const entryForm = document.getElementById('entry-form');
@@ -504,7 +520,7 @@
     const res = await fetch(API_BASE + '/api/otp/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, trackingRef: linkedRef || undefined }),
+      body: JSON.stringify({ email, trackingRef: linkedRef || undefined, lang: GIQ.lang }),
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok && !data.error, data };
@@ -517,24 +533,23 @@
     if (!email) return;
 
     entrySubmit.disabled = true;
-    entrySubmit.innerHTML = '<span class="spinner"></span>Sending…';
+    entrySubmit.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.sending'));
     try {
       const r = await requestCode(email);
       if (!r.ok) {
-        renderError(entryError, messageFrom(r.data, 'Something went wrong. Please try again.'));
+        renderError(entryError, messageFrom(r.data, GIQ.t('common.generic_error')));
         return;
       }
       state.email = email;
-      document.getElementById('otp-lede').textContent =
-        `If ${email} has reports with GrievIQ, we've sent a 6-digit code to it. It expires in 10 minutes.`;
+      document.getElementById('otp-lede').textContent = GIQ.t('status.otp_lede', { email });
       resetOtpInputs();
       showScreen('otp');
       focusFirstOtp();
     } catch (err) {
-      renderError(entryError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(entryError, GIQ.t('common.network_error'));
     } finally {
       entrySubmit.disabled = false;
-      entrySubmit.textContent = 'Send code';
+      entrySubmit.textContent = GIQ.t('status.send');
     }
   });
 
@@ -588,13 +603,13 @@
     try {
       const r = await requestCode(state.email);
       if (!r.ok) {
-        renderError(otpError, messageFrom(r.data, 'Something went wrong. Please try again.'));
+        renderError(otpError, messageFrom(r.data, GIQ.t('common.generic_error')));
       } else {
         resetOtpInputs();
         focusFirstOtp();
       }
     } catch (err) {
-      renderError(otpError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(otpError, GIQ.t('common.network_error'));
     } finally {
       setTimeout(() => { btn.disabled = false; }, 20000);
     }
@@ -605,12 +620,12 @@
     renderError(otpError, '');
     const code = otpInputs.map(i => i.value).join('');
     if (code.length !== 6) {
-      renderError(otpError, 'Enter all 6 digits of the code.');
+      renderError(otpError, GIQ.t('status.code_digits'));
       return;
     }
 
     otpSubmit.disabled = true;
-    otpSubmit.innerHTML = '<span class="spinner"></span>Verifying…';
+    otpSubmit.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.verifying'));
     try {
       const res = await fetch(API_BASE + '/api/otp/verify', {
         method: 'POST',
@@ -619,7 +634,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) {
-        renderError(otpError, messageFrom(data, 'Something went wrong. Please try again.'));
+        renderError(otpError, messageFrom(data, GIQ.t('common.generic_error')));
         if (data.error === 'TOO_MANY_ATTEMPTS' || data.error === 'EXPIRED') resetOtpInputs();
         return;
       }
@@ -631,20 +646,21 @@
         showScreen('list');
       }
     } catch (err) {
-      renderError(otpError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(otpError, GIQ.t('common.network_error'));
     } finally {
       otpSubmit.disabled = false;
-      otpSubmit.textContent = 'Verify code';
+      otpSubmit.textContent = GIQ.t('status.verify');
     }
   });
 
   // --- Screen 3: list ---
-  const STATUS_TEXT = {
-    OPEN: 'Open',
-    PENDING_CONFIRMATION: 'Awaiting your confirmation',
-    RESOLVED: 'Resolved',
-    CLOSED: 'Closed',
+  const STATUS_KEYS = {
+    OPEN: 'status.pill_open',
+    PENDING_CONFIRMATION: 'status.pill_waiting',
+    RESOLVED: 'status.pill_resolved',
+    CLOSED: 'status.pill_closed',
   };
+  function statusLabel(s) { return STATUS_KEYS[s] ? GIQ.t(STATUS_KEYS[s]) : s; }
   function pillClass(status) {
     if (status === 'RESOLVED' || status === 'CLOSED') return 'status-pill resolved';
     if (status === 'PENDING_CONFIRMATION') return 'status-pill waiting';
@@ -653,20 +669,20 @@
   function filedDate(s) {
     if (!s) return '';
     const d = s.indexOf('T') !== -1 ? new Date(s) : new Date(s.replace(' ', 'T') + 'Z');
-    return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    return isNaN(d) ? '' : d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function renderList() {
     const n = state.reports.length;
     document.getElementById('list-lede').textContent = n
-      ? `${n} ${n === 1 ? 'report' : 'reports'} filed with ${state.email}, newest first.`
-      : `We couldn't find any reports filed with ${state.email}.`;
+      ? (n === 1 ? GIQ.t('status.list_lede_one', { email: state.email }) : GIQ.t('status.list_lede', { n, email: state.email }))
+      : GIQ.t('status.list_none', { email: state.email });
     const ul = document.getElementById('report-list');
     ul.innerHTML = state.reports.map(r => `
       <li><button type="button" class="report-item" data-ref="${escapeHtml(r.trackingRef)}">
-        <div class="ri-top"><span class="ri-ref">${escapeHtml(r.trackingRef)}</span><span class="${pillClass(r.status)}">${escapeHtml(STATUS_TEXT[r.status] || r.status)}</span></div>
+        <div class="ri-top"><span class="ri-ref">${escapeHtml(r.trackingRef)}</span><span class="${pillClass(r.status)}">${escapeHtml(statusLabel(r.status))}</span></div>
         <div class="ri-desc">${escapeHtml(r.description)}</div>
-        <div class="ri-meta">${escapeHtml([r.category, r.wardName, 'Filed ' + filedDate(r.createdAt)].filter(Boolean).join(' · '))}</div>
+        <div class="ri-meta">${escapeHtml([GIQ.category(r.categoryId, r.category), r.wardName, GIQ.t('status.filed', { when: filedDate(r.createdAt) })].filter(Boolean).join(' · '))}</div>
       </button></li>`).join('');
     ul.querySelectorAll('.report-item').forEach(btn => {
       btn.addEventListener('click', () => loadCase(btn.getAttribute('data-ref'), btn));
@@ -690,24 +706,25 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
-        renderError(entryError, messageFrom(data, 'Please verify your email again.'));
+        renderError(entryError, messageFrom(data, GIQ.t('status.verify_again')));
         document.getElementById('email').value = state.email;
         showScreen('entry');
         return;
       }
       if (!res.ok || data.error) {
-        renderError(listError, messageFrom(data, 'Could not open that report. Please try again.'));
+        renderError(listError, messageFrom(data, GIQ.t('status.open_fail')));
         return;
       }
       openCase(data.case);
     } catch (err) {
-      renderError(listError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(listError, GIQ.t('common.network_error'));
     } finally {
       if (btn) btn.disabled = false;
     }
   }
 
   function openCase(c) {
+    lastCase = c;
     state.trackingRef = c.trackingRef;
     renderStatus(c);
     showScreen('status');
@@ -729,11 +746,11 @@
     document.getElementById('status-ref').textContent = c.trackingRef;
     document.getElementById('status-desc').textContent = c.description;
     document.getElementById('status-meta').textContent =
-      `${c.localUnitName} · Filed ${formatFiled(c.createdAt)}`;
+      `${c.localUnitName} · ${GIQ.t('status.filed', { when: formatFiled(c.createdAt) })}`;
 
     const pill = document.getElementById('status-pill');
     const resolved = c.status === 'RESOLVED' || c.status === 'CLOSED';
-    pill.textContent = resolved ? 'Resolved' : (c.status === 'PENDING_CONFIRMATION' ? 'Awaiting your confirmation' : 'Open');
+    pill.textContent = statusLabel(resolved ? 'RESOLVED' : c.status);
     pill.className = 'status-pill' + (resolved ? ' resolved' : '');
 
     showConfirmCard(c.status === 'PENDING_CONFIRMATION');
@@ -741,20 +758,20 @@
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
     if (c.needsLegalReview) {
-      banners.innerHTML += `<div class="review-banner"><strong>This case type doesn't auto-escalate.</strong> Land and legal disputes are reviewed directly rather than moving up the chain on a timer.</div>`;
+      banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.legal_banner'))}</div>`;
     }
     if (c.ackOverdue && !resolved) {
-      banners.innerHTML += `<div class="warn-banner"><strong>Not yet acknowledged.</strong> This should have happened by now — it may be worth following up directly.</div>`;
+      banners.innerHTML += `<div class="warn-banner">${boldFirst(GIQ.t('status.ack_overdue_banner'))}</div>`;
     }
 
-      if (c.lastReminderAt && !resolved) { banners.innerHTML += '<div class="review-banner"><strong>Reminder sent.</strong> The GrievIQ team reminded your representative about this case on ' + new Date(c.lastReminderAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + '.</div>'; } const followupBox = document.getElementById('status-followup');
+      if (c.lastReminderAt && !resolved) { banners.innerHTML += '<div class="review-banner">' + boldFirst(GIQ.t('status.reminder_banner', { date: new Date(c.lastReminderAt).toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short' }) })) + '</div>'; } const followupBox = document.getElementById('status-followup');
       if (c.currentDepartment) {
         let historyHtml = '';
         (c.followupHistory || []).slice().reverse().forEach((f) => {
-          const when = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '';
-          historyHtml += `<div class="followup-entry"><strong>${escapeHtml(f.department)}</strong>${when ? ' — ' + when : ''}${f.note ? '<br>' + escapeHtml(f.note) : ''}</div>`;
+          const when = f.createdAt ? new Date(f.createdAt).toLocaleDateString(GIQ.locale()) : '';
+          historyHtml += `<div class="followup-entry"><strong>${escapeHtml(GIQ.dept(f.department))}</strong>${when ? ' — ' + when : ''}${f.note ? '<br>' + escapeHtml(f.note) : ''}</div>`;
         });
-        followupBox.innerHTML = `<div class="followup-current">Forwarded to: ${escapeHtml(c.currentDepartment)}</div>${historyHtml}`;
+        followupBox.innerHTML = `<div class="followup-current">${escapeHtml(GIQ.t('status.forwarded', { dept: GIQ.dept(c.currentDepartment) }))}</div>${historyHtml}`;
         followupBox.style.display = '';
       } else {
         followupBox.innerHTML = '';
@@ -768,22 +785,22 @@
       li.className = (t.visible ? 'reached ' : '') + (t.slaBreached ? 'breached' : '');
       const finished = c.status === 'RESOLVED' || c.status === 'CLOSED';
       let statusText = '';
-      if (t.slaBreached) statusText = 'Past its usual response time';
-      else if (t.visible) statusText = finished ? 'Handled this case' : 'Currently handling this case';
-      else statusText = 'Not yet reached';
+      if (t.slaBreached) statusText = GIQ.t('status.tier_late');
+      else if (t.visible) statusText = finished ? GIQ.t('status.tier_handled') : GIQ.t('status.tier_current');
+      else statusText = GIQ.t('status.tier_not_yet');
 
       // Deadlines for the level currently handling the case.
       let dueHtml = '';
       if (t.current && !finished) {
         const lines = [];
-        if (c.ackDueAt) lines.push((c.ackOverdue ? 'Acknowledgement was due by ' : 'Acknowledgement due by ') + formatDue(c.ackDueAt));
-        if (t.dueAt) lines.push((t.slaBreached && !c.ackOverdue ? 'Was due by ' : 'Response due by ') + formatDue(t.dueAt));
+        if (c.ackDueAt) lines.push(GIQ.t(c.ackOverdue ? 'status.ack_was_due' : 'status.ack_due', { date: formatDue(c.ackDueAt) }));
+        if (t.dueAt) lines.push(GIQ.t(t.slaBreached && !c.ackOverdue ? 'status.was_due' : 'status.response_due', { date: formatDue(t.dueAt) }));
         if (lines.length) dueHtml = `<div class="tier-due">${lines.map(escapeHtml).join('<br>')}</div>`;
       }
             const dotIcon = t.slaBreached ? '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M12 8v5M12 16h.01"/></svg>' : (t.visible ? '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>' : '');
       li.innerHTML = `
       <span class="dot" aria-hidden="true">${dotIcon}</span>
-        <div class="tier-label">${escapeHtml(t.label)}</div>
+        <div class="tier-label">${escapeHtml(GIQ.level(t.label))}</div>
         <div class="tier-status${t.slaBreached ? ' breached' : ''}">${statusText}</div>
         ${dueHtml}
       `;
@@ -791,11 +808,30 @@
     });
   }
 
+  // Bold the first sentence of a banner (text is escaped first).
+  function boldFirst(text) {
+    const m = String(text).match(/^(.+?[.।])\s+([\s\S]*)$/);
+    return m ? '<strong>' + escapeHtml(m[1]) + '</strong> ' + escapeHtml(m[2]) : escapeHtml(text);
+  }
+
+  // Redraw text built by this page when the language changes.
+  document.addEventListener('giq:lang', () => {
+    setEntryLede();
+    if (state.email) document.getElementById('otp-lede').textContent = GIQ.t('status.otp_lede', { email: state.email });
+    if (state.email && state.reports) renderList();
+    if (lastCase && screens.status.classList.contains('active')) {
+      const doneShown = confirmDone.style.display === 'block';
+      const doneText = confirmDone.textContent;
+      renderStatus(lastCase);
+      if (doneShown) showConfirmDone(lastCase.status === 'RESOLVED' ? GIQ.t('status.confirmed') : GIQ.t('status.disputed'));
+    }
+  });
+
   function formatDue(iso) {
     const d = new Date(iso);
     if (isNaN(d)) return '';
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ', ' +
-      d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short' }) + ', ' +
+      d.toLocaleTimeString(GIQ.locale(), { hour: 'numeric', minute: '2-digit' });
   }
 
   // By calendar day in the citizen's own time zone, not hours elapsed:
@@ -806,9 +842,9 @@
     if (isNaN(d)) return '';
     const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
     const diffDays = Math.round((startOf(new Date()) - startOf(d)) / 86400000);
-    if (diffDays <= 0) return 'today';
-    if (diffDays === 1) return 'yesterday';
-    return 'on ' + d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (diffDays <= 0) return GIQ.t('status.today');
+    if (diffDays === 1) return GIQ.t('status.yesterday');
+    return GIQ.t('status.on_date', { date: d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short', year: 'numeric' }) });
   }
 
   // --- Confirm / dispute resolution ---
@@ -844,10 +880,10 @@
       disputeNote.value = '';
       renderError(confirmError, '');
       btnConfirmYes.disabled = false;
-      btnConfirmYes.textContent = 'Yes, this fixed it';
+      btnConfirmYes.textContent = GIQ.t('status.yes_fixed');
       btnConfirmNo.disabled = false;
       btnDisputeSubmit.disabled = false;
-      btnDisputeSubmit.textContent = 'Submit';
+      btnDisputeSubmit.textContent = GIQ.t('status.submit');
     }
   }
 
@@ -877,34 +913,34 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        renderError(confirmError, data.error || 'Something went wrong. Please try again.');
+        renderError(confirmError, res.status === 401 ? GIQ.t('status.verify_again') : (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error'));
         btnConfirmYes.disabled = false;
         btnConfirmNo.disabled = false;
-        btnConfirmYes.textContent = 'Yes, this fixed it';
+        btnConfirmYes.textContent = GIQ.t('status.yes_fixed');
         return;
       }
-      showConfirmDone('Thanks for confirming — this case is now marked resolved.');
+      showConfirmDone(GIQ.t('status.confirmed'));
       updateCachedStatus(state.trackingRef, 'RESOLVED');
       const pill = document.getElementById('status-pill');
-      pill.textContent = 'Resolved';
+      pill.textContent = statusLabel('RESOLVED'); if (lastCase) lastCase.status = 'RESOLVED';
       pill.className = 'status-pill resolved';
     } catch (err) {
-      renderError(confirmError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(confirmError, GIQ.t('common.network_error'));
       btnConfirmYes.disabled = false;
       btnConfirmNo.disabled = false;
-      btnConfirmYes.textContent = 'Yes, this fixed it';
+      btnConfirmYes.textContent = GIQ.t('status.yes_fixed');
     }
   });
 
   btnDisputeSubmit.addEventListener('click', async () => {
     renderError(confirmError, '');
     if (!selectedReason) {
-      renderError(confirmError, 'Choose the option that best describes what happened.');
+      renderError(confirmError, GIQ.t('status.reason_hint'));
       return;
     }
     const note = disputeNote.value.trim();
     if (selectedReason === 'OTHER' && !note) {
-      renderError(confirmError, 'Please add a short note for "Other".');
+      renderError(confirmError, GIQ.t('status.note_required'));
       return;
     }
     btnDisputeSubmit.disabled = true;
@@ -917,20 +953,20 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        renderError(confirmError, data.error || 'Something went wrong. Please try again.');
+        renderError(confirmError, res.status === 401 ? GIQ.t('status.verify_again') : (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error'));
         btnDisputeSubmit.disabled = false;
-        btnDisputeSubmit.textContent = 'Submit';
+        btnDisputeSubmit.textContent = GIQ.t('status.submit');
         return;
       }
-      showConfirmDone('Thanks — we\'ve reopened this case and shared your note with the representative.');
+      showConfirmDone(GIQ.t('status.disputed'));
       updateCachedStatus(state.trackingRef, 'OPEN');
       const pill = document.getElementById('status-pill');
-      pill.textContent = 'Open';
+      pill.textContent = statusLabel('OPEN'); if (lastCase) lastCase.status = 'OPEN';
       pill.className = 'status-pill';
     } catch (err) {
-      renderError(confirmError, 'Could not reach GrievIQ. Check your connection and try again.');
+      renderError(confirmError, GIQ.t('common.network_error'));
       btnDisputeSubmit.disabled = false;
-      btnDisputeSubmit.textContent = 'Submit';
+      btnDisputeSubmit.textContent = GIQ.t('status.submit');
     }
   });
 })();

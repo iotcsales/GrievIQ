@@ -38,7 +38,7 @@ function isoMinutesAgo(minutes) {
 
 async function listReports(env, email) {
   const { results } = await env.DB.prepare(
-    `SELECT g.tracking_ref, g.status, g.description, g.created_at,
+    `SELECT g.tracking_ref, g.status, g.description, g.created_at, g.category_id,
             lu.name AS ward_name, c.name AS category_name
      FROM grievances g
      LEFT JOIN local_units lu ON lu.id = g.local_unit_id
@@ -52,6 +52,7 @@ async function listReports(env, email) {
     description: String(r.description || "").slice(0, 140),
     wardName: r.ward_name || "",
     category: r.category_name || "",
+    categoryId: r.category_id || "",
     createdAt: r.created_at,
   }));
 }
@@ -240,6 +241,7 @@ export async function onRequestPost({ request, env }) {
       const left = MAX_WRONG_GUESSES - attempts;
       return json({
         error: "INCORRECT",
+        attemptsLeft: left,
         message: `That code isn't right. ${left} ${left === 1 ? "try" : "tries"} left.`,
       }, 401);
     }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Send feedback — GrievIQ</title>
+<title data-i18n="fb.page_title">Send feedback — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -80,52 +80,53 @@
   .screen { display: none; }
   .screen.active { display: block; }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
-  <div class="trust-strip"><span>Independent citizen grievance escalation & redressal platform</span><span>EN</span></div>
+  <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
     <div class="app-card">
-      <a href="/" class="back-link">← Back to home</a>
+      <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
       <header class="brand">
         <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
         <span class="brand-name">GrievIQ</span>
       </header>
 
       <section id="screen-form" class="screen active">
-        <h1>Send feedback</h1>
-        <p class="lede">This is for problems or suggestions about the GrievIQ app itself — not for filing a new civic complaint.</p>
+        <h1 data-i18n="fb.title">Send feedback</h1>
+        <p class="lede" data-i18n="fb.lede">This is for problems or suggestions about the GrievIQ app itself — not for filing a new civic complaint.</p>
 
         <div id="error-banner"></div>
 
         <div class="field">
-          <label>What's this about?</label>
+          <label data-i18n="fb.about">What's this about?</label>
           <div class="chip-row" id="chip-row">
-            <button type="button" class="chip" data-value="Bug">Bug</button>
-            <button type="button" class="chip" data-value="Confusing to use">Confusing to use</button>
-            <button type="button" class="chip" data-value="Suggestion">Suggestion</button>
-            <button type="button" class="chip" data-value="Something else">Something else</button>
+            <button type="button" class="chip" data-value="Bug" data-i18n="fb.bug">Bug</button>
+            <button type="button" class="chip" data-value="Confusing to use" data-i18n="fb.confusing">Confusing to use</button>
+            <button type="button" class="chip" data-value="Suggestion" data-i18n="fb.suggestion">Suggestion</button>
+            <button type="button" class="chip" data-value="Something else" data-i18n="fb.else">Something else</button>
           </div>
         </div>
 
         <div class="field">
-          <label for="fb-message">Tell us more (optional)</label>
-          <textarea id="fb-message" placeholder="What happened, or what would you like to see?"></textarea>
+          <label for="fb-message" data-i18n="fb.more">Tell us more (optional)</label>
+          <textarea id="fb-message" placeholder="What happened, or what would you like to see?" data-i18n-ph="fb.more_ph"></textarea>
         </div>
 
         <div class="field">
-          <label for="fb-email">Your email (optional)</label>
+          <label for="fb-email" data-i18n="fb.email">Your email (optional)</label>
           <input type="email" id="fb-email" placeholder="you@example.com">
-          <div class="hint">Only if you'd like us to follow up with you.</div>
+          <div class="hint" data-i18n="fb.email_hint">Only if you'd like us to follow up with you.</div>
         </div>
 
-        <button class="primary" id="btn-submit">Send feedback</button>
+        <button class="primary" id="btn-submit" data-i18n="fb.send">Send feedback</button>
       </section>
 
       <section id="screen-done" class="screen">
         <div class="confirm-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="#0A5A4E" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-          <h2>Got it — thank you</h2>
-          <p>We read every message personally. If you shared your email and a fix or reply is needed, we may reach out.</p>
+          <h2 data-i18n="fb.done_title">Got it — thank you</h2>
+          <p data-i18n="fb.done_text">We read every message personally. If you shared your email and a fix or reply is needed, we may reach out.</p>
         </div>
       </section>
     </div>
@@ -150,7 +151,7 @@
   }
 
   function showError(msg) {
-    errorBanner.innerHTML = `<div class="error-banner">${msg}</div>`;
+    errorBanner.innerHTML = '<div class="error-banner"></div>'; errorBanner.firstChild.textContent = msg;
   }
   function clearError() {
     errorBanner.innerHTML = '';
@@ -172,12 +173,12 @@
   btnSubmit.addEventListener('click', async () => {
     clearError();
     if (!selectedCategory) {
-      showError('Please pick what this is about.');
+      showError(GIQ.t('fb.pick'));
       return;
     }
 
     btnSubmit.disabled = true;
-    btnSubmit.textContent = 'Sending…';
+    btnSubmit.textContent = GIQ.t('fb.sending');
 
     try {
       const res = await fetch(API_BASE + '/api/feedback/submit', {
@@ -193,17 +194,17 @@
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        showError(data.error || 'Something went wrong. Please try again.');
+        showError(GIQ.lang === 'hi' || !data.error ? GIQ.t('common.generic_error') : data.error);
         btnSubmit.disabled = false;
-        btnSubmit.textContent = 'Send feedback';
+        btnSubmit.textContent = GIQ.t('fb.send');
         return;
       }
 
       showScreen('done');
     } catch (err) {
-      showError('Could not send feedback. Please check your connection and try again.');
+      showError(GIQ.t('fb.fail'));
       btnSubmit.disabled = false;
-      btnSubmit.textContent = 'Send feedback';
+      btnSubmit.textContent = GIQ.t('fb.send');
     }
   });
 })();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Terms of use — GrievIQ</title>
+<title data-i18n="terms.page_title">Terms of use — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -52,39 +52,41 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
-  <div class="trust-strip"><span>Independent citizen grievance escalation & redressal platform</span><span>EN</span></div>
+  <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
     <div class="app-card">
-      <a href="/" class="back-link">← Back to home</a>
+      <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
       <header class="brand">
         <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
         <span class="brand-name">GrievIQ</span>
       </header>
-      <h1>Terms of use</h1>
-      <p class="updated">Last updated: September 2026</p>
+      <h1 data-i18n="terms.title">Terms of use</h1>
+      <p class="updated" data-i18n="terms.updated">Last updated: September 2026</p>
 
-      <div class="note-box">GrievIQ is an independent platform, not officially operated by any government authority. See our <a href="/about" style="color:var(--teal-dark);">About us</a> page for details.</div>
+      <p class="note-box" data-i18n-only="hi" data-i18n="terms.prevails" hidden></p>
+      <div class="note-box" data-i18n-html="terms.note">GrievIQ is an independent platform, not officially operated by any government authority. See our <a href="/about" style="color:var(--teal-dark);">About us</a> page for details.</div>
 
-      <h2>Using GrievIQ</h2>
-      <p>By using GrievIQ, you agree to submit grievances in good faith and provide accurate contact information so we can verify your identity and route your case correctly.</p>
+      <h2 data-i18n="terms.h1">Using GrievIQ</h2>
+      <p data-i18n="terms.p1">By using GrievIQ, you agree to submit grievances in good faith and provide accurate contact information so we can verify your identity and route your case correctly.</p>
 
-      <h2>No guarantee of resolution</h2>
-      <p>GrievIQ is provided as-is. We surface escalation timing transparently — showing when a case has moved past its usual response time at each level — but we cannot guarantee that any representative will act on a grievance within a specific timeframe, and we cannot compel a response.</p>
+      <h2 data-i18n="terms.h2">No guarantee of resolution</h2>
+      <p data-i18n="terms.p2">GrievIQ is provided as-is. We surface escalation timing transparently — showing when a case has moved past its usual response time at each level — but we cannot guarantee that any representative will act on a grievance within a specific timeframe, and we cannot compel a response.</p>
 
-      <h2>Acceptable use</h2>
-      <p>Misuse of the platform — including false reports, harassment, or spam submissions — may result in your access being restricted.</p>
+      <h2 data-i18n="terms.h3">Acceptable use</h2>
+      <p data-i18n="terms.p3">Misuse of the platform — including false reports, harassment, or spam submissions — may result in your access being restricted.</p>
 
-      <h2>Independence</h2>
-      <p>GrievIQ is an independent service and is not officially operated by, endorsed by, or affiliated with any government body. Disputes or concerns about GrievIQ itself should be directed to us, not to any government authority.</p>
+      <h2 data-i18n="terms.h4">Independence</h2>
+      <p data-i18n="terms.p4">GrievIQ is an independent service and is not officially operated by, endorsed by, or affiliated with any government body. Disputes or concerns about GrievIQ itself should be directed to us, not to any government authority.</p>
 
-      <h2>Contact</h2>
-      <p>For any questions about these terms, contact us at <a href="mailto:support@grieviq.in" style="color:var(--teal-dark);">support@grieviq.in</a>.</p>
+      <h2 data-i18n="terms.h5">Contact</h2>
+      <p data-i18n-html="terms.p5">For any questions about these terms, contact us at <a href="mailto:support@grieviq.in" style="color:var(--teal-dark);">support@grieviq.in</a>.</p>
 
       <div class="footer-block">
-        <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
-        <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+        <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+        <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
       </div>
     </div>
   </div>

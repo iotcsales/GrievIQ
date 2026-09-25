@@ -36,6 +36,7 @@ export async function onRequestPost({ request, env }) {
     citizen_email, // optional — needed for status-update emails and confirm/dispute
     photo_urls, // optional array — set by prior calls to /api/grievances/upload-photo
     rep_suggestion, // optional { tier, name, phone } — citizen's unverified guess at a missing rep
+    lang, // "hi" or "en": the language the citizen used, for emails about this complaint
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
     form_loaded_at, // ms timestamp from when the form rendered
@@ -155,8 +156,8 @@ export async function onRequestPost({ request, env }) {
 
     await env.DB.prepare(
       `INSERT INTO grievances
-        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?)`
+        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang)
+       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?, ?)`
     )
       .bind(
         id,
@@ -167,7 +168,8 @@ export async function onRequestPost({ request, env }) {
         local_unit_id,
         photoUrlJson,
         (location_detail || "").trim() || null,
-        trimmedEmail || null
+        trimmedEmail || null,
+        lang === "hi" ? "hi" : "en"
       )
       .run();
 

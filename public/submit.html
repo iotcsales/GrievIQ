@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>File a complaint — GrievIQ</title>
+<title data-i18n="submit.page_title">File a complaint — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -11,6 +11,7 @@
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
     v: "weekly",
+    language: (function () { try { return localStorage.getItem("griq-lang") === "hi" ? "hi" : "en"; } catch (e) { return "en"; } })(),
   });
 </script>
 <style>
@@ -174,9 +175,10 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
-  <div class="trust-strip"><span>Independent citizen grievance escalation & redressal platform</span><span>EN</span></div>
+  <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
     <div class="app-card">
       <header class="brand">
@@ -184,99 +186,99 @@
         <span class="brand-name">GrievIQ</span>
       </header>
 
-      <a href="/" style="display:inline-block;font-size:13px;color:var(--teal-dark);text-decoration:none;margin-top:6px;">← Back to home</a>
-      <h1>File a complaint</h1>
-      <p class="lede">Tell us what happened. Your complaint goes straight to your local representative, and stays visible to higher representatives if it isn't resolved in time.</p>
+      <a href="/" style="display:inline-block;font-size:13px;color:var(--teal-dark);text-decoration:none;margin-top:6px;" data-i18n="common.back_home">← Back to home</a>
+      <h1 data-i18n="submit.title">File a complaint</h1>
+      <p class="lede" data-i18n="submit.lede">Tell us what happened. Your complaint goes straight to your local representative, and stays visible to higher representatives if it isn't resolved in time.</p>
 
       <div class="status-box success" id="successBox">
-        <h2>Your complaint has been filed</h2>
-        <p>Keep this reference number to check on your complaint later.</p>
+        <h2 data-i18n="submit.done_title">Your complaint has been filed</h2>
+        <p data-i18n="submit.done_keep">Keep this reference number to check on your complaint later.</p>
         <div class="tracking-ref" id="trackingRefDisplay"></div>
         <p id="trackHint"></p>
       </div>
 
       <div class="status-box error" id="errorBox">
-        <h2>We couldn't file your complaint</h2>
+        <h2 data-i18n="submit.fail_title">We couldn't file your complaint</h2>
         <p id="errorMessage"></p>
       </div>
 
       <form id="intakeForm">
-        <h2 class="section-title">What's the issue?</h2>
+        <h2 class="section-title" data-i18n="submit.sec_issue">What's the issue?</h2>
 
-        <label for="categoryChipRow">Type of complaint</label>
+        <label for="categoryChipRow" data-i18n="submit.type">Type of complaint</label>
         <div class="chip-row" id="categoryChipRow"></div>
         <input type="hidden" id="category" />
 
-        <label for="description">Describe the problem</label>
-        <div class="hint">Be specific — location details, how long it's been going on, anything that helps.</div>
-        <textarea id="description" required minlength="15" placeholder="For example: There has been no water supply in our lane for the past 5 days..."></textarea>
-        <div class="field-error" id="descriptionError">Please write at least 15 characters.</div>
+        <label for="description" data-i18n="submit.describe">Describe the problem</label>
+        <div class="hint" data-i18n="submit.describe_hint">Be specific — location details, how long it's been going on, anything that helps.</div>
+        <textarea id="description" required minlength="15" placeholder="For example: There has been no water supply in our lane for the past 5 days..." data-i18n-ph="submit.describe_ph"></textarea>
+        <div class="field-error" id="descriptionError" data-i18n="submit.describe_err">Please write at least 15 characters.</div>
 
-        <h2 class="section-title">Where is this happening?</h2>
+        <h2 class="section-title" data-i18n="submit.sec_where">Where is this happening?</h2>
 
-        <label for="addressSearchContainer">Search your address</label>
-        <div class="hint">Start typing your street or landmark and pick a match — we'll try to match it to your ward automatically.</div>
+        <label for="addressSearchContainer" data-i18n="submit.address">Search your address</label>
+        <div class="hint" data-i18n="submit.address_hint">Start typing your street or landmark and pick a match — we'll try to match it to your ward automatically.</div>
         <div class="address-search-wrap" id="addressSearchContainer"></div>
         <div class="address-note" id="addressNote"></div>
         <div class="match-confirm" id="matchConfirm" style="display:none;">
-          <p>We matched your address to <b id="matchWardName"></b><span id="matchLocalities"></span>.</p>
+          <p><span data-i18n="submit.matched_pre">We matched your address to</span> <b id="matchWardName"></b><span id="matchLocalities"></span><span data-i18n="submit.matched_post">.</span></p>
           <div class="match-map" id="matchMap"></div>
           <div class="match-confirm-btns">
-            <button type="button" class="match-yes" id="matchYesBtn">Looks right</button>
-            <button type="button" class="match-no" id="matchNoBtn">No, let me choose manually</button>
+            <button type="button" class="match-yes" id="matchYesBtn" data-i18n="submit.looks_right">Looks right</button>
+            <button type="button" class="match-no" id="matchNoBtn" data-i18n="submit.choose_manually">No, let me choose manually</button>
           </div>
         </div>
 
-        <div class="manual-area-toggle">Or select your area manually:</div>
+        <div class="manual-area-toggle" data-i18n="submit.or_manual">Or select your area manually:</div>
 
-        <label for="localUnitSearch">Your area</label>
-        <input type="text" id="localUnitSearch" autocomplete="off" placeholder="Start typing your area..." />
+        <label for="localUnitSearch" data-i18n="submit.area">Your area</label>
+        <input type="text" id="localUnitSearch" autocomplete="off" placeholder="Start typing your area..." data-i18n-ph="submit.area_ph" />
         <input type="hidden" id="localUnitId" />
         <div class="area-suggestions" id="areaSuggestions"></div>
         <div class="area-selected" id="areaSelected">
           <span class="label" id="areaSelectedLabel"></span>
-          <button type="button" class="change-link" id="areaChangeBtn">Change</button>
+          <button type="button" class="change-link" id="areaChangeBtn" data-i18n="submit.change">Change</button>
         </div>
-        <div class="field-error" id="areaError">Please select your area from the list.</div>
+        <div class="field-error" id="areaError" data-i18n="submit.area_err">Please select your area from the list.</div>
 
-        <label for="locationDetail">Landmark or street address</label>
-        <div class="hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
-        <textarea id="locationDetail" placeholder="e.g. Near the water tank on Station Road" style="min-height: 60px; margin-bottom: 0;"></textarea>
+        <label for="locationDetail" data-i18n="submit.landmark">Landmark or street address</label>
+        <div class="hint" data-i18n="submit.landmark_hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
+        <textarea id="locationDetail" placeholder="e.g. Near the water tank on Station Road" data-i18n-ph="submit.landmark_ph" style="min-height: 60px; margin-bottom: 0;"></textarea>
 
-        <h2 class="section-title">Add photos (optional)</h2>
-        <div class="hint">Up to 3 photos. They help your representative understand the issue faster.</div>
-        <label for="photo" class="photo-label" id="photoLabel">Take or choose photos</label>
+        <h2 class="section-title" data-i18n="submit.photos">Add photos (optional)</h2>
+        <div class="hint" data-i18n="submit.photos_hint">Up to 3 photos. They help your representative understand the issue faster.</div>
+        <label for="photo" class="photo-label" id="photoLabel" data-i18n="submit.photos_btn">Take or choose photos</label>
         <input type="file" id="photo" accept="image/*" capture="environment" multiple class="photo-input" />
         <div class="photo-grid" id="photoGrid"></div>
         <div class="field-error" id="photoError"></div>
 
-        <h2 class="section-title">Your contact number</h2>
-        <div class="hint">Used only so you can check your complaint's status later. It is not shared publicly.</div>
+        <h2 class="section-title" data-i18n="submit.sec_contact">Your contact number</h2>
+        <div class="hint" data-i18n="submit.contact_hint">Used only so you can check your complaint's status later. It is not shared publicly.</div>
 
-        <label for="phone">Mobile number</label>
-        <input type="tel" id="phone" required placeholder="10-digit mobile number" inputmode="numeric" />
-        <div class="field-error" id="phoneError">Please enter a valid mobile number.</div>
+        <label for="phone" data-i18n="submit.mobile">Mobile number</label>
+        <input type="tel" id="phone" required placeholder="10-digit mobile number" data-i18n-ph="submit.mobile_ph" inputmode="numeric" />
+        <div class="field-error" id="phoneError" data-i18n="submit.mobile_err">Please enter a valid mobile number.</div>
 
-        <label for="email">Email address <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>
+        <label for="email"><span data-i18n="submit.email_label">Email address</span> <span style="font-weight:400;color:var(--ink-soft);" data-i18n="common.optional">(optional)</span></label>
         <input type="email" id="email" placeholder="you@example.com" />
-        <div class="hint">If you want to check regular updates on your complaint's status, please provide your email as well.</div>
-        <div class="field-error" id="emailError">Please enter a valid email address, or leave it blank.</div>
+        <div class="hint" data-i18n="submit.email_hint">If you want to check regular updates on your complaint's status, please provide your email as well.</div>
+        <div class="field-error" id="emailError" data-i18n="submit.email_err">Please enter a valid email address, or leave it blank.</div>
 
         <details class="rep-ask" id="repAsk" style="display:none;">
-          <summary>Do you know your local representative? (optional)</summary>
+          <summary data-i18n="submit.rep_q">Do you know your local representative? (optional)</summary>
           <div class="rep-ask-body">
-            <div class="hint">We don't yet have full contact details for everyone who represents your area. If you know them, tell us. We check this before using it &mdash; it won't change where your complaint goes.</div>
+            <div class="hint" data-i18n="submit.rep_hint">We don't yet have full contact details for everyone who represents your area. If you know them, tell us. We check this before using it &mdash; it won't change where your complaint goes.</div>
             <div id="repTierWrap">
-              <label>Who are you naming?</label>
+              <label data-i18n="submit.rep_who">Who are you naming?</label>
               <div class="chip-row" id="repTierChips"></div>
             </div>
             <input type="hidden" id="repTier" />
-            <label for="repSuggestName">Their name</label>
+            <label for="repSuggestName" data-i18n="submit.rep_name">Their name</label>
             <input type="text" id="repSuggestName" maxlength="120" autocomplete="off" />
-            <div class="field-error" id="repSuggestNameError">Please enter their full name, or leave this section empty.</div>
-            <label for="repSuggestPhone">Their phone number <span style="font-weight:400;color:var(--ink-soft);">(optional)</span></label>
+            <div class="field-error" id="repSuggestNameError" data-i18n="submit.rep_name_err">Please enter their full name, or leave this section empty.</div>
+            <label for="repSuggestPhone"><span data-i18n="submit.rep_phone">Their phone number</span> <span style="font-weight:400;color:var(--ink-soft);" data-i18n="common.optional">(optional)</span></label>
             <input type="tel" id="repSuggestPhone" maxlength="40" inputmode="numeric" autocomplete="off" />
-            <div class="field-error" id="repSuggestPhoneError">Please enter a valid phone number, or leave it blank.</div>
+            <div class="field-error" id="repSuggestPhoneError" data-i18n="submit.rep_phone_err">Please enter a valid phone number, or leave it blank.</div>
           </div>
         </details>
 
@@ -286,12 +288,12 @@
           <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
         </div>
 
-        <button type="submit" class="submit" id="submitBtn">File complaint</button>
+        <button type="submit" class="submit" id="submitBtn" data-i18n="submit.button">File complaint</button>
       </form>
 
       <div class="footer-block">
-        <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
-        <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+        <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+        <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
       </div>
     </div>
   </div>
@@ -315,8 +317,9 @@
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'chip';
-        chip.textContent = cat.name;
+        chip.textContent = GIQ.category(cat.id, cat.name);
         chip.dataset.value = cat.id;
+        chip.dataset.name = cat.name;
         chip.addEventListener('click', () => {
           categoryChipRow.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
           chip.classList.add('selected');
@@ -329,9 +332,15 @@
     } catch (err) {
       errorBox.style.display = 'block';
       document.getElementById('errorMessage').textContent =
-        'Could not load the form options. Please refresh the page.';
+        GIQ.t('submit.load_err');
     }
   }
+
+  document.addEventListener('giq:lang', () => {
+    document.querySelectorAll('#categoryChipRow .chip').forEach(c => { c.textContent = GIQ.category(c.dataset.value, c.dataset.name); });
+    document.querySelectorAll('#repTierChips .chip').forEach(c => { c.textContent = GIQ.level(c.dataset.level); });
+    if (typeof renderPhotoGrid === 'function') renderPhotoGrid();
+  });
 
   function isPlausiblePhone(value) {
     const digits = value.replace(/\D/g, '');
@@ -354,7 +363,7 @@
   }
 
   function unitTypeLabel(unit) {
-    return unit.unit_type === 'RURAL' ? 'village' : 'ward';
+    return GIQ.t(unit.unit_type === 'RURAL' ? 'submit.village' : 'submit.ward');
   }
 
   function escapeHtml(str) {
@@ -428,7 +437,7 @@
     if (results.length === 0) {
       const noResults = document.createElement('div');
       noResults.className = 'area-suggestion no-results';
-      noResults.textContent = 'No matching area found. Try a different spelling, or a nearby landmark.';
+      noResults.textContent = GIQ.t('submit.no_area');
       areaSuggestions.appendChild(noResults);
       areaSuggestions.style.display = 'block';
       return;
@@ -444,7 +453,7 @@
       if (matchedLocality) {
         const contextLine = document.createElement('div');
         contextLine.className = 'match-context';
-        contextLine.innerHTML = 'Includes: ' + highlightMatch(matchedLocality, query);
+        contextLine.innerHTML = escapeHtml(GIQ.t('submit.includes')) + highlightMatch(matchedLocality, query);
         item.appendChild(contextLine);
       }
       item.addEventListener('click', () => selectUnit(unit));
@@ -568,7 +577,8 @@
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'chip';
-      chip.textContent = opt.label;
+      chip.textContent = GIQ.level(opt.label);
+      chip.dataset.level = opt.label;
       chip.addEventListener('click', () => {
         chips.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
         chip.classList.add('selected');
@@ -590,7 +600,7 @@
     const localitiesEl = document.getElementById('matchLocalities');
     const localities = (localitiesRaw || '').split(';').map(s => s.trim()).filter(Boolean).slice(0, 3);
     localitiesEl.textContent = localities.length > 0
-      ? ', which includes ' + localities.join(', ')
+      ? GIQ.t('submit.matched_includes', { list: localities.join(', ') })
       : '';
     document.getElementById('matchConfirm').style.display = 'block';
     addressNote.style.display = 'none';
@@ -628,10 +638,10 @@
       if (data.matched) {
         showMatchConfirmation(data.local_unit_id, data.local_unit_name, data.localities, lat, lng);
       } else {
-        showAddressNote("We couldn't automatically match that address to a known ward yet. Please search for your area manually below.");
+        showAddressNote(GIQ.t('submit.no_ward'));
       }
     } catch (err) {
-      showAddressNote("Couldn't check that address right now. Please search for your area manually below.");
+      showAddressNote(GIQ.t('submit.addr_unavailable'));
     }
   }
 
@@ -651,7 +661,7 @@
             resolveWardFromCoords(place.location.lat(), place.location.lng());
           }
         } catch (err) {
-          showAddressNote("Couldn't look up that address. Please search for your area manually below.");
+          showAddressNote(GIQ.t('submit.addr_fail'));
         }
       });
     } catch (err) {
@@ -678,7 +688,7 @@
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', 'Remove photo');
+      removeBtn.setAttribute('aria-label', GIQ.t('submit.photo_remove'));
       removeBtn.addEventListener('click', () => {
         selectedPhotos.splice(index, 1);
         renderPhotoGrid();
@@ -690,8 +700,8 @@
       photoGrid.appendChild(thumb);
     });
     photoLabel.textContent = selectedPhotos.length > 0
-      ? `Add more (${selectedPhotos.length}/${MAX_PHOTOS} added)`
-      : 'Take or choose photos';
+      ? GIQ.t('submit.photos_more', { n: selectedPhotos.length, max: MAX_PHOTOS })
+      : GIQ.t('submit.photos_btn');
     photoLabel.style.display = selectedPhotos.length >= MAX_PHOTOS ? 'none' : 'inline-block';
   }
 
@@ -701,12 +711,12 @@
 
     for (const file of newFiles) {
       if (selectedPhotos.length >= MAX_PHOTOS) {
-        photoError.textContent = `You can add up to ${MAX_PHOTOS} photos.`;
+        photoError.textContent = GIQ.t('submit.photo_max');
         photoError.style.display = 'block';
         break;
       }
       if (file.size > 5 * 1024 * 1024) {
-        photoError.textContent = 'Each photo must be smaller than 5MB.';
+        photoError.textContent = GIQ.t('submit.photo_size');
         photoError.style.display = 'block';
         continue;
       }
@@ -728,7 +738,7 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Photo upload failed.');
+        throw new Error(GIQ.lang === 'en' && data.error ? data.error : GIQ.t('submit.photo_fail'));
       }
       urls.push(data.photo_url);
     }
@@ -772,7 +782,7 @@
     }
     if (!category_id) {
       errorBox.style.display = 'block';
-      document.getElementById('errorMessage').textContent = 'Please choose a category.';
+      document.getElementById('errorMessage').textContent = GIQ.t('submit.category_err');
       hasError = true;
     }
 
@@ -786,12 +796,12 @@
       const repTier = document.getElementById('repTier').value;
       if (repName || repPhone) {
         if (!repName || repName.length < 2) {
-          document.getElementById('repSuggestNameError').textContent = 'Please enter their full name, or leave this section empty.';
+          document.getElementById('repSuggestNameError').textContent = GIQ.t('submit.rep_name_err');
           document.getElementById('repSuggestNameError').style.display = 'block';
           repBox.open = true;
           hasError = true;
         } else if (!repTier) {
-          document.getElementById('repSuggestNameError').textContent = 'Please choose who you are naming.';
+          document.getElementById('repSuggestNameError').textContent = GIQ.t('submit.rep_who_err');
           document.getElementById('repSuggestNameError').style.display = 'block';
           repBox.open = true;
           hasError = true;
@@ -808,14 +818,14 @@
     if (hasError) return;
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Filing...';
+    submitBtn.textContent = GIQ.t('submit.filing');
 
     try {
       let photo_urls = [];
       if (selectedPhotos.length > 0) {
-        submitBtn.textContent = 'Uploading photos...';
+        submitBtn.textContent = GIQ.t('submit.uploading');
         photo_urls = await uploadAllPhotos();
-        submitBtn.textContent = 'Filing...';
+        submitBtn.textContent = GIQ.t('submit.filing');
       }
 
       const res = await fetch('/api/grievances/submit', {
@@ -832,6 +842,7 @@
           rep_suggestion,
           website,
           form_loaded_at: formLoadedAt,
+          lang: GIQ.lang,
         }),
       });
 
@@ -840,9 +851,9 @@
       if (!res.ok) {
         errorBox.style.display = 'block';
         document.getElementById('errorMessage').textContent =
-          data.error || 'Something went wrong. Please try again.';
+          (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error');
         submitBtn.disabled = false;
-        submitBtn.textContent = 'File complaint';
+        submitBtn.textContent = GIQ.t('submit.button');
         return;
       }
 
@@ -862,13 +873,14 @@
       const hint = document.getElementById('trackHint');
       hint.textContent = '';
       if (email) {
-        hint.append('Track it any time from ');
+        // "[...]" in the text marks the words that become the link.
+        const parts = GIQ.t('submit.done_track', { email }).split(/\[|\]/);
         const a = document.createElement('a');
         a.href = '/status?ref=' + encodeURIComponent(data.tracking_ref);
-        a.textContent = 'Track my reports';
-        hint.append(a, ' using the email you gave (' + email + ').');
+        a.textContent = parts[1] || GIQ.t('home.track_title');
+        hint.append(parts[0] || '', a, parts[2] || '');
       } else {
-        hint.textContent = "Online tracking needs an email, and you didn't give one. Keep this number and quote it if you contact us at support@grieviq.in.";
+        hint.textContent = GIQ.t('submit.done_noemail');
       }
       successBox.style.display = 'block';
       form.style.display = 'none';
@@ -876,9 +888,9 @@
     } catch (err) {
       errorBox.style.display = 'block';
       document.getElementById('errorMessage').textContent =
-        'Network error. Please check your connection and try again.';
+        GIQ.t('common.network');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'File complaint';
+      submitBtn.textContent = GIQ.t('submit.button');
     }
   });
 

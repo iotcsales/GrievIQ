@@ -62,6 +62,7 @@ export async function onRequestPost(context) {
     }
 
     const email = String(body.email || "").trim().toLowerCase();
+    const lang = body.lang === "hi" ? "hi" : "en";
     if (!email || !EMAIL_RE.test(email) || email.length > 200) {
       return json({ error: "Enter a valid email address." }, 400);
     }
@@ -115,12 +116,16 @@ export async function onRequestPost(context) {
         body: JSON.stringify({
           from: env.OTP_FROM_EMAIL || "onboarding@resend.dev",
           to: [email],
-          subject: `Your GrievIQ code: ${code}`,
-          html:
-            `<p>Use this code to see your GrievIQ reports:</p>` +
-            `<h2 style="letter-spacing:4px">${code}</h2>` +
-            `<p>It expires in ${CODE_TTL_MINUTES} minutes and can be used once.</p>` +
-            `<p>If you didn't ask for this code, you can ignore this email.</p>`,
+          subject: lang === "hi" ? `आपका GrievIQ कोड: ${code}` : `Your GrievIQ code: ${code}`,
+          html: lang === "hi"
+            ? `<p>GrievIQ पर अपनी शिकायतें देखने के लिए यह कोड प्रयोग करें:</p>` +
+              `<h2 style="letter-spacing:4px">${code}</h2>` +
+              `<p>यह ${CODE_TTL_MINUTES} मिनट में समाप्त हो जाएगा और केवल एक बार प्रयोग किया जा सकता है।</p>` +
+              `<p>यदि आपने यह कोड नहीं माँगा है, तो इस ईमेल को अनदेखा करें।</p>`
+            : `<p>Use this code to see your GrievIQ reports:</p>` +
+              `<h2 style="letter-spacing:4px">${code}</h2>` +
+              `<p>It expires in ${CODE_TTL_MINUTES} minutes and can be used once.</p>` +
+              `<p>If you didn't ask for this code, you can ignore this email.</p>`,
         }),
       }).catch(() => {});
       if (typeof context.waitUntil === "function") context.waitUntil(send);

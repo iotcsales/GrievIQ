@@ -71,6 +71,7 @@ export async function onRequestPost(context) {
   ).bind(crypto.randomUUID(), grievanceId, auth.email, now).run();
 
   if (hasEmail) {
+    const statusUrl = new URL(request.url).origin + "/status?ref=" + encodeURIComponent(grievance.tracking_ref);
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -80,9 +81,16 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         from: env.OTP_FROM_EMAIL || "onboarding@resend.dev",
         to: [grievance.citizen_email],
-        subject: `Your GrievIQ case ${grievance.tracking_ref} has been marked resolved`,
-        html: `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
-               <p>Please visit our status page and enter your tracking number and email to confirm whether this actually fixed the problem.</p>`,
+        subject: grievance.lang === "hi"
+          ? `आपकी GrievIQ शिकायत ${grievance.tracking_ref} को निस्तारित बताया गया है`
+          : `Your GrievIQ case ${grievance.tracking_ref} has been marked resolved`,
+        html: grievance.lang === "hi"
+          ? `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
+             <p>कृपया "मेरी शिकायतों की स्थिति" पृष्ठ पर जाकर अपना ईमेल दर्ज करें और बताएँ कि क्या समस्या वास्तव में हल हुई है:</p>
+             <p><a href="${statusUrl}">${statusUrl}</a></p>`
+          : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
+             <p>Please visit our status page and enter your email to confirm whether this actually fixed the problem:</p>
+             <p><a href="${statusUrl}">${statusUrl}</a></p>`,
       }),
     });
 

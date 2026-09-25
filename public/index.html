@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrievIQ — Report a civic problem and track it</title>
+<title data-i18n="home.page_title">GrievIQ — Report a civic problem and track it</title>
 <meta name="description" content="Report a civic problem in Lucknow. GrievIQ sends it to your ward's elected representative and moves it up if it isn't dealt with in time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -340,9 +340,10 @@
   .rep-link { margin-top: 10px; font-size: 11px; }
   .rep-link a { color: var(--ink-soft); }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
-<div class="trust-strip"><span><span class="emblem"></span>Independent citizen grievance escalation &amp; redressal platform</span><span>EN</span></div>
+<div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation &amp; redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
 <div class="card-shell">
 
   <header class="brand">
@@ -351,39 +352,39 @@
   </header>
 
   <div class="app-card">
-    <h1>Get civic problems in Lucknow fixed</h1>
-    <p class="intro">Report a problem like no water, garbage, broken roads or street lights. GrievIQ sends it to your ward's elected representative. If it isn't dealt with in time, it moves up to the next level automatically, and stays visible to everyone it has reached.</p>
+    <h1 data-i18n="home.title">Get civic problems in Lucknow fixed</h1>
+    <p class="intro" data-i18n="home.intro">Report a problem like no water, garbage, broken roads or street lights. GrievIQ sends it to your ward's elected representative. If it isn't dealt with in time, it moves up to the next level automatically, and stays visible to everyone it has reached.</p>
 
-    <div class="stats" aria-label="GrievIQ at a glance">
-      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label">Wards reachable</div></div>
-      <div class="stat"><div class="stat-value">Up to 4</div><div class="stat-label">Escalation levels</div></div>
-      <div class="stat"><div class="stat-value" id="stat-device">0</div><div class="stat-label">Reports on this device</div></div>
+    <div class="stats" aria-label="GrievIQ at a glance" data-i18n-aria="home.glance">
+      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label" data-i18n="home.stat_wards">Wards reachable</div></div>
+      <div class="stat"><div class="stat-value" data-i18n="home.stat_levels_value">Up to 4</div><div class="stat-label" data-i18n="home.stat_levels">Escalation levels</div></div>
+      <div class="stat"><div class="stat-value" id="stat-device">0</div><div class="stat-label" data-i18n="home.stat_device">Reports on this device</div></div>
     </div>
 
     <a class="task-card primary-task" href="/submit">
       <span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>
-      <span><span class="task-title">Report a problem</span><span class="task-sub" style="display:block">Water, sanitation, roads, electricity</span></span>
+      <span><span class="task-title" data-i18n="home.report_title">Report a problem</span><span class="task-sub" style="display:block" data-i18n="home.report_sub">Water, sanitation, roads, electricity</span></span>
       <span class="task-arrow" aria-hidden="true">→</span>
     </a>
 
     <a class="task-card" href="/status">
       <span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span>
-      <span><span class="task-title">Track my reports</span><span class="task-sub" style="display:block" id="track-sub">Check progress with the email you gave</span></span>
+      <span><span class="task-title" data-i18n="home.track_title">Track my reports</span><span class="task-sub" style="display:block" id="track-sub">Check progress with the email you gave</span></span>
       <span class="task-arrow" aria-hidden="true">→</span>
     </a>
-    <p class="device-note" id="device-note" style="display:none;">Tracking numbers are saved only on this device. <button type="button" id="forget-device">Forget reports on this device</button></p>
+    <p class="device-note" id="device-note" style="display:none;"><span data-i18n="home.device_note">Tracking numbers are saved only on this device.</span> <button type="button" id="forget-device" data-i18n="home.forget">Forget reports on this device</button></p>
 
-    <p class="need-box"><strong>What you'll need:</strong> your phone number. Add your email to get updates and track your report online.</p>
+    <p class="need-box" data-i18n-html="home.need"><strong>What you'll need:</strong> your phone number. Add your email to get updates and track your report online.</p>
 
-    <div class="emergency"><strong>Emergency?</strong> For fire, gas leaks, accidents or anyone in danger, call <strong>112</strong>. Don't wait for GrievIQ.</div>
+    <div class="emergency" data-i18n-html="home.emergency"><strong>Emergency?</strong> For fire, gas leaks, accidents or anyone in danger, call <strong>112</strong>. Don't wait for GrievIQ.</div>
 
-    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
+    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n-html="common.feedback_card">Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
   </div>
 
   <div class="footer-block">
-    <div class="footer-links"><a href="/about">About us</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a><a href="mailto:support@grieviq.in">Contact</a></div>
-    <div class="footer-note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
-    <div class="rep-link"><a href="/rep">Representatives: sign in</a></div>
+    <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+    <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+    <div class="rep-link"><a href="/rep" data-i18n="home.rep_signin">Representatives: sign in</a></div>
   </div>
 
 </div>
@@ -400,8 +401,8 @@
     const n = savedReports().length;
     document.getElementById('stat-device').textContent = n;
     document.getElementById('track-sub').textContent = n
-      ? `${n} filed on this device · check progress with your email`
-      : 'Check progress with the email you gave';
+      ? GIQ.t('home.track_sub_some', { n: n })
+      : GIQ.t('home.track_sub_none');
     document.getElementById('device-note').style.display = n ? '' : 'none';
   }
   document.getElementById('forget-device').addEventListener('click', () => {
@@ -409,6 +410,7 @@
     showDevice();
   });
   showDevice();
+  document.addEventListener('giq:lang', showDevice);
 
   // Live count of wards citizens can file in (same list the complaint form uses).
   fetch('/api/intake-options')
