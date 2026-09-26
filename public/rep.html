@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrievIQ</title>
+<title data-i18n="rep.page_title">GrievIQ — Representative console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- English / Hindi text, shared with the citizen pages -->
+<script src="/i18n.js"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -502,8 +504,17 @@
     .followup-field, .followup-field select, .followup-field input { width: 100%; }
     .followup-form .resolve-btn { width: auto; }
   }
+  .top-strip { background: var(--ink); color: #E8EAED; font-size: 12px; }
+  .top-strip-inner { max-width: 780px; margin: 0 auto; padding: 6px 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .top-strip .lang-toggle { min-height: 28px; }
+  .pdf-hint { font-size: 13px; color: var(--steel); margin: 8px 0 0; }
+  .pdf-hint:empty { display: none; }
+  html[lang='hi'] .console-title, html[lang='hi'] .register-title, html[lang='hi'] .report-title { font-family: 'Noto Serif Devanagari', 'Source Serif 4', serif; }
+  html[lang='hi'] .ladder-label { font-size: 10.5px; text-transform: none; letter-spacing: 0; }
+  html[lang='hi'] .viewing-kicker { text-transform: none; letter-spacing: 0; font-size: 12px; }
+  @media (max-width: 600px) { .top-strip-inner { padding: 6px 16px; } }
   @media print {
-    .console-header, .tab-bar, .mandate-strip, .no-print, .export-pdf-btn { display: none !important; }
+    .top-strip, .console-header, .tab-bar, .mandate-strip, .no-print, .export-pdf-btn { display: none !important; }
     body { background: white; }
   }
 </style>
@@ -513,14 +524,29 @@
 <div id="app"></div>
 
 <script>
-const TIER_LABELS = { LOCAL: 'Local', MAYOR: 'Mayor', MLA: 'MLA', MP: 'MP' };
-const DISPUTE_REASON_LABELS = {
-  NOT_FIXED: 'Citizen says: not fixed at all',
-  PARTIALLY_FIXED: 'Citizen says: partially fixed',
-  CAME_BACK: 'Citizen says: fixed, but came back',
-  WRONG_ISSUE: 'Citizen says: wrong issue was fixed',
-  OTHER: 'Citizen disputed resolution',
+// ---- Language (English / Hindi) ----
+// All console text lives in /i18n.js (keys "rep.*"), shared with the citizen
+// pages so both use the same official Hindi terms. Records are still saved
+// in English (e.g. department "Water Supply"); only the display changes.
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === 'hi'); }
+function loc() { return window.GIQ ? window.GIQ.locale() : 'en-IN'; }
+function lv(label) { return window.GIQ ? window.GIQ.level(label) : label; }
+function deptName(d) { return window.GIQ ? window.GIQ.dept(d) : d; }
+function catName(id, name) { return window.GIQ ? window.GIQ.category(id, name) : name; }
+// Report breakdowns arrive keyed by the English category name.
+const CAT_IDS = { 'Document/Certificate Correction': 'doc-correction', 'Water Supply / Sanitation': 'water-sanitation',
+  'Electricity Supply': 'electricity', 'Road / Infrastructure Repair': 'road-infra', 'Sanitation / Garbage Collection': 'garbage',
+  'Land Dispute / Legal Matter': 'land-dispute', 'Public Safety / Law & Order': 'public-safety', 'Other / Uncategorized': 'other' };
+const TIER_KEYS = { LOCAL: 'rep.tier_local', MAYOR: 'level.mayor', MLA: 'level.mla', MP: 'level.mp' };
+function tierLabel(tier) { return TIER_KEYS[tier] ? T(TIER_KEYS[tier]) : tier; }
+const DISPUTE_REASON_KEYS = {
+  NOT_FIXED: 'rep.d_not_fixed', PARTIALLY_FIXED: 'rep.d_partial', CAME_BACK: 'rep.d_came_back',
+  WRONG_ISSUE: 'rep.d_wrong', OTHER: 'rep.d_other',
 };
+function statusWord(st) { return T('rep.st_' + st) === 'rep.st_' + st ? st.toLowerCase().replace('_', ' ') : T('rep.st_' + st); }
+// Server messages are English; in Hindi show our own sentence with the detail.
+function errText(msg) { return msg ? T('rep.err_detail', { msg: msg }) : T('common.generic_error'); }
 // Must match VALID_DEPARTMENTS in functions/api/grievances/[id]/add-followup.js
 const DEPARTMENTS = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other'];
 const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -548,26 +574,29 @@ function esc(s) {
 function formatDate(iso) {
   if (!iso) return '';
   var d = new Date(iso);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
-    ', ' + d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  // Hindi uses the 24-hour clock (as on the citizen pages); English keeps "2:43 pm".
+  var timeOpts = isHi() ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : { hour: 'numeric', minute: '2-digit' };
+  return d.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric' }) +
+    ', ' + d.toLocaleTimeString(loc(), timeOpts);
 }
 
 function formatDateOnly(iso) {
   if (!iso) return '—';
   var d = new Date(iso);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function fmtHours(h) {
   if (h === null || h === undefined) return '—';
-  if (h < 24) return Math.round(h) + ' hrs';
-  return Math.round((h / 24) * 10) / 10 + ' days';
+  if (h < 24) return T('rep.hrs', { n: Math.round(h) });
+  return T('rep.days', { n: Math.round((h / 24) * 10) / 10 });
 }
 
 function timeAgo(days) {
-  if (days < 1) return 'Filed today';
-  if (days === 1) return 'Filed 1 day ago';
-  return 'Filed ' + Math.floor(days) + ' days ago';
+  var n = Math.floor(days);   // whole days (fixes "Filed 1 days ago")
+  if (n < 1) return T('rep.filed_today');
+  if (n === 1) return T('rep.filed_one');
+  return T('rep.filed_n', { n: n });
 }
 
 function mandateIdForApi() {
@@ -585,10 +614,10 @@ function hasAutocomplete() {
 // asked to confirm; resolved cases are done. Colour is never the only
 // signal (WCAG 2.2, 1.4.1) -- every state also has words.
 function caseState(c) {
-  if (c.status === 'RESOLVED' || c.status === 'CLOSED') return { key: 'done', text: 'Resolved' };
-  if (c.status === 'PENDING_CONFIRMATION') return { key: 'gold', text: 'Awaiting citizen' };
-  if (c.isLate) return { key: 'red', text: 'Past time limit' };
-  return { key: 'green', text: 'Within time' };
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED') return { key: 'done', text: T('rep.state_done') };
+  if (c.status === 'PENDING_CONFIRMATION') return { key: 'gold', text: T('rep.state_gold') };
+  if (c.isLate) return { key: 'red', text: T('rep.state_red') };
+  return { key: 'green', text: T('rep.state_green') };
 }
 
 function isAttention(c) {
@@ -598,17 +627,17 @@ function isAttention(c) {
 function renderLadder(c) {
   var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
   var late = c.tierLate || [];
-  return '<div class="ladder" role="list" aria-label="Escalation levels">' + c.chainTierList.map(function(tier, i) {
+  return '<div class="ladder" role="list" aria-label="' + esc(T('rep.levels_aria')) + '">' + c.chainTierList.map(function(tier, i) {
     var reached = i <= c.currentTierIndex;
     var state, words;
-    if (!reached) { state = 'future'; words = 'not reached'; }
-    else if (isFinal) { state = 'done'; words = 'reached'; }
-    else if (late[i]) { state = 'late'; words = 'past time limit'; }
-    else { state = 'ok'; words = 'within time'; }
+    if (!reached) { state = 'future'; words = T('rep.lv_not_reached'); }
+    else if (isFinal) { state = 'done'; words = T('rep.lv_reached'); }
+    else if (late[i]) { state = 'late'; words = T('rep.lv_late'); }
+    else { state = 'ok'; words = T('rep.lv_ok'); }
     var mine = tier === c.viewingAsTier;
     return '<div class="ladder-step" role="listitem"><div class="ladder-dot ' + state + (mine ? ' mine' : '') + '" aria-hidden="true"></div>' +
-      '<div class="ladder-label">' + esc(TIER_LABELS[tier] || tier) + '</div>' +
-      '<span class="visually-hidden">: ' + words + (mine ? ' (your level)' : '') + '</span></div>';
+      '<div class="ladder-label">' + esc(tierLabel(tier)) + '</div>' +
+      '<span class="visually-hidden">: ' + esc(words) + (mine ? ' ' + esc(T('rep.lv_mine')) : '') + '</span></div>';
   }).join('') + '</div>';
 }
 
@@ -616,13 +645,13 @@ function renderPhotoThumbs(photoUrls) {
   if (!photoUrls || photoUrls.length === 0) return '';
   return '<div class="photo-thumbs">' + photoUrls.map(function(url, i) {
     return '<a class="photo-thumb" href="' + esc(url) + '" target="_blank" rel="noopener">' +
-      '<img src="' + esc(url) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy"></a>';
+      '<img src="' + esc(url) + '" alt="' + esc(T('rep.photo_alt', { n: i + 1 })) + '" loading="lazy"></a>';
   }).join('') + '</div>';
 }
 
 function renderDisputeNote(c) {
   if (!c.citizenDisputeReason) return '';
-  var label = DISPUTE_REASON_LABELS[c.citizenDisputeReason] || 'Citizen disputed resolution';
+  var label = T(DISPUTE_REASON_KEYS[c.citizenDisputeReason] || 'rep.d_other');
   var note = c.citizenDisputeNote ? ' &mdash; "' + esc(c.citizenDisputeNote) + '"' : '';
   var when = c.citizenDisputeAt ? ' <span class="muted-inline">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
   return '<div class="dispute-note"><b>' + esc(label) + '</b>' + when + note + '</div>';
@@ -631,8 +660,8 @@ function renderDisputeNote(c) {
 function renderNudgeNote(c) {
   if (!c.adminNudges || !c.adminNudges.length) return '';
   var n = c.adminNudges[c.adminNudges.length - 1];
-  var count = c.adminNudges.length > 1 ? ' &middot; ' + c.adminNudges.length + ' reminders so far' : '';
-  return '<div class="dispute-note"><b>Reminder from GrievIQ admin</b> <span class="muted-inline">(' + formatDate(n.createdAt) + count + ')</span>' +
+  var count = c.adminNudges.length > 1 ? ' &middot; ' + esc(T('rep.reminders_n', { n: c.adminNudges.length })) : '';
+  return '<div class="dispute-note"><b>' + esc(T('rep.reminder')) + '</b> <span class="muted-inline">(' + formatDate(n.createdAt) + count + ')</span>' +
     (n.note ? ' &mdash; "' + esc(n.note) + '"' : '') + '</div>';
 }
 
@@ -643,7 +672,7 @@ function renderResolveControl(c) {
   // Own class (mark-resolved-btn) so ONLY this button marks a case
   // resolved -- previously every button sharing the resolve-btn style
   // (Acknowledge, Log follow-up) also triggered Mark resolved.
-  return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + esc(c.id) + '">Mark resolved</button>' +
+  return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + esc(c.id) + '">' + esc(T('rep.mark_resolved')) + '</button>' +
     '<div class="resolve-error" id="resolve-error-' + esc(c.id) + '" role="alert"></div>';
 }
 
@@ -653,44 +682,44 @@ function renderResolveControl(c) {
 // "(suggested)"; the rep must actively choose.
 function renderFollowupControl(c) {
   var deptLine = c.currentDepartment
-    ? '<p class="location-detail">Forwarded to: <b>' + esc(c.currentDepartment) + '</b></p>'
+    ? '<p class="location-detail">' + esc(T('rep.forwarded')) + ' <b>' + esc(deptName(c.currentDepartment)) + '</b></p>'
     : '';
   var history = (c.followupHistory || []).map(function(f) {
     var noteText = f.note ? ' — ' + esc(f.note) : '';
-    return '<div class="dispute-note"><b>' + esc(f.department) + '</b>' + noteText +
+    return '<div class="dispute-note"><b>' + esc(deptName(f.department)) + '</b>' + noteText +
       ' <span class="muted-inline">(' + formatDate(f.createdAt) + ')</span></div>';
   }).join('');
   var sugg = DEPARTMENTS.indexOf(c.suggestedDepartment) !== -1 ? c.suggestedDepartment : null;
   var ordered = sugg ? [sugg].concat(DEPARTMENTS.filter(function(d) { return d !== sugg; })) : DEPARTMENTS;
-  var options = '<option value="">Choose a department</option>' + ordered.map(function(d) {
-    return '<option value="' + esc(d) + '">' + esc(d) + (d === sugg ? ' (suggested)' : '') + '</option>';
+  var options = '<option value="">' + esc(T('rep.choose_dept')) + '</option>' + ordered.map(function(d) {
+    return '<option value="' + esc(d) + '">' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
   }).join('');
   var id = esc(c.id);
   return deptLine + history +
     '<div class="followup-form">' +
-      '<div class="followup-field"><label for="followup-dept-' + id + '">Forward to department</label>' +
+      '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
         '<select class="followup-dept" id="followup-dept-' + id + '">' + options + '</select></div>' +
-      '<div class="followup-field"><label for="followup-note-' + id + '">Note (optional)</label>' +
+      '<div class="followup-field"><label for="followup-note-' + id + '">' + esc(T('rep.note_opt')) + '</label>' +
         '<input class="followup-note" id="followup-note-' + id + '" type="text" maxlength="500" /></div>' +
-      '<button type="button" class="resolve-btn followup-btn" data-id="' + id + '">Log follow-up</button>' +
+      '<button type="button" class="resolve-btn followup-btn" data-id="' + id + '">' + esc(T('rep.log_followup')) + '</button>' +
     '</div>' +
     '<div class="resolve-error followup-error" id="followup-error-' + id + '" role="alert"></div>';
 }
 
 function renderAcknowledgeControl(c) {
   if (c.acknowledgedAt) {
-    return '<span class="badge acknowledged">acknowledged ' + formatDate(c.acknowledgedAt) + '</span>';
+    return '<span class="badge acknowledged">' + esc(T('rep.badge_ack', { date: formatDate(c.acknowledgedAt) })) + '</span>';
   }
-  var overdueNote = c.ackOverdue ? ' <span class="badge escalated">ack overdue</span>' : '';
-  return '<button type="button" class="resolve-btn ack-btn" data-id="' + esc(c.id) + '">Acknowledge</button>' +
+  var overdueNote = c.ackOverdue ? ' <span class="badge escalated">' + esc(T('rep.badge_ack_overdue')) + '</span>' : '';
+  return '<button type="button" class="resolve-btn ack-btn" data-id="' + esc(c.id) + '">' + esc(T('rep.acknowledge')) + '</button>' +
     '<div class="resolve-error ack-error" id="ack-error-' + esc(c.id) + '" role="alert"></div>' + overdueNote;
 }
 
 function renderDueLines(c) {
   if (c.status === 'RESOLVED' || c.status === 'CLOSED' || c.status === 'PENDING_CONFIRMATION') return '';
   var lines = [];
-  if (c.ackDueAt) lines.push((c.ackOverdue ? 'Acknowledgement was due ' : 'Acknowledge by ') + formatDate(c.ackDueAt));
-  if (c.respondDueAt) lines.push('Respond by ' + formatDate(c.respondDueAt));
+  if (c.ackDueAt) lines.push(T(c.ackOverdue ? 'rep.ack_was_due' : 'rep.ack_by', { date: formatDate(c.ackDueAt) }));
+  if (c.respondDueAt) lines.push(T('rep.respond_by', { date: formatDate(c.respondDueAt) }));
   return lines.map(function(l) { return '<div class="due-line">' + esc(l) + '</div>'; }).join('');
 }
 
@@ -700,11 +729,11 @@ function renderCase(c) {
   var badge = '';
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
     var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
-    badge = '<span class="badge resolved">' + esc(c.status.toLowerCase()) + resolvedWhen + '</span>';
+    badge = '<span class="badge resolved">' + esc(T(c.status === 'CLOSED' ? 'rep.badge_closed' : 'rep.badge_resolved')) + resolvedWhen + '</span>';
   } else if (c.status === 'PENDING_CONFIRMATION') {
-    badge = '<span class="badge pending">awaiting citizen confirmation</span>';
+    badge = '<span class="badge pending">' + esc(T('rep.badge_pending')) + '</span>';
   } else if (c.hasEscalatedPastMyTier) {
-    badge = '<span class="badge escalated">now with ' + esc(TIER_LABELS[c.currentTopTier] || c.currentTopTier) + '</span>';
+    badge = '<span class="badge escalated">' + esc(T('rep.badge_now_with', { level: tierLabel(c.currentTopTier) })) + '</span>';
   }
   var locationLine = c.locationDetail
     ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
@@ -713,7 +742,7 @@ function renderCase(c) {
     '<div class="signal-dot ' + st.key + '" aria-hidden="true"></div>' +
     '<div class="case-main">' +
       '<div class="tracking-ref">' + esc(c.trackingRef) + '</div>' +
-      '<div class="category">' + esc(c.category.name) + ' &middot; ' + esc(c.localUnit.name) + '</div>' +
+      '<div class="category">' + esc(catName(c.category.id, c.category.name)) + ' &middot; ' + esc(c.localUnit.name) + '</div>' +
       '<p class="description">' + esc(c.description) + '</p>' +
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
@@ -735,7 +764,7 @@ function renderCase(c) {
 // ================= Viewing (which of my areas) =================
 function myMandates() { return (currentMe && currentMe.mandates) || []; }
 function findMandate(id) { return myMandates().filter(function(m) { return m.id === id; })[0] || null; }
-function mandateText(m) { return m.name + ' — ' + m.label; }
+function mandateText(m) { return m.name + ' — ' + lv(m.label); }
 
 function casesInView() {
   return activeMandateId === null
@@ -755,12 +784,12 @@ function updateSummary() {
   if (!el) return;
   var ms = myMandates();
   var title, sub;
-  if (ms.length === 1) { title = ms[0].name; sub = ms[0].label; }
-  else if (activeMandateId === null) { title = 'All my areas'; sub = ms.length + ' areas'; }
-  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? m.label : ''; }
+  if (ms.length === 1) { title = ms[0].name; sub = lv(ms[0].label); }
+  else if (activeMandateId === null) { title = T('rep.all_areas'); sub = T('rep.n_areas', { n: ms.length }); }
+  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? lv(m.label) : ''; }
   var wardList = activeTab === 'report' && reportData && reportData.wards ? reportData.wards : null;
-  var wardLine = activeWardId ? '<p class="console-role">Ward: ' + esc(wardNameFor(activeWardId, wardList)) + '</p>' : '';
-  el.innerHTML = (ms.length > 1 ? '<p class="viewing-kicker">Viewing</p>' : '') +
+  var wardLine = activeWardId ? '<p class="console-role">' + esc(T('rep.ward_line', { name: wardNameFor(activeWardId, wardList) })) + '</p>' : '';
+  el.innerHTML = (ms.length > 1 ? '<p class="viewing-kicker">' + esc(T('rep.viewing')) + '</p>' : '') +
     '<p class="console-ward">' + esc(title) + '</p>' +
     '<p class="console-role">' + esc(sub) + '</p>' + wardLine;
 }
@@ -777,9 +806,9 @@ function renderViewingControl() {
       var on = (activeMandateId === id);
       return '<button type="button" class="mandate-chip' + (on ? ' active' : '') + '" aria-pressed="' + on + '" data-mandate-id="' + esc(id === null ? '' : id) + '">' + html + '</button>';
     };
-    bar.innerHTML = '<div class="mandate-strip-inner" role="group" aria-label="Viewing">' +
-      chip(null, 'All my areas') +
-      ms.map(function(m) { return chip(m.id, esc(m.name) + ' &mdash; <b>' + esc(m.label) + '</b>'); }).join('') +
+    bar.innerHTML = '<div class="mandate-strip-inner" role="group" aria-label="' + esc(T('rep.viewing')) + '">' +
+      chip(null, esc(T('rep.all_areas'))) +
+      ms.map(function(m) { return chip(m.id, esc(m.name) + ' &mdash; <b>' + esc(lv(m.label)) + '</b>'); }).join('') +
       '</div>';
     bar.querySelectorAll('.mandate-chip').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -789,19 +818,19 @@ function renderViewingControl() {
     });
     return;
   }
-  var opts = '<option value="">All my areas</option>' + ms.map(function(m) {
+  var opts = '<option value="">' + esc(T('rep.all_areas')) + '</option>' + ms.map(function(m) {
     return '<option value="' + esc(m.id) + '">' + esc(mandateText(m)) + '</option>';
   }).join('');
-  bar.innerHTML = '<div class="control-box"><label class="control-label" for="viewing-select">Viewing</label>' +
+  bar.innerHTML = '<div class="control-box"><label class="control-label" for="viewing-select">' + esc(T('rep.viewing')) + '</label>' +
     '<select id="viewing-select">' + opts + '</select></div>';
   var sel = document.getElementById('viewing-select');
   sel.value = activeMandateId === null ? '' : activeMandateId;
-  enhanceOrListen(sel, function(value) { setView(value === '' ? null : value); });
+  enhanceOrListen(sel, function(value) { setView(value === '' ? null : value); }, 'rep.no_areas_match');
 }
 
 // Upgrades a <select> to the GOV.UK accessible autocomplete (self-hosted
 // in /vendor). If the script failed to load, the plain <select> still works.
-function enhanceOrListen(sel, onPick) {
+function enhanceOrListen(sel, onPick, noResultsKey) {
   if (hasAutocomplete()) {
     var byText = {};
     Array.prototype.forEach.call(sel.options, function(o) { byText[o.textContent] = o.value; });
@@ -811,7 +840,13 @@ function enhanceOrListen(sel, onPick) {
       // keep the "All my areas" / "All wards" choice (its value is empty)
       preserveNullOptions: true,
       dropdownArrow: function() { return '<svg class="autocomplete__dropdown-arrow-down" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 384L96 224h320z"/></svg>'; },
-      tNoResults: function() { return 'No matching areas'; },
+      // Every message the box shows or reads out, in the page language.
+      tNoResults: function() { return T(noResultsKey || 'rep.ac_none'); },
+      tStatusQueryTooShort: function(min) { return T('rep.ac_short', { n: min }); },
+      tStatusNoResults: function() { return T('rep.ac_none'); },
+      tStatusSelectedOption: function(option, total, index) { return T('rep.ac_selected', { option: option, n: index + 1, total: total }); },
+      tStatusResults: function(count, sel) { return count === 1 ? T('rep.ac_results_one', { sel: sel }) : T('rep.ac_results', { n: count, sel: sel }); },
+      tAssistiveHint: function() { return T('rep.ac_hint'); },
       onConfirm: function(text) {
         if (text === undefined || !(text in byText)) return;
         var value = byText[text];
@@ -900,15 +935,15 @@ function renderFilters() {
   }
   if (wards.length <= 1 && !activeWardId) { slot.innerHTML = ''; return; }
   var total = wards.reduce(function(n, w) { return n + w.count; }, 0);
-  var opts = '<option value="">All wards (' + total + ' case' + (total === 1 ? '' : 's') + ')</option>' +
+  var opts = '<option value="">' + esc(total === 1 ? T('rep.all_wards_one') : T('rep.all_wards', { n: total })) + '</option>' +
     wards.map(function(w) {
       return '<option value="' + esc(w.id) + '">' + esc(w.name) + ' (' + w.count + ')</option>';
     }).join('');
-  slot.innerHTML = '<div class="control-box filter-box no-print"><label class="control-label" for="ward-select">Ward</label>' +
+  slot.innerHTML = '<div class="control-box filter-box no-print"><label class="control-label" for="ward-select">' + esc(T('rep.ward')) + '</label>' +
     '<select id="ward-select">' + opts + '</select></div>';
   var sel = document.getElementById('ward-select');
   sel.value = activeWardId || '';
-  enhanceOrListen(sel, function(value) { setWard(value === '' ? null : value); });
+  enhanceOrListen(sel, function(value) { setWard(value === '' ? null : value); }, 'rep.no_wards_match');
 }
 
 function setWard(id) {
@@ -920,11 +955,12 @@ function setWard(id) {
 }
 
 // ================= Page =================
-function renderBreakdown(obj) {
+function renderBreakdown(obj, kind) {
   var entries = Object.entries(obj);
-  if (entries.length === 0) return '<p style="font-size:13px;color:var(--steel-2);">No data.</p>';
+  if (entries.length === 0) return '<p style="font-size:13px;color:var(--steel-2);">' + esc(T('rep.no_data')) + '</p>';
   return entries.map(function(e) {
-    return '<div class="breakdown-row"><span>' + esc(e[0]) + '</span><span><b>' + esc(e[1]) + '</b></span></div>';
+    var label = kind === 'status' ? statusWord(e[0]) : kind === 'category' ? catName(CAT_IDS[e[0]], e[0]) : e[0];
+    return '<div class="breakdown-row"><span>' + esc(label) + '</span><span><b>' + esc(e[1]) + '</b></span></div>';
   }).join('');
 }
 
@@ -933,67 +969,70 @@ function reportScopeName() {
   var base;
   if (activeMandateId !== null) { var m = findMandate(activeMandateId); base = m ? mandateText(m) : ''; }
   else if (ms.length === 1) base = mandateText(ms[0]);
-  else base = 'All my areas';
-  if (reportData && reportData.ward) base += ' · Ward: ' + reportData.ward.name;
+  else base = T('rep.all_areas');
+  if (reportData && reportData.ward) base += ' · ' + T('rep.ward_line', { name: reportData.ward.name });
   return base;
 }
 
 function renderReportTab() {
   if (reportData === null) {
-    return '<div class="empty-state"><p>Loading report…</p></div>';
+    return '<div class="empty-state"><p>' + esc(T('rep.report_loading')) + '</p></div>';
   }
   if (reportData.error) {
-    return '<div class="empty-state"><p>Could not load the report. Please try again.</p></div>';
+    return '<div class="empty-state"><p>' + esc(T('rep.report_error')) + '</p></div>';
   }
 
   var s = reportData.stats;
   var scopeName = reportScopeName();
-  var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
+  var rangeLabel = T('rep.range', { from: reportData.from ? formatDateOnly(reportData.from) : T('rep.all_time'), to: reportData.to ? formatDateOnly(reportData.to) : T('rep.present') });
 
   var html =
     '<div class="report-header">' +
-      '<div><h2 class="report-title">Performance report</h2>' +
+      '<div><h2 class="report-title">' + esc(T('rep.report_title')) + '</h2>' +
       '<p class="report-subtitle">' + esc(scopeName) + ' &middot; ' + esc(rangeLabel) + '</p></div>' +
       '<div class="report-actions">' +
-        '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Download PDF</button>' +
-        '<button type="button" class="export-pdf-btn secondary-btn" id="print-btn">Print report</button>' +
-        '<button type="button" class="export-pdf-btn secondary-btn" id="csv-btn">Download CSV</button>' +
+        '<button type="button" class="export-pdf-btn" id="export-pdf-btn">' + esc(T('rep.download_pdf')) + '</button>' +
+        '<button type="button" class="export-pdf-btn secondary-btn" id="print-btn">' + esc(T('rep.print')) + '</button>' +
+        '<button type="button" class="export-pdf-btn secondary-btn" id="csv-btn">' + esc(T('rep.download_csv')) + '</button>' +
       '</div>' +
     '</div>' +
+    '<p class="pdf-hint no-print" id="pdf-hint" role="status"></p>' +
     '<div class="date-range-row no-print">' +
-      '<div class="field"><label for="report-from">From</label><input type="date" id="report-from" value="' + esc(reportFrom) + '"></div>' +
-      '<div class="field"><label for="report-to">To</label><input type="date" id="report-to" value="' + esc(reportTo) + '"></div>' +
-      '<button type="button" class="apply-btn" id="report-apply-btn">Apply</button>' +
+      '<div class="field"><label for="report-from">' + esc(T('rep.from')) + '</label><input type="date" id="report-from" value="' + esc(reportFrom) + '"></div>' +
+      '<div class="field"><label for="report-to">' + esc(T('rep.to')) + '</label><input type="date" id="report-to" value="' + esc(reportTo) + '"></div>' +
+      '<button type="button" class="apply-btn" id="report-apply-btn">' + esc(T('rep.apply')) + '</button>' +
     '</div>' +
     '<div class="stat-grid">' +
-      '<div class="stat-card"><div class="stat-number">' + esc(s.totalCases) + '</div><div class="stat-label">Total cases</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">Avg. time to acknowledge</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgResolveHours) + '</div><div class="stat-label">Avg. time to resolve</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + esc(s.resolvedCount) + '</div><div class="stat-label">Resolved</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : esc(s.escalationRate) + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : esc(s.disputeRate) + '%') + '</div><div class="stat-label">Dispute rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + esc(s.noFollowupCount) + '</div><div class="stat-label">No follow-up</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.totalCases) + '</div><div class="stat-label">' + esc(T('rep.s_total')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">' + esc(T('rep.s_ack')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgResolveHours) + '</div><div class="stat-label">' + esc(T('rep.s_resolve')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.resolvedCount) + '</div><div class="stat-label">' + esc(T('rep.s_resolved')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : esc(s.escalationRate) + '%') + '</div><div class="stat-label">' + esc(T('rep.s_escalation')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : esc(s.disputeRate) + '%') + '</div><div class="stat-label">' + esc(T('rep.s_dispute')) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.noFollowupCount) + '</div><div class="stat-label">' + esc(T('rep.s_nofollow')) + '</div></div>' +
     '</div>' +
-    '<p class="report-list-title">By category</p>' + renderBreakdown(s.byCategory) +
-    '<p class="report-list-title" style="margin-top:20px;">By status</p>' + renderBreakdown(s.byStatus);
+    '<p class="report-list-title">' + esc(T('rep.by_category')) + '</p>' + renderBreakdown(s.byCategory, 'category') +
+    '<p class="report-list-title" style="margin-top:20px;">' + esc(T('rep.by_status')) + '</p>' + renderBreakdown(s.byStatus, 'status');
 
   if (reportData.cases.length === 0) {
-    html += '<div class="empty-state"><p>No cases in this scope yet.</p></div>';
+    html += '<div class="empty-state"><p>' + esc(T('rep.report_none')) + '</p></div>';
     return html;
   }
 
-  html += '<p class="report-list-title" style="margin-top:20px;">Case detail</p>';
-  html += '<div class="table-scroll"><table class="report-table"><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>';
+  html += '<p class="report-list-title" style="margin-top:20px;">' + esc(T('rep.case_detail')) + '</p>';
+  html += '<div class="table-scroll"><table class="report-table"><thead><tr>' +
+    ['rep.th_ref','rep.th_category','rep.th_unit','rep.th_status','rep.th_filed','rep.th_resolved','rep.th_followups']
+      .map(function(k) { return '<th>' + esc(T(k)) + '</th>'; }).join('') + '</tr></thead><tbody>';
   html += reportData.cases.map(function(c) {
     var statusCls = (c.status === 'RESOLVED' || c.status === 'CLOSED') ? 'resolved' : c.status === 'PENDING_CONFIRMATION' ? 'pending' : 'open';
-    var disputedTag = c.disputed ? ' <span class="report-tag disputed">disputed</span>' : '';
-    return '<tr><td>' + esc(c.trackingRef) + '</td><td>' + esc(c.category) + '</td><td>' + esc(c.localUnit) + '</td>' +
-      '<td><span class="report-tag ' + statusCls + '">' + esc(c.status.toLowerCase().replace('_', ' ')) + '</span>' + disputedTag + '</td>' +
+    var disputedTag = c.disputed ? ' <span class="report-tag disputed">' + esc(T('rep.disputed')) + '</span>' : '';
+    return '<tr><td>' + esc(c.trackingRef) + '</td><td>' + esc(catName(CAT_IDS[c.category], c.category)) + '</td><td>' + esc(c.localUnit) + '</td>' +
+      '<td><span class="report-tag ' + statusCls + '">' + esc(statusWord(c.status)) + '</span>' + disputedTag + '</td>' +
       '<td>' + formatDateOnly(c.createdAt) + '</td><td>' + formatDateOnly(c.resolvedAt) + '</td><td>' + esc(c.followupCount) + '</td></tr>';
   }).join('');
   html += '</tbody></table></div>';
 
-  html += '<p class="footer-note">Dispute and escalation rates reflect the complete, permanent case history and cannot be filtered out of this report.</p>';
+  html += '<p class="footer-note">' + esc(T('rep.report_footer')) + '</p>';
 
   return html;
 }
@@ -1005,20 +1044,23 @@ function renderNotice(title, message) {
 
 function renderShell() {
   document.getElementById('app').innerHTML =
+    '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
+      '<button type="button" class="lang-toggle" data-lang-toggle></button></div></div>' +
     '<div class="console-header"><div class="console-header-inner">' +
       '<div class="console-header-left">' +
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
-        '<div><p class="console-title">GrievIQ Representative console</p><p class="console-subtitle">Grievance escalation service</p></div>' +
+        '<div><p class="console-title">' + esc(T('rep.title')) + '</p><p class="console-subtitle">' + esc(T('rep.subtitle')) + '</p></div>' +
       '</div>' +
       '<div class="console-header-right" id="viewing-summary" aria-live="polite"></div>' +
     '</div></div>' +
     '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
-      '<button type="button" class="tab-btn" data-tab="cases">Cases</button>' +
-      '<button type="button" class="tab-btn" data-tab="report">Report</button>' +
+      '<button type="button" class="tab-btn" data-tab="cases">' + esc(T('rep.tab_cases')) + '</button>' +
+      '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' +
     '</div>' +
     '<main><div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
+  if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
   renderViewingControl();
   updateSummary();
   updateTabs();
@@ -1056,16 +1098,16 @@ function renderContent() {
   var cases = activeWardId ? inView.filter(function(c) { return c.localUnit.id === activeWardId; }) : inView;
   var attention = cases.filter(isAttention).length;
   var countText = activeWardId
-    ? 'Showing ' + cases.length + ' of ' + inView.length + ' case' + (inView.length === 1 ? '' : 's')
-    : cases.length + ' case' + (cases.length === 1 ? '' : 's');
+    ? T('rep.showing', { x: cases.length, y: inView.length })
+    : (cases.length === 1 ? T('rep.one_case') : T('rep.n_cases', { n: cases.length }));
   var html =
     '<div class="register-header">' +
-      '<h2 class="register-title">Case register</h2>' +
-      '<span class="register-count" aria-live="polite">' + countText +
-        (attention > 0 ? ' &middot; <span class="attention">' + attention + ' past time limit</span>' : '') + '</span>' +
+      '<h2 class="register-title">' + esc(T('rep.register')) + '</h2>' +
+      '<span class="register-count" aria-live="polite">' + esc(countText) +
+        (attention > 0 ? ' &middot; <span class="attention">' + esc(T('rep.n_late', { n: attention })) + '</span>' : '') + '</span>' +
     '</div>';
   if (cases.length === 0) {
-    html += '<div class="empty-state"><p>' + (activeWardId ? 'No cases in this ward.' : 'No cases currently in your jurisdiction.') + '</p></div>';
+    html += '<div class="empty-state"><p>' + esc(T(activeWardId ? 'rep.none_ward' : 'rep.none')) + '</p></div>';
   } else {
     html += cases.map(renderCase).join('');
   }
@@ -1111,7 +1153,18 @@ function attachReportHandlers() {
     });
   }
   var pdfBtn = document.getElementById('export-pdf-btn');
-  if (pdfBtn) pdfBtn.addEventListener('click', generateReportPdf);
+  if (pdfBtn) pdfBtn.addEventListener('click', function() {
+    // jsPDF draws characters one by one without Devanagari shaping, which
+    // garbles Hindi (e.g. "हिन्दी" -> "हनि्दी"). In Hindi, use the browser's
+    // own print-to-PDF, which shapes Hindi correctly.
+    if (isHi()) {
+      var hint = document.getElementById('pdf-hint');
+      if (hint) hint.textContent = T('rep.pdf_hint');
+      window.print();
+    } else {
+      generateReportPdf();
+    }
+  });
   var printBtn = document.getElementById('print-btn');
   if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
   var csvBtn = document.getElementById('csv-btn');
@@ -1130,7 +1183,8 @@ function downloadReportCsv() {
     return toCsvRow([c.trackingRef, c.category, c.localUnit, c.status, c.createdAt, c.acknowledgedAt || '', c.resolvedAt || '', c.followupCount, c.disputed ? 'Yes' : 'No']);
   });
   var csv = toCsvRow(headers) + '\n' + rows.join('\n');
-  var blob = new Blob([csv], { type: 'text/csv' });
+  // Leading byte-order mark so Excel opens any Hindi text correctly.
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
@@ -1209,21 +1263,21 @@ function attachAcknowledgeHandlers() {
       var errorEl = document.getElementById('ack-error-' + id);
       errorEl.textContent = '';
       btn.disabled = true;
-      btn.textContent = 'Acknowledging…';
+      btn.textContent = T('rep.acknowledging');
       try {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/acknowledge', { method: 'POST' });
         var data = await res.json();
         if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          errorEl.textContent = errText(data.error);
           btn.disabled = false;
-          btn.textContent = 'Acknowledge';
+          btn.textContent = T('rep.acknowledge');
           return;
         }
         await init();
       } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        errorEl.textContent = T('common.network_error');
         btn.disabled = false;
-        btn.textContent = 'Acknowledge';
+        btn.textContent = T('rep.acknowledge');
       }
     });
   });
@@ -1238,14 +1292,14 @@ function attachFollowupHandlers() {
       var errorEl = document.getElementById('followup-error-' + id);
       errorEl.textContent = '';
       if (!dept) {
-        errorEl.textContent = 'Choose a department before logging the follow-up.';
+        errorEl.textContent = T('rep.need_dept');
         select.setAttribute('aria-invalid', 'true');
         select.focus();
         return;
       }
       select.removeAttribute('aria-invalid');
       btn.disabled = true;
-      btn.textContent = 'Logging…';
+      btn.textContent = T('rep.logging');
       try {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/add-followup', {
           method: 'POST',
@@ -1254,16 +1308,16 @@ function attachFollowupHandlers() {
         });
         var data = await res.json();
         if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          errorEl.textContent = errText(data.error);
           btn.disabled = false;
-          btn.textContent = 'Log follow-up';
+          btn.textContent = T('rep.log_followup');
           return;
         }
         await init();
       } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        errorEl.textContent = T('common.network_error');
         btn.disabled = false;
-        btn.textContent = 'Log follow-up';
+        btn.textContent = T('rep.log_followup');
       }
     });
   });
@@ -1275,14 +1329,14 @@ function attachResolveHandlers() {
       var errorEl = document.getElementById('resolve-error-' + id);
       errorEl.textContent = '';
       btn.disabled = true;
-      btn.textContent = 'Marking resolved…';
+      btn.textContent = T('rep.marking');
       try {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', { method: 'POST' });
         var data = await res.json();
         if (!res.ok || data.error) {
-          errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+          errorEl.textContent = errText(data.error);
           btn.disabled = false;
-          btn.textContent = 'Mark resolved';
+          btn.textContent = T('rep.mark_resolved');
           return;
         }
         if (data.warning) {
@@ -1290,9 +1344,9 @@ function attachResolveHandlers() {
         }
         await init();
       } catch (err) {
-        errorEl.textContent = 'Could not reach GrievIQ. Check your connection and try again.';
+        errorEl.textContent = T('common.network_error');
         btn.disabled = false;
-        btn.textContent = 'Mark resolved';
+        btn.textContent = T('rep.mark_resolved');
       }
     });
   });
@@ -1302,9 +1356,9 @@ async function init() {
   var meRes = await fetch('/api/me');
   if (!meRes.ok) {
     if (meRes.status === 403) {
-      renderNotice('Not yet provisioned', 'This account is not currently registered as a representative in GrievIQ. Contact your administrator to be added to a jurisdiction.');
+      renderNotice(T('rep.not_provisioned_t'), T('rep.not_provisioned'));
     } else {
-      renderNotice('Session issue', 'Your login could not be verified. Please refresh the page.');
+      renderNotice(T('rep.session_t'), T('rep.session'));
     }
     return;
   }
@@ -1320,6 +1374,16 @@ async function init() {
   if (activeTab === 'report') loadReportTab();
   else { renderFilters(); renderContent(); }
 }
+
+// Switching हिन्दी / English redraws the console from the data already
+// loaded (no reload, the chosen area / ward / tab are kept).
+document.addEventListener('giq:lang', function() {
+  if (!currentMe) return;
+  renderShell();
+  if (activeTab === 'report' && reportData && !reportData.error) { renderFilters(); updateSummary(); renderContent(); }
+  else if (activeTab === 'report') loadReportTab();
+  else { renderFilters(); renderContent(); }
+});
 
 init();
 </script>
