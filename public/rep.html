@@ -8,6 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
+<link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
+<script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
 <style>
   :root {
     --ink: #14181D;
@@ -449,6 +452,56 @@
     font-size: 22px;
   }
   .notice p { color: var(--steel); font-size: 14px; line-height: 1.6; }
+  /* ---- Rep console redesign (Sept 2026): viewing control, ward filter,
+     time-limit states with words, labelled follow-up form, accessibility ---- */
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .muted-inline { color: var(--steel-2); font-weight: 400; }
+  .viewing-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--steel-2); margin: 0 0 2px; }
+  .mandate-strip-inner { display: flex; flex-wrap: wrap; gap: 10px; }
+  .mandate-chip { min-height: 32px; }
+  .control-box { max-width: 440px; }
+  .control-label { display: block; font-size: 13px; font-weight: 600; color: var(--steel); margin-bottom: 4px; }
+  .filter-box { padding-top: 14px; margin-bottom: 12px; }
+  .autocomplete__wrapper { background: var(--card); }
+  .autocomplete__input, .autocomplete__hint { height: 2.5rem; font-family: inherit; border: 2px solid var(--steel); }
+  .autocomplete__option, .autocomplete__input { font-size: 15px !important; }
+  #viewing-select, #ward-select, .followup-dept, .followup-note { font-family: inherit; font-size: 14px; min-height: 40px; padding: 6px 8px; border: 1.5px solid var(--steel); border-radius: 4px; background: var(--card); color: var(--ink); max-width: 100%; }
+  .attention { color: var(--red); font-weight: 600; }
+  .state-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 3px; margin-bottom: 6px; }
+  .state-tag.red { background: var(--red-tint); color: #A12F22; }
+  .state-tag.green { background: var(--green-tint); color: var(--green); }
+  .state-tag.gold { background: var(--gold-tint); color: #7A5C1C; }
+  .state-tag.done { background: #E9ECEF; color: var(--steel); }
+  .signal-dot.done { background: none; border: 2px solid var(--steel-2); width: 8px; height: 8px; margin-top: 6px; }
+  .due-line { font-size: 12px; color: var(--steel-2); margin: 0 0 4px; }
+  .ladder { margin-top: 6px; }
+  .ladder-dot.future { background: none; border: 1.5px solid var(--line); }
+  .ladder-dot.ok { background: var(--green); }
+  .ladder-dot.late { background: var(--red); }
+  .ladder-dot.done { background: var(--steel-2); }
+  .ladder-dot.mine { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .followup-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 10px; }
+  .followup-field label { display: block; font-size: 12px; font-weight: 600; color: var(--steel); margin-bottom: 3px; }
+  .followup-form .resolve-btn { margin-top: 0; }
+  .followup-dept[aria-invalid="true"] { border-color: var(--red); border-width: 2px; }
+  .resolve-btn { min-height: 36px; margin-right: 8px; }
+  .resolve-error:empty { display: none; }
+  .table-scroll { overflow-x: auto; }
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 3px solid #FFDD00; outline-offset: 0; box-shadow: 0 0 0 5px var(--ink);
+  }
+  @media (max-width: 600px) {
+    .console-header { padding: 12px 16px; }
+    .console-header-right { text-align: left; }
+    .mandate-strip, .tab-bar, main { padding-left: 16px; padding-right: 16px; }
+    .case-row { grid-template-columns: 14px 1fr; gap: 10px; }
+    .signal-dot { grid-column: 1; grid-row: 1; }
+    .case-meta { grid-column: 2; grid-row: 1; text-align: left; min-width: 0; }
+    .case-main { grid-column: 2; grid-row: 2; }
+    .ladder { justify-content: flex-start; }
+    .followup-field, .followup-field select, .followup-field input { width: 100%; }
+    .followup-form .resolve-btn { width: auto; }
+  }
   @media print {
     .console-header, .tab-bar, .mandate-strip, .no-print, .export-pdf-btn { display: none !important; }
     body { background: white; }
@@ -468,16 +521,29 @@ const DISPUTE_REASON_LABELS = {
   WRONG_ISSUE: 'Citizen says: wrong issue was fixed',
   OTHER: 'Citizen disputed resolution',
 };
-const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// Must match VALID_DEPARTMENTS in functions/api/grievances/[id]/add-followup.js
+const DEPARTMENTS = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other'];
+const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 3L3 8l9 5 9-5-9-5z" fill="white"/><path d="M3 12.5L12 17.5L21 12.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.5L12 21.5L21 16.5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 var activeTab = 'cases';
-var activeMandateId = null;
+var activeMandateId = null;   // null = "All my areas"
+var activeWardId = null;      // null = all wards in the current view
 var currentMe = null;
 var currentCases = [];
 
 var reportData = null;
 var reportFrom = '';
 var reportTo = '';
+var filterKey = '';           // which ward list the ward box was last built for
+
+// Security (OWASP, cross-site scripting): EVERY piece of text that came from
+// a citizen, a rep or the database goes through esc() before it is put into
+// the page, so typed-in code is shown as text and never runs.
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -508,123 +574,357 @@ function mandateIdForApi() {
   return activeMandateId === null ? 'all' : activeMandateId;
 }
 
-function renderLadder(chainTierList, currentTierIndex, viewingAsTier) {
-  return '<div class="ladder">' + chainTierList.map(function(tier, i) {
-    var filled = i <= currentTierIndex;
-    var isCurrent = tier === viewingAsTier;
-    var dotClass = 'ladder-dot' + (filled ? ' filled' : '') + (isCurrent ? ' current' : '');
-    return '<div class="ladder-step"><div class="' + dotClass + '"></div>' +
-      '<div class="ladder-label">' + TIER_LABELS[tier] + '</div></div>';
+function hasAutocomplete() {
+  return typeof window.accessibleAutocomplete !== 'undefined' &&
+    typeof window.accessibleAutocomplete.enhanceSelectElement === 'function';
+}
+
+// ---- Time-limit state for one case, at this rep's own level ----
+// Same rule as the citizen status page (functions/_shared/time-limits.js):
+// green while within time, red once past it; gold while the citizen is
+// asked to confirm; resolved cases are done. Colour is never the only
+// signal (WCAG 2.2, 1.4.1) -- every state also has words.
+function caseState(c) {
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED') return { key: 'done', text: 'Resolved' };
+  if (c.status === 'PENDING_CONFIRMATION') return { key: 'gold', text: 'Awaiting citizen' };
+  if (c.isLate) return { key: 'red', text: 'Past time limit' };
+  return { key: 'green', text: 'Within time' };
+}
+
+function isAttention(c) {
+  return c.isLate && c.status !== 'PENDING_CONFIRMATION' && c.status !== 'RESOLVED' && c.status !== 'CLOSED';
+}
+
+function renderLadder(c) {
+  var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
+  var late = c.tierLate || [];
+  return '<div class="ladder" role="list" aria-label="Escalation levels">' + c.chainTierList.map(function(tier, i) {
+    var reached = i <= c.currentTierIndex;
+    var state, words;
+    if (!reached) { state = 'future'; words = 'not reached'; }
+    else if (isFinal) { state = 'done'; words = 'reached'; }
+    else if (late[i]) { state = 'late'; words = 'past time limit'; }
+    else { state = 'ok'; words = 'within time'; }
+    var mine = tier === c.viewingAsTier;
+    return '<div class="ladder-step" role="listitem"><div class="ladder-dot ' + state + (mine ? ' mine' : '') + '" aria-hidden="true"></div>' +
+      '<div class="ladder-label">' + esc(TIER_LABELS[tier] || tier) + '</div>' +
+      '<span class="visually-hidden">: ' + words + (mine ? ' (your level)' : '') + '</span></div>';
   }).join('') + '</div>';
 }
 
 function renderPhotoThumbs(photoUrls) {
   if (!photoUrls || photoUrls.length === 0) return '';
-  return '<div class="photo-thumbs">' + photoUrls.map(function(url) {
-    return '<a class="photo-thumb" href="' + url + '" target="_blank" rel="noopener">' +
-      '<img src="' + url + '" alt="Grievance photo" loading="lazy"></a>';
+  return '<div class="photo-thumbs">' + photoUrls.map(function(url, i) {
+    return '<a class="photo-thumb" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      '<img src="' + esc(url) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy"></a>';
   }).join('') + '</div>';
 }
 
 function renderDisputeNote(c) {
   if (!c.citizenDisputeReason) return '';
   var label = DISPUTE_REASON_LABELS[c.citizenDisputeReason] || 'Citizen disputed resolution';
-  var note = c.citizenDisputeNote
-    ? ' &mdash; "' + c.citizenDisputeNote + '"'
-    : '';
-  var when = c.citizenDisputeAt ? ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
-  return '<div class="dispute-note"><b>' + label + '</b>' + when + note + '</div>';
+  var note = c.citizenDisputeNote ? ' &mdash; "' + esc(c.citizenDisputeNote) + '"' : '';
+  var when = c.citizenDisputeAt ? ' <span class="muted-inline">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
+  return '<div class="dispute-note"><b>' + esc(label) + '</b>' + when + note + '</div>';
 }
 
-function renderNudgeNote(c) { if (!c.adminNudges || !c.adminNudges.length) return ''; var n = c.adminNudges[c.adminNudges.length - 1]; var esc = function(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }; var count = c.adminNudges.length > 1 ? ' &middot; ' + c.adminNudges.length + ' reminders so far' : ''; return '<div class="dispute-note"><b>Reminder from GrievIQ admin</b> <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(n.createdAt) + count + ')</span>' + (n.note ? ' &mdash; "' + esc(n.note) + '"' : '') + '</div>'; } function renderResolveControl(c) {
+function renderNudgeNote(c) {
+  if (!c.adminNudges || !c.adminNudges.length) return '';
+  var n = c.adminNudges[c.adminNudges.length - 1];
+  var count = c.adminNudges.length > 1 ? ' &middot; ' + c.adminNudges.length + ' reminders so far' : '';
+  return '<div class="dispute-note"><b>Reminder from GrievIQ admin</b> <span class="muted-inline">(' + formatDate(n.createdAt) + count + ')</span>' +
+    (n.note ? ' &mdash; "' + esc(n.note) + '"' : '') + '</div>';
+}
+
+function renderResolveControl(c) {
   var isFinal = c.status === 'RESOLVED' || c.status === 'CLOSED';
   var isPending = c.status === 'PENDING_CONFIRMATION';
   if (isFinal || isPending) return '';
-  return '<button class="resolve-btn" data-id="' + c.id + '">Mark resolved</button>' +
-    '<div class="resolve-error" id="resolve-error-' + c.id + '"></div>';
+  // Own class (mark-resolved-btn) so ONLY this button marks a case
+  // resolved -- previously every button sharing the resolve-btn style
+  // (Acknowledge, Log follow-up) also triggered Mark resolved.
+  return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + esc(c.id) + '">Mark resolved</button>' +
+    '<div class="resolve-error" id="resolve-error-' + esc(c.id) + '" role="alert"></div>';
 }
+
+// Department list: nothing pre-selected (GOV.UK / NHS guidance: a
+// pre-selected answer is easily missed and submitted wrongly). The
+// department matching the issue type, if any, is listed first and marked
+// "(suggested)"; the rep must actively choose.
 function renderFollowupControl(c) {
   var deptLine = c.currentDepartment
-    ? '<p class="location-detail">Forwarded to: <b>' + c.currentDepartment + '</b></p>'
+    ? '<p class="location-detail">Forwarded to: <b>' + esc(c.currentDepartment) + '</b></p>'
     : '';
   var history = (c.followupHistory || []).map(function(f) {
-    var noteText = f.note ? ' — ' + f.note : '';
-    return '<div class="dispute-note"><b>' + f.department + '</b>' + noteText +
-      ' <span style="color:var(--steel-2);font-weight:400;">(' + formatDate(f.createdAt) + ')</span></div>';
+    var noteText = f.note ? ' — ' + esc(f.note) : '';
+    return '<div class="dispute-note"><b>' + esc(f.department) + '</b>' + noteText +
+      ' <span class="muted-inline">(' + formatDate(f.createdAt) + ')</span></div>';
   }).join('');
-  var options = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other']
-    .map(function(d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
+  var sugg = DEPARTMENTS.indexOf(c.suggestedDepartment) !== -1 ? c.suggestedDepartment : null;
+  var ordered = sugg ? [sugg].concat(DEPARTMENTS.filter(function(d) { return d !== sugg; })) : DEPARTMENTS;
+  var options = '<option value="">Choose a department</option>' + ordered.map(function(d) {
+    return '<option value="' + esc(d) + '">' + esc(d) + (d === sugg ? ' (suggested)' : '') + '</option>';
+  }).join('');
+  var id = esc(c.id);
   return deptLine + history +
-    '<select class="followup-dept" id="followup-dept-' + c.id + '">' + options + '</select> ' +
-    '<input class="followup-note" id="followup-note-' + c.id + '" type="text" placeholder="Note (optional)" /> ' +
-    '<button class="resolve-btn followup-btn" data-id="' + c.id + '">Log follow-up</button>' +
-    '<div class="resolve-error followup-error" id="followup-error-' + c.id + '"></div>';
+    '<div class="followup-form">' +
+      '<div class="followup-field"><label for="followup-dept-' + id + '">Forward to department</label>' +
+        '<select class="followup-dept" id="followup-dept-' + id + '">' + options + '</select></div>' +
+      '<div class="followup-field"><label for="followup-note-' + id + '">Note (optional)</label>' +
+        '<input class="followup-note" id="followup-note-' + id + '" type="text" maxlength="500" /></div>' +
+      '<button type="button" class="resolve-btn followup-btn" data-id="' + id + '">Log follow-up</button>' +
+    '</div>' +
+    '<div class="resolve-error followup-error" id="followup-error-' + id + '" role="alert"></div>';
 }
+
 function renderAcknowledgeControl(c) {
   if (c.acknowledgedAt) {
     return '<span class="badge acknowledged">acknowledged ' + formatDate(c.acknowledgedAt) + '</span>';
   }
   var overdueNote = c.ackOverdue ? ' <span class="badge escalated">ack overdue</span>' : '';
-  return '<button class="resolve-btn ack-btn" data-id="' + c.id + '">Acknowledge</button>' +
-    '<div class="resolve-error ack-error" id="ack-error-' + c.id + '"></div>' + overdueNote;
+  return '<button type="button" class="resolve-btn ack-btn" data-id="' + esc(c.id) + '">Acknowledge</button>' +
+    '<div class="resolve-error ack-error" id="ack-error-' + esc(c.id) + '" role="alert"></div>' + overdueNote;
+}
+
+function renderDueLines(c) {
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED' || c.status === 'PENDING_CONFIRMATION') return '';
+  var lines = [];
+  if (c.ackDueAt) lines.push((c.ackOverdue ? 'Acknowledgement was due ' : 'Acknowledge by ') + formatDate(c.ackDueAt));
+  if (c.respondDueAt) lines.push('Respond by ' + formatDate(c.respondDueAt));
+  return lines.map(function(l) { return '<div class="due-line">' + esc(l) + '</div>'; }).join('');
 }
 
 function renderCase(c) {
-  var dotClass = 'signal-dot green';
-  if (c.status === 'PENDING_CONFIRMATION') dotClass = 'signal-dot gold';
-  else if (c.isRedIndicator) dotClass = 'signal-dot red';
-
-  var elapsedClass = c.ackOverdue || c.isRedIndicator ? 'elapsed overdue' : 'elapsed';
+  var st = caseState(c);
+  var elapsedClass = st.key === 'red' ? 'elapsed overdue' : 'elapsed';
   var badge = '';
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
     var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
-    badge = '<span class="badge resolved">' + c.status.toLowerCase() + resolvedWhen + '</span>';
+    badge = '<span class="badge resolved">' + esc(c.status.toLowerCase()) + resolvedWhen + '</span>';
   } else if (c.status === 'PENDING_CONFIRMATION') {
     badge = '<span class="badge pending">awaiting citizen confirmation</span>';
   } else if (c.hasEscalatedPastMyTier) {
-    badge = '<span class="badge escalated">now with ' + TIER_LABELS[c.currentTopTier] + '</span>';
+    badge = '<span class="badge escalated">now with ' + esc(TIER_LABELS[c.currentTopTier] || c.currentTopTier) + '</span>';
   }
   var locationLine = c.locationDetail
-    ? '<p class="location-detail">' + c.locationDetail + '</p>'
+    ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
     : '';
   return '<div class="case-row">' +
-    '<div class="' + dotClass + '"></div>' +
+    '<div class="signal-dot ' + st.key + '" aria-hidden="true"></div>' +
     '<div class="case-main">' +
-      '<div class="tracking-ref">' + c.trackingRef + '</div>' +
-      '<div class="category">' + c.category.name + ' &middot; ' + c.localUnit.name + '</div>' +
-      '<p class="description">' + c.description + '</p>' +
+      '<div class="tracking-ref">' + esc(c.trackingRef) + '</div>' +
+      '<div class="category">' + esc(c.category.name) + ' &middot; ' + esc(c.localUnit.name) + '</div>' +
+      '<p class="description">' + esc(c.description) + '</p>' +
       locationLine +
       renderPhotoThumbs(c.photoUrls) +
       badge +
-        renderDisputeNote(c) + renderNudgeNote(c) +
-        renderFollowupControl(c) +
-        renderAcknowledgeControl(c) +
-        renderResolveControl(c) +
+      renderDisputeNote(c) + renderNudgeNote(c) +
+      renderFollowupControl(c) +
+      renderAcknowledgeControl(c) +
+      renderResolveControl(c) +
     '</div>' +
     '<div class="case-meta">' +
+      '<div class="state-tag ' + st.key + '">' + st.text + '</div>' +
       '<div class="' + elapsedClass + '">' + timeAgo(c.elapsedDays) + '</div>' +
-      renderLadder(c.chainTierList, c.currentTierIndex, c.viewingAsTier) +
+      renderDueLines(c) +
+      renderLadder(c) +
     '</div>' +
   '</div>';
 }
 
-function renderMandateChips(mandates) {
-  var allActive = activeMandateId === null ? ' active' : '';
-  var allChip = '<button type="button" class="mandate-chip' + allActive + '" data-mandate-id="">All wards</button>';
-  var chips = mandates.map(function(m) {
-    var isActive = activeMandateId === m.id ? ' active' : '';
-    return '<button type="button" class="mandate-chip' + isActive + '" data-mandate-id="' + m.id + '">' +
-      m.name + ' &mdash; <b>' + m.label + '</b></button>';
-  }).join('');
-  return allChip + chips;
+// ================= Viewing (which of my areas) =================
+function myMandates() { return (currentMe && currentMe.mandates) || []; }
+function findMandate(id) { return myMandates().filter(function(m) { return m.id === id; })[0] || null; }
+function mandateText(m) { return m.name + ' — ' + m.label; }
+
+function casesInView() {
+  return activeMandateId === null
+    ? currentCases
+    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
 }
 
+function wardNameFor(id, list) {
+  var w = (list || []).filter(function(x) { return x.id === id; })[0];
+  if (w) return w.name;
+  var c = currentCases.filter(function(x) { return x.localUnit.id === id; })[0];
+  return c ? c.localUnit.name : id;
+}
+
+function updateSummary() {
+  var el = document.getElementById('viewing-summary');
+  if (!el) return;
+  var ms = myMandates();
+  var title, sub;
+  if (ms.length === 1) { title = ms[0].name; sub = ms[0].label; }
+  else if (activeMandateId === null) { title = 'All my areas'; sub = ms.length + ' areas'; }
+  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? m.label : ''; }
+  var wardList = activeTab === 'report' && reportData && reportData.wards ? reportData.wards : null;
+  var wardLine = activeWardId ? '<p class="console-role">Ward: ' + esc(wardNameFor(activeWardId, wardList)) + '</p>' : '';
+  el.innerHTML = (ms.length > 1 ? '<p class="viewing-kicker">Viewing</p>' : '') +
+    '<p class="console-ward">' + esc(title) + '</p>' +
+    '<p class="console-role">' + esc(sub) + '</p>' + wardLine;
+}
+
+// Control sized to how many areas the rep holds:
+// 1 area -> no control; 2-4 -> chips; 5 or more -> searchable "Viewing" box.
+function renderViewingControl() {
+  var bar = document.getElementById('viewing-bar');
+  var ms = myMandates();
+  if (ms.length <= 1) { bar.innerHTML = ''; bar.hidden = true; return; }
+  bar.hidden = false;
+  if (ms.length <= 4) {
+    var chip = function(id, html) {
+      var on = (activeMandateId === id);
+      return '<button type="button" class="mandate-chip' + (on ? ' active' : '') + '" aria-pressed="' + on + '" data-mandate-id="' + esc(id === null ? '' : id) + '">' + html + '</button>';
+    };
+    bar.innerHTML = '<div class="mandate-strip-inner" role="group" aria-label="Viewing">' +
+      chip(null, 'All my areas') +
+      ms.map(function(m) { return chip(m.id, esc(m.name) + ' &mdash; <b>' + esc(m.label) + '</b>'); }).join('') +
+      '</div>';
+    bar.querySelectorAll('.mandate-chip').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.getAttribute('data-mandate-id');
+        setView(id === '' ? null : id);
+      });
+    });
+    return;
+  }
+  var opts = '<option value="">All my areas</option>' + ms.map(function(m) {
+    return '<option value="' + esc(m.id) + '">' + esc(mandateText(m)) + '</option>';
+  }).join('');
+  bar.innerHTML = '<div class="control-box"><label class="control-label" for="viewing-select">Viewing</label>' +
+    '<select id="viewing-select">' + opts + '</select></div>';
+  var sel = document.getElementById('viewing-select');
+  sel.value = activeMandateId === null ? '' : activeMandateId;
+  enhanceOrListen(sel, function(value) { setView(value === '' ? null : value); });
+}
+
+// Upgrades a <select> to the GOV.UK accessible autocomplete (self-hosted
+// in /vendor). If the script failed to load, the plain <select> still works.
+function enhanceOrListen(sel, onPick) {
+  if (hasAutocomplete()) {
+    var byText = {};
+    Array.prototype.forEach.call(sel.options, function(o) { byText[o.textContent] = o.value; });
+    window.accessibleAutocomplete.enhanceSelectElement({
+      selectElement: sel,
+      showAllValues: true,
+      // keep the "All my areas" / "All wards" choice (its value is empty)
+      preserveNullOptions: true,
+      dropdownArrow: function() { return '<svg class="autocomplete__dropdown-arrow-down" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 384L96 224h320z"/></svg>'; },
+      tNoResults: function() { return 'No matching areas'; },
+      onConfirm: function(text) {
+        if (text === undefined || !(text in byText)) return;
+        var value = byText[text];
+        sel.value = value;
+        onPick(value);
+      }
+    });
+    // The box shows the current choice. When it gets focus, empty it so the
+    // full list opens (show-all only lists everything for an empty box);
+    // if the person leaves without picking, put the current choice back.
+    var box = sel.parentNode;
+    var shown = '';
+    var setQuery = function(input, v) {
+      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(input, v);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    box.addEventListener('focusin', function(e) {
+      var input = e.target;
+      if (input.tagName !== 'INPUT') return;
+      shown = input.value;
+      if (shown) setQuery(input, '');
+    });
+    box.addEventListener('focusout', function(e) {
+      var input = e.target;
+      if (input.tagName !== 'INPUT') return;
+      setTimeout(function() {
+        if (!box.contains(document.activeElement) && !input.value && shown) {
+          var current = sel.options[sel.selectedIndex];
+          setQuery(input, current ? current.textContent : shown);
+        }
+      }, 0);
+    });
+  } else {
+    sel.addEventListener('change', function() { onPick(sel.value); });
+  }
+}
+
+function setView(id) {
+  if (id === activeMandateId) return;
+  activeMandateId = id;
+  activeWardId = null;
+  filterKey = '';
+  if (myMandates().length <= 4) renderViewingControl();   // chips: refresh pressed state
+  updateSummary();
+  if (activeTab === 'report') { loadReportTab(); }
+  else { renderFilters(); renderContent(); }
+}
+
+// ================= Ward filter =================
+function wardOptionsForTab() {
+  if (activeTab === 'report') {
+    var list = (reportData && reportData.wards) ? reportData.wards.slice() : [];
+    return list;
+  }
+  var map = {};
+  casesInView().forEach(function(c) {
+    var w = map[c.localUnit.id] || (map[c.localUnit.id] = { id: c.localUnit.id, name: c.localUnit.name, count: 0 });
+    w.count++;
+  });
+  return Object.keys(map).map(function(k) { return map[k]; })
+    .sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+}
+
+function renderFilters() {
+  var slot = document.getElementById('filter-slot');
+  if (!slot) return;
+  if (activeTab === 'report' && (!reportData || reportData.error)) return;   // built once data is in
+  var key = activeTab + '|' + mandateIdForApi() + '|' + reportFrom + '|' + reportTo;
+  if (key === filterKey && slot.innerHTML) return;   // keep the box (and keyboard focus) as it is
+  filterKey = key;
+  var wards = wardOptionsForTab();
+  if (activeWardId && !wards.some(function(w) { return w.id === activeWardId; })) {
+    wards.push({ id: activeWardId, name: wardNameFor(activeWardId), count: 0 });
+  }
+  if (wards.length <= 1 && !activeWardId) { slot.innerHTML = ''; return; }
+  var total = wards.reduce(function(n, w) { return n + w.count; }, 0);
+  var opts = '<option value="">All wards (' + total + ' case' + (total === 1 ? '' : 's') + ')</option>' +
+    wards.map(function(w) {
+      return '<option value="' + esc(w.id) + '">' + esc(w.name) + ' (' + w.count + ')</option>';
+    }).join('');
+  slot.innerHTML = '<div class="control-box filter-box no-print"><label class="control-label" for="ward-select">Ward</label>' +
+    '<select id="ward-select">' + opts + '</select></div>';
+  var sel = document.getElementById('ward-select');
+  sel.value = activeWardId || '';
+  enhanceOrListen(sel, function(value) { setWard(value === '' ? null : value); });
+}
+
+function setWard(id) {
+  if (id === activeWardId) return;
+  activeWardId = id;
+  updateSummary();
+  if (activeTab === 'report') loadReportTab();
+  else renderContent();
+}
+
+// ================= Page =================
 function renderBreakdown(obj) {
   var entries = Object.entries(obj);
   if (entries.length === 0) return '<p style="font-size:13px;color:var(--steel-2);">No data.</p>';
   return entries.map(function(e) {
-    return '<div class="breakdown-row"><span>' + e[0] + '</span><span><b>' + e[1] + '</b></span></div>';
+    return '<div class="breakdown-row"><span>' + esc(e[0]) + '</span><span><b>' + esc(e[1]) + '</b></span></div>';
   }).join('');
+}
+
+function reportScopeName() {
+  var ms = myMandates();
+  var base;
+  if (activeMandateId !== null) { var m = findMandate(activeMandateId); base = m ? mandateText(m) : ''; }
+  else if (ms.length === 1) base = mandateText(ms[0]);
+  else base = 'All my areas';
+  if (reportData && reportData.ward) base += ' · Ward: ' + reportData.ward.name;
+  return base;
 }
 
 function renderReportTab() {
@@ -636,13 +936,13 @@ function renderReportTab() {
   }
 
   var s = reportData.stats;
-  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
+  var scopeName = reportScopeName();
   var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
 
   var html =
     '<div class="report-header">' +
       '<div><h2 class="report-title">Performance report</h2>' +
-      '<p class="report-subtitle">' + scopeName + ' &middot; ' + rangeLabel + '</p></div>' +
+      '<p class="report-subtitle">' + esc(scopeName) + ' &middot; ' + esc(rangeLabel) + '</p></div>' +
       '<div class="report-actions">' +
         '<button type="button" class="export-pdf-btn" id="export-pdf-btn">Download PDF</button>' +
         '<button type="button" class="export-pdf-btn secondary-btn" id="print-btn">Print report</button>' +
@@ -650,18 +950,18 @@ function renderReportTab() {
       '</div>' +
     '</div>' +
     '<div class="date-range-row no-print">' +
-      '<div class="field"><label>From</label><input type="date" id="report-from" value="' + reportFrom + '"></div>' +
-      '<div class="field"><label>To</label><input type="date" id="report-to" value="' + reportTo + '"></div>' +
+      '<div class="field"><label for="report-from">From</label><input type="date" id="report-from" value="' + esc(reportFrom) + '"></div>' +
+      '<div class="field"><label for="report-to">To</label><input type="date" id="report-to" value="' + esc(reportTo) + '"></div>' +
       '<button type="button" class="apply-btn" id="report-apply-btn">Apply</button>' +
     '</div>' +
     '<div class="stat-grid">' +
-      '<div class="stat-card"><div class="stat-number">' + s.totalCases + '</div><div class="stat-label">Total cases</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.totalCases) + '</div><div class="stat-label">Total cases</div></div>' +
       '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgAckHours) + '</div><div class="stat-label">Avg. time to acknowledge</div></div>' +
       '<div class="stat-card"><div class="stat-number">' + fmtHours(s.avgResolveHours) + '</div><div class="stat-label">Avg. time to resolve</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + s.resolvedCount + '</div><div class="stat-label">Resolved</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : s.escalationRate + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : s.disputeRate + '%') + '</div><div class="stat-label">Dispute rate</div></div>' +
-      '<div class="stat-card"><div class="stat-number">' + s.noFollowupCount + '</div><div class="stat-label">No follow-up</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.resolvedCount) + '</div><div class="stat-label">Resolved</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.escalationRate === null ? '—' : esc(s.escalationRate) + '%') + '</div><div class="stat-label">Escalation rate</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + (s.disputeRate === null ? '—' : esc(s.disputeRate) + '%') + '</div><div class="stat-label">Dispute rate</div></div>' +
+      '<div class="stat-card"><div class="stat-number">' + esc(s.noFollowupCount) + '</div><div class="stat-label">No follow-up</div></div>' +
     '</div>' +
     '<p class="report-list-title">By category</p>' + renderBreakdown(s.byCategory) +
     '<p class="report-list-title" style="margin-top:20px;">By status</p>' + renderBreakdown(s.byStatus);
@@ -672,15 +972,15 @@ function renderReportTab() {
   }
 
   html += '<p class="report-list-title" style="margin-top:20px;">Case detail</p>';
-  html += '<table class="report-table"><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>';
+  html += '<div class="table-scroll"><table class="report-table"><thead><tr><th>Ref</th><th>Category</th><th>Unit</th><th>Status</th><th>Filed</th><th>Resolved</th><th>Follow-ups</th></tr></thead><tbody>';
   html += reportData.cases.map(function(c) {
     var statusCls = (c.status === 'RESOLVED' || c.status === 'CLOSED') ? 'resolved' : c.status === 'PENDING_CONFIRMATION' ? 'pending' : 'open';
     var disputedTag = c.disputed ? ' <span class="report-tag disputed">disputed</span>' : '';
-    return '<tr><td>' + c.trackingRef + '</td><td>' + c.category + '</td><td>' + c.localUnit + '</td>' +
-      '<td><span class="report-tag ' + statusCls + '">' + c.status.toLowerCase().replace('_', ' ') + '</span>' + disputedTag + '</td>' +
-      '<td>' + formatDateOnly(c.createdAt) + '</td><td>' + formatDateOnly(c.resolvedAt) + '</td><td>' + c.followupCount + '</td></tr>';
+    return '<tr><td>' + esc(c.trackingRef) + '</td><td>' + esc(c.category) + '</td><td>' + esc(c.localUnit) + '</td>' +
+      '<td><span class="report-tag ' + statusCls + '">' + esc(c.status.toLowerCase().replace('_', ' ')) + '</span>' + disputedTag + '</td>' +
+      '<td>' + formatDateOnly(c.createdAt) + '</td><td>' + formatDateOnly(c.resolvedAt) + '</td><td>' + esc(c.followupCount) + '</td></tr>';
   }).join('');
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
 
   html += '<p class="footer-note">Dispute and escalation rates reflect the complete, permanent case history and cannot be filtered out of this report.</p>';
 
@@ -689,106 +989,105 @@ function renderReportTab() {
 
 function renderNotice(title, message) {
   document.getElementById('app').innerHTML =
-    '<div class="notice"><h1>' + title + '</h1><p>' + message + '</p></div>';
+    '<div class="notice"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p></div>';
 }
 
-function renderApp() {
-  var me = currentMe;
-  var cases = activeMandateId === null
-    ? currentCases
-    : currentCases.filter(function(c) { return c.mandateId === activeMandateId; });
-  var redCount = cases.filter(function(c) { return c.isRedIndicator; }).length;
-  var primaryMandate = me.mandates[0];
-
-  var html =
+function renderShell() {
+  document.getElementById('app').innerHTML =
     '<div class="console-header"><div class="console-header-inner">' +
       '<div class="console-header-left">' +
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
         '<div><p class="console-title">GrievIQ Representative console</p><p class="console-subtitle">Grievance escalation service</p></div>' +
       '</div>' +
-      '<div class="console-header-right">' +
-        '<p class="console-ward">' + primaryMandate.name + '</p>' +
-        '<p class="console-role">' + primaryMandate.label + '</p>' +
-      '</div>' +
+      '<div class="console-header-right" id="viewing-summary" aria-live="polite"></div>' +
     '</div></div>' +
-    '<div class="mandate-strip">' + renderMandateChips(me.mandates) + '</div>' +
+    '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
-      '<button class="tab-btn' + (activeTab === 'cases' ? ' active' : '') + '" data-tab="cases">Cases</button>' +
-      '<button class="tab-btn' + (activeTab === 'report' ? ' active' : '') + '" data-tab="report">Report</button>' +
+      '<button type="button" class="tab-btn" data-tab="cases">Cases</button>' +
+      '<button type="button" class="tab-btn" data-tab="report">Report</button>' +
     '</div>' +
-    '<main>';
+    '<main><div id="filter-slot"></div><div id="content"></div></main>';
+  filterKey = '';
+  renderViewingControl();
+  updateSummary();
+  updateTabs();
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tab = btn.getAttribute('data-tab');
+      if (tab === activeTab) return;
+      activeTab = tab;
+      filterKey = '';
+      updateTabs();
+      document.getElementById('filter-slot').innerHTML = '';
+      if (activeTab === 'report') loadReportTab();
+      else { updateSummary(); renderFilters(); renderContent(); }
+    });
+  });
+}
 
-  if (activeTab === 'cases') {
-    html +=
-      '<div class="register-header">' +
-        '<h2 class="register-title">Case register</h2>' +
-        '<span class="register-count">' + cases.length + ' case' + (cases.length === 1 ? '' : 's') +
-          (redCount > 0 ? ' &middot; ' + redCount + ' need attention' : '') + '</span>' +
-      '</div>';
-    if (cases.length === 0) {
-      html += '<div class="empty-state"><p>No cases currently in your jurisdiction.</p></div>';
-    } else {
-      html += cases.map(renderCase).join('');
-    }
-  } else {
-    html += renderReportTab();
-  }
+function updateTabs() {
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    var on = btn.getAttribute('data-tab') === activeTab;
+    btn.classList.toggle('active', on);
+    if (on) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
+  });
+}
 
-  html += '</main>';
-  document.getElementById('app').innerHTML = html;
-
-  attachTabHandlers();
-  attachMandateHandlers();
-  if (activeTab === 'cases') {
-    attachResolveHandlers();
-    attachAcknowledgeHandlers();
-    attachFollowupHandlers();
-  } else if (activeTab === 'report') {
+function renderContent() {
+  var el = document.getElementById('content');
+  if (!el) return;
+  if (activeTab === 'report') {
+    el.innerHTML = renderReportTab();
     attachReportHandlers();
+    return;
   }
+  var inView = casesInView();
+  var cases = activeWardId ? inView.filter(function(c) { return c.localUnit.id === activeWardId; }) : inView;
+  var attention = cases.filter(isAttention).length;
+  var countText = activeWardId
+    ? 'Showing ' + cases.length + ' of ' + inView.length + ' case' + (inView.length === 1 ? '' : 's')
+    : cases.length + ' case' + (cases.length === 1 ? '' : 's');
+  var html =
+    '<div class="register-header">' +
+      '<h2 class="register-title">Case register</h2>' +
+      '<span class="register-count" aria-live="polite">' + countText +
+        (attention > 0 ? ' &middot; <span class="attention">' + attention + ' past time limit</span>' : '') + '</span>' +
+    '</div>';
+  if (cases.length === 0) {
+    html += '<div class="empty-state"><p>' + (activeWardId ? 'No cases in this ward.' : 'No cases currently in your jurisdiction.') + '</p></div>';
+  } else {
+    html += cases.map(renderCase).join('');
+  }
+  el.innerHTML = html;
+  attachResolveHandlers();
+  attachAcknowledgeHandlers();
+  attachFollowupHandlers();
 }
 
 async function loadReportTab() {
   reportData = null;
-  renderApp();
+  renderContent();
   try {
     var qs = new URLSearchParams();
     qs.set('mandateId', mandateIdForApi());
     if (reportFrom) qs.set('from', reportFrom);
     if (reportTo) qs.set('to', reportTo);
+    if (activeWardId) qs.set('ward', activeWardId);
     var res = await fetch('/api/grievances/report?' + qs.toString());
+    if (res.status === 403 && activeWardId) {
+      // The chosen ward isn't part of this view: fall back to all wards.
+      activeWardId = null;
+      return loadReportTab();
+    }
     reportData = await res.json();
+    if (!res.ok) reportData = { error: true };
   } catch (err) {
     reportData = { error: true };
   }
-  renderApp();
-}
-
-function attachTabHandlers() {
-  document.querySelectorAll('.tab-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      activeTab = btn.getAttribute('data-tab');
-      if (activeTab === 'report') {
-        loadReportTab();
-      } else {
-        renderApp();
-      }
-    });
-  });
-}
-
-function attachMandateHandlers() {
-  document.querySelectorAll('.mandate-chip').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-mandate-id');
-      activeMandateId = id === '' ? null : id;
-      if (activeTab === 'report') {
-        loadReportTab();
-      } else {
-        renderApp();
-      }
-    });
-  });
+  if (activeTab !== 'report') return;
+  renderFilters();
+  updateSummary();
+  renderContent();
 }
 
 function attachReportHandlers() {
@@ -808,6 +1107,7 @@ function attachReportHandlers() {
   if (csvBtn) csvBtn.addEventListener('click', downloadReportCsv);
 }
 
+
 function toCsvRow(vals) {
   return vals.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
 }
@@ -823,7 +1123,7 @@ function downloadReportCsv() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'grieviq-report-' + reportData.mandate.id + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.download = 'grieviq-report-' + reportData.mandate.id + (reportData.ward ? '-' + reportData.ward.id : '') + '-' + new Date().toISOString().slice(0, 10) + '.csv';
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -833,7 +1133,7 @@ function downloadReportCsv() {
 function generateReportPdf() {
   if (!reportData || reportData.error) return;
   var s = reportData.stats;
-  var scopeName = reportData.mandate.name + (reportData.mandate.label ? ' — ' + reportData.mandate.label : '');
+  var scopeName = reportScopeName();
   var rangeLabel = (reportData.from ? formatDateOnly(reportData.from) : 'All time') + ' to ' + (reportData.to ? formatDateOnly(reportData.to) : 'present');
 
   var jsPDFCtor = window.jspdf.jsPDF;
@@ -890,6 +1190,7 @@ function generateReportPdf() {
   doc.save('grieviq-report-' + fileScope + '.pdf');
 }
 
+
 function attachAcknowledgeHandlers() {
   document.querySelectorAll('.ack-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
@@ -899,7 +1200,7 @@ function attachAcknowledgeHandlers() {
       btn.disabled = true;
       btn.textContent = 'Acknowledging…';
       try {
-        var res = await fetch('/api/grievances/' + id + '/acknowledge', { method: 'POST' });
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/acknowledge', { method: 'POST' });
         var data = await res.json();
         if (!res.ok || data.error) {
           errorEl.textContent = data.error || 'Something went wrong. Please try again.';
@@ -920,14 +1221,22 @@ function attachFollowupHandlers() {
   document.querySelectorAll('.followup-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var id = btn.getAttribute('data-id');
-      var dept = document.getElementById('followup-dept-' + id).value;
+      var select = document.getElementById('followup-dept-' + id);
+      var dept = select.value;
       var note = document.getElementById('followup-note-' + id).value;
       var errorEl = document.getElementById('followup-error-' + id);
       errorEl.textContent = '';
+      if (!dept) {
+        errorEl.textContent = 'Choose a department before logging the follow-up.';
+        select.setAttribute('aria-invalid', 'true');
+        select.focus();
+        return;
+      }
+      select.removeAttribute('aria-invalid');
       btn.disabled = true;
       btn.textContent = 'Logging…';
       try {
-        var res = await fetch('/api/grievances/' + id + '/add-followup', {
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/add-followup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ department: dept, note: note })
@@ -949,7 +1258,7 @@ function attachFollowupHandlers() {
   });
 }
 function attachResolveHandlers() {
-  document.querySelectorAll('.resolve-btn').forEach(function(btn) {
+  document.querySelectorAll('.mark-resolved-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var id = btn.getAttribute('data-id');
       var errorEl = document.getElementById('resolve-error-' + id);
@@ -957,7 +1266,7 @@ function attachResolveHandlers() {
       btn.disabled = true;
       btn.textContent = 'Marking resolved…';
       try {
-        var res = await fetch('/api/grievances/' + id + '/mark-resolved', { method: 'POST' });
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', { method: 'POST' });
         var data = await res.json();
         if (!res.ok || data.error) {
           errorEl.textContent = data.error || 'Something went wrong. Please try again.';
@@ -989,12 +1298,16 @@ async function init() {
     return;
   }
   currentMe = await meRes.json();
+  // A saved view that no longer exists (mandate removed) falls back to all.
+  if (activeMandateId !== null && !findMandate(activeMandateId)) { activeMandateId = null; activeWardId = null; }
 
   var casesRes = await fetch('/api/grievances');
   var casesData = await casesRes.json();
   currentCases = casesData.grievances || [];
 
-  renderApp();
+  renderShell();
+  if (activeTab === 'report') loadReportTab();
+  else { renderFilters(); renderContent(); }
 }
 
 init();
