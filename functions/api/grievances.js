@@ -16,6 +16,7 @@
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
+import { timeLimitStatus } from "../_shared/time-limits.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -121,6 +122,10 @@ export async function onRequestGet(context) {
     if (!iSeeIt) continue;
 
     const myTierIndex = chain.tiers.findIndex((t) => t.tier === myTier);
+    // Time limits for THIS rep's level, from the same shared rule the
+    // citizen status page uses (_shared/time-limits.js).
+    const limits = timeLimitStatus(grievance, category, chain.tiers, result);
+    const myLimits = limits.tiers[myTierIndex] || null;
     const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
     const grievanceEvents = eventsByGrievance.get(grievance.id) || [];
     const substantiveEvents = grievanceEvents.filter((e) => e.event_type !== 'ADMIN_NUDGE'); const latestEvent = substantiveEvents.length ? substantiveEvents[substantiveEvents.length - 1] : null; const nudgeEvents = grievanceEvents.filter((e) => e.event_type === 'ADMIN_NUDGE');
@@ -163,6 +168,17 @@ export async function onRequestGet(context) {
       // unresolved, regardless of whether it has since escalated further
       // above them — visibility here means responsibility, not a handoff.
       isRedIndicator: isUnresolved,
+      // Past the time limit at this rep's level (same rule as the citizen
+      // ladder): green until the limit passes, then red.
+      isLate: Boolean(myLimits && myLimits.slaBreached),
+      isCurrentLevel: Boolean(myLimits && myLimits.current),
+      ackDueAt: limits.ackDueAt,
+      respondDueAt: myLimits ? myLimits.dueAt : null,
+      // Per-level flags for the ladder dots, in chain order.
+      tierLate: limits.tiers.map((t) => Boolean(t.slaBreached)),
+      // Department suggested for this issue type (admin-managed column on
+      // grievance_categories; null when there's no clear match).
+      suggestedDepartment: category.suggested_department || null,
       hasEscalatedPastMyTier: result.currentTierIndex > myTierIndex,
       currentTopTier: result.currentTier.tier,
       // Full tier sequence for this case's chain (3 or 4 tiers depending

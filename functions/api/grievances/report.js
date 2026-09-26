@@ -44,6 +44,9 @@ export async function onRequestGet(context) {
   const mandateId = url.searchParams.get("mandateId");
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
+  // Optional ward filter: one local unit id. Only honoured if it lies
+  // inside the chosen scope's own wards (checked below).
+  const ward = url.searchParams.get("ward") || null;
 
   // "all" unions local units across every mandate the rep holds, the
   // same pattern grievances.js uses -- each unit still remembers which
@@ -74,6 +77,12 @@ export async function onRequestGet(context) {
 
   const responseMandate = wantsAll ? { id: "all", name: "All wards", label: "" } : mandate;
 
+  // A rep can only filter to a ward inside the scope they are viewing --
+  // never to someone else's area.
+  if (ward && !unitIds.includes(ward)) {
+    return Response.json({ error: "That ward is not in the areas you are viewing." }, { status: 403 });
+  }
+
   if (unitIds.length === 0) {
     return Response.json({
       mandate: responseMandate,
@@ -84,6 +93,8 @@ export async function onRequestGet(context) {
         resolvedCount: 0, disputeRate: null, escalationRate: null, noFollowupCount: 0,
         byCategory: {}, byLocalUnit: {}, byStatus: {},
       },
+      ward: null,
+      wards: [],
       cases: [],
     });
   }
@@ -102,6 +113,10 @@ export async function onRequestGet(context) {
   const disputedIds = new Set();
   const followupEventIds = new Set();
   const followupCounts = new Map();
+  // Every ward in the scope that has cases in the date range, with counts
+  // -- lists the options for the ward filter, so it is built before the
+  // ward filter is applied.
+  const wardMap = new Map();
 
   for (const m of mandatesToQuery) {
     const s = mandateScope(m);
@@ -111,6 +126,15 @@ export async function onRequestGet(context) {
     ).bind(...s.binds, ...dateBinds).all();
     for (const g of gRows) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
+    }
+
+    const { results: wRows } = await env.DB.prepare(
+      `SELECT g.local_unit_id AS id, lu_w.name AS name, COUNT(*) AS n
+       FROM grievances g JOIN local_units lu_w ON lu_w.id = g.local_unit_id ${s.join}
+       WHERE ${s.where} ${dateClause} GROUP BY g.local_unit_id, lu_w.name`
+    ).bind(...s.binds, ...dateBinds).all();
+    for (const w of wRows) {
+      if (!wardMap.has(w.id)) wardMap.set(w.id, { id: w.id, name: w.name, count: w.n });
     }
 
     const { results: disputeEvents } = await env.DB.prepare(
@@ -132,7 +156,9 @@ export async function onRequestGet(context) {
     }
   }
 
-  const grievanceRows = Array.from(grievanceById.values()).sort((a, b) =>
+  const grievanceRows = Array.from(grievanceById.values())
+    .filter((g) => !ward || g.local_unit_id === ward)
+    .sort((a, b) =>
     a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0
   );
 
@@ -214,6 +240,8 @@ export async function onRequestGet(context) {
     from: from || null,
     to: to || null,
     stats,
+    ward: ward ? (wardMap.get(ward) || { id: ward, name: ward, count: 0 }) : null,
+    wards: Array.from(wardMap.values()).sort((a, b) => String(a.name).localeCompare(String(b.name))),
     cases: caseRows,
   });
 }
