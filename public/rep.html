@@ -835,6 +835,17 @@ function enhanceOrListen(sel, onPick) {
       shown = input.value;
       if (shown) setQuery(input, '');
     });
+    // Clicking the box again after a choice (focus never left it) must also
+    // open the full list, not just the one matching the current text.
+    box.addEventListener('click', function(e) {
+      var input = e.target;
+      if (input.tagName !== 'INPUT') return;
+      var current = sel.options[sel.selectedIndex];
+      if (input.value && current && input.value === current.textContent) {
+        shown = input.value;
+        setQuery(input, '');
+      }
+    });
     box.addEventListener('focusout', function(e) {
       var input = e.target;
       if (input.tagName !== 'INPUT') return;
