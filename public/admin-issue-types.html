@@ -129,6 +129,11 @@
   .dept-now { font-size: 14px; }
   .dept-none { color: var(--admin-muted); font-style: italic; }
   .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
   .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
   .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
@@ -196,10 +201,13 @@ function hoursText(h) {
   return h + " hours (" + dayText + ")";
 }
 
-function setStatus(msg, type) {
-  var el = document.getElementById("status-msg");
+function setStatus(msg, type, id) {
+  // With an id, the message appears in that issue type's row, next to its
+  // Save button (feedback must be where the person is looking).
+  var el = (id && document.getElementById("msg-" + id)) || document.getElementById("status-msg");
+  document.querySelectorAll(".row-msg").forEach(function (m) { if (m !== el) { m.textContent = ""; m.className = "row-msg"; } });
   el.textContent = msg || "";
-  el.className = type || "";
+  el.className = (id ? "row-msg " : "") + (type || "");
 }
 
 var state = { canEdit: false, departments: [], issueTypes: [] };
@@ -227,7 +235,9 @@ function render() {
           '<label class="visually-hidden" for="dept-' + esc(t.id) + '">Suggested department for ' + esc(t.name) + "</label>" +
           '<select class="dept-select" id="dept-' + esc(t.id) + '" data-id="' + esc(t.id) + '">' + opts + "</select>" +
           '<button class="primary save-btn" data-id="' + esc(t.id) + '">Save</button>' +
-        "</div>";
+        "</div>" +
+        // Result shown right next to the button that was pressed.
+        '<div class="row-msg" id="msg-' + esc(t.id) + '" role="status" aria-live="polite"></div>';
     } else {
       deptCell = t.suggestedDepartment
         ? '<span class="dept-now">' + esc(t.suggestedDepartment) + "</span>"
@@ -269,11 +279,11 @@ async function save(id, btn) {
   var value = select.value || null;
   var t = state.issueTypes.filter(function (x) { return x.id === id; })[0];
   if (t && (t.suggestedDepartment || null) === value) {
-    setStatus(t.name + ": no change to save.", "");
+    setStatus("No change to save.", "", id);
     return;
   }
   btn.disabled = true;
-  setStatus("Saving...", "");
+  setStatus("Saving...", "", id);
   try {
     var res = await fetch("/api/admin/issue-types", {
       method: "PATCH",
@@ -283,17 +293,17 @@ async function save(id, btn) {
     var data = await res.json();
     btn.disabled = false;
     if (!res.ok) {
-      setStatus(data.error === "INSUFFICIENT_ROLE" ? "Your role can view this page but not change it." : (data.error || "Failed to save."), "error");
+      setStatus(data.error === "INSUFFICIENT_ROLE" ? "Your role can view this page but not change it." : (data.error || "Failed to save."), "error", id);
       return;
     }
     if (t) {
-      setStatus(t.name + ": suggestion changed from " + deptLabel(data.before === undefined ? t.suggestedDepartment : data.before) +
-        " to " + deptLabel(data.suggestedDepartment) + ".", "success");
+      setStatus("Saved: changed from " + deptLabel(data.before === undefined ? t.suggestedDepartment : data.before) +
+        " to " + deptLabel(data.suggestedDepartment) + ".", "success", id);
       t.suggestedDepartment = data.suggestedDepartment;
     }
   } catch (err) {
     btn.disabled = false;
-    setStatus("Network error while saving.", "error");
+    setStatus("Network error while saving.", "error", id);
   }
 }
 
