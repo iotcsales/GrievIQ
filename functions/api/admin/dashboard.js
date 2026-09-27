@@ -12,6 +12,9 @@
 //     links to pages that will actually work for them
 // Read-only: GET changes nothing, so nothing is logged.
 //
+// Also the number of change requests waiting (all of them for approvers,
+// the caller's own for a data entry operator).
+//
 // POST (run_import -- super_admin, operations_admin) updates the
 // data-collection note. Logged to admin_events with before/after.
 //
@@ -132,21 +135,37 @@ export async function onRequestGet({ request, env }) {
 
   const role = auth.role;
 
+  // Change requests waiting (maker-checker): approvers see all waiting
+  // requests; a data entry operator sees how many of their own are waiting.
+  const canApprove = can(role, "approve_changes");
+  const canRequest = can(role, "request_changes");
+  let changeRequestsWaiting = null;
+  if (canApprove || canRequest) {
+    const row = canApprove
+      ? await env.DB.prepare("SELECT COUNT(*) AS n FROM change_requests WHERE status = 'PENDING'").first()
+      : await env.DB.prepare("SELECT COUNT(*) AS n FROM change_requests WHERE status = 'PENDING' AND requested_by = ?").bind(auth.email).first();
+    changeRequestsWaiting = row ? row.n : 0;
+  }
+
   return Response.json({
     role,
     wards,
     needsAttentionTotal: exceptionCases.length,
     pendingReviews: reviewsRes ? reviewsRes.n : 0,
+    changeRequestsWaiting,
+    changeRequestsScope: canApprove ? "all" : canRequest ? "own" : null,
     note: noteRow
       ? { value: noteRow.value || "", updatedBy: noteRow.updated_by, updatedAt: noteRow.updated_at }
       : { value: "", updatedBy: null, updatedAt: null },
     canEditNote: can(role, "run_import"),
     links: {
-      jurisdiction: can(role, "run_import"),
+      // Operators may open Jurisdiction too (to request changes).
+      jurisdiction: can(role, "view_jurisdiction"),
       wardBoundaries: can(role, "run_import"),
       exceptions: can(role, "exceptions_queue"),
       reviews: can(role, "review_queue"),
       cases: can(role, "view_cases"),
+      changeRequests: canApprove || canRequest,
     },
     generatedAt: new Date().toISOString(),
   });

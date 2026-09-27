@@ -109,7 +109,7 @@
   .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
   /* Headline cards */
-  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .card {
     background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
     padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
@@ -282,6 +282,7 @@
     operations_admin: "Operations admin",
     data_moderator: "Data moderator",
     auditor: "Auditor",
+    data_entry_operator: "Data entry operator",
   };
 
   function escapeHtml(s) {
@@ -401,6 +402,9 @@
       card(data.needsAttentionTotal, null, "Cases needing attention", "Not acknowledged in time, escalated, disputed or in legal review.", "/admin-exceptions.html", L.exceptions) +
       card(data.pendingReviews, null, "Pending reviews", "Representative details suggested by citizens, waiting for a decision.", "/admin-reviews.html", L.reviews) +
       card(boundaries, total, "Boundaries mapped", "Wards with a boundary shape, so addresses can be matched to them.", "/admin-import-wards.html", L.wardBoundaries) +
+      (data.changeRequestsWaiting == null ? "" : data.changeRequestsScope === "own"
+        ? card(data.changeRequestsWaiting, null, "Your requests waiting", "Changes you asked for that an administrator has not decided yet.", "/admin-change-requests.html", L.changeRequests)
+        : card(data.changeRequestsWaiting, null, "Change requests waiting", "Changes asked for by data entry operators, waiting for approval.", "/admin-change-requests.html", L.changeRequests)) +
     '</div>';
   }
 
