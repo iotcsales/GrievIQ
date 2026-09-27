@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dashboard — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+<title data-i18n="adm.d_page_title">Dashboard — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -220,22 +220,25 @@
   }
   .theme-toggle:hover { color: var(--admin-text); }
   html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.d_service_tag">Citywide ward data · Lucknow pilot</div></div>
   <div class="header-right">
     <nav>
-      <a href="/admin-dashboard.html" class="active">Dashboard</a>
-      <a href="/admin-cases.html">Cases</a>
-      <a href="/admin-import.html">Import</a>
-      <a href="/admin-import-wards.html">Ward boundaries</a>
-      <a href="/admin-jurisdiction.html">Jurisdiction</a>
-      <a href="/admin-exceptions.html">Exceptions</a>
-      <a href="/admin-reviews.html">Reviews</a>
-      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+      <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard" class="active">Dashboard</a>
+      <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a>
+      <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+      <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+      <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+      <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a>
+      <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
     </nav>
     <div class="who-line" id="who-line"></div>
   </div>
@@ -244,46 +247,45 @@
 <main>
   <div class="page-head">
     <div>
-      <h1>Dashboard</h1>
-      <p class="subtitle">How complete our ward and representative data is, and what needs attention now. Figures are worked out live from the database each time this page loads.</p>
+      <h1 data-i18n="adm.d_title">Dashboard</h1>
+      <p class="subtitle" data-i18n="adm.d_sub">How complete our ward and representative data is, and what needs attention now. Figures are worked out live from the database each time this page loads.</p>
     </div>
-    <button type="button" id="rti-btn" disabled>Download RTI tracker (CSV)</button>
+    <button type="button" id="rti-btn" disabled data-i18n="adm.d_rti">Download RTI tracker (CSV)</button>
   </div>
 
   <div id="notice-area"></div>
 
   <div class="result-bar">
-    <span id="updated-at">Loading…</span>
-    <button id="refresh-btn" type="button">Refresh</button>
+    <span id="updated-at" data-i18n="adm.loading">Loading…</span>
+    <button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button>
   </div>
 
   <div id="content"></div>
 </main>
 
 <dialog id="note-dialog">
-  <h2>Edit data-collection note</h2>
-  <p class="ctx">Shown under the summary on this dashboard, for example the status of an RTI request. Every change is logged.</p>
-  <label for="note-text" class="sr-only">Data-collection note</label>
+  <h2 data-i18n="adm.d_note_title">Edit data-collection note</h2>
+  <p class="ctx" data-i18n="adm.d_note_ctx">Shown under the summary on this dashboard, for example the status of an RTI request. Every change is logged.</p>
+  <label for="note-text" class="sr-only" data-i18n="adm.d_note_label">Data-collection note</label>
   <textarea id="note-text" maxlength="1000"></textarea>
-  <div class="hint">Up to 1,000 characters. Leave it blank to remove the note.</div>
+  <div class="hint" data-i18n="adm.d_note_hint">Up to 1,000 characters. Leave it blank to remove the note.</div>
   <div class="dialog-error" id="note-error" role="alert"></div>
   <div class="dlg-actions">
-    <button type="button" id="note-cancel">Cancel</button>
-    <button type="button" class="primary" id="note-save">Save note</button>
+    <button type="button" id="note-cancel" data-i18n="adm.cancel">Cancel</button>
+    <button type="button" class="primary" id="note-save" data-i18n="adm.d_note_save">Save note</button>
   </div>
 </dialog>
 
 <script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" }; }
   let data = null;
   const filters = { q: "", gap: "", type: "", onlyGaps: false };
 
-  const ROLE_LABELS = {
-    super_admin: "Super admin",
-    operations_admin: "Operations admin",
-    data_moderator: "Data moderator",
-    auditor: "Auditor",
-    data_entry_operator: "Data entry operator",
-  };
+  function roleLabel(role) { const k = "adm.role_" + role; const v = T(k); return v === k ? role : v; }
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -299,14 +301,14 @@
   function dateTime(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) +
-      ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) +
+      ", " + d.toLocaleTimeString(loc(), timeOpts());
   }
 
   function dateOnly(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" });
   }
 
   function plural(n, one, many) { return n === 1 ? one : (many || one + "s"); }
@@ -341,9 +343,9 @@
 
   // ---- Rendering ------------------------------------------------------
   function statusTag(n, total) {
-    if (total > 0 && n === total) return '<span class="tag complete">Complete</span>';
-    if (total > 0 && n / total >= 0.5) return '<span class="tag partial">Partial</span>';
-    return '<span class="tag low">Low</span>';
+    if (total > 0 && n === total) return '<span class="tag complete">' + T("adm.d_complete") + '</span>';
+    if (total > 0 && n / total >= 0.5) return '<span class="tag partial">' + T("adm.d_partial") + '</span>';
+    return '<span class="tag low">' + T("adm.d_low") + '</span>';
   }
 
   function barRow(label, n, total) {
@@ -362,20 +364,20 @@
     const total = wards.length;
     const noEmail = countWhere(wards, (w) => !w.rep.email);
     const headline = noEmail === 0
-      ? "All " + total + " wards and villages have a ward representative email on file."
-      : noEmail + " of " + total + " wards and villages have no ward representative email on file, so citizens can't file complaints there yet.";
+      ? T("adm.d_all_email", { n: total })
+      : T("adm.d_no_email", { n: noEmail, total: total });
 
     const note = data.note || {};
     const noteHtml = note.value
       ? '<div class="note">' + escapeHtml(note.value) + '</div>'
-      : (data.canEditNote ? '<div class="note note-empty">No data-collection note.</div>' : '');
+      : (data.canEditNote ? '<div class="note note-empty">' + T("adm.d_no_note") + '</div>' : '');
 
     let meta = "";
     if (note.value && note.updatedAt) {
-      const by = note.updatedBy && note.updatedBy !== "system" ? " by " + escapeHtml(note.updatedBy) : "";
-      meta = "Note updated" + by + " on " + escapeHtml(dateOnly(note.updatedAt));
+      const who = note.updatedBy && note.updatedBy !== "system" ? note.updatedBy : "";
+      meta = escapeHtml(who ? T("adm.d_note_updated_by", { who: who, date: dateOnly(note.updatedAt) }) : T("adm.d_note_updated", { date: dateOnly(note.updatedAt) }));
     }
-    const editBtn = data.canEditNote ? '<button type="button" class="small" id="edit-note-btn">Edit note</button>' : "";
+    const editBtn = data.canEditNote ? '<button type="button" class="small" id="edit-note-btn">' + T("adm.d_edit_note") + '</button>' : "";
 
     return '<div class="panel banner' + (noEmail === 0 ? ' all-good' : '') + '">' +
       '<div class="headline">' + escapeHtml(headline) + '</div>' +
@@ -385,10 +387,10 @@
   }
 
   function card(num, total, label, hint, href, allowed) {
-    const numHtml = '<div class="num">' + num + (total != null ? ' <small>of ' + total + '</small>' : '') + '</div>';
+    const numHtml = '<div class="num">' + num + (total != null ? ' <small>' + T("adm.d_of", { total: total }) + '</small>' : '') + '</div>';
     const inner = numHtml + '<div class="label">' + escapeHtml(label) + '</div>' +
       '<div class="hint">' + escapeHtml(hint) + '</div>';
-    if (allowed) return '<a class="card" href="' + href + '">' + inner + '<div class="go">Open →</div></a>';
+    if (allowed) return '<a class="card" href="' + href + '">' + inner + '<div class="go">' + T("adm.d_open") + '</div></a>';
     return '<div class="card">' + inner + '</div>';
   }
 
@@ -398,13 +400,13 @@
     const boundaries = countWhere(wards, (w) => w.hasBoundary);
     const L = data.links || {};
     return '<div class="cards">' +
-      card(fileable, total, "Wards open for filing", "Have a ward representative email, so citizens can file there.", "/admin-jurisdiction.html", L.jurisdiction) +
-      card(data.needsAttentionTotal, null, "Cases needing attention", "Not acknowledged in time, escalated, disputed or in legal review.", "/admin-exceptions.html", L.exceptions) +
-      card(data.pendingReviews, null, "Pending reviews", "Representative details suggested by citizens, waiting for a decision.", "/admin-reviews.html", L.reviews) +
-      card(boundaries, total, "Boundaries mapped", "Wards with a boundary shape, so addresses can be matched to them.", "/admin-import-wards.html", L.wardBoundaries) +
+      card(fileable, total, T("adm.d_c_filing"), T("adm.d_c_filing_h"), "/admin-jurisdiction.html", L.jurisdiction) +
+      card(data.needsAttentionTotal, null, T("adm.d_c_attention"), T("adm.d_c_attention_h"), "/admin-exceptions.html", L.exceptions) +
+      card(data.pendingReviews, null, T("adm.d_c_reviews"), T("adm.d_c_reviews_h"), "/admin-reviews.html", L.reviews) +
+      card(boundaries, total, T("adm.d_c_bounds"), T("adm.d_c_bounds_h"), "/admin-import-wards.html", L.wardBoundaries) +
       (data.changeRequestsWaiting == null ? "" : data.changeRequestsScope === "own"
-        ? card(data.changeRequestsWaiting, null, "Your requests waiting", "Changes you asked for that an administrator has not decided yet.", "/admin-change-requests.html", L.changeRequests)
-        : card(data.changeRequestsWaiting, null, "Change requests waiting", "Changes asked for by data entry operators, waiting for approval.", "/admin-change-requests.html", L.changeRequests)) +
+        ? card(data.changeRequestsWaiting, null, T("adm.d_c_own"), T("adm.d_c_own_h"), "/admin-change-requests.html", L.changeRequests)
+        : card(data.changeRequestsWaiting, null, T("adm.d_c_all"), T("adm.d_c_all_h"), "/admin-change-requests.html", L.changeRequests)) +
     '</div>';
   }
 
@@ -412,9 +414,9 @@
     const total = wards.length;
     return '<div class="bar-group"><h3>' + escapeHtml(title) + '</h3>' +
       (note ? '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(note) + '</p>' : '') +
-      barRow("Name on file", countWhere(wards, (w) => w[key].name), total) +
-      barRow("Phone on file", countWhere(wards, (w) => w[key].phone), total) +
-      barRow("Email on file", countWhere(wards, (w) => w[key].email), total) +
+      barRow(T("adm.d_name_on_file"), countWhere(wards, (w) => w[key].name), total) +
+      barRow(T("adm.d_phone_on_file"), countWhere(wards, (w) => w[key].phone), total) +
+      barRow(T("adm.d_email_on_file"), countWhere(wards, (w) => w[key].email), total) +
     '</div>';
   }
 
@@ -422,37 +424,37 @@
     const total = wards.length;
     const mayorWards = wards.filter((w) => w.mayor);
     const mayorHtml = mayorWards.length
-      ? '<div class="bar-group"><h3>Mayor</h3>' +
-          '<p class="section-sub" style="margin-bottom:10px">Only wards whose municipal body has a Mayor: ' + mayorWards.length + ' of ' + total + '.</p>' +
-          barRow("Email on file", countWhere(mayorWards, (w) => w.mayor.email), mayorWards.length) +
+      ? '<div class="bar-group"><h3>' + T("adm.d_mayor") + '</h3>' +
+          '<p class="section-sub" style="margin-bottom:10px">' + T("adm.d_mayor_only", { n: mayorWards.length, total: total }) + '</p>' +
+          barRow(T("adm.d_email_on_file"), countWhere(mayorWards, (w) => w.mayor.email), mayorWards.length) +
         '</div>'
-      : '<div class="bar-group"><h3>Mayor</h3><p class="group-note">No ward currently has a Mayor level in its escalation chain.</p></div>';
+      : '<div class="bar-group"><h3>' + T("adm.d_mayor") + '</h3><p class="group-note">' + T("adm.d_no_mayor") + '</p></div>';
 
     return '<div class="panel">' +
-      '<h2>Ward coverage</h2>' +
-      '<p class="section-sub">Each bar counts wards and villages. MLA and MP details are counted once per ward, so one missing MLA number can affect many wards.</p>' +
-      levelBars("Ward representative", wards, "rep") +
+      '<h2>' + T("adm.d_coverage") + '</h2>' +
+      '<p class="section-sub">' + T("adm.d_coverage_sub") + '</p>' +
+      levelBars(T("adm.d_rep"), wards, "rep") +
       mayorHtml +
-      levelBars("MLA", wards, "mla") +
-      levelBars("MP", wards, "mp") +
-      '<div class="bar-group"><h3>Across all levels</h3>' +
-        barRow("Ward boundary shape loaded", countWhere(wards, (w) => w.hasBoundary), total) +
-        barRow("Fully reachable (every level has an email)", countWhere(wards, (w) => w.fullyReachable), total) +
+      levelBars(T("adm.d_mla"), wards, "mla") +
+      levelBars(T("adm.d_mp"), wards, "mp") +
+      '<div class="bar-group"><h3>' + T("adm.d_all_levels") + '</h3>' +
+        barRow(T("adm.d_boundary_loaded"), countWhere(wards, (w) => w.hasBoundary), total) +
+        barRow(T("adm.d_reachable"), countWhere(wards, (w) => w.fullyReachable), total) +
       '</div>' +
     '</div>';
   }
 
   function levelCell(level) {
-    if (!level) return '<span class="na" title="No Mayor level for this ward">—</span>';
+    if (!level) return '<span class="na" title="' + escapeHtml(T("adm.d_no_mayor_level")) + '">—</span>';
     const miss = missingFields(level);
-    if (miss.length === 0) return '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">All on file</span>';
-    return '<span class="missing">Missing ' + miss.join(", ") + '</span>';
+    if (miss.length === 0) return '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">' + T("adm.d_all_on_file") + '</span>';
+    return '<span class="missing">' + escapeHtml(T("adm.d_missing_list", { list: miss.map((f) => T("adm.f_" + f)).join(", ") })) + '</span>';
   }
 
   function fieldCell(ok) {
     return ok
-      ? '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">On file</span>'
-      : '<span class="missing">Missing</span>';
+      ? '<span class="ok-mark" aria-hidden="true">✓</span><span class="sr-only">' + T("adm.d_on_file") + '</span>'
+      : '<span class="missing">' + T("adm.d_missing") + '</span>';
   }
 
   function wardLink(w) {
@@ -464,7 +466,7 @@
     const text = attention && n ? '<span class="attn">' + n + '</span>' : String(n);
     if (!n || !(data.links && data.links.cases)) return text;
     const href = "/admin-cases.html?ward=" + encodeURIComponent(w.id) + (attention ? "&attention=1" : "&status=unresolved");
-    return '<a href="' + href + '" style="color:inherit" title="See these cases">' + text + '</a>';
+    return '<a href="' + href + '" style="color:inherit" title="' + escapeHtml(T("adm.d_see_cases")) + '">' + text + '</a>';
   }
 
   function filteredWards() {
@@ -483,25 +485,25 @@
 
   function renderTableSection() {
     return '<div class="panel">' +
-      '<h2>Ward by ward</h2>' +
-      '<p class="section-sub">The same figures as the bars above, for each ward and village. Click a ward name to open it on the Jurisdiction page and fix its details, or a case number to see those cases. "Needs attention" uses the same rules as the Exceptions page.</p>' +
+      '<h2>' + T("adm.d_table") + '</h2>' +
+      '<p class="section-sub">' + escapeHtml(T("adm.d_table_sub")) + '</p>' +
       '<div class="filters">' +
-        '<div><label for="f-q">Search</label><input type="search" id="f-q" placeholder="Ward, MLA, MP or rep name" value="' + escapeHtml(filters.q) + '" /></div>' +
-        '<div><label for="f-gap">Missing at</label><select id="f-gap">' +
-          '<option value="">Any level</option>' +
-          '<option value="rep">Ward representative</option>' +
-          '<option value="mayor">Mayor</option>' +
-          '<option value="mla">MLA</option>' +
-          '<option value="mp">MP</option>' +
-          '<option value="boundary">Boundary shape</option>' +
-          '<option value="reach">Not fully reachable</option>' +
+        '<div><label for="f-q">' + T("adm.d_search") + '</label><input type="search" id="f-q" placeholder="' + escapeHtml(T("adm.d_search_ph")) + '" value="' + escapeHtml(filters.q) + '" /></div>' +
+        '<div><label for="f-gap">' + T("adm.d_missing_at") + '</label><select id="f-gap">' +
+          '<option value="">' + T("adm.d_any_level") + '</option>' +
+          '<option value="rep">' + T("adm.d_rep") + '</option>' +
+          '<option value="mayor">' + T("adm.d_mayor") + '</option>' +
+          '<option value="mla">' + T("adm.d_mla") + '</option>' +
+          '<option value="mp">' + T("adm.d_mp") + '</option>' +
+          '<option value="boundary">' + T("adm.d_boundary_shape") + '</option>' +
+          '<option value="reach">' + T("adm.d_not_reachable") + '</option>' +
         '</select></div>' +
-        '<div><label for="f-type">Type</label><select id="f-type">' +
-          '<option value="">Urban and rural</option>' +
-          '<option value="URBAN">Urban wards</option>' +
-          '<option value="RURAL">Rural villages</option>' +
+        '<div><label for="f-type">' + T("adm.d_type") + '</label><select id="f-type">' +
+          '<option value="">' + T("adm.d_urban_rural") + '</option>' +
+          '<option value="URBAN">' + T("adm.d_urban_wards") + '</option>' +
+          '<option value="RURAL">' + T("adm.d_rural_villages") + '</option>' +
         '</select></div>' +
-        '<div class="check"><label><input type="checkbox" id="f-gaps"' + (filters.onlyGaps ? ' checked' : '') + ' /> Only wards with gaps</label></div>' +
+        '<div class="check"><label><input type="checkbox" id="f-gaps"' + (filters.onlyGaps ? ' checked' : '') + ' /> ' + T("adm.d_only_gaps") + '</label></div>' +
       '</div>' +
       '<div class="result-bar"><span id="table-count"></span></div>' +
       '<div class="table-wrap" id="table-area"></div>' +
@@ -511,21 +513,21 @@
   function renderTable() {
     const rows = filteredWards();
     document.getElementById("table-count").innerHTML =
-      'Showing <b>' + rows.length + '</b> of ' + data.wards.length + ' ' + plural(data.wards.length, "ward");
+      (data.wards.length === 1 ? T("adm.d_showing_one", { n: rows.length }) : T("adm.d_showing", { n: rows.length, total: data.wards.length }));
     const area = document.getElementById("table-area");
     if (rows.length === 0) {
-      area.innerHTML = '<div class="empty">No wards match these filters.</div>';
+      area.innerHTML = '<div class="empty">' + T("adm.d_no_match") + '</div>';
       return;
     }
     area.innerHTML = '<table><thead><tr>' +
-      '<th>Ward / village</th>' +
-      '<th>Rep name</th><th>Rep phone</th><th>Rep email</th>' +
-      '<th>Mayor</th><th>MLA</th><th>MP</th><th>Boundary</th>' +
-      '<th class="num">Open</th><th class="num">Needs attention</th>' +
+      '<th>' + T("adm.d_th_ward") + '</th>' +
+      '<th>' + T("adm.d_th_rep_name") + '</th><th>' + T("adm.d_th_rep_phone") + '</th><th>' + T("adm.d_th_rep_email") + '</th>' +
+      '<th>' + T("adm.d_mayor") + '</th><th>' + T("adm.d_mla") + '</th><th>' + T("adm.d_mp") + '</th><th>' + T("adm.d_th_boundary") + '</th>' +
+      '<th class="num">' + T("adm.d_th_open") + '</th><th class="num">' + T("adm.d_th_attention") + '</th>' +
       '</tr></thead><tbody>' +
       rows.map((w) => {
-        const sub = [w.unitType === "URBAN" ? "Urban ward" : w.unitType === "RURAL" ? "Rural village" : "",
-          w.mlaConstituency ? "MLA: " + w.mlaConstituency : ""].filter(Boolean).join(" · ");
+        const sub = [w.unitType === "URBAN" ? T("adm.urban_ward") : w.unitType === "RURAL" ? T("adm.rural_village") : "",
+          w.mlaConstituency ? T("adm.d_mla_of", { name: w.mlaConstituency }) : ""].filter(Boolean).join(" · ");
         return '<tr>' +
           '<td><div class="ward-name">' + wardLink(w) + '</div><div class="ward-sub">' + escapeHtml(sub) + '</div></td>' +
           '<td>' + fieldCell(w.rep.name) + '</td>' +
@@ -545,8 +547,8 @@
   function render() {
     const wards = data.wards;
     document.getElementById("who-line").innerHTML =
-      '<b>' + escapeHtml(ROLE_LABELS[data.role] || data.role) + '</b><br>All wards';
-    document.getElementById("updated-at").textContent = "Figures as of " + dateTime(data.generatedAt);
+      '<b>' + escapeHtml(roleLabel(data.role)) + '</b><br>' + T("adm.all_wards");
+    document.getElementById("updated-at").textContent = T("adm.d_as_of", { date: dateTime(data.generatedAt) });
     document.getElementById("rti-btn").disabled = false;
 
     document.getElementById("content").innerHTML =
@@ -570,14 +572,14 @@
   }
 
   async function load() {
-    document.getElementById("updated-at").textContent = "Loading…";
+    document.getElementById("updated-at").textContent = T("adm.loading");
     try {
       const res = await fetch("/api/admin/dashboard");
       const body = await res.json();
       if (!res.ok) {
-        let msg = body.error || "Could not load the dashboard.";
-        if (body.error === "NOT_ADMIN") msg = "Your account is not an admin.";
-        if (body.error === "INSUFFICIENT_ROLE") msg = "Your role doesn't have access to the dashboard.";
+        let msg = body.error || T("adm.d_err_load");
+        if (body.error === "NOT_ADMIN") msg = T("adm.d_err_not_admin");
+        if (body.error === "INSUFFICIENT_ROLE") msg = T("adm.d_err_role");
         document.getElementById("updated-at").textContent = "";
         document.getElementById("content").innerHTML = '<div class="panel"><div class="error-msg">' + escapeHtml(msg) + '</div></div>';
         return;
@@ -586,7 +588,7 @@
       render();
     } catch (err) {
       document.getElementById("updated-at").textContent = "";
-      document.getElementById("content").innerHTML = '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div></div>';
+      document.getElementById("content").innerHTML = '<div class="panel"><div class="error-msg">' + T("adm.d_err_reach") + '</div></div>';
     }
   }
 
@@ -647,17 +649,17 @@
       });
       const body = await res.json();
       if (!res.ok) {
-        let msg = body.error || "Could not save the note.";
-        if (body.error === "INSUFFICIENT_ROLE") msg = "Your role can't edit this note.";
+        let msg = body.error || T("adm.d_note_err");
+        if (body.error === "INSUFFICIENT_ROLE") msg = T("adm.d_note_err_role");
         errEl.textContent = msg;
         return;
       }
       data.note = body.note;
       noteDialog.close();
       render();
-      showNotice("ok", "Note saved.");
+      showNotice("ok", T("adm.d_note_saved"));
     } catch (err) {
-      errEl.textContent = "Could not reach the server. Try again.";
+      errEl.textContent = T("adm.d_note_err_reach");
     } finally {
       btn.disabled = false;
     }
@@ -674,7 +676,7 @@
   // ---- Theme --------------------------------------------------------------
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
 
   const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
@@ -687,6 +689,11 @@
     applyTheme(next);
   });
 
+  // Switching हिन्दी / English redraws from the data already loaded.
+  document.addEventListener("giq:lang", () => {
+    applyTheme(localStorage.getItem("griq-admin-theme") || "dark");
+    if (data) render();
+  });
   load();
 </script>
 

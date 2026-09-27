@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GrievIQ Admin — Jurisdiction</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+<title data-i18n="adm.j_page_title">GrievIQ Admin — Jurisdiction</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -162,24 +162,27 @@
   button.small-btn.add-btn { color: var(--admin-accent); border-style: dashed; }
   .modal input:focus-visible, .modal select:focus-visible, .modal button:focus-visible,
   button.small-btn:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html" class="active">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction" class="active">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Jurisdiction hierarchy</h1>
-  <p class="subtitle">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
-  <div class="request-banner" id="request-banner" hidden>
+  <h1 data-i18n="adm.j_title">Jurisdiction hierarchy</h1>
+  <p class="subtitle" data-i18n="adm.j_sub">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
+  <div class="request-banner" id="request-banner" hidden data-i18n-html="adm.j_banner">
     <b>You can request changes.</b> Nothing you send changes the live data straight away: each request is checked and
     approved by an administrator first. You can follow your requests on <a href="/admin-change-requests.html">Change requests</a>.
   </div>
@@ -189,7 +192,7 @@
       <circle cx="11" cy="11" r="8"></circle>
       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
     </svg>
-    <input type="text" id="search-box" placeholder="Search by MP, MLA, ward/village, or representative name..." style="width:100%; background:#11151c; border:1px solid var(--admin-border); color:var(--admin-text); border-radius:8px; padding:10px 14px 10px 38px; font-size:14px;" />
+    <input type="text" id="search-box" data-i18n-ph="adm.j_search_ph" aria-label="Search" placeholder="Search by MP, MLA, ward/village, or representative name..." style="width:100%; background:#11151c; border:1px solid var(--admin-border); color:var(--admin-text); border-radius:8px; padding:10px 14px 10px 38px; font-size:14px;" />
   </div>
   <div class="tree" id="tree">
     <div class="node-row">Loading...</div>
@@ -199,26 +202,26 @@
 
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal">
-    <h3 id="edit-modal-title">Edit contact</h3>
-    <label for="edit-name">Name</label>
+    <h3 id="edit-modal-title" data-i18n="adm.j_edit_contact">Edit contact</h3>
+    <label for="edit-name" data-i18n="adm.f_name">Name</label>
     <input type="text" id="edit-name" maxlength="120" autocomplete="off" />
-    <label for="edit-phone">Phone</label>
+    <label for="edit-phone" data-i18n="adm.f_phone">Phone</label>
     <input type="text" id="edit-phone" maxlength="40" autocomplete="off" inputmode="tel" />
-    <label for="edit-email">Email</label>
+    <label for="edit-email" data-i18n="adm.f_email">Email</label>
     <input type="email" id="edit-email" maxlength="200" autocomplete="off" spellcheck="false" />
     <div class="request-only" id="edit-request-fields" hidden>
-      <label for="edit-reason">Reason for the change (required)</label>
+      <label for="edit-reason" data-i18n="adm.j_reason">Reason for the change (required)</label>
       <textarea id="edit-reason" maxlength="500"></textarea>
-      <div class="hint">For example: "Phone number changed, as per RTI reply" or "Missing email, found on official website".</div>
-      <label for="edit-source">Source (optional)</label>
+      <div class="hint" data-i18n="adm.j_reason_hint">For example: "Phone number changed, as per RTI reply" or "Missing email, found on official website".</div>
+      <label for="edit-source" data-i18n="adm.j_source">Source (optional)</label>
       <input type="text" id="edit-source" maxlength="300" autocomplete="off" />
-      <div class="hint">An RTI reply number, a notice, or a link to an official page, so the approver can check it.</div>
+      <div class="hint" data-i18n="adm.j_source_hint">An RTI reply number, a notice, or a link to an official page, so the approver can check it.</div>
     </div>
     <div class="suggest-box" id="edit-suggest" hidden></div>
     <div class="form-error" id="edit-error" role="alert"></div>
     <div class="modal-actions">
-      <button class="small-btn" id="edit-cancel">Cancel</button>
-      <button class="small-btn primary" id="edit-save">Save</button>
+      <button class="small-btn" id="edit-cancel" data-i18n="adm.cancel">Cancel</button>
+      <button class="small-btn primary" id="edit-save" data-i18n="adm.save">Save</button>
     </div>
   </div>
 </div>
@@ -227,11 +230,11 @@
   <div class="modal">
     <h3 id="reassign-modal-title">Reassign</h3>
     <p style="font-size:13px; color: var(--admin-muted);" id="reassign-modal-desc"></p>
-    <label id="reassign-select-label">New parent</label>
+    <label id="reassign-select-label" for="reassign-select" data-i18n="adm.j_new_parent">New parent</label>
     <select id="reassign-select"></select>
     <div class="modal-actions">
-      <button class="small-btn" id="reassign-cancel">Cancel</button>
-      <button class="small-btn primary" id="reassign-save">Reassign</button>
+      <button class="small-btn" id="reassign-cancel" data-i18n="adm.cancel">Cancel</button>
+      <button class="small-btn primary" id="reassign-save" data-i18n="adm.j_reassign">Reassign</button>
     </div>
   </div>
 </div>
@@ -241,44 +244,44 @@
     <h3 id="add-modal-title">Add ward or village</h3>
     <p class="modal-context" id="add-modal-context"></p>
 
-    <label for="add-name">Name</label>
+    <label for="add-name" data-i18n="adm.f_name">Name</label>
     <input type="text" id="add-name" maxlength="120" autocomplete="off" />
 
     <fieldset>
-      <legend>Type</legend>
-      <label class="radio"><input type="radio" name="add-type" value="URBAN" /> Urban ward</label>
-      <label class="radio"><input type="radio" name="add-type" value="RURAL" /> Rural village</label>
+      <legend data-i18n="adm.j_type">Type</legend>
+      <label class="radio"><input type="radio" name="add-type" value="URBAN" /> <span data-i18n="adm.urban_ward">Urban ward</span></label>
+      <label class="radio"><input type="radio" name="add-type" value="RURAL" /> <span data-i18n="adm.rural_village">Rural village</span></label>
     </fieldset>
 
     <div id="add-mb-wrap" class="hidden">
-      <label for="add-mb">Municipal body</label>
+      <label for="add-mb" data-i18n="adm.j_mb">Municipal body</label>
       <select id="add-mb"></select>
-      <div class="form-hint">Wards under a body with a Mayor escalate to the Mayor before the MLA.</div>
+      <div class="form-hint" data-i18n="adm.j_mb_hint">Wards under a body with a Mayor escalate to the Mayor before the MLA.</div>
     </div>
 
     <div class="form-section" id="add-rep-heading">Representative (optional)</div>
-    <label for="add-rep-name">Name</label>
+    <label for="add-rep-name" data-i18n="adm.f_name">Name</label>
     <input type="text" id="add-rep-name" maxlength="120" autocomplete="off" />
-    <label for="add-rep-phone">Phone</label>
+    <label for="add-rep-phone" data-i18n="adm.f_phone">Phone</label>
     <input type="text" id="add-rep-phone" maxlength="40" autocomplete="off" />
-    <label for="add-rep-email">Email</label>
+    <label for="add-rep-email" data-i18n="adm.f_email">Email</label>
     <input type="email" id="add-rep-email" maxlength="200" autocomplete="off" />
 
-    <label for="add-localities">Localities (optional)</label>
-    <input type="text" id="add-localities" maxlength="1000" placeholder="e.g. Hazratganj; Ashok Marg" autocomplete="off" />
-    <div class="form-hint">Separate neighbourhoods with semicolons. Used to match citizens' addresses to this ward.</div>
+    <label for="add-localities" data-i18n="adm.j_localities">Localities (optional)</label>
+    <input type="text" id="add-localities" maxlength="1000" data-i18n-ph="adm.j_localities_ph" placeholder="e.g. Hazratganj; Ashok Marg" autocomplete="off" />
+    <div class="form-hint" data-i18n="adm.j_localities_hint">Separate neighbourhoods with semicolons. Used to match citizens' addresses to this ward.</div>
 
     <div class="request-only" id="add-request-fields" hidden>
-      <label for="add-reason">Reason (required)</label>
+      <label for="add-reason" data-i18n="adm.j_add_reason">Reason (required)</label>
       <textarea id="add-reason" maxlength="500"></textarea>
-      <label for="add-source">Source (optional)</label>
+      <label for="add-source" data-i18n="adm.j_source">Source (optional)</label>
       <input type="text" id="add-source" maxlength="300" autocomplete="off" />
-      <div class="hint">For example a delimitation notice, an RTI reply number, or a link to an official page.</div>
+      <div class="hint" data-i18n="adm.j_add_source_hint">For example a delimitation notice, an RTI reply number, or a link to an official page.</div>
     </div>
     <div class="suggest-box" id="add-suggest" hidden></div>
     <div class="form-error" id="add-error" role="alert"></div>
     <div class="modal-actions">
-      <button class="small-btn" id="add-cancel">Cancel</button>
+      <button class="small-btn" id="add-cancel" data-i18n="adm.cancel">Cancel</button>
       <button class="small-btn" id="add-save-another">Save and add another</button>
       <button class="small-btn primary" id="add-save">Save</button>
     </div>
@@ -286,6 +289,36 @@
 </div>
 
 <script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" }; }
+
+// Server messages are English; show the Hindi version of the ones we know.
+function srvMsg(msg) {
+  if (!msg || !isHi()) return msg;
+  const known = {
+    "Enter the email address in the format name@example.com.": "adm.srv_email",
+    "Enter the representative's email in the format name@example.com.": "adm.srv_email",
+    "Keep the name to 120 characters or fewer.": "adm.srv_name_len",
+    "Give the reason for this request (at least a few words).": "adm.srv_reason",
+    "Nothing has changed. Edit at least one detail before sending the request.": "adm.srv_nothing",
+    "A change to this record is already waiting for approval. Wait for that decision, or withdraw it from My requests.": "adm.srv_waiting",
+    "Enter a name for the ward or village.": "adm.j_err_name",
+    "Choose Urban ward or Rural village.": "adm.j_err_type",
+  };
+  if (known[msg]) return T(known[msg]);
+  if (/^Enter a valid Indian phone number/.test(msg)) return T("adm.srv_phone");
+  let m = msg.match(/^The email domain "(.*)" can't receive email/);
+  if (m) return T("adm.srv_domain", { d: m[1] });
+  m = msg.match(/^A ward or village named "(.*)" already exists under this MLA/);
+  if (m) return T("adm.srv_dup_ward", { name: m[1] });
+  m = msg.match(/^A request to add "(.*)" under this MLA is already waiting/);
+  if (m) return T("adm.srv_dup_req", { name: m[1] });
+  return msg;
+}
+
 let DATA = { mps: [], mlas: [], municipalBodies: [], localUnits: [] };
 let expandedMps = new Set();
 let expandedMlas = new Set();
@@ -300,9 +333,9 @@ function setStatus(msg, type) {
 function fmtContact(name, phone, email) {
   const parts = [];
   // Escaped: these values can come from imports and (soon) operators' requests.
-  parts.push(name ? escapeText(name) : '<span class="missing">no name</span>');
-  parts.push(phone ? escapeText(phone) : '<span class="missing">no phone</span>');
-  parts.push(email ? escapeText(email) : '<span class="missing">no email</span>');
+  parts.push(name ? escapeText(name) : '<span class="missing">' + T("adm.j_no_name") + '</span>');
+  parts.push(phone ? escapeText(phone) : '<span class="missing">' + T("adm.j_no_phone") + '</span>');
+  parts.push(email ? escapeText(email) : '<span class="missing">' + T("adm.j_no_email") + '</span>');
   return parts.join(" · ");
 }
 
@@ -311,18 +344,18 @@ function isWaiting(type, id) {
   return (DATA.pendingRequests || []).includes(type + ":" + id);
 }
 function waitingTag(type, id) {
-  return isWaiting(type, id) ? '<span class="waiting-tag">Change waiting for approval</span>' : "";
+  return isWaiting(type, id) ? '<span class="waiting-tag">' + T("adm.j_waiting") + '</span>' : "";
 }
-function editLabel() { return MODE === "request" ? "Request change" : "Edit"; }
+function editLabel() { return MODE === "request" ? T("adm.j_req_change") : T("adm.j_edit"); }
 
 async function loadTree() {
   const treeEl = document.getElementById("tree");
-  treeEl.innerHTML = '<div class="node-row">Loading...</div>';
+  treeEl.innerHTML = '<div class="node-row">' + T("adm.loading") + '</div>';
   try {
     const res = await fetch("/api/admin/jurisdiction");
     const data = await res.json();
     if (!res.ok) {
-      treeEl.innerHTML = `<div class="node-row">Error: ${data.error || "failed to load"}</div>`;
+      treeEl.innerHTML = '<div class="node-row">' + escapeText(data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.j_err_load") + " (" + (data.error || res.status) + ")") + '</div>';
       return;
     }
     DATA = data;
@@ -332,7 +365,7 @@ async function loadTree() {
     document.getElementById("request-banner").hidden = MODE !== "request";
     renderTree();
   } catch (err) {
-    treeEl.innerHTML = '<div class="node-row">Network error loading jurisdiction data.</div>';
+    treeEl.innerHTML = '<div class="node-row">' + T("adm.network") + '</div>';
   }
 }
 
@@ -366,9 +399,9 @@ function renderTree() {
     row.className = "node-row mp";
     row.innerHTML = `
       <button class="toggle-btn" data-toggle-mp="${mp.id}">${isOpen ? "▾" : "▸"}</button>
-      <div class="node-name">${mp.mp_name ? escapeText(mp.mp_name) : '<span class="missing">unnamed MP</span>'}</div>
+      <div class="node-name">${mp.mp_name ? escapeText(mp.mp_name) : '<span class="missing">' + T("adm.j_unnamed_mp") + '</span>'}</div>
       <div class="node-contact">${fmtContact(mp.mp_name, mp.mp_phone, mp.mp_email)}${waitingTag("mp", mp.id)}</div>
-      <div class="node-count">${mlasUnder.length} MLA${mlasUnder.length === 1 ? "" : "s"}</div>
+      <div class="node-count">${mlasUnder.length === 1 ? T("adm.j_one_mla") : T("adm.j_n_mlas", { n: mlasUnder.length })}</div>
       <div class="row-actions">
         ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mp" data-id="${escapeText(mp.id)}">${editLabel()}</button>`}
       </div>
@@ -392,13 +425,13 @@ function renderTree() {
         mlaRow.className = "node-row mla";
         mlaRow.innerHTML = `
           <button class="toggle-btn" data-toggle-mla="${mla.id}">${mlaOpen ? "▾" : "▸"}</button>
-          <div class="node-name">${mla.mla_name ? escapeText(mla.mla_name) : '<span class="missing">unnamed MLA</span>'}</div>
+          <div class="node-name">${mla.mla_name ? escapeText(mla.mla_name) : '<span class="missing">' + T("adm.j_unnamed_mla") + '</span>'}</div>
           <div class="node-contact">${fmtContact(mla.mla_name, mla.mla_phone, mla.mla_email)}${waitingTag("mla", mla.id)}</div>
-          <div class="node-count">${wardsUnder.length} ward${wardsUnder.length === 1 ? "" : "s"}</div>
+          <div class="node-count">${wardsUnder.length === 1 ? T("adm.j_one_ward") : T("adm.j_n_wards", { n: wardsUnder.length })}</div>
           <div class="row-actions">
-            ${MODE === "view" ? "" : `<button class="small-btn add-btn" data-add-unit="${escapeText(mla.id)}">${MODE === "request" ? "+ Request new ward/village" : "+ Add ward/village"}</button>
+            ${MODE === "view" ? "" : `<button class="small-btn add-btn" data-add-unit="${escapeText(mla.id)}">${MODE === "request" ? T("adm.j_req_add") : T("adm.j_add")}</button>
             <button class="small-btn" data-edit="mla" data-id="${escapeText(mla.id)}">${editLabel()}</button>`}
-            ${MODE === "edit" ? `<button class="small-btn" data-reassign="mla" data-id="${escapeText(mla.id)}">Reassign</button>` : ""}
+            ${MODE === "edit" ? `<button class="small-btn" data-reassign="mla" data-id="${escapeText(mla.id)}">${T("adm.j_reassign")}</button>` : ""}
           </div>
         `;
         treeEl.appendChild(mlaRow);
@@ -411,16 +444,16 @@ function renderTree() {
             wardRow.dataset.unitId = ward.id;
             let mayorHtml = "";
             if (mb && mb.has_mayor) {
-              mayorHtml = ` &nbsp;|&nbsp; Mayor: ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}${waitingTag("mayor", mb.id)}
-                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mayor" data-id="${escapeText(mb.id)}">${MODE === "request" ? "Request change (mayor)" : "Edit mayor"}</button>`}`;
+              mayorHtml = ` &nbsp;|&nbsp; ${T("adm.j_mayor")} ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}${waitingTag("mayor", mb.id)}
+                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mayor" data-id="${escapeText(mb.id)}">${MODE === "request" ? T("adm.j_req_change_mayor") : T("adm.j_edit_mayor")}</button>`}`;
             }
             wardRow.innerHTML = `
               <div style="width:16px;"></div>
-              <div class="node-name">${escapeText(ward.name)} <span class="node-count">(${escapeText(ward.unit_type)})</span></div>
+              <div class="node-name">${escapeText(ward.name)} <span class="node-count">(${escapeText(T("adm.type_" + ward.unit_type) === "adm.type_" + ward.unit_type ? ward.unit_type : T("adm.type_" + ward.unit_type))})</span></div>
               <div class="node-contact">${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${waitingTag("ward", ward.id)}${mayorHtml}</div>
               <div class="row-actions">
                 ${MODE === "view" ? "" : `<button class="small-btn" data-edit="ward" data-id="${escapeText(ward.id)}">${editLabel()}</button>`}
-                ${MODE === "edit" ? `<button class="small-btn" data-reassign="ward" data-id="${escapeText(ward.id)}">Reassign</button>` : ""}
+                ${MODE === "edit" ? `<button class="small-btn" data-reassign="ward" data-id="${escapeText(ward.id)}">${T("adm.j_reassign")}</button>` : ""}
               </div>
             `;
             treeEl.appendChild(wardRow);
@@ -481,7 +514,8 @@ function openEditModal(type, id) {
   const email = type === "mp" ? record.mp_email : type === "mla" ? record.mla_email : type === "ward" ? record.rep_email : record.mayor_email;
 
   const labels = { mp: "MP", mla: "MLA", ward: record.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan", mayor: "Mayor" };
-  document.getElementById("edit-modal-title").textContent = `Edit ${labels[type]}`;
+  const who = window.GIQ ? window.GIQ.level(labels[type]) : labels[type];
+  document.getElementById("edit-modal-title").textContent = T("adm.j_edit_title", { what: who });
   document.getElementById("edit-name").value = name || "";
   document.getElementById("edit-phone").value = phone || "";
   document.getElementById("edit-email").value = email || "";
@@ -491,9 +525,8 @@ function openEditModal(type, id) {
   document.getElementById("edit-request-fields").hidden = !requesting;
   document.getElementById("edit-reason").value = "";
   document.getElementById("edit-source").value = "";
-  document.getElementById("edit-save").textContent = requesting ? "Send request" : "Save";
-  const titleEl = document.getElementById("edit-modal-title");
-  if (requesting) titleEl.textContent = "Request a change — " + titleEl.textContent.replace(/^Edit\s*/i, "");
+  document.getElementById("edit-save").textContent = requesting ? T("adm.j_send") : T("adm.save");
+  if (requesting) document.getElementById("edit-modal-title").textContent = T("adm.j_req_title", { what: who });
   document.getElementById("edit-modal").classList.add("open");
 }
 
@@ -537,10 +570,10 @@ function offerEmailSuggestion(inputEl, boxEl, onDecide) {
   const typed = inputEl.value.trim();
   const better = typed && !keptEmails.has(typed) ? suggestEmail(typed) : null;
   if (!better) { boxEl.hidden = true; boxEl.innerHTML = ""; return false; }
-  boxEl.innerHTML = 'Did you mean <b>' + escapeText(better) + '</b>?' +
+  boxEl.innerHTML = T("adm.j_did_you_mean", { email: escapeText(better) }) +
     '<div class="suggest-actions">' +
-      '<button type="button" class="small-btn primary" data-act="use">Use ' + escapeText(better) + '</button>' +
-      '<button type="button" class="small-btn" data-act="keep">Keep ' + escapeText(typed) + '</button>' +
+      '<button type="button" class="small-btn primary" data-act="use">' + escapeText(T("adm.j_use", { email: better })) + '</button>' +
+      '<button type="button" class="small-btn" data-act="keep">' + escapeText(T("adm.j_keep", { email: typed })) + '</button>' +
     '</div>';
   boxEl.hidden = false;
   boxEl.querySelector('[data-act="use"]').addEventListener("click", () => {
@@ -569,9 +602,9 @@ async function saveEdit() {
   const email = emailEl.value.trim();
   const saveBtn = document.getElementById("edit-save");
   const requesting = MODE === "request";
-  const idleLabel = requesting ? "Send request" : "Save";
+  const idleLabel = requesting ? T("adm.j_send") : T("adm.save");
   saveBtn.disabled = true;
-  saveBtn.textContent = requesting ? "Sending..." : "Saving...";
+  saveBtn.textContent = requesting ? T("adm.j_sending") : T("adm.saving");
   try {
     const res = requesting
       ? await fetch("/api/admin/change-requests", {
@@ -592,16 +625,16 @@ async function saveEdit() {
     const data = await res.json();
     if (!res.ok) {
       // Shown inside the form, next to what needs fixing.
-      errorEl.textContent = data.error || "Failed to save.";
+      errorEl.textContent = srvMsg(data.error) || T("adm.j_err_save");
       const field = data.field && document.getElementById("edit-" + data.field);
       if (field) field.focus();
       return;
     }
     document.getElementById("edit-modal").classList.remove("open");
-    setStatus(requesting ? "Request sent for approval. Nothing has changed yet." : "Contact updated.", "success");
+    setStatus(requesting ? T("adm.j_sent") : T("adm.j_updated"), "success");
     loadTree();
   } catch (err) {
-    errorEl.textContent = "Network error while saving. Check your connection and try again.";
+    errorEl.textContent = T("adm.network");
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = idleLabel;
@@ -619,10 +652,9 @@ function openReassignModal(type, id) {
 
   if (type === "mla") {
     const mla = DATA.mlas.find((m) => m.id === id);
-    document.getElementById("reassign-modal-title").textContent = "Reassign MLA constituency";
-    document.getElementById("reassign-modal-desc").textContent =
-      `Move "${mla.mla_name || id}" under a different MP constituency. This changes which MP's mandate covers this MLA's wards.`;
-    document.getElementById("reassign-select-label").textContent = "New MP constituency";
+    document.getElementById("reassign-modal-title").textContent = T("adm.j_reassign_mla_title");
+    document.getElementById("reassign-modal-desc").textContent = T("adm.j_reassign_mla_desc", { name: mla.mla_name || id });
+    document.getElementById("reassign-select-label").textContent = T("adm.j_new_mp");
     DATA.mps.forEach((mp) => {
       const opt = document.createElement("option");
       opt.value = mp.id;
@@ -632,10 +664,9 @@ function openReassignModal(type, id) {
     });
   } else if (type === "ward") {
     const ward = DATA.localUnits.find((w) => w.id === id);
-    document.getElementById("reassign-modal-title").textContent = "Reassign ward";
-    document.getElementById("reassign-modal-desc").textContent =
-      `Move "${ward.name}" under a different MLA constituency. This changes which MLA's mandate covers this ward.`;
-    document.getElementById("reassign-select-label").textContent = "New MLA constituency";
+    document.getElementById("reassign-modal-title").textContent = T("adm.j_reassign_ward_title");
+    document.getElementById("reassign-modal-desc").textContent = T("adm.j_reassign_ward_desc", { name: ward.name });
+    document.getElementById("reassign-select-label").textContent = T("adm.j_new_mla");
     DATA.mlas.forEach((mla) => {
       const opt = document.createElement("option");
       opt.value = mla.id;
@@ -656,11 +687,11 @@ document.getElementById("reassign-save").addEventListener("click", async () => {
   if (!reassignContext) return;
   const newParentId = document.getElementById("reassign-select").value;
 
-  if (!confirm("This will immediately change which representative's mandate covers this. Continue?")) {
+  if (!confirm(T("adm.j_reassign_confirm"))) {
     return;
   }
 
-  setStatus("Reassigning...", "");
+  setStatus(T("adm.j_reassigning"), "");
   try {
     const res = await fetch("/api/admin/jurisdiction", {
       method: "PATCH",
@@ -669,14 +700,14 @@ document.getElementById("reassign-save").addEventListener("click", async () => {
     });
     const data = await res.json();
     if (!res.ok) {
-      setStatus(data.error || "Failed to reassign.", "error");
+      setStatus(srvMsg(data.error) || T("adm.j_reassign_err"), "error");
       return;
     }
     document.getElementById("reassign-modal").classList.remove("open");
-    setStatus("Reassigned successfully.", "success");
+    setStatus(T("adm.j_reassigned"), "success");
     await loadTree();
   } catch (err) {
-    setStatus("Network error while reassigning.", "error");
+    setStatus(T("adm.j_reassign_net"), "error");
   }
 });
 
@@ -689,7 +720,7 @@ function escapeText(s) {
 }
 
 function mlaLabel(mla) {
-  const person = mla.mla_name || "unnamed MLA";
+  const person = mla.mla_name || T("adm.j_unnamed_mla");
   return mla.name ? person + " (" + mla.name + ")" : person;
 }
 
@@ -701,8 +732,8 @@ function selectedAddType() {
 function updateAddTypeUi() {
   const type = selectedAddType();
   document.getElementById("add-mb-wrap").classList.toggle("hidden", type !== "URBAN");
-  const role = type === "URBAN" ? "Corporator" : type === "RURAL" ? "Gram Pradhan" : "Representative";
-  document.getElementById("add-rep-heading").textContent = role + " (optional)";
+  const role = type === "URBAN" ? "Corporator" : type === "RURAL" ? "Gram Pradhan" : "";
+  document.getElementById("add-rep-heading").textContent = T("adm.j_rep_optional", { role: role ? (window.GIQ ? window.GIQ.level(role) : role) : T("adm.j_representative") });
 }
 
 function fillMunicipalBodies(mlaId) {
@@ -710,12 +741,12 @@ function fillMunicipalBodies(mlaId) {
   select.innerHTML = "";
   const none = document.createElement("option");
   none.value = "";
-  none.textContent = "None";
+  none.textContent = T("adm.j_none");
   select.appendChild(none);
   DATA.municipalBodies.forEach((mb) => {
     const opt = document.createElement("option");
     opt.value = mb.id;
-    opt.textContent = (mb.name || mb.id) + (mb.has_mayor ? " (has Mayor)" : "");
+    opt.textContent = (mb.name || mb.id) + (mb.has_mayor ? T("adm.j_has_mayor") : "");
     select.appendChild(opt);
   });
 
@@ -758,12 +789,12 @@ function openAddModal(mlaId) {
   updateAddTypeUi();
   const ctx = document.getElementById("add-modal-context");
   ctx.className = "modal-context";
-  ctx.innerHTML = "Adding under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+  ctx.innerHTML = T("adm.j_adding_under", { mla: escapeText(mlaLabel(mla)) });
   const requesting = MODE === "request";
   document.getElementById("add-request-fields").hidden = !requesting;
-  document.getElementById("add-modal-title").textContent = requesting ? "Request a new ward or village" : "Add ward or village";
-  document.getElementById("add-save").textContent = requesting ? "Send request" : "Save";
-  document.getElementById("add-save-another").textContent = requesting ? "Send and request another" : "Save and add another";
+  document.getElementById("add-modal-title").textContent = requesting ? T("adm.j_req_add_title") : T("adm.j_add_title");
+  document.getElementById("add-save").textContent = requesting ? T("adm.j_send") : T("adm.save");
+  document.getElementById("add-save-another").textContent = requesting ? T("adm.j_send_another") : T("adm.j_save_another");
   document.getElementById("add-modal").classList.add("open"); document.querySelector("#add-modal .modal").scrollTop = 0; document.querySelector("#add-modal .modal").scrollTop = 0;
   document.getElementById("add-name").focus({ preventScroll: true });
 }
@@ -780,10 +811,10 @@ async function submitAdd(keepOpen) {
   const unitType = selectedAddType();
   const repEmail = document.getElementById("add-rep-email").value.trim();
 
-  if (!name) { errorEl.textContent = "Enter a name for the ward or village."; document.getElementById("add-name").focus({ preventScroll: true }); return; }
-  if (!unitType) { errorEl.textContent = "Choose Urban ward or Rural village."; return; }
+  if (!name) { errorEl.textContent = T("adm.j_err_name"); document.getElementById("add-name").focus({ preventScroll: true }); return; }
+  if (!unitType) { errorEl.textContent = T("adm.j_err_type"); return; }
   if (repEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(repEmail)) {
-    errorEl.textContent = "Enter the representative's email in the format name@example.com.";
+    errorEl.textContent = T("adm.srv_email");
     document.getElementById("add-rep-email").focus();
     return;
   }
@@ -819,17 +850,17 @@ async function submitAdd(keepOpen) {
     });
     const data = await res.json();
     if (!res.ok) {
-      errorEl.textContent = data.error || "Could not add this ward or village.";
+      errorEl.textContent = srvMsg(data.error) || T("adm.j_err_add");
       return;
     }
 
     expandedMps.add(mla.mp_constituency_id);
     expandedMlas.add(mla.id);
     if (requesting) {
-      setStatus("Request to add " + name + " sent for approval. Nothing has changed yet.", "success");
+      setStatus(T("adm.j_req_add_sent", { name: name }), "success");
     } else {
       highlightUnitId = data.unit.id;
-      setStatus("Added " + name + " under " + mlaLabel(mla) + ".", "success");
+      setStatus(T("adm.j_added", { name: name, mla: mlaLabel(mla) }), "success");
       await loadTree();
       setTimeout(() => { highlightUnitId = null; renderTree(); }, 4000);
     }
@@ -838,13 +869,13 @@ async function submitAdd(keepOpen) {
       clearAddFields(true);
       const ctx = document.getElementById("add-modal-context");
       ctx.className = "modal-context added";
-      ctx.innerHTML = (requesting ? "Request sent for <b>" : "Added <b>") + escapeText(name) + "</b>. " + (requesting ? "Request the next one" : "Add the next one") + " under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+      ctx.innerHTML = T(requesting ? "adm.j_sent_next" : "adm.j_added_next", { name: escapeText(name), mla: escapeText(mlaLabel(mla)) });
       document.getElementById("add-name").focus({ preventScroll: true });
     } else {
       closeAddModal();
     }
   } catch (err) {
-    errorEl.textContent = "Network error. Check your connection and try again.";
+    errorEl.textContent = T("adm.network");
   } finally {
     saveBtn.disabled = false;
     anotherBtn.disabled = false;
@@ -861,9 +892,15 @@ document.addEventListener("keydown", (e) => {
 
 document.getElementById("search-box").addEventListener("input", renderTree);
 
+// Switching हिन्दी / English redraws the tree from the data already loaded.
+document.addEventListener("giq:lang", () => {
+  applyTheme(localStorage.getItem("griq-admin-theme") || "dark");
+  if (DATA && DATA.mps) renderTree();
+});
+
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
-  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
 }
 
 const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";

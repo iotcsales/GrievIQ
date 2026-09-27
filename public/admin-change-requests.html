@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GrievIQ Admin — Change requests</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+<title data-i18n="adm.c_page_title">GrievIQ Admin — Change requests</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -171,30 +171,39 @@
   #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
   .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
   a.src { color: var(--admin-accent); word-break: break-all; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html" class="active" aria-current="page">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a>
-    <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes" class="active" aria-current="page">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
   <h1 id="page-title">Change requests</h1>
-  <p class="subtitle" id="page-sub">Loading...</p>
+  <p class="subtitle" id="page-sub" data-i18n="adm.loading">Loading...</p>
   <div id="summary" role="status" aria-live="polite"></div>
   <div class="toolbar" id="toolbar" hidden></div>
-  <div id="list"><p class="empty">Loading...</p></div>
+  <div id="list"><p class="empty" data-i18n="adm.loading">Loading...</p></div>
 </main>
 
 <script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" }; }
+
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -205,18 +214,32 @@ function fmtDate(iso) {
   var s = String(iso);
   var d = new Date(s.indexOf("T") !== -1 ? s : s.replace(" ", "T") + "Z");
   if (isNaN(d)) return s;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + ", " +
-    d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) + ", " +
+    d.toLocaleTimeString(loc(), timeOpts());
 }
-var STATUS = { PENDING: "Waiting for approval", APPROVED: "Approved", REJECTED: "Rejected", WITHDRAWN: "Withdrawn", OUT_OF_DATE: "Out of date" };
-var FIELD = { name: "Name", phone: "Phone", email: "Email" };
-var ADD_FIELDS = [["name", "Ward / village"], ["unitType", "Type"], ["repName", "Representative"], ["repPhone", "Phone"], ["repEmail", "Email"], ["localities", "Localities"]];
+// The record label is stored in English ("Ward representative — Aishbagh",
+// "New ward under ..."); show it in the page language, keeping the name.
+function labelText(r) {
+  var lbl = String(r.targetLabel || "");
+  if (r.kind === "add_unit") {
+    var m = lbl.match(/^New (ward|village) under (.*)$/);
+    return m ? T(m[1] === "village" ? "adm.c_lbl_new_village" : "adm.c_lbl_new_ward", { mla: m[2] }) : lbl;
+  }
+  var i = lbl.indexOf(" — ");
+  var place = i >= 0 ? lbl.slice(i + 3) : lbl;
+  var k = "adm.c_lbl_" + r.targetType;
+  var who = T(k);
+  return who === k ? lbl : who + " — " + place;
+}
+function statusText(st) { var k = "adm.c_st_" + st; var v = T(k); return v === k ? st : v; }
+function fieldText(f) { var k = "adm.f_" + f; var v = T(k); return v === k ? f : v; }
+var ADD_FIELDS = [["name", "adm.c_add_ward"], ["unitType", "adm.c_add_type"], ["repName", "adm.c_add_rep"], ["repPhone", "adm.f_phone"], ["repEmail", "adm.f_email"], ["localities", "adm.c_add_localities"]];
 
 var state = { data: null, view: "pending" };
 
-function val(v) { return v === null || v === undefined || v === "" ? '<span class="muted">(blank)</span>' : esc(v); }
+function val(v) { return v === null || v === undefined || v === "" ? '<span class="muted">' + T("adm.blank") + '</span>' : esc(v); }
 function sourceHtml(src) {
-  if (!src) return '<span class="muted">none given</span>';
+  if (!src) return '<span class="muted">' + T("adm.c_none_given") + '</span>';
   if (/^https?:\/\/\S+$/i.test(src)) return '<a class="src" href="' + esc(src) + '" target="_blank" rel="noopener noreferrer">' + esc(src) + "</a>";
   return esc(src);
 }
@@ -224,20 +247,23 @@ function sourceHtml(src) {
 function compareTable(r) {
   if (r.kind === "add_unit") {
     var v = r.newValues || {};
-    return '<table class="cmp"><thead><tr><th scope="col">Detail</th><th scope="col">Requested</th></tr></thead><tbody>' +
-      ADD_FIELDS.map(function (f) { return "<tr><td>" + f[1] + '</td><td class="changed">' + val(v[f[0]]) + "</td></tr>"; }).join("") +
+    return '<table class="cmp"><thead><tr><th scope="col">' + T("adm.c_detail") + '</th><th scope="col">' + T("adm.c_requested") + '</th></tr></thead><tbody>' +
+      ADD_FIELDS.map(function (f) {
+        var shown = f[0] === "unitType" && v.unitType ? (v.unitType === "URBAN" ? T("adm.urban_ward") : v.unitType === "RURAL" ? T("adm.rural_village") : v.unitType) : v[f[0]];
+        return "<tr><td>" + T(f[1]) + '</td><td class="changed">' + val(shown) + "</td></tr>";
+      }).join("") +
       "</tbody></table>";
   }
   var nv = r.newValues || {}, ov = r.oldValues || {}, live = r.liveValues;
   var rows = Object.keys(nv).map(function (f) {
     var current = live ? live[f] : ov[f];
     var changedSince = live && (live[f] ?? null) !== (ov[f] ?? null);
-    return "<tr><td>" + (FIELD[f] || esc(f)) + "</td><td>" + val(current) +
-      (changedSince ? '<div class="was">when requested: ' + (ov[f] ? esc(ov[f]) : "(blank)") + "</div>" : "") +
+    return "<tr><td>" + esc(fieldText(f)) + "</td><td>" + val(current) +
+      (changedSince ? '<div class="was">' + esc(T("adm.c_when_requested", { v: ov[f] ? ov[f] : T("adm.blank") })) + "</div>" : "") +
       '</td><td class="changed">' + val(nv[f]) + "</td></tr>";
   }).join("");
-  return '<table class="cmp"><thead><tr><th scope="col">Detail</th><th scope="col">' + (live ? "Current" : "Before") +
-    '</th><th scope="col">Requested</th></tr></thead><tbody>' + rows + "</tbody></table>";
+  return '<table class="cmp"><thead><tr><th scope="col">' + T("adm.c_detail") + '</th><th scope="col">' + (live ? T("adm.c_current") : T("adm.c_before")) +
+    '</th><th scope="col">' + T("adm.c_requested") + '</th></tr></thead><tbody>' + rows + "</tbody></table>";
 }
 
 function isOutOfDate(r) {
@@ -252,29 +278,30 @@ function renderCard(r, approver) {
   var ood = isOutOfDate(r);
   var html = '<div class="req" id="req-' + esc(r.id) + '">' +
     '<div class="req-head">' +
-      (approver && pending && !own && !ood ? '<input type="checkbox" class="pick" data-id="' + esc(r.id) + '" aria-label="Select request: ' + esc(r.targetLabel) + '">' : "") +
-      '<div class="req-title">' + esc(r.targetLabel) + (r.kind === "add_unit" ? "" : "") +
-        '<div class="req-meta">' + (approver ? "Requested by " + esc(r.requestedBy) + " · " : "Sent ") + esc(fmtDate(r.requestedAt)) +
-        (r.reviewedAt && !pending ? " · " + (r.status === "WITHDRAWN" ? "withdrawn " : "decided ") + esc(fmtDate(r.reviewedAt)) + (r.reviewedBy ? " by " + esc(r.reviewedBy) : "") : "") +
+      (approver && pending && !own && !ood ? '<input type="checkbox" class="pick" data-id="' + esc(r.id) + '" aria-label="' + esc(T("adm.c_select", { label: labelText(r) })) + '">' : "") +
+      '<div class="req-title">' + esc(labelText(r)) + (r.kind === "add_unit" ? "" : "") +
+        '<div class="req-meta">' + esc(approver ? T("adm.c_requested_by", { who: r.requestedBy, date: fmtDate(r.requestedAt) }) : T("adm.c_sent_on", { date: fmtDate(r.requestedAt) })) +
+        (r.reviewedAt && !pending ? esc(r.status === "WITHDRAWN" ? T("adm.c_withdrawn", { date: fmtDate(r.reviewedAt) })
+          : r.reviewedBy ? T("adm.c_decided_by", { date: fmtDate(r.reviewedAt), who: r.reviewedBy }) : T("adm.c_decided", { date: fmtDate(r.reviewedAt) })) : "") +
         "</div></div>" +
-      '<span class="status-tag st-' + esc(r.status) + '">' + esc(STATUS[r.status] || r.status) + "</span>" +
+      '<span class="status-tag st-' + esc(r.status) + '">' + esc(statusText(r.status)) + "</span>" +
     "</div>" +
     compareTable(r) +
-    (ood ? '<div class="ood">This record has changed since the request was made, so it can no longer be approved as it is. Reject it with a note, and the operator can send a new request.</div>' : "") +
-    '<div class="why"><b>Reason:</b> ' + esc(r.reason) + '<br><b>Source:</b> ' + sourceHtml(r.source) +
-      (r.reviewNote ? '<br><b>' + (r.status === "REJECTED" ? "Why it was rejected" : "Note") + ":</b> " + esc(r.reviewNote) : "") + "</div>";
+    (ood ? '<div class="ood">' + T("adm.c_ood") + '</div>' : "") +
+    '<div class="why"><b>' + T("adm.c_reason") + '</b> ' + esc(r.reason) + '<br><b>' + T("adm.c_source") + '</b> ' + sourceHtml(r.source) +
+      (r.reviewNote ? '<br><b>' + (r.status === "REJECTED" ? T("adm.c_why_rejected") : T("adm.c_note")) + "</b> " + esc(r.reviewNote) : "") + "</div>";
   if (pending && approver && !own) {
     html += '<div class="req-actions">' +
-      (ood ? "" : '<button class="primary approve-one" data-id="' + esc(r.id) + '">Approve</button>') +
-      '<button class="danger reject-open" data-id="' + esc(r.id) + '">Reject</button>' +
-      '<div class="reject-box" id="rb-' + esc(r.id) + '"><label for="note-' + esc(r.id) + '">Why is it rejected? (the operator will see this)</label>' +
+      (ood ? "" : '<button class="primary approve-one" data-id="' + esc(r.id) + '">' + T("adm.c_approve") + '</button>') +
+      '<button class="danger reject-open" data-id="' + esc(r.id) + '">' + T("adm.c_reject") + '</button>' +
+      '<div class="reject-box" id="rb-' + esc(r.id) + '"><label for="note-' + esc(r.id) + '">' + T("adm.c_reject_label") + '</label>' +
         '<textarea id="note-' + esc(r.id) + '" maxlength="500"></textarea>' +
-        '<div class="req-actions"><button class="danger reject-send" data-id="' + esc(r.id) + '">Reject request</button></div></div>' +
+        '<div class="req-actions"><button class="danger reject-send" data-id="' + esc(r.id) + '">' + T("adm.c_reject_send") + '</button></div></div>' +
     "</div>";
   } else if (pending && approver && own) {
-    html += '<div class="req-meta">This is your own request. Another administrator must decide it.</div>';
+    html += '<div class="req-meta">' + T("adm.c_own_note") + '</div>';
   } else if (pending && !approver) {
-    html += '<div class="req-actions"><button class="withdraw" data-id="' + esc(r.id) + '">Withdraw request</button></div>';
+    html += '<div class="req-actions"><button class="withdraw" data-id="' + esc(r.id) + '">' + T("adm.c_withdraw") + '</button></div>';
   }
   html += '<div class="row-msg" id="msg-' + esc(r.id) + '" role="status" aria-live="polite"></div></div>';
   return html;
@@ -292,18 +319,16 @@ function setSummary(msg, type) {
 function render() {
   var d = state.data;
   var approver = d.canApprove;
-  document.getElementById("page-title").textContent = approver ? "Change requests" : "My requests";
-  document.getElementById("page-sub").textContent = approver
-    ? "Changes requested by data entry operators. Nothing changes until you approve it; each approval applies exactly what is shown."
-    : "Changes you have requested. Each one is checked by an administrator before it takes effect.";
+  document.getElementById("page-title").textContent = approver ? T("adm.c_title") : T("adm.c_title_own");
+  document.getElementById("page-sub").textContent = approver ? T("adm.c_sub") : T("adm.c_sub_own");
   var tb = document.getElementById("toolbar");
   if (approver) {
     tb.hidden = false;
-    tb.innerHTML = '<div class="tabs" role="group" aria-label="Show">' +
-        '<button id="tab-pending" aria-pressed="' + (state.view === "pending") + '">Waiting (' + d.pendingCount + ")</button>" +
-        '<button id="tab-decided" aria-pressed="' + (state.view === "decided") + '">Recent decisions</button></div>' +
-      (state.view === "pending" && d.requests.length ? '<label class="muted"><input type="checkbox" id="pick-all"> Select all</label>' +
-        '<button class="primary" id="approve-picked">Approve selected</button>' : "");
+    tb.innerHTML = '<div class="tabs" role="group" aria-label="' + esc(T("adm.c_show")) + '">' +
+        '<button id="tab-pending" aria-pressed="' + (state.view === "pending") + '">' + esc(T("adm.c_tab_waiting", { n: d.pendingCount })) + "</button>" +
+        '<button id="tab-decided" aria-pressed="' + (state.view === "decided") + '">' + T("adm.c_tab_decided") + '</button></div>' +
+      (state.view === "pending" && d.requests.length ? '<label class="muted"><input type="checkbox" id="pick-all"> ' + T("adm.c_select_all") + '</label>' +
+        '<button class="primary" id="approve-picked">' + T("adm.c_approve_selected") + '</button>' : "");
     document.getElementById("tab-pending").onclick = function () { state.view = "pending"; setSummary(""); load(); };
     document.getElementById("tab-decided").onclick = function () { state.view = "decided"; setSummary(""); load(); };
   } else {
@@ -311,7 +336,7 @@ function render() {
   }
   var list = document.getElementById("list");
   if (!d.requests.length) {
-    list.innerHTML = '<p class="empty">' + (approver ? (state.view === "pending" ? "No requests are waiting." : "No decisions yet.") : "You have not sent any requests yet. Use Request change on the Jurisdiction page.") + "</p>";
+    list.innerHTML = '<p class="empty">' + (approver ? (state.view === "pending" ? T("adm.c_empty_pending") : T("adm.c_empty_decided")) : T("adm.c_empty_own")) + "</p>";
     return;
   }
   list.innerHTML = d.requests.map(function (r) { return renderCard(r, approver); }).join("");
@@ -324,29 +349,28 @@ async function post(body) {
   return { ok: res.ok, data: data };
 }
 
-var RESULT_TEXT = {
-  approved: "Approved and applied.", rejected: "Rejected.", out_of_date: "Not applied: the record changed after this request was made. Marked out of date.",
-  already_decided: "Already decided by someone else. Refresh to see it.", own_request: "You can't decide your own request.",
-  invalid: "Not applied: the request no longer passes the checks.", not_found: "Request not found.",
-};
+function resultText(r) {
+  var k = { rejected: "adm.c_res_rejected", already_decided: "adm.c_res_decided", own_request: "adm.c_res_own" }[r];
+  return k ? T(k) : r;
+}
 
 async function approve(ids) {
-  setSummary("Approving " + ids.length + " request" + (ids.length === 1 ? "" : "s") + "...", "");
+  setSummary(T("adm.c_approving", { n: ids.length }), "");
   try {
     var r = await post({ action: "approve", ids: ids });
-    if (!r.ok) { setSummary(r.data.error === "INSUFFICIENT_ROLE" ? "Your role can't approve requests." : (r.data.error || "Failed."), "error"); return; }
+    if (!r.ok) { setSummary(r.data.error === "INSUFFICIENT_ROLE" ? T("adm.c_err_role") : (r.data.error || T("adm.c_err_failed")), "error"); return; }
     var counts = {};
     r.data.results.forEach(function (x) { counts[x.result] = (counts[x.result] || 0) + 1; });
     var parts = [];
-    if (counts.approved) parts.push(counts.approved + " approved and applied");
-    if (counts.out_of_date) parts.push(counts.out_of_date + " out of date (not applied)");
-    if (counts.invalid) parts.push(counts.invalid + " failed the checks (not applied)");
-    if (counts.already_decided) parts.push(counts.already_decided + " already decided");
-    if (counts.own_request) parts.push(counts.own_request + " your own (not allowed)");
+    if (counts.approved) parts.push(T("adm.c_r_approved", { n: counts.approved }));
+    if (counts.out_of_date) parts.push(T("adm.c_r_ood", { n: counts.out_of_date }));
+    if (counts.invalid) parts.push(T("adm.c_r_invalid", { n: counts.invalid }));
+    if (counts.already_decided) parts.push(T("adm.c_r_decided", { n: counts.already_decided }));
+    if (counts.own_request) parts.push(T("adm.c_r_own", { n: counts.own_request }));
     var fails = r.data.results.filter(function (x) { return x.result !== "approved"; });
     await load();
-    setSummary(parts.join(", ") + "." + (fails.length && fails[0].error ? " " + fails[0].error : ""), counts.approved === ids.length ? "success" : "error");
-  } catch (e) { setSummary("Network error. Nothing was lost; try again.", "error"); }
+    setSummary(parts.join(", ") + (isHi() ? "।" : ".") + (fails.length && fails[0].error ? " " + fails[0].error : ""), counts.approved === ids.length ? "success" : "error");
+  } catch (e) { setSummary(T("adm.c_err_network_approve"), "error"); }
 }
 
 function wire() {
@@ -357,27 +381,27 @@ function wire() {
   document.querySelectorAll(".reject-send").forEach(function (b) {
     b.onclick = async function () {
       var id = b.dataset.id, note = document.getElementById("note-" + id).value.trim();
-      if (note.length < 3) { setRowMsg(id, "Give the reason for rejecting. The operator will see it.", "error"); document.getElementById("note-" + id).focus(); return; }
+      if (note.length < 3) { setRowMsg(id, T("adm.c_need_note"), "error"); document.getElementById("note-" + id).focus(); return; }
       b.disabled = true;
       try {
         var r = await post({ action: "reject", ids: [id], note: note });
-        if (!r.ok) { setRowMsg(id, r.data.error || "Failed.", "error"); b.disabled = false; return; }
+        if (!r.ok) { setRowMsg(id, r.data.error || T("adm.c_err_failed"), "error"); b.disabled = false; return; }
         var res = r.data.results[0];
         await load();
-        setSummary(RESULT_TEXT[res.result] || res.result, res.result === "rejected" ? "success" : "error");
-      } catch (e) { setRowMsg(id, "Network error. Try again.", "error"); b.disabled = false; }
+        setSummary(resultText(res.result), res.result === "rejected" ? "success" : "error");
+      } catch (e) { setRowMsg(id, T("adm.c_err_network"), "error"); b.disabled = false; }
     };
   });
   document.querySelectorAll(".withdraw").forEach(function (b) {
     b.onclick = async function () {
       var id = b.dataset.id;
-      if (!confirm("Withdraw this request? It will not be applied.")) return;
+      if (!confirm(T("adm.c_withdraw_confirm"))) return;
       b.disabled = true;
       try {
         var r = await post({ action: "withdraw", id: id });
-        if (!r.ok) { setRowMsg(id, r.data.error || "Failed.", "error"); b.disabled = false; return; }
-        await load(); setSummary("Request withdrawn.", "success");
-      } catch (e) { setRowMsg(id, "Network error. Try again.", "error"); b.disabled = false; }
+        if (!r.ok) { setRowMsg(id, r.data.error || T("adm.c_err_failed"), "error"); b.disabled = false; return; }
+        await load(); setSummary(T("adm.c_withdrawn_ok"), "success");
+      } catch (e) { setRowMsg(id, T("adm.c_err_network"), "error"); b.disabled = false; }
     };
   });
   var all = document.getElementById("pick-all");
@@ -385,8 +409,8 @@ function wire() {
   var ap = document.getElementById("approve-picked");
   if (ap) ap.onclick = function () {
     var ids = Array.prototype.map.call(document.querySelectorAll(".pick:checked"), function (c) { return c.dataset.id; });
-    if (!ids.length) { setSummary("Tick at least one request first.", "error"); return; }
-    if (!confirm("Approve and apply " + ids.length + " request" + (ids.length === 1 ? "" : "s") + "?")) return;
+    if (!ids.length) { setSummary(T("adm.c_tick_first"), "error"); return; }
+    if (!confirm(T("adm.c_confirm_approve", { n: ids.length }))) return;
     approve(ids);
   };
 }
@@ -398,19 +422,19 @@ async function load() {
     if (!res.ok) {
       document.getElementById("page-sub").textContent = "";
       document.getElementById("list").innerHTML = '<p class="empty">' +
-        (data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE" ? "Your account does not have access to this page." : "Could not load requests (" + esc(data.error || res.status) + ").") + "</p>";
+        (data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : esc(T("adm.c_err_load", { err: data.error || res.status }))) + "</p>";
       return;
     }
     state.data = data;
     render();
   } catch (e) {
-    document.getElementById("list").innerHTML = '<p class="empty">Network error loading requests.</p>';
+    document.getElementById("list").innerHTML = '<p class="empty">' + T("adm.network") + '</p>';
   }
 }
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
-  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
 }
 var savedTheme = "dark";
 try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
@@ -421,6 +445,13 @@ document.getElementById("theme-toggle").addEventListener("click", function () {
   var next = current === "light" ? "dark" : "light";
   try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
+});
+
+// Switching हिन्दी / English redraws from the data already loaded.
+document.addEventListener("giq:lang", function () {
+  var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (state.data) render();
 });
 
 load();
