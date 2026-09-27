@@ -150,6 +150,13 @@
   .form-error { font-size: 13px; color: var(--admin-danger); margin-top: 12px; min-height: 18px; }
   .suggest-box { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--admin-accent); border-radius: 6px; font-size: 13px; line-height: 1.5; }
   .suggest-box[hidden] { display: none; }
+  .request-banner { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin: -8px 0 18px; line-height: 1.5; }
+  .request-banner[hidden], .request-only[hidden] { display: none; }
+  .waiting-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #3a3423; color: #d8c26f; margin-left: 6px; white-space: nowrap; }
+  html.light-theme .waiting-tag { background: #fbf1d6; color: #7a5c1c; }
+  .modal textarea { width: 100%; box-sizing: border-box; min-height: 64px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); }
+  html.light-theme .modal textarea { background: #fff; }
+  .hint { font-size: 12px; color: var(--admin-muted); margin-top: 3px; }
   .suggest-box .suggest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .node-row.just-added { box-shadow: inset 3px 0 0 var(--admin-success); background: var(--admin-success-bg); }
   button.small-btn.add-btn { color: var(--admin-accent); border-style: dashed; }
@@ -165,13 +172,17 @@
     <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
     <a href="/admin-import-wards.html">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" class="active">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
   <h1>Jurisdiction hierarchy</h1>
   <p class="subtitle">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
+  <div class="request-banner" id="request-banner" hidden>
+    <b>You can request changes.</b> Nothing you send changes the live data straight away: each request is checked and
+    approved by an administrator first. You can follow your requests on <a href="/admin-change-requests.html">Change requests</a>.
+  </div>
 
   <div style="position:relative; margin-bottom:16px;">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none;">
@@ -195,6 +206,14 @@
     <input type="text" id="edit-phone" maxlength="40" autocomplete="off" inputmode="tel" />
     <label for="edit-email">Email</label>
     <input type="email" id="edit-email" maxlength="200" autocomplete="off" spellcheck="false" />
+    <div class="request-only" id="edit-request-fields" hidden>
+      <label for="edit-reason">Reason for the change (required)</label>
+      <textarea id="edit-reason" maxlength="500"></textarea>
+      <div class="hint">For example: "Phone number changed, as per RTI reply" or "Missing email, found on official website".</div>
+      <label for="edit-source">Source (optional)</label>
+      <input type="text" id="edit-source" maxlength="300" autocomplete="off" />
+      <div class="hint">An RTI reply number, a notice, or a link to an official page, so the approver can check it.</div>
+    </div>
     <div class="suggest-box" id="edit-suggest" hidden></div>
     <div class="form-error" id="edit-error" role="alert"></div>
     <div class="modal-actions">
@@ -249,6 +268,13 @@
     <input type="text" id="add-localities" maxlength="1000" placeholder="e.g. Hazratganj; Ashok Marg" autocomplete="off" />
     <div class="form-hint">Separate neighbourhoods with semicolons. Used to match citizens' addresses to this ward.</div>
 
+    <div class="request-only" id="add-request-fields" hidden>
+      <label for="add-reason">Reason (required)</label>
+      <textarea id="add-reason" maxlength="500"></textarea>
+      <label for="add-source">Source (optional)</label>
+      <input type="text" id="add-source" maxlength="300" autocomplete="off" />
+      <div class="hint">For example a delimitation notice, an RTI reply number, or a link to an official page.</div>
+    </div>
     <div class="suggest-box" id="add-suggest" hidden></div>
     <div class="form-error" id="add-error" role="alert"></div>
     <div class="modal-actions">
@@ -280,6 +306,15 @@ function fmtContact(name, phone, email) {
   return parts.join(" · ");
 }
 
+let MODE = "edit";
+function isWaiting(type, id) {
+  return (DATA.pendingRequests || []).includes(type + ":" + id);
+}
+function waitingTag(type, id) {
+  return isWaiting(type, id) ? '<span class="waiting-tag">Change waiting for approval</span>' : "";
+}
+function editLabel() { return MODE === "request" ? "Request change" : "Edit"; }
+
 async function loadTree() {
   const treeEl = document.getElementById("tree");
   treeEl.innerHTML = '<div class="node-row">Loading...</div>';
@@ -291,6 +326,10 @@ async function loadTree() {
       return;
     }
     DATA = data;
+    // "edit": admins change data directly. "request": data entry operators
+    // send change requests that an admin must approve (maker-checker).
+    MODE = data.canEdit ? "edit" : (data.canRequest ? "request" : "view");
+    document.getElementById("request-banner").hidden = MODE !== "request";
     renderTree();
   } catch (err) {
     treeEl.innerHTML = '<div class="node-row">Network error loading jurisdiction data.</div>';
@@ -327,11 +366,11 @@ function renderTree() {
     row.className = "node-row mp";
     row.innerHTML = `
       <button class="toggle-btn" data-toggle-mp="${mp.id}">${isOpen ? "▾" : "▸"}</button>
-      <div class="node-name">${mp.mp_name || '<span class="missing">unnamed MP</span>'}</div>
-      <div class="node-contact">${fmtContact(mp.mp_name, mp.mp_phone, mp.mp_email)}</div>
+      <div class="node-name">${mp.mp_name ? escapeText(mp.mp_name) : '<span class="missing">unnamed MP</span>'}</div>
+      <div class="node-contact">${fmtContact(mp.mp_name, mp.mp_phone, mp.mp_email)}${waitingTag("mp", mp.id)}</div>
       <div class="node-count">${mlasUnder.length} MLA${mlasUnder.length === 1 ? "" : "s"}</div>
       <div class="row-actions">
-        <button class="small-btn" data-edit="mp" data-id="${mp.id}">Edit</button>
+        ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mp" data-id="${escapeText(mp.id)}">${editLabel()}</button>`}
       </div>
     `;
     treeEl.appendChild(row);
@@ -353,13 +392,13 @@ function renderTree() {
         mlaRow.className = "node-row mla";
         mlaRow.innerHTML = `
           <button class="toggle-btn" data-toggle-mla="${mla.id}">${mlaOpen ? "▾" : "▸"}</button>
-          <div class="node-name">${mla.mla_name || '<span class="missing">unnamed MLA</span>'}</div>
-          <div class="node-contact">${fmtContact(mla.mla_name, mla.mla_phone, mla.mla_email)}</div>
+          <div class="node-name">${mla.mla_name ? escapeText(mla.mla_name) : '<span class="missing">unnamed MLA</span>'}</div>
+          <div class="node-contact">${fmtContact(mla.mla_name, mla.mla_phone, mla.mla_email)}${waitingTag("mla", mla.id)}</div>
           <div class="node-count">${wardsUnder.length} ward${wardsUnder.length === 1 ? "" : "s"}</div>
           <div class="row-actions">
-            <button class="small-btn add-btn" data-add-unit="${mla.id}">+ Add ward/village</button>
-            <button class="small-btn" data-edit="mla" data-id="${mla.id}">Edit</button>
-            <button class="small-btn" data-reassign="mla" data-id="${mla.id}">Reassign</button>
+            ${MODE === "view" ? "" : `<button class="small-btn add-btn" data-add-unit="${escapeText(mla.id)}">${MODE === "request" ? "+ Request new ward/village" : "+ Add ward/village"}</button>
+            <button class="small-btn" data-edit="mla" data-id="${escapeText(mla.id)}">${editLabel()}</button>`}
+            ${MODE === "edit" ? `<button class="small-btn" data-reassign="mla" data-id="${escapeText(mla.id)}">Reassign</button>` : ""}
           </div>
         `;
         treeEl.appendChild(mlaRow);
@@ -372,16 +411,16 @@ function renderTree() {
             wardRow.dataset.unitId = ward.id;
             let mayorHtml = "";
             if (mb && mb.has_mayor) {
-              mayorHtml = ` &nbsp;|&nbsp; Mayor: ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}
-                <button class="small-btn" data-edit="mayor" data-id="${mb.id}">Edit mayor</button>`;
+              mayorHtml = ` &nbsp;|&nbsp; Mayor: ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}${waitingTag("mayor", mb.id)}
+                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mayor" data-id="${escapeText(mb.id)}">${MODE === "request" ? "Request change (mayor)" : "Edit mayor"}</button>`}`;
             }
             wardRow.innerHTML = `
               <div style="width:16px;"></div>
-              <div class="node-name">${ward.name} <span class="node-count">(${ward.unit_type})</span></div>
-              <div class="node-contact">${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${mayorHtml}</div>
+              <div class="node-name">${escapeText(ward.name)} <span class="node-count">(${escapeText(ward.unit_type)})</span></div>
+              <div class="node-contact">${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${waitingTag("ward", ward.id)}${mayorHtml}</div>
               <div class="row-actions">
-                <button class="small-btn" data-edit="ward" data-id="${ward.id}">Edit</button>
-                <button class="small-btn" data-reassign="ward" data-id="${ward.id}">Reassign</button>
+                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="ward" data-id="${escapeText(ward.id)}">${editLabel()}</button>`}
+                ${MODE === "edit" ? `<button class="small-btn" data-reassign="ward" data-id="${escapeText(ward.id)}">Reassign</button>` : ""}
               </div>
             `;
             treeEl.appendChild(wardRow);
@@ -448,6 +487,13 @@ function openEditModal(type, id) {
   document.getElementById("edit-email").value = email || "";
   document.getElementById("edit-error").textContent = "";
   document.getElementById("edit-suggest").hidden = true;
+  const requesting = MODE === "request";
+  document.getElementById("edit-request-fields").hidden = !requesting;
+  document.getElementById("edit-reason").value = "";
+  document.getElementById("edit-source").value = "";
+  document.getElementById("edit-save").textContent = requesting ? "Send request" : "Save";
+  const titleEl = document.getElementById("edit-modal-title");
+  if (requesting) titleEl.textContent = "Request a change — " + titleEl.textContent.replace(/^Edit\s*/i, "");
   document.getElementById("edit-modal").classList.add("open");
 }
 
@@ -522,14 +568,27 @@ async function saveEdit() {
   const phone = document.getElementById("edit-phone").value.trim();
   const email = emailEl.value.trim();
   const saveBtn = document.getElementById("edit-save");
+  const requesting = MODE === "request";
+  const idleLabel = requesting ? "Send request" : "Save";
   saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
+  saveBtn.textContent = requesting ? "Sending..." : "Saving...";
   try {
-    const res = await fetch("/api/admin/jurisdiction", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update_contact", type: editContext.type, id: editContext.id, name, phone, email }),
-    });
+    const res = requesting
+      ? await fetch("/api/admin/change-requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "submit", kind: "contact", targetType: editContext.type, targetId: editContext.id,
+            name, phone, email,
+            reason: document.getElementById("edit-reason").value,
+            source: document.getElementById("edit-source").value,
+          }),
+        })
+      : await fetch("/api/admin/jurisdiction", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "update_contact", type: editContext.type, id: editContext.id, name, phone, email }),
+        });
     const data = await res.json();
     if (!res.ok) {
       // Shown inside the form, next to what needs fixing.
@@ -539,13 +598,13 @@ async function saveEdit() {
       return;
     }
     document.getElementById("edit-modal").classList.remove("open");
-    setStatus("Contact updated.", "success");
+    setStatus(requesting ? "Request sent for approval. Nothing has changed yet." : "Contact updated.", "success");
     loadTree();
   } catch (err) {
     errorEl.textContent = "Network error while saving. Check your connection and try again.";
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = "Save";
+    saveBtn.textContent = idleLabel;
   }
 }
 document.getElementById("edit-save").addEventListener("click", saveEdit);
@@ -681,6 +740,10 @@ function clearAddFields(keepTypeAndBody) {
   document.getElementById("add-localities").value = "";
   document.getElementById("add-error").textContent = "";
   document.getElementById("add-suggest").hidden = true;
+  if (document.getElementById("add-reason") && !keepTypeAndBody) {
+    document.getElementById("add-reason").value = "";
+    document.getElementById("add-source").value = "";
+  }
   if (!keepTypeAndBody) {
     document.querySelectorAll('input[name="add-type"]').forEach((r) => { r.checked = false; });
   }
@@ -696,6 +759,11 @@ function openAddModal(mlaId) {
   const ctx = document.getElementById("add-modal-context");
   ctx.className = "modal-context";
   ctx.innerHTML = "Adding under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+  const requesting = MODE === "request";
+  document.getElementById("add-request-fields").hidden = !requesting;
+  document.getElementById("add-modal-title").textContent = requesting ? "Request a new ward or village" : "Add ward or village";
+  document.getElementById("add-save").textContent = requesting ? "Send request" : "Save";
+  document.getElementById("add-save-another").textContent = requesting ? "Send and request another" : "Save and add another";
   document.getElementById("add-modal").classList.add("open"); document.querySelector("#add-modal .modal").scrollTop = 0; document.querySelector("#add-modal .modal").scrollTop = 0;
   document.getElementById("add-name").focus({ preventScroll: true });
 }
@@ -730,11 +798,15 @@ async function submitAdd(keepOpen) {
 
   const mla = addContext.mla;
   try {
-    const res = await fetch("/api/admin/jurisdiction", {
+    const requesting = MODE === "request";
+    const res = await fetch(requesting ? "/api/admin/change-requests" : "/api/admin/jurisdiction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "add_unit",
+        action: requesting ? "submit" : "add_unit",
+        kind: "add_unit",
+        reason: requesting ? document.getElementById("add-reason").value : undefined,
+        source: requesting ? document.getElementById("add-source").value : undefined,
         mlaId: mla.id,
         name,
         unitType,
@@ -753,16 +825,20 @@ async function submitAdd(keepOpen) {
 
     expandedMps.add(mla.mp_constituency_id);
     expandedMlas.add(mla.id);
-    highlightUnitId = data.unit.id;
-    setStatus("Added " + name + " under " + mlaLabel(mla) + ".", "success");
-    await loadTree();
-    setTimeout(() => { highlightUnitId = null; renderTree(); }, 4000);
+    if (requesting) {
+      setStatus("Request to add " + name + " sent for approval. Nothing has changed yet.", "success");
+    } else {
+      highlightUnitId = data.unit.id;
+      setStatus("Added " + name + " under " + mlaLabel(mla) + ".", "success");
+      await loadTree();
+      setTimeout(() => { highlightUnitId = null; renderTree(); }, 4000);
+    }
 
     if (keepOpen) {
       clearAddFields(true);
       const ctx = document.getElementById("add-modal-context");
       ctx.className = "modal-context added";
-      ctx.innerHTML = "Added <b>" + escapeText(name) + "</b>. Add the next one under <b>" + escapeText(mlaLabel(mla)) + "</b>";
+      ctx.innerHTML = (requesting ? "Request sent for <b>" : "Added <b>") + escapeText(name) + "</b>. " + (requesting ? "Request the next one" : "Add the next one") + " under <b>" + escapeText(mlaLabel(mla)) + "</b>";
       document.getElementById("add-name").focus({ preventScroll: true });
     } else {
       closeAddModal();

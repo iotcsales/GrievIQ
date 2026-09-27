@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GrievIQ Admin — Change requests</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  .req { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .req-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .req-head input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .req-title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+  .req-meta { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .status-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-PENDING { background: #3a3423; color: #d8c26f; } .st-APPROVED { background: #233a2b; color: #7fce8f; }
+  .st-REJECTED { background: #3a2323; color: #e2564f; } .st-WITHDRAWN, .st-OUT_OF_DATE { background: #2c3543; color: #9aa4b2; }
+  html.light-theme .st-PENDING { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-APPROVED { background: #e6f4ea; color: #1f7a3a; }
+  html.light-theme .st-REJECTED { background: #fbe7e5; color: #b23a30; } html.light-theme .st-WITHDRAWN, html.light-theme .st-OUT_OF_DATE { background: #eef0f3; color: #5b6472; }
+  table.cmp { margin-top: 10px; }
+  table.cmp td.changed { font-weight: 600; }
+  table.cmp .was { color: var(--admin-muted); text-decoration: line-through; }
+  .ood { margin-top: 8px; font-size: 13px; color: var(--admin-danger); }
+  .why { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .why b { color: var(--admin-muted); font-weight: 600; }
+  .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .reject-box { display: none; width: 100%; }
+  .reject-box.open { display: block; }
+  .reject-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); margin-top: 6px; }
+  html.light-theme .reject-box textarea { background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .row-msg { font-size: 13px; margin-top: 8px; } .row-msg:empty { display: none; }
+  .row-msg.error, #summary.error { color: var(--admin-danger); } .row-msg.success, #summary.success { color: #7fce8f; }
+  html.light-theme .row-msg.success, html.light-theme #summary.success { color: #1f7a3a; }
+  #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
+  .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
+  a.src { color: var(--admin-accent); word-break: break-all; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html">Jurisdiction</a>
+    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html" class="active" aria-current="page">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a>
+    <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main>
+  <h1 id="page-title">Change requests</h1>
+  <p class="subtitle" id="page-sub">Loading...</p>
+  <div id="summary" role="status" aria-live="polite"></div>
+  <div class="toolbar" id="toolbar" hidden></div>
+  <div id="list"><p class="empty">Loading...</p></div>
+</main>
+
+<script>
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function fmtDate(iso) {
+  if (!iso) return "";
+  var s = String(iso);
+  var d = new Date(s.indexOf("T") !== -1 ? s : s.replace(" ", "T") + "Z");
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + ", " +
+    d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+}
+var STATUS = { PENDING: "Waiting for approval", APPROVED: "Approved", REJECTED: "Rejected", WITHDRAWN: "Withdrawn", OUT_OF_DATE: "Out of date" };
+var FIELD = { name: "Name", phone: "Phone", email: "Email" };
+var ADD_FIELDS = [["name", "Ward / village"], ["unitType", "Type"], ["repName", "Representative"], ["repPhone", "Phone"], ["repEmail", "Email"], ["localities", "Localities"]];
+
+var state = { data: null, view: "pending" };
+
+function val(v) { return v === null || v === undefined || v === "" ? '<span class="muted">(blank)</span>' : esc(v); }
+function sourceHtml(src) {
+  if (!src) return '<span class="muted">none given</span>';
+  if (/^https?:\/\/\S+$/i.test(src)) return '<a class="src" href="' + esc(src) + '" target="_blank" rel="noopener noreferrer">' + esc(src) + "</a>";
+  return esc(src);
+}
+
+function compareTable(r) {
+  if (r.kind === "add_unit") {
+    var v = r.newValues || {};
+    return '<table class="cmp"><thead><tr><th scope="col">Detail</th><th scope="col">Requested</th></tr></thead><tbody>' +
+      ADD_FIELDS.map(function (f) { return "<tr><td>" + f[1] + '</td><td class="changed">' + val(v[f[0]]) + "</td></tr>"; }).join("") +
+      "</tbody></table>";
+  }
+  var nv = r.newValues || {}, ov = r.oldValues || {}, live = r.liveValues;
+  var rows = Object.keys(nv).map(function (f) {
+    var current = live ? live[f] : ov[f];
+    var changedSince = live && (live[f] ?? null) !== (ov[f] ?? null);
+    return "<tr><td>" + (FIELD[f] || esc(f)) + "</td><td>" + val(current) +
+      (changedSince ? '<div class="was">when requested: ' + (ov[f] ? esc(ov[f]) : "(blank)") + "</div>" : "") +
+      '</td><td class="changed">' + val(nv[f]) + "</td></tr>";
+  }).join("");
+  return '<table class="cmp"><thead><tr><th scope="col">Detail</th><th scope="col">' + (live ? "Current" : "Before") +
+    '</th><th scope="col">Requested</th></tr></thead><tbody>' + rows + "</tbody></table>";
+}
+
+function isOutOfDate(r) {
+  if (r.status !== "PENDING" || r.kind !== "contact" || !r.liveValues) return false;
+  var ov = r.oldValues || {};
+  return Object.keys(r.newValues || {}).some(function (f) { return (r.liveValues[f] ?? null) !== (ov[f] ?? null); });
+}
+
+function renderCard(r, approver) {
+  var own = approver && r.requestedBy === state.data.email;
+  var pending = r.status === "PENDING";
+  var ood = isOutOfDate(r);
+  var html = '<div class="req" id="req-' + esc(r.id) + '">' +
+    '<div class="req-head">' +
+      (approver && pending && !own && !ood ? '<input type="checkbox" class="pick" data-id="' + esc(r.id) + '" aria-label="Select request: ' + esc(r.targetLabel) + '">' : "") +
+      '<div class="req-title">' + esc(r.targetLabel) + (r.kind === "add_unit" ? "" : "") +
+        '<div class="req-meta">' + (approver ? "Requested by " + esc(r.requestedBy) + " · " : "Sent ") + esc(fmtDate(r.requestedAt)) +
+        (r.reviewedAt && !pending ? " · " + (r.status === "WITHDRAWN" ? "withdrawn " : "decided ") + esc(fmtDate(r.reviewedAt)) + (r.reviewedBy ? " by " + esc(r.reviewedBy) : "") : "") +
+        "</div></div>" +
+      '<span class="status-tag st-' + esc(r.status) + '">' + esc(STATUS[r.status] || r.status) + "</span>" +
+    "</div>" +
+    compareTable(r) +
+    (ood ? '<div class="ood">This record has changed since the request was made, so it can no longer be approved as it is. Reject it with a note, and the operator can send a new request.</div>' : "") +
+    '<div class="why"><b>Reason:</b> ' + esc(r.reason) + '<br><b>Source:</b> ' + sourceHtml(r.source) +
+      (r.reviewNote ? '<br><b>' + (r.status === "REJECTED" ? "Why it was rejected" : "Note") + ":</b> " + esc(r.reviewNote) : "") + "</div>";
+  if (pending && approver && !own) {
+    html += '<div class="req-actions">' +
+      (ood ? "" : '<button class="primary approve-one" data-id="' + esc(r.id) + '">Approve</button>') +
+      '<button class="danger reject-open" data-id="' + esc(r.id) + '">Reject</button>' +
+      '<div class="reject-box" id="rb-' + esc(r.id) + '"><label for="note-' + esc(r.id) + '">Why is it rejected? (the operator will see this)</label>' +
+        '<textarea id="note-' + esc(r.id) + '" maxlength="500"></textarea>' +
+        '<div class="req-actions"><button class="danger reject-send" data-id="' + esc(r.id) + '">Reject request</button></div></div>' +
+    "</div>";
+  } else if (pending && approver && own) {
+    html += '<div class="req-meta">This is your own request. Another administrator must decide it.</div>';
+  } else if (pending && !approver) {
+    html += '<div class="req-actions"><button class="withdraw" data-id="' + esc(r.id) + '">Withdraw request</button></div>';
+  }
+  html += '<div class="row-msg" id="msg-' + esc(r.id) + '" role="status" aria-live="polite"></div></div>';
+  return html;
+}
+
+function setRowMsg(id, msg, type) {
+  var el = document.getElementById("msg-" + id);
+  if (el) { el.textContent = msg; el.className = "row-msg " + (type || ""); }
+}
+function setSummary(msg, type) {
+  var el = document.getElementById("summary");
+  el.textContent = msg || ""; el.className = type || "";
+}
+
+function render() {
+  var d = state.data;
+  var approver = d.canApprove;
+  document.getElementById("page-title").textContent = approver ? "Change requests" : "My requests";
+  document.getElementById("page-sub").textContent = approver
+    ? "Changes requested by data entry operators. Nothing changes until you approve it; each approval applies exactly what is shown."
+    : "Changes you have requested. Each one is checked by an administrator before it takes effect.";
+  var tb = document.getElementById("toolbar");
+  if (approver) {
+    tb.hidden = false;
+    tb.innerHTML = '<div class="tabs" role="group" aria-label="Show">' +
+        '<button id="tab-pending" aria-pressed="' + (state.view === "pending") + '">Waiting (' + d.pendingCount + ")</button>" +
+        '<button id="tab-decided" aria-pressed="' + (state.view === "decided") + '">Recent decisions</button></div>' +
+      (state.view === "pending" && d.requests.length ? '<label class="muted"><input type="checkbox" id="pick-all"> Select all</label>' +
+        '<button class="primary" id="approve-picked">Approve selected</button>' : "");
+    document.getElementById("tab-pending").onclick = function () { state.view = "pending"; setSummary(""); load(); };
+    document.getElementById("tab-decided").onclick = function () { state.view = "decided"; setSummary(""); load(); };
+  } else {
+    tb.hidden = true;
+  }
+  var list = document.getElementById("list");
+  if (!d.requests.length) {
+    list.innerHTML = '<p class="empty">' + (approver ? (state.view === "pending" ? "No requests are waiting." : "No decisions yet.") : "You have not sent any requests yet. Use Request change on the Jurisdiction page.") + "</p>";
+    return;
+  }
+  list.innerHTML = d.requests.map(function (r) { return renderCard(r, approver); }).join("");
+  wire();
+}
+
+async function post(body) {
+  var res = await fetch("/api/admin/change-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  var data = await res.json().catch(function () { return {}; });
+  return { ok: res.ok, data: data };
+}
+
+var RESULT_TEXT = {
+  approved: "Approved and applied.", rejected: "Rejected.", out_of_date: "Not applied: the record changed after this request was made. Marked out of date.",
+  already_decided: "Already decided by someone else. Refresh to see it.", own_request: "You can't decide your own request.",
+  invalid: "Not applied: the request no longer passes the checks.", not_found: "Request not found.",
+};
+
+async function approve(ids) {
+  setSummary("Approving " + ids.length + " request" + (ids.length === 1 ? "" : "s") + "...", "");
+  try {
+    var r = await post({ action: "approve", ids: ids });
+    if (!r.ok) { setSummary(r.data.error === "INSUFFICIENT_ROLE" ? "Your role can't approve requests." : (r.data.error || "Failed."), "error"); return; }
+    var counts = {};
+    r.data.results.forEach(function (x) { counts[x.result] = (counts[x.result] || 0) + 1; });
+    var parts = [];
+    if (counts.approved) parts.push(counts.approved + " approved and applied");
+    if (counts.out_of_date) parts.push(counts.out_of_date + " out of date (not applied)");
+    if (counts.invalid) parts.push(counts.invalid + " failed the checks (not applied)");
+    if (counts.already_decided) parts.push(counts.already_decided + " already decided");
+    if (counts.own_request) parts.push(counts.own_request + " your own (not allowed)");
+    var fails = r.data.results.filter(function (x) { return x.result !== "approved"; });
+    await load();
+    setSummary(parts.join(", ") + "." + (fails.length && fails[0].error ? " " + fails[0].error : ""), counts.approved === ids.length ? "success" : "error");
+  } catch (e) { setSummary("Network error. Nothing was lost; try again.", "error"); }
+}
+
+function wire() {
+  document.querySelectorAll(".approve-one").forEach(function (b) { b.onclick = function () { approve([b.dataset.id]); }; });
+  document.querySelectorAll(".reject-open").forEach(function (b) {
+    b.onclick = function () { var box = document.getElementById("rb-" + b.dataset.id); box.classList.add("open"); document.getElementById("note-" + b.dataset.id).focus(); };
+  });
+  document.querySelectorAll(".reject-send").forEach(function (b) {
+    b.onclick = async function () {
+      var id = b.dataset.id, note = document.getElementById("note-" + id).value.trim();
+      if (note.length < 3) { setRowMsg(id, "Give the reason for rejecting. The operator will see it.", "error"); document.getElementById("note-" + id).focus(); return; }
+      b.disabled = true;
+      try {
+        var r = await post({ action: "reject", ids: [id], note: note });
+        if (!r.ok) { setRowMsg(id, r.data.error || "Failed.", "error"); b.disabled = false; return; }
+        var res = r.data.results[0];
+        await load();
+        setSummary(RESULT_TEXT[res.result] || res.result, res.result === "rejected" ? "success" : "error");
+      } catch (e) { setRowMsg(id, "Network error. Try again.", "error"); b.disabled = false; }
+    };
+  });
+  document.querySelectorAll(".withdraw").forEach(function (b) {
+    b.onclick = async function () {
+      var id = b.dataset.id;
+      if (!confirm("Withdraw this request? It will not be applied.")) return;
+      b.disabled = true;
+      try {
+        var r = await post({ action: "withdraw", id: id });
+        if (!r.ok) { setRowMsg(id, r.data.error || "Failed.", "error"); b.disabled = false; return; }
+        await load(); setSummary("Request withdrawn.", "success");
+      } catch (e) { setRowMsg(id, "Network error. Try again.", "error"); b.disabled = false; }
+    };
+  });
+  var all = document.getElementById("pick-all");
+  if (all) all.onchange = function () { document.querySelectorAll(".pick").forEach(function (c) { c.checked = all.checked; }); };
+  var ap = document.getElementById("approve-picked");
+  if (ap) ap.onclick = function () {
+    var ids = Array.prototype.map.call(document.querySelectorAll(".pick:checked"), function (c) { return c.dataset.id; });
+    if (!ids.length) { setSummary("Tick at least one request first.", "error"); return; }
+    if (!confirm("Approve and apply " + ids.length + " request" + (ids.length === 1 ? "" : "s") + "?")) return;
+    approve(ids);
+  };
+}
+
+async function load() {
+  try {
+    var res = await fetch("/api/admin/change-requests" + (state.view === "decided" ? "?view=decided" : ""));
+    var data = await res.json();
+    if (!res.ok) {
+      document.getElementById("page-sub").textContent = "";
+      document.getElementById("list").innerHTML = '<p class="empty">' +
+        (data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE" ? "Your account does not have access to this page." : "Could not load requests (" + esc(data.error || res.status) + ").") + "</p>";
+      return;
+    }
+    state.data = data;
+    render();
+  } catch (e) {
+    document.getElementById("list").innerHTML = '<p class="empty">Network error loading requests.</p>';
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+}
+var savedTheme = "dark";
+try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", function () {
+  var current = "dark";
+  try { current = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  var next = current === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+
+load();
+</script>
+
+</body>
+</html>
