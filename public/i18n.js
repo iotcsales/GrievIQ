@@ -1536,6 +1536,7 @@
 "home.loc_search_fail": ["Address search couldn't load. You can still use your location or choose from the list.", "पता खोज लोड नहीं हो सकी। आप अब भी अपनी लोकेशन या सूची का उपयोग कर सकते हैं।"],
 "home.loc_ambiguous": ["More than one ward has this name. Please choose:", "इस नाम के एक से अधिक वार्ड हैं। कृपया चुनें:"],
 "home.loc_link_missing": ["That ward link wasn't found. Please find the ward below.", "यह वार्ड लिंक नहीं मिला। कृपया नीचे वार्ड खोजें।"],
+"home.loc_page_title": ["Report civic problems in {place} · GrievIQ", "{place} की नागरिक समस्याएँ दर्ज करें · GrievIQ"],
 // ---- Complaint form: pin and ward hand-over from Home (Part 3, Sept 2026) ----
 "submit.pin_note": ["Exact spot added from the map. Your representatives will see it; it is never shown publicly.", "नक्शे से सटीक स्थान जोड़ा गया। आपके जनप्रतिनिधि इसे देख सकेंगे; इसे कभी सार्वजनिक रूप से नहीं दिखाया जाता।"],
 "submit.pin_remove": ["Remove this spot", "यह स्थान हटाएँ"],

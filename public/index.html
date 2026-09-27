@@ -530,6 +530,11 @@
     if (current && current.place) h1.textContent = T('home.loc_title', { place: current.place.name });
     else if (outside) h1.textContent = outside.city ? T('home.loc_title_outside', { place: outside.city }) : T('home.loc_outside');
     else h1.textContent = T('home.title');
+    // Browser tab title follows the ward too, in the chosen language
+    // (the server already names the ward for shared-link previews).
+    document.title = current && current.place
+      ? T('home.loc_page_title', { place: current.place.name })
+      : T('home.page_title');
   }
 
   // ---- Ward lookups ----
