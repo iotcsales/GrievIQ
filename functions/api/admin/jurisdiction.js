@@ -17,6 +17,7 @@
 // importers). Every change is logged to admin_events with before/after.
 
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { validateContact, EMAIL_RE } from "../../_shared/contact-validation.js";
 
 async function logEvent(env, actorEmail, action, target, detail) {
   await env.DB.prepare(
@@ -89,9 +90,19 @@ export async function onRequestPatch({ request, env }) {
       return Response.json({ error: "Record not found." }, { status: 404 });
     }
 
-    const name = body.name != null ? String(body.name) : before.name;
-    const phone = body.phone != null ? String(body.phone) : before.phone;
-    const email = body.email != null ? String(body.email) : before.email;
+    // Same format rules as operators' change requests (see
+    // _shared/contact-validation.js). A field not sent keeps its value.
+    const checked = validateContact({
+      name: body.name != null ? body.name : undefined,
+      phone: body.phone != null ? body.phone : undefined,
+      email: body.email != null ? body.email : undefined,
+    });
+    if (!checked.ok) {
+      return Response.json({ error: checked.error, field: checked.field }, { status: 400 });
+    }
+    const name = "name" in checked.values ? checked.values.name : before.name;
+    const phone = "phone" in checked.values ? checked.values.phone : before.phone;
+    const email = "email" in checked.values ? checked.values.email : before.email;
 
     await env.DB.prepare(
       `UPDATE ${def.table} SET ${def.nameCol} = ?, ${def.phoneCol} = ?, ${def.emailCol} = ? WHERE id = ?`
@@ -118,6 +129,13 @@ export async function onRequestPatch({ request, env }) {
       ).bind(id).first();
       if (!before) return Response.json({ error: "MLA constituency not found." }, { status: 404 });
 
+      // Never point at an MP constituency that doesn't exist -- it would
+      // break the escalation chain for every ward under this MLA.
+      const parent = await env.DB.prepare(
+        "SELECT id FROM mp_constituencies WHERE id = ?"
+      ).bind(newParentId).first();
+      if (!parent) return Response.json({ error: "That MP constituency does not exist." }, { status: 400 });
+
       await env.DB.prepare(
         "UPDATE mla_constituencies SET mp_constituency_id = ? WHERE id = ?"
       ).bind(newParentId, id).run();
@@ -134,6 +152,14 @@ export async function onRequestPatch({ request, env }) {
         "SELECT mla_constituency_id FROM local_units WHERE id = ?"
       ).bind(id).first();
       if (!before) return Response.json({ error: "Ward not found." }, { status: 404 });
+
+      // Never point at an MLA constituency that doesn't exist -- the ward's
+      // escalation chain would break and its cases would vanish from the
+      // rep console.
+      const parent = await env.DB.prepare(
+        "SELECT id FROM mla_constituencies WHERE id = ?"
+      ).bind(newParentId).first();
+      if (!parent) return Response.json({ error: "That MLA constituency does not exist." }, { status: 400 });
 
       await env.DB.prepare(
         "UPDATE local_units SET mla_constituency_id = ? WHERE id = ?"
@@ -168,7 +194,7 @@ function cleanField(value, maxLen) {
   return v === "" ? null : v;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// EMAIL_RE now comes from _shared/contact-validation.js (same rule everywhere).
 
 export async function onRequestPost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "run_import");
@@ -203,6 +229,10 @@ export async function onRequestPost({ request, env }) {
   }
   if (repEmail && !EMAIL_RE.test(repEmail)) {
     return Response.json({ error: "Enter the representative's email in the format name@example.com." }, { status: 400 });
+  }
+  const phoneCheck = validateContact({ phone: repPhone });
+  if (!phoneCheck.ok) {
+    return Response.json({ error: phoneCheck.error }, { status: 400 });
   }
 
   const mla = await env.DB.prepare(

@@ -6,7 +6,7 @@
 
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
 
-const VALID_ROLES = ["super_admin", "operations_admin", "data_moderator", "auditor"];
+const VALID_ROLES = ["super_admin", "operations_admin", "data_moderator", "auditor", "data_entry_operator"];
 
 async function logEvent(env, actorEmail, action, target, detail) {
   await env.DB.prepare(

@@ -64,6 +64,7 @@
   .role-operations_admin { background: #1f3040; color: #6fb0e8; }
   .role-data_moderator { background: #233a2b; color: #7fce8f; }
   .role-auditor { background: #3a3423; color: #d8c26f; }
+  .role-data_entry_operator { background: #1f3a3a; color: #6fd0cf; }
 
   html.light-theme {
     --admin-bg: #f4f5f7;
@@ -133,7 +134,7 @@
     <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
     <a href="/admin-import-wards.html">Ward boundaries</a>
     <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a>
+    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-staff.html">Staff</a>
     <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
@@ -150,6 +151,7 @@
         <option value="operations_admin">Operations Admin</option>
         <option value="data_moderator">Data Moderator</option>
         <option value="auditor">Auditor (read-only)</option>
+        <option value="data_entry_operator">Data Entry Operator (requests need approval)</option>
         <option value="super_admin">Super Admin</option>
       </select>
       <button class="primary" id="add-btn">Add staff</button>
@@ -181,6 +183,7 @@ const ROLE_LABELS = {
   operations_admin: "Operations Admin",
   data_moderator: "Data Moderator",
   auditor: "Auditor",
+  data_entry_operator: "Data Entry Operator",
 };
 
 function setStatus(msg, type) {

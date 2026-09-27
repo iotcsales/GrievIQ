@@ -2,7 +2,7 @@
 //
 // Admin "Issue types" page.
 //
-// GET (view_dashboard -- all four admin roles): every issue type with its
+// GET (view_issue_types -- every role except data entry operator): each issue type with its
 // time limits (read-only here) and its suggested follow-up department,
 // plus the department list and whether the caller may edit.
 //
@@ -35,7 +35,7 @@ async function logEvent(env, actorEmail, action, target, detail) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_dashboard");
+  const auth = await getVerifiedAdmin(request, env, "view_issue_types");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }

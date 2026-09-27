@@ -7,7 +7,7 @@
 // can affect data citywide rather than being scoped to one ward/mandate.
 //
 // Each admin also has a role (super_admin, operations_admin,
-// data_moderator, auditor). Pass a permission name as the third argument
+// data_moderator, auditor, data_entry_operator). Pass a permission name as the third argument
 // to require the caller's role to hold that permission; omit it to just
 // require "is an admin at all" (existing behavior, unchanged).
 
@@ -19,7 +19,15 @@ export const PERMISSIONS = {
   review_queue: ["super_admin", "operations_admin", "data_moderator"],
   exceptions_queue: ["super_admin", "operations_admin"],
   manage_issue_types: ["super_admin", "operations_admin"],
-  view_cases: ["super_admin", "operations_admin", "auditor"], view_dashboard: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  view_issue_types: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  view_cases: ["super_admin", "operations_admin", "auditor"],
+  view_dashboard: ["super_admin", "operations_admin", "data_moderator", "auditor", "data_entry_operator"],
+  // Data entry with maker-checker (separation of duties): operators can
+  // see the jurisdiction data and REQUEST changes; only super_admin and
+  // operations_admin can approve them, never their own.
+  view_jurisdiction: ["super_admin", "operations_admin", "data_entry_operator"],
+  request_changes: ["data_entry_operator"],
+  approve_changes: ["super_admin", "operations_admin"],
 };
 
 /**
