@@ -17,7 +17,7 @@
 // importers). Every change is logged to admin_events with before/after.
 
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
-import { validateContact, EMAIL_RE } from "../../_shared/contact-validation.js";
+import { validateContact, emailDomainCanReceive, EMAIL_RE } from "../../_shared/contact-validation.js";
 
 async function logEvent(env, actorEmail, action, target, detail) {
   await env.DB.prepare(
@@ -103,6 +103,14 @@ export async function onRequestPatch({ request, env }) {
     const name = "name" in checked.values ? checked.values.name : before.name;
     const phone = "phone" in checked.values ? checked.values.phone : before.phone;
     const email = "email" in checked.values ? checked.values.email : before.email;
+
+    // A new or changed email must be at a domain that can receive email.
+    if (email && email !== before.email) {
+      const domainCheck = await emailDomainCanReceive(email);
+      if (!domainCheck.ok) {
+        return Response.json({ error: domainCheck.error, field: "email" }, { status: 400 });
+      }
+    }
 
     await env.DB.prepare(
       `UPDATE ${def.table} SET ${def.nameCol} = ?, ${def.phoneCol} = ?, ${def.emailCol} = ? WHERE id = ?`
@@ -233,6 +241,12 @@ export async function onRequestPost({ request, env }) {
   const phoneCheck = validateContact({ phone: repPhone });
   if (!phoneCheck.ok) {
     return Response.json({ error: phoneCheck.error }, { status: 400 });
+  }
+  if (repEmail) {
+    const domainCheck = await emailDomainCanReceive(repEmail);
+    if (!domainCheck.ok) {
+      return Response.json({ error: domainCheck.error, field: "email" }, { status: 400 });
+    }
   }
 
   const mla = await env.DB.prepare(

@@ -64,3 +64,96 @@ export function validateContact(input) {
   }
   return { ok: true, values };
 }
+
+// ---------------------------------------------------------------------
+// Email domain checks (approved Sept 2026)
+// ---------------------------------------------------------------------
+// 1. suggestEmail(): "Did you mean ...?" for near-misses of common email
+//    providers (e.g. amit@gail.com -> amit@gmail.com). Only ever a
+//    suggestion -- the page lets the person keep what they typed. The same
+//    function is copied into the admin pages that collect emails.
+// 2. emailDomainCanReceive(): asks DNS (Cloudflare's own DNS-over-HTTPS
+//    service) whether the domain after @ can receive email: it needs mail
+//    servers (MX), or at least an address (RFC 5321 implicit MX), and must
+//    not have a "null MX" (RFC 7505: this domain accepts no email).
+//    If the lookup itself fails or times out, the save is allowed -- a
+//    network hiccup must never block work.
+
+export const COMMON_EMAIL_DOMAINS = [
+  "gmail.com", "yahoo.com", "yahoo.co.in", "yahoo.in", "ymail.com",
+  "outlook.com", "hotmail.com", "live.com", "rediffmail.com", "icloud.com",
+  "protonmail.com", "proton.me",
+];
+
+// Optimal string alignment distance (Damerau-Levenshtein with adjacent swaps).
+function editDistance(a, b) {
+  const d = [];
+  for (let i = 0; i <= a.length; i++) { d[i] = [i]; }
+  for (let j = 0; j <= b.length; j++) { d[0][j] = j; }
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return d[a.length][b.length];
+}
+
+export function suggestEmail(email) {
+  const at = String(email || "").lastIndexOf("@");
+  if (at < 1) return null;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1).toLowerCase();
+  if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return null;
+  let best = null, bestDist = 99;
+  for (const d of COMMON_EMAIL_DOMAINS) {
+    const dist = editDistance(domain, d);
+    const limit = d.length >= 9 ? 2 : 1;
+    if (dist <= limit && dist < bestDist) { best = d; bestDist = dist; }
+  }
+  return best ? local + "@" + best : null;
+}
+
+async function dohQuery(name, type, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(
+      "https://cloudflare-dns.com/dns-query?name=" + encodeURIComponent(name) + "&type=" + type,
+      { headers: { accept: "application/dns-json" }, signal: ctrl.signal }
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// returns { ok: true } or { ok: false, error }
+export async function emailDomainCanReceive(email, timeoutMs = 3000) {
+  const domain = String(email || "").split("@").pop().trim().toLowerCase();
+  if (!domain) return { ok: true };
+  const bad = { ok: false, error: "The email domain \"" + domain + "\" can't receive email. Check the part after @." };
+  const mx = await dohQuery(domain, "MX", timeoutMs);
+  if (!mx) return { ok: true };                       // lookup failed: don't block
+  if (mx.Status === 3) return bad;                    // NXDOMAIN: domain doesn't exist
+  if (mx.Status !== 0) return { ok: true };           // DNS trouble: don't block
+  const mxRecords = (mx.Answer || []).filter((a) => a.type === 15);
+  if (mxRecords.length) {
+    const nullMx = mxRecords.every((a) => /^\s*0\s+\.?\s*$/.test(String(a.data)));
+    return nullMx ? bad : { ok: true };
+  }
+  // No MX: mail can still go to the domain's own address (RFC 5321).
+  const a = await dohQuery(domain, "A", timeoutMs);
+  if (!a) return { ok: true };
+  if ((a.Answer || []).some((r) => r.type === 1)) return { ok: true };
+  const aaaa = await dohQuery(domain, "AAAA", timeoutMs);
+  if (!aaaa) return { ok: true };
+  if ((aaaa.Answer || []).some((r) => r.type === 28)) return { ok: true };
+  return bad;
+}

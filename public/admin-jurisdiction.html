@@ -148,6 +148,9 @@
   }
   .form-hint { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
   .form-error { font-size: 13px; color: var(--admin-danger); margin-top: 12px; min-height: 18px; }
+  .suggest-box { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--admin-accent); border-radius: 6px; font-size: 13px; line-height: 1.5; }
+  .suggest-box[hidden] { display: none; }
+  .suggest-box .suggest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .node-row.just-added { box-shadow: inset 3px 0 0 var(--admin-success); background: var(--admin-success-bg); }
   button.small-btn.add-btn { color: var(--admin-accent); border-style: dashed; }
   .modal input:focus-visible, .modal select:focus-visible, .modal button:focus-visible,
@@ -186,12 +189,14 @@
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal">
     <h3 id="edit-modal-title">Edit contact</h3>
-    <label>Name</label>
-    <input type="text" id="edit-name" />
-    <label>Phone</label>
-    <input type="text" id="edit-phone" />
-    <label>Email</label>
-    <input type="text" id="edit-email" />
+    <label for="edit-name">Name</label>
+    <input type="text" id="edit-name" maxlength="120" autocomplete="off" />
+    <label for="edit-phone">Phone</label>
+    <input type="text" id="edit-phone" maxlength="40" autocomplete="off" inputmode="tel" />
+    <label for="edit-email">Email</label>
+    <input type="email" id="edit-email" maxlength="200" autocomplete="off" spellcheck="false" />
+    <div class="suggest-box" id="edit-suggest" hidden></div>
+    <div class="form-error" id="edit-error" role="alert"></div>
     <div class="modal-actions">
       <button class="small-btn" id="edit-cancel">Cancel</button>
       <button class="small-btn primary" id="edit-save">Save</button>
@@ -244,6 +249,7 @@
     <input type="text" id="add-localities" maxlength="1000" placeholder="e.g. Hazratganj; Ashok Marg" autocomplete="off" />
     <div class="form-hint">Separate neighbourhoods with semicolons. Used to match citizens' addresses to this ward.</div>
 
+    <div class="suggest-box" id="add-suggest" hidden></div>
     <div class="form-error" id="add-error" role="alert"></div>
     <div class="modal-actions">
       <button class="small-btn" id="add-cancel">Cancel</button>
@@ -267,9 +273,10 @@ function setStatus(msg, type) {
 
 function fmtContact(name, phone, email) {
   const parts = [];
-  parts.push(name ? name : '<span class="missing">no name</span>');
-  parts.push(phone ? phone : '<span class="missing">no phone</span>');
-  parts.push(email ? email : '<span class="missing">no email</span>');
+  // Escaped: these values can come from imports and (soon) operators' requests.
+  parts.push(name ? escapeText(name) : '<span class="missing">no name</span>');
+  parts.push(phone ? escapeText(phone) : '<span class="missing">no phone</span>');
+  parts.push(email ? escapeText(email) : '<span class="missing">no email</span>');
   return parts.join(" · ");
 }
 
@@ -439,20 +446,84 @@ function openEditModal(type, id) {
   document.getElementById("edit-name").value = name || "";
   document.getElementById("edit-phone").value = phone || "";
   document.getElementById("edit-email").value = email || "";
+  document.getElementById("edit-error").textContent = "";
+  document.getElementById("edit-suggest").hidden = true;
   document.getElementById("edit-modal").classList.add("open");
+}
+
+// --- "Did you mean ...?" for common email providers ---
+// Same rule as functions/_shared/contact-validation.js suggestEmail().
+// Only a suggestion: the person can always keep what they typed.
+const COMMON_EMAIL_DOMAINS = ["gmail.com", "yahoo.com", "yahoo.co.in", "yahoo.in", "ymail.com",
+  "outlook.com", "hotmail.com", "live.com", "rediffmail.com", "icloud.com", "protonmail.com", "proton.me"];
+function editDistance(a, b) {
+  const d = [];
+  for (let i = 0; i <= a.length; i++) d[i] = [i];
+  for (let j = 0; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+function suggestEmail(email) {
+  const at = String(email || "").lastIndexOf("@");
+  if (at < 1) return null;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1).toLowerCase();
+  if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return null;
+  let best = null, bestDist = 99;
+  for (const d of COMMON_EMAIL_DOMAINS) {
+    const dist = editDistance(domain, d);
+    const limit = d.length >= 9 ? 2 : 1;
+    if (dist <= limit && dist < bestDist) { best = d; bestDist = dist; }
+  }
+  return best ? local + "@" + best : null;
+}
+// Emails the person has chosen to keep after seeing a suggestion.
+const keptEmails = new Set();
+// Returns true if a suggestion is now showing (the caller should stop and
+// wait); onDecide() is called again after the person picks an option.
+function offerEmailSuggestion(inputEl, boxEl, onDecide) {
+  const typed = inputEl.value.trim();
+  const better = typed && !keptEmails.has(typed) ? suggestEmail(typed) : null;
+  if (!better) { boxEl.hidden = true; boxEl.innerHTML = ""; return false; }
+  boxEl.innerHTML = 'Did you mean <b>' + escapeText(better) + '</b>?' +
+    '<div class="suggest-actions">' +
+      '<button type="button" class="small-btn primary" data-act="use">Use ' + escapeText(better) + '</button>' +
+      '<button type="button" class="small-btn" data-act="keep">Keep ' + escapeText(typed) + '</button>' +
+    '</div>';
+  boxEl.hidden = false;
+  boxEl.querySelector('[data-act="use"]').addEventListener("click", () => {
+    inputEl.value = better; boxEl.hidden = true; onDecide();
+  });
+  boxEl.querySelector('[data-act="keep"]').addEventListener("click", () => {
+    keptEmails.add(typed); boxEl.hidden = true; onDecide();
+  });
+  boxEl.querySelector('[data-act="use"]').focus();
+  return true;
 }
 
 document.getElementById("edit-cancel").addEventListener("click", () => {
   document.getElementById("edit-modal").classList.remove("open");
 });
 
-document.getElementById("edit-save").addEventListener("click", async () => {
+async function saveEdit() {
   if (!editContext) return;
+  const errorEl = document.getElementById("edit-error");
+  const emailEl = document.getElementById("edit-email");
+  errorEl.textContent = "";
+  if (offerEmailSuggestion(emailEl, document.getElementById("edit-suggest"), saveEdit)) return;
+
   const name = document.getElementById("edit-name").value.trim();
   const phone = document.getElementById("edit-phone").value.trim();
-  const email = document.getElementById("edit-email").value.trim();
-
-  setStatus("Saving...", "");
+  const email = emailEl.value.trim();
+  const saveBtn = document.getElementById("edit-save");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving...";
   try {
     const res = await fetch("/api/admin/jurisdiction", {
       method: "PATCH",
@@ -461,17 +532,23 @@ document.getElementById("edit-save").addEventListener("click", async () => {
     });
     const data = await res.json();
     if (!res.ok) {
-      setStatus(data.error || "Failed to save.", "error");
+      // Shown inside the form, next to what needs fixing.
+      errorEl.textContent = data.error || "Failed to save.";
+      const field = data.field && document.getElementById("edit-" + data.field);
+      if (field) field.focus();
       return;
     }
     document.getElementById("edit-modal").classList.remove("open");
     setStatus("Contact updated.", "success");
-    
-loadTree();
+    loadTree();
   } catch (err) {
-    setStatus("Network error while saving.", "error");
+    errorEl.textContent = "Network error while saving. Check your connection and try again.";
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save";
   }
-});
+}
+document.getElementById("edit-save").addEventListener("click", saveEdit);
 
 // --- Reassign modal ---
 let reassignContext = null;
@@ -603,6 +680,7 @@ function clearAddFields(keepTypeAndBody) {
   document.getElementById("add-rep-email").value = "";
   document.getElementById("add-localities").value = "";
   document.getElementById("add-error").textContent = "";
+  document.getElementById("add-suggest").hidden = true;
   if (!keepTypeAndBody) {
     document.querySelectorAll('input[name="add-type"]').forEach((r) => { r.checked = false; });
   }
@@ -641,6 +719,8 @@ async function submitAdd(keepOpen) {
     document.getElementById("add-rep-email").focus();
     return;
   }
+  errorEl.textContent = "";
+  if (offerEmailSuggestion(document.getElementById("add-rep-email"), document.getElementById("add-suggest"), () => submitAdd(keepOpen))) return;
 
   const saveBtn = document.getElementById("add-save");
   const anotherBtn = document.getElementById("add-save-another");
@@ -661,7 +741,7 @@ async function submitAdd(keepOpen) {
         municipalBodyId: unitType === "URBAN" ? document.getElementById("add-mb").value : "",
         repName: document.getElementById("add-rep-name").value,
         repPhone: document.getElementById("add-rep-phone").value,
-        repEmail,
+        repEmail: document.getElementById("add-rep-email").value.trim(),
         localities: document.getElementById("add-localities").value,
       }),
     });
