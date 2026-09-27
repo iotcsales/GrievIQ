@@ -1525,6 +1525,8 @@
 "home.loc_alt_india": ["<b>Anywhere in India:</b> <a href=\"https://pgportal.gov.in\" target=\"_blank\" rel=\"noopener noreferrer\">CPGRAMS</a>, the Government of India's public grievance portal.", "<b>पूरे भारत में:</b> <a href=\"https://pgportal.gov.in\" target=\"_blank\" rel=\"noopener noreferrer\">CPGRAMS</a>, भारत सरकार का लोक शिकायत पोर्टल।"],
 "home.loc_want": ["I want GrievIQ in {city}", "मुझे {city} में GrievIQ चाहिए"],
 "home.loc_want_done": ["Thanks. We've counted your request for {city}.", "धन्यवाद। {city} के लिए आपका अनुरोध गिन लिया गया है।"],
+"home.loc_title_outside": ["GrievIQ isn't in {place} yet", "GrievIQ अभी {place} में उपलब्ध नहीं है"],
+"home.loc_want_why": ["Would you like GrievIQ here? Tap below. It helps us decide which city to add next.", "क्या आप यहाँ GrievIQ चाहते हैं? नीचे टैप करें। इससे हमें तय करने में मदद मिलती है कि अगला शहर कौन-सा हो।"],
 "home.loc_search_fail": ["Address search couldn't load. You can still use your location or choose from the list.", "पता खोज लोड नहीं हो सकी। आप अब भी अपनी लोकेशन या सूची का उपयोग कर सकते हैं।"],
 "home.loc_ambiguous": ["More than one ward has this name. Please choose:", "इस नाम के एक से अधिक वार्ड हैं। कृपया चुनें:"],
 "home.loc_link_missing": ["That ward link wasn't found. Please find the ward below.", "यह वार्ड लिंक नहीं मिला। कृपया नीचे वार्ड खोजें।"]

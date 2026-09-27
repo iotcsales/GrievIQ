@@ -523,6 +523,7 @@
   function setTitle() {
     const h1 = document.querySelector('h1');
     if (current && current.place) h1.textContent = T('home.loc_title', { place: current.place.name });
+    else if (outside) h1.textContent = outside.city ? T('home.loc_title_outside', { place: outside.city }) : T('home.loc_outside');
     else h1.textContent = T('home.title');
   }
 
@@ -596,7 +597,7 @@
       '<p class="loc-snap">' + T('home.loc_snapshot', { filed: Number(p.last30Days.filed) || 0, resolved: Number(p.last30Days.resolved) || 0 }) + '</p>' +
       (p.openForFiling
         ? '<a class="task-card primary-task loc-cta" href="/submit" id="loc-report"><span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span><span><span class="task-title">' + esc(T('home.loc_report_here')) + '</span><span class="task-sub" style="display:block">' + esc(p.name) + '</span></span><span class="task-arrow" aria-hidden="true">→</span></a>'
-        : '<div class="loc-warn">' + esc(T('home.loc_not_open')) + '<br>' + esc(T('home.loc_outside_where')) + '<ul><li>' + T('home.loc_alt_up') + '</li><li>' + T('home.loc_alt_india') + '</li></ul></div>') +
+        : '<div class="loc-warn">' + esc(T('home.loc_not_open')) + '</div>') +
       '<div class="loc-share"><span>' + esc(T('home.loc_share')) + '</span>' +
         '<a class="loc-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(shareText) + '">' + esc(T('home.loc_whatsapp')) + '</a>' +
         '<button type="button" class="loc-small" id="loc-copy">' + esc(T('home.loc_copy')) + '</button>' +
@@ -616,18 +617,18 @@
 
   function renderOutside() {
     $('loc-ask').hidden = true;
+    setTitle();
     const box = $('loc-result');
     const o = outside;
-    const items = o.inUP ? [T('home.loc_alt_up'), T('home.loc_alt_india')] : (o.state ? [T('home.loc_alt_india')] : [T('home.loc_alt_up'), T('home.loc_alt_india')]);
     let asked = [];
     try { asked = JSON.parse(localStorage.getItem(DEMAND_KEY) || '[]'); } catch (e) {}
     const key = (o.state || '') + '|' + (o.city || '');
     box.hidden = false;
     box.innerHTML =
       '<div class="loc-result-head"><div class="loc-place">' + esc(o.city || '') + '</div><button type="button" class="loc-link" id="loc-change">' + esc(T('home.loc_change')) + '</button></div>' +
-      '<div class="loc-warn"><b>' + esc(T('home.loc_outside')) + '</b><br>' + esc(T('home.loc_outside_where')) + '<ul>' + items.map((i) => '<li>' + i + '</li>').join('') + '</ul></div>' +
+      // The headline already says GrievIQ isn't here yet.
       (o.city ? (asked.indexOf(key) === -1
-        ? '<div class="loc-links"><button type="button" class="loc-small primary" id="loc-want">' + esc(T('home.loc_want', { city: o.city })) + '</button></div>'
+        ? '<p class="loc-snap">' + esc(T('home.loc_want_why')) + '</p><div class="loc-links"><button type="button" class="loc-small primary" id="loc-want">' + esc(T('home.loc_want', { city: o.city })) + '</button></div>'
         : '<p class="loc-snap">' + esc(T('home.loc_want_done', { city: o.city })) + '</p>') : '');
     $('loc-change').addEventListener('click', () => { outside = null; current = null; render(); $('loc-gps').focus(); });
     const want = $('loc-want');
