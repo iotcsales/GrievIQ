@@ -1,0 +1,76 @@
+// functions/_shared/place.js
+//
+// Public information about ONE ward/village, for the citizen Home page's
+// "Where is the problem?" card and for ward links (grieviq.in/lucknow/<ward>).
+//
+// Returns only what is public and useful before filing:
+//   - the ward's name, type, municipal body, city
+//   - whether it can take complaints yet (a ward representative email is on file)
+//   - WHO handles complaints here: each level's label and NAME only.
+//     Phone numbers and emails are never returned (approved Sept 2026).
+//   - a 30-day snapshot: complaints filed and resolved -- counts only.
+
+import { resolveChain } from "./jurisdiction.js";
+
+// Pilot city. Phase 2 moves this into a city settings record.
+export const PILOT_CITY = { slug: "lucknow", name: "Lucknow", state: "Uttar Pradesh" };
+
+// Readable ward link part, e.g. "Hazratganj - Ramtirth" -> "hazratganj-ramtirth".
+// Names in Devanagari give an empty slug; those wards use their id instead.
+export function wardSlug(name) {
+  return String(name || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function has(v) { return v != null && String(v).trim() !== ""; }
+
+export async function placeInfo(env, localUnitId) {
+  const chain = await resolveChain(env, localUnitId);
+  if (!chain) return null;
+  const lu = chain.localUnit;
+
+  const counts = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) AS filed,
+       SUM(CASE WHEN status IN ('RESOLVED', 'CLOSED') AND resolved_at IS NOT NULL
+                 AND REPLACE(REPLACE(resolved_at, 'T', ' '), 'Z', '') >= datetime('now', '-30 days') THEN 1 ELSE 0 END) AS resolved
+     FROM grievances WHERE local_unit_id = ?`
+  ).bind(lu.id).first();
+
+  // Use the readable name in the link only if no other ward shares it.
+  let slug = wardSlug(lu.name);
+  if (slug) {
+    const { results: all } = await env.DB.prepare("SELECT id, name FROM local_units").all();
+    if ((all || []).some((r) => r.id !== lu.id && wardSlug(r.name) === slug)) slug = "";
+  }
+  return {
+    id: lu.id,
+    name: lu.name,
+    type: lu.unit_type,                                   // URBAN / RURAL
+    slug: slug || null,
+    link: "/" + PILOT_CITY.slug + "/" + (slug || encodeURIComponent(lu.id)),
+    city: PILOT_CITY.name,
+    state: PILOT_CITY.state,
+    municipalBody: chain.municipalBody ? chain.municipalBody.name : null,
+    mlaConstituency: chain.mla ? chain.mla.name : null,
+    mpConstituency: chain.mp ? chain.mp.name : null,
+    localities: lu.localities || null,
+    openForFiling: has(lu.rep_email),
+    // Names only -- never phone or email.
+    levels: chain.tiers.map((t) => ({ tier: t.tier, label: t.label, name: has(t.name) ? String(t.name).trim() : null })),
+    last30Days: { filed: (counts && counts.filed) || 0, resolved: (counts && counts.resolved) || 0 },
+  };
+}
+
+// Finds a ward from a link part: its readable slug, or its id.
+// Returns { id } or { ambiguous: [{id,name}] } or null.
+export async function findWardBySlug(env, part) {
+  const p = String(part || "").trim().toLowerCase();
+  if (!p) return null;
+  const byId = await env.DB.prepare("SELECT id FROM local_units WHERE id = ?").bind(decodeURIComponent(p)).first();
+  if (byId) return { id: byId.id };
+  const { results } = await env.DB.prepare("SELECT id, name FROM local_units").all();
+  const hits = (results || []).filter((r) => wardSlug(r.name) === p);
+  if (hits.length === 1) return { id: hits[0].id };
+  if (hits.length > 1) return { ambiguous: hits.map((h) => ({ id: h.id, name: h.name })) };
+  return null;
+}
