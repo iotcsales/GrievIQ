@@ -8,8 +8,9 @@
 // Rules (OWASP input validation: check format, length and type on the
 // server, never trust the page):
 //   - name:  up to 120 characters
-//   - phone: 10 to 13 digits once spaces, dashes, brackets and a leading +
-//            are ignored (Indian mobiles and landlines with STD code)
+//   - phone: an Indian number -- a 10-digit mobile starting 6-9, or any
+//            number written with the trunk 0 (e.g. 0522 2234567) or +91;
+//            spaces, dashes and brackets are ignored
 //   - email: name@example.com form, up to 200 characters
 // A field left empty means "no value on file" and is stored as null.
 
@@ -36,16 +37,19 @@ export function validateContact(input) {
   if (input.phone !== undefined) {
     const phone = clean(input.phone, 60);
     if (phone) {
-      if (!/^[+\d\s\-()]+$/.test(phone)) {
-        return { ok: false, field: "phone", error: "Enter the phone number using digits only, for example 9876543210 or 0522 2234567." };
+      const msg = "Enter a valid Indian phone number: a 10-digit mobile starting with 6, 7, 8 or 9 " +
+        "(for example 9876543210), or a landline with its STD code (for example 0522 2234567).";
+      if (!/^[+\d\s\-()]+$/.test(phone) || phone.length > 40) {
+        return { ok: false, field: "phone", error: msg };
       }
+      // Indian numbering plan: a mobile is 10 digits starting 6-9; any
+      // number may be written with the trunk "0" or the country code "91".
       const digits = phone.replace(/\D/g, "");
-      if (digits.length < 10 || digits.length > 13) {
-        return { ok: false, field: "phone", error: "Enter a phone number with 10 to 13 digits, for example 9876543210 or 0522 2234567." };
-      }
-      if (phone.length > 40) {
-        return { ok: false, field: "phone", error: "Enter a phone number with 10 to 13 digits, for example 9876543210 or 0522 2234567." };
-      }
+      let ok = false;
+      if (digits.length === 10) ok = /^[6-9]/.test(digits);                          // mobile
+      else if (digits.length === 11 && digits[0] === "0") ok = /^[1-9]/.test(digits.slice(1));   // 0 + STD/mobile
+      else if (digits.length === 12 && digits.startsWith("91")) ok = /^[1-9]/.test(digits.slice(2)); // +91 ...
+      if (!ok) return { ok: false, field: "phone", error: msg };
     }
     values.phone = phone;
   }
