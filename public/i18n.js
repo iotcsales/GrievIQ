@@ -1061,6 +1061,10 @@
 "<strong>What you report</strong>: the type of problem, your description, your ward, any location details you give, and any photos you attach. We use these to send your complaint to the right elected representative and show them the problem.",
 "<strong>शिकायत का विवरण</strong>: समस्या का प्रकार, आपका विवरण, आपका वार्ड, आपके द्वारा दी गई स्थान संबंधी जानकारी और संलग्न फ़ोटो। इनका उपयोग शिकायत को सही निर्वाचित जनप्रतिनिधि तक पहुँचाने और उन्हें समस्या दिखाने के लिए किया जाता है।"
 ],
+"priv.c_location": [
+"<strong>Where the problem is</strong> (optional): if you use your current location, search for an address or put a pin on a map, we use it only to find the ward. It isn't saved unless you file a complaint; then the pin is saved with the complaint so your representative can find the exact spot. It is never shown publicly.",
+"<strong>समस्या का स्थान</strong> (वैकल्पिक): यदि आप अपनी वर्तमान लोकेशन का उपयोग करते हैं, कोई पता खोजते हैं या नक्शे पर पिन लगाते हैं, तो हम इसका उपयोग केवल वार्ड खोजने के लिए करते हैं। शिकायत दर्ज न करने पर यह सहेजा नहीं जाता; शिकायत दर्ज करने पर पिन शिकायत के साथ सहेजा जाता है, ताकि आपके जनप्रतिनिधि सटीक स्थान तक पहुँच सकें। इसे कभी सार्वजनिक रूप से नहीं दिखाया जाता।"
+],
 "priv.c_rep": [
 "<strong>A representative's name or phone number</strong> (optional, only if you tell us): used only to check and update our records of public representatives.",
 "<strong>किसी जनप्रतिनिधि का नाम या फ़ोन नंबर</strong> (वैकल्पिक, केवल यदि आप बताएँ): इसका उपयोग केवल जनप्रतिनिधियों के हमारे अभिलेखों की जाँच और अद्यतन के लिए किया जाता है।"
@@ -1196,7 +1200,9 @@
 "rep.ac_selected": ["{option} {n} of {total} is highlighted", "{option}, {total} में से {n}, चयनित"],
 "rep.ac_results_one": ["1 result is available. {sel}", "1 परिणाम उपलब्ध है। {sel}"],
 "rep.ac_results": ["{n} results are available. {sel}", "{n} परिणाम उपलब्ध हैं। {sel}"],
-"rep.ac_hint": ["When autocomplete results are available use up and down arrows to review and enter to select. Touch device users, explore by touch or with swipe gestures.", "परिणाम उपलब्ध होने पर ऊपर-नीचे तीर कुंजियों से देखें और चुनने के लिए Enter दबाएँ। टच डिवाइस पर स्पर्श या स्वाइप से देखें।"]
+"rep.ac_hint": ["When autocomplete results are available use up and down arrows to review and enter to select. Touch device users, explore by touch or with swipe gestures.", "परिणाम उपलब्ध होने पर ऊपर-नीचे तीर कुंजियों से देखें और चुनने के लिए Enter दबाएँ। टच डिवाइस पर स्पर्श या स्वाइप से देखें।"],
+"rep.map_link": ["Open location in Google Maps", "Google Maps पर स्थान देखें"],
+"rep.new_tab": ["(opens in a new tab)", "(नए टैब में खुलता है)"]
   };
   for (var rk in R) { if (Object.prototype.hasOwnProperty.call(R, rk)) D[rk] = R[rk]; }
 
@@ -1529,7 +1535,15 @@
 "home.loc_want_why": ["Would you like GrievIQ here? Tap below. It helps us decide which city to add next.", "क्या आप यहाँ GrievIQ चाहते हैं? नीचे टैप करें। इससे हमें तय करने में मदद मिलती है कि अगला शहर कौन-सा हो।"],
 "home.loc_search_fail": ["Address search couldn't load. You can still use your location or choose from the list.", "पता खोज लोड नहीं हो सकी। आप अब भी अपनी लोकेशन या सूची का उपयोग कर सकते हैं।"],
 "home.loc_ambiguous": ["More than one ward has this name. Please choose:", "इस नाम के एक से अधिक वार्ड हैं। कृपया चुनें:"],
-"home.loc_link_missing": ["That ward link wasn't found. Please find the ward below.", "यह वार्ड लिंक नहीं मिला। कृपया नीचे वार्ड खोजें।"]
+"home.loc_link_missing": ["That ward link wasn't found. Please find the ward below.", "यह वार्ड लिंक नहीं मिला। कृपया नीचे वार्ड खोजें।"],
+// ---- Complaint form: pin and ward hand-over from Home (Part 3, Sept 2026) ----
+"submit.pin_note": ["Exact spot added from the map. Your representatives will see it; it is never shown publicly.", "नक्शे से सटीक स्थान जोड़ा गया। आपके जनप्रतिनिधि इसे देख सकेंगे; इसे कभी सार्वजनिक रूप से नहीं दिखाया जाता।"],
+"submit.pin_remove": ["Remove this spot", "यह स्थान हटाएँ"],
+"submit.pin_removed": ["Spot removed. Your complaint will be filed for the area without a pin.", "स्थान हटा दिया गया। आपकी शिकायत बिना पिन के क्षेत्र के लिए दर्ज होगी।"],
+"submit.not_open": ["That address is in {name}, which can't take complaints yet. Its details are still being collected. You can choose another area below.", "यह पता {name} में है, जहाँ अभी शिकायत दर्ज नहीं हो सकती। इसका विवरण अभी एकत्र किया जा रहा है। आप नीचे कोई अन्य क्षेत्र चुन सकते हैं।"],
+"submit.srv_not_open": ["This area can't take complaints yet. Please choose another area.", "इस क्षेत्र में अभी शिकायत दर्ज नहीं हो सकती। कृपया कोई अन्य क्षेत्र चुनें।"],
+// ---- Privacy: location and remembered ward ----
+"priv.device_ward": ["If you look up a ward, its name is remembered on this device so the home page can show it next time. You can remove it with \"Forget\".", "यदि आप कोई वार्ड खोजते हैं, तो उसका नाम इस डिवाइस पर याद रखा जाता है, ताकि अगली बार मुख्य पृष्ठ पर दिख सके। आप इसे \"भूल जाएँ\" से हटा सकते हैं।"]
   };
   for (var lk in L) { if (Object.prototype.hasOwnProperty.call(L, lk)) D[lk] = L[lk]; }
 

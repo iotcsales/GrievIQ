@@ -150,6 +150,11 @@ export async function onRequestGet(context) {
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
       locationDetail: grievance.location_detail || null,
+      // Where the problem is (pin saved at filing, Sept 2026). For the case's
+      // representatives only -- never returned by any public/citizen endpoint.
+      pin: grievance.pin_lat != null && grievance.pin_lng != null
+        ? { lat: Number(grievance.pin_lat), lng: Number(grievance.pin_lng) }
+        : null,
       photoUrls,
       status: grievance.status,
       localUnit: {

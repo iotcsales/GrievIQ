@@ -209,6 +209,17 @@
     font-style: italic;
     max-width: 46ch;
   }
+  .case-main .map-link {
+    display: inline-block;
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--steel);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .case-main .map-link:hover { text-decoration-thickness: 2px; }
+  .case-main .map-link:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
   .photo-thumbs {
     display: flex;
     gap: 6px;
@@ -649,6 +660,18 @@ function renderPhotoThumbs(photoUrls) {
   }).join('') + '</div>';
 }
 
+// Where the problem is: the pin saved with the complaint (reps only).
+// Coordinates are numbers from our own API; Number() + isFinite keeps
+// anything else out of the link. Uses Google's documented Maps URL format.
+function renderMapLink(c) {
+  if (!c.pin) return '';
+  var lat = Number(c.pin.lat), lng = Number(c.pin.lng);
+  if (!isFinite(lat) || !isFinite(lng)) return '';
+  var url = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng;
+  return '<div><a class="map-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
+    esc(T('rep.map_link')) + '<span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a></div>';
+}
+
 function renderDisputeNote(c) {
   if (!c.citizenDisputeReason) return '';
   var label = T(DISPUTE_REASON_KEYS[c.citizenDisputeReason] || 'rep.d_other');
@@ -745,6 +768,7 @@ function renderCase(c) {
       '<div class="category">' + esc(catName(c.category.id, c.category.name)) + ' &middot; ' + esc(c.localUnit.name) + '</div>' +
       '<p class="description">' + esc(c.description) + '</p>' +
       locationLine +
+      renderMapLink(c) +
       renderPhotoThumbs(c.photoUrls) +
       badge +
       renderDisputeNote(c) + renderNudgeNote(c) +

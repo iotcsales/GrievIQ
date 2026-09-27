@@ -1,14 +1,63 @@
 // POST /api/grievances/submit
 // Public, unauthenticated endpoint. Citizens submit a new grievance here.
 // No login required. Basic spam protection via honeypot + minimum fill-time.
+//
+// Sept 2026 (location-first Home, Part 3):
+//  - Complaints are refused for a ward that can't take them yet (no ward
+//    representative email on file) -- the same rule as the Home page
+//    (_shared/place.js openForFiling) and /api/resolve-ward open_for_filing.
+//  - An optional pin (pin_lat, pin_lng) is saved with the complaint, rounded
+//    to 5 decimal places (about 1 metre). It is kept only if it lies inside
+//    the chosen ward's boundary (when that boundary is on file); otherwise it
+//    is dropped, so a wrong spot is never saved. Shown to representatives
+//    only, never publicly.
+//  - Tracking numbers come from the cryptographic random generator.
+
+import { pointInGeometry } from "../../_shared/geo.js";
+
+// 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
+// so "byte % 32" picks every character with equal chance (no bias).
+const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 function generateTrackingRef() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1 ambiguity
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
   let ref = "GRV-";
   for (let i = 0; i < 6; i++) {
-    ref += chars[Math.floor(Math.random() * chars.length)];
+    ref += REF_CHARS[bytes[i] % REF_CHARS.length];
   }
   return ref;
+}
+
+function hasText(v) {
+  return v != null && String(v).trim() !== "";
+}
+
+// Rough box around India: anything outside is not a real problem spot.
+function readPin(latIn, lngIn) {
+  if (latIn == null || lngIn == null || latIn === "" || lngIn === "") return null;
+  const lat = Number(latIn);
+  const lng = Number(lngIn);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < 6 || lat > 38 || lng < 68 || lng > 98) return null;
+  // 5 decimal places = about 1.1 metres.
+  return { lat: Math.round(lat * 1e5) / 1e5, lng: Math.round(lng * 1e5) / 1e5 };
+}
+
+// Keep the pin only if it is inside the ward's boundary. A ward with no
+// boundary on file can't be checked, so the pin is kept (it is already
+// limited to India above). A boundary that can't be read drops the pin.
+function pinForWard(pin, boundaryGeojson) {
+  if (!pin) return null;
+  if (!hasText(boundaryGeojson)) return pin;
+  let geometry;
+  try {
+    geometry = JSON.parse(boundaryGeojson);
+  } catch {
+    return null;
+  }
+  // CRS84: x = longitude, y = latitude.
+  return pointInGeometry(pin.lng, pin.lat, geometry) ? pin : null;
 }
 
 function isPlausiblePhone(phone) {
@@ -36,6 +85,7 @@ export async function onRequestPost({ request, env }) {
     citizen_email, // optional — needed for status-update emails and confirm/dispute
     photo_urls, // optional array — set by prior calls to /api/grievances/upload-photo
     rep_suggestion, // optional { tier, name, phone } — citizen's unverified guess at a missing rep
+    pin_lat, pin_lng, // optional: where the problem is, from a map pin, current location or address search
     lang, // "hi" or "en": the language the citizen used, for emails about this complaint
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
@@ -105,7 +155,7 @@ export async function onRequestPost({ request, env }) {
       .first();
 
     const localUnit = await env.DB.prepare(
-      `SELECT id FROM local_units WHERE id = ?`
+      `SELECT id, rep_email, ward_boundary_geojson FROM local_units WHERE id = ?`
     )
       .bind(local_unit_id)
       .first();
@@ -122,6 +172,17 @@ export async function onRequestPost({ request, env }) {
         headers: { "Content-Type": "application/json" },
       });
     }
+    // A ward can be known before it can take complaints: that needs a ward
+    // representative email on file (same rule as the Home page). Without
+    // it, the complaint would reach no one.
+    if (!hasText(localUnit.rep_email)) {
+      return new Response(
+        JSON.stringify({ error: "This area can't take complaints yet. Please choose another area.", code: "not_open" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const pin = pinForWard(readPin(pin_lat, pin_lng), localUnit.ward_boundary_geojson);
 
     // Generate a unique tracking ref (retry on the rare collision)
     let trackingRef;
@@ -156,8 +217,8 @@ export async function onRequestPost({ request, env }) {
 
     await env.DB.prepare(
       `INSERT INTO grievances
-        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?, ?)`
+        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng)
+       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         id,
@@ -169,7 +230,9 @@ export async function onRequestPost({ request, env }) {
         photoUrlJson,
         (location_detail || "").trim() || null,
         trimmedEmail || null,
-        lang === "hi" ? "hi" : "en"
+        lang === "hi" ? "hi" : "en",
+        pin ? pin.lat : null,
+        pin ? pin.lng : null
       )
       .run();
 

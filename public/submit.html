@@ -133,6 +133,20 @@
     background: none; border: none; padding: 0;
   }
 
+  .pin-note {
+    font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; background: var(--paper);
+    border-left: 3px solid var(--teal); border-radius: 0 10px 10px 0; padding: 9px 12px; margin: -10px 0 18px;
+  }
+  .pin-note[hidden], .pin-status:empty { display: none; }
+  .pin-note .change-link {
+    color: var(--teal-dark); text-decoration: underline; cursor: pointer; font: inherit; font-weight: 600;
+    background: none; border: none; padding: 0; margin-left: 4px;
+  }
+  .pin-note .change-link:focus-visible, .area-selected .change-link:focus-visible { outline: 3px solid rgba(14,124,107,0.35); outline-offset: 2px; border-radius: 4px; }
+  .pin-status { font-size: 12.5px; color: var(--ink-soft); margin: -10px 0 18px; }
+  .area-open-error { color: var(--brick); font-size: 12.5px; margin: -10px 0 16px; }
+  .area-open-error:empty { display: none; }
+
   .photo-input { display: none; }
   .photo-label {
     display: inline-block; width: 100%; text-align: center; padding: 14px;
@@ -239,7 +253,13 @@
           <span class="label" id="areaSelectedLabel"></span>
           <button type="button" class="change-link" id="areaChangeBtn" data-i18n="submit.change">Change</button>
         </div>
+        <div class="pin-note" id="pinNote" hidden>
+          <span data-i18n="submit.pin_note">Exact spot added from the map. Your representatives will see it; it is never shown publicly.</span>
+          <button type="button" class="change-link" id="pinRemoveBtn" data-i18n="submit.pin_remove">Remove this spot</button>
+        </div>
+        <div class="pin-status" id="pinStatus" role="status" aria-live="polite"></div>
         <div class="field-error" id="areaError" data-i18n="submit.area_err">Please select your area from the list.</div>
+        <div class="area-open-error" id="areaOpenError" role="alert"></div>
 
         <label for="locationDetail" data-i18n="submit.landmark">Landmark or street address</label>
         <div class="hint" data-i18n="submit.landmark_hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
@@ -306,6 +326,12 @@
   const errorBox = document.getElementById('errorBox');
   let localUnitsData = [];
 
+  // Where the problem is: { lat, lng, wardId } or null. Set from the Home
+  // page hand-over or when the citizen confirms an address match ("Looks
+  // right"). It belongs to one ward: choosing a different ward drops it, so
+  // a wrong spot is never sent. The server checks it again (inside the ward).
+  let pin = null;
+
   async function loadOptions() {
     try {
       const res = await fetch('/api/intake-options');
@@ -340,6 +366,8 @@
     document.querySelectorAll('#categoryChipRow .chip').forEach(c => { c.textContent = GIQ.category(c.dataset.value, c.dataset.name); });
     document.querySelectorAll('#repTierChips .chip').forEach(c => { c.textContent = GIQ.level(c.dataset.level); });
     if (typeof renderPhotoGrid === 'function') renderPhotoGrid();
+    if (areaOpenErrKey) document.getElementById('areaOpenError').textContent = GIQ.t(areaOpenErrKey);
+    if (pinStatusKey) document.getElementById('pinStatus').textContent = GIQ.t(pinStatusKey);
   });
 
   function isPlausiblePhone(value) {
@@ -401,7 +429,37 @@
   let activeSuggestionIndex = -1;
   let currentQuery = '';
 
-  function selectUnit(unit) {
+  // The pin note shows only while the chosen ward is the pin's ward.
+  let pinStatusKey = '';
+  let areaOpenErrKey = '';
+  function renderPinNote() {
+    const show = !!(pin && localUnitIdField.value && pin.wardId === localUnitIdField.value);
+    document.getElementById('pinNote').hidden = !show;
+  }
+  function setPinStatus(key) {
+    pinStatusKey = key;
+    document.getElementById('pinStatus').textContent = key ? GIQ.t(key) : '';
+  }
+  function setAreaOpenError(key) {
+    areaOpenErrKey = key;
+    document.getElementById('areaOpenError').textContent = key ? GIQ.t(key) : '';
+  }
+  document.getElementById('pinRemoveBtn').addEventListener('click', () => {
+    pin = null;
+    renderPinNote();
+    setPinStatus('submit.pin_removed');
+    document.getElementById('areaChangeBtn').focus();
+  });
+
+  // newPin: { lat, lng } found for this ward (Home hand-over or address match).
+  function selectUnit(unit, newPin) {
+    if (newPin) {
+      pin = { lat: newPin.lat, lng: newPin.lng, wardId: unit.id };
+    } else if (pin && pin.wardId !== unit.id) {
+      pin = null; // chose a different ward by hand: the old spot isn't in it
+    }
+    setPinStatus('');
+    setAreaOpenError('');
     localUnitIdField.value = unit.id;
     localUnitSearch.value = '';
     areaSuggestions.style.display = 'none';
@@ -414,11 +472,14 @@
     areaSelected.style.display = 'flex';
     localUnitSearch.style.display = 'none';
     updateRepQuestion(unit.id);
+    renderPinNote();
   }
 
   function clearSelection() {
     localUnitIdField.value = '';
     updateRepQuestion(null);
+    renderPinNote();
+    setPinStatus('');
     areaSelected.style.display = 'none';
     localUnitSearch.style.display = 'block';
     localUnitSearch.value = '';
@@ -612,13 +673,38 @@
     }
 
     document.getElementById('matchYesBtn').onclick = () => {
-      selectUnit({ id: unitId, name: unitName });
+      const known = localUnitsData.find(u => u.id === unitId);
+      const p = (lat != null && lng != null) ? { lat, lng } : null;
+      selectUnit(known || { id: unitId, name: unitName }, p);
       document.getElementById('matchConfirm').style.display = 'none';
     };
     document.getElementById('matchNoBtn').onclick = () => {
       document.getElementById('matchConfirm').style.display = 'none';
       localUnitSearch.focus();
     };
+  }
+
+  // Arriving from Home's "Report a problem here": the ward (and pin, if one
+  // was placed) come across in sessionStorage. Read once, then deleted;
+  // ignored if more than 2 hours old or if the ward can't take complaints.
+  const HANDOFF_KEY = 'griq-handoff';
+  const HANDOFF_MAX_MS = 2 * 60 * 60 * 1000;
+  function applyHandoff() {
+    let h = null;
+    try {
+      const raw = sessionStorage.getItem(HANDOFF_KEY);
+      sessionStorage.removeItem(HANDOFF_KEY);
+      if (raw) h = JSON.parse(raw);
+    } catch (e) { return; }
+    if (!h || typeof h !== 'object' || !h.wardId) return;
+    const at = typeof h.at === 'number' ? h.at : Date.parse(h.at);
+    const age = Date.now() - at;
+    if (!Number.isFinite(at) || age > HANDOFF_MAX_MS || age < -5 * 60 * 1000) return;
+    const unit = localUnitsData.find(u => u.id === h.wardId);
+    if (!unit) return;
+    const lat = Number(h.lat), lng = Number(h.lng);
+    const p = (h.lat != null && h.lng != null && Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
+    selectUnit(unit, p);
   }
 
   function showAddressNote(message) {
@@ -635,7 +721,15 @@
       });
       const data = await res.json();
 
-      if (data.matched) {
+      // A ward can be on the map before it can take complaints (no ward
+      // representative email yet). Say so here, instead of letting the
+      // citizen fill in the whole form only for it to be refused.
+      const canFile = data.matched && data.open_for_filing !== false &&
+        localUnitsData.some(u => u.id === data.local_unit_id);
+      if (data.matched && !canFile) {
+        document.getElementById('matchConfirm').style.display = 'none';
+        showAddressNote(GIQ.t('submit.not_open', { name: data.local_unit_name }));
+      } else if (data.matched) {
         showMatchConfirmation(data.local_unit_id, data.local_unit_name, data.localities, lat, lng);
       } else {
         showAddressNote(GIQ.t('submit.no_ward'));
@@ -763,6 +857,7 @@
     document.getElementById('phoneError').style.display = 'none';
     document.getElementById('emailError').style.display = 'none';
     areaError.style.display = 'none';
+    setAreaOpenError('');
 
     if (description.length < 15) {
       document.getElementById('descriptionError').style.display = 'block';
@@ -840,6 +935,9 @@
           location_detail,
           photo_urls,
           rep_suggestion,
+          // Only the pin that belongs to the chosen ward is sent.
+          pin_lat: pin && pin.wardId === local_unit_id ? pin.lat : null,
+          pin_lng: pin && pin.wardId === local_unit_id ? pin.lng : null,
           website,
           form_loaded_at: formLoadedAt,
           lang: GIQ.lang,
@@ -848,6 +946,14 @@
 
       const data = await res.json();
 
+      if (!res.ok && data.code === 'not_open') {
+        // Shown next to the area, where it can be fixed.
+        setAreaOpenError('submit.srv_not_open');
+        document.getElementById('areaSelected').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        submitBtn.disabled = false;
+        submitBtn.textContent = GIQ.t('submit.button');
+        return;
+      }
       if (!res.ok) {
         errorBox.style.display = 'block';
         document.getElementById('errorMessage').textContent =
@@ -894,7 +1000,7 @@
     }
   });
 
-  loadOptions();
+  loadOptions().then(applyHandoff);
   initAddressAutocomplete();
 </script>
 

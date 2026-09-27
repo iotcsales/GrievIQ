@@ -9,10 +9,8 @@
 // each coordinate pair is [longitude, latitude] — NOT [lat, lng]. All
 // comparisons below use x = longitude, y = latitude to match that.
 //
-// Point-in-polygon uses the standard ray-casting algorithm, applied
-// per ring with an even-odd toggle so holes (interior rings) are
-// handled correctly. Both Polygon and MultiPolygon geometries are
-// supported, since some wards may be split into disconnected areas.
+// Point-in-polygon lives in functions/_shared/geo.js (ray casting, holes
+// and MultiPolygon supported), shared with submit.js's pin check.
 //
 // A point outside every known ward boundary is NOT an error — it's
 // a normal, expected outcome (address just outside city limits, a
@@ -22,43 +20,7 @@
 // Public endpoint — no Cloudflare Access check. Citizens are not
 // logged in when they submit a grievance.
 
-function pointInRing(x, y, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0], yi = ring[i][1];
-    const xj = ring[j][0], yj = ring[j][1];
-    const intersects =
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
-function pointInGeometry(x, y, geometry) {
-  if (!geometry) return false;
-
-  if (geometry.type === "Polygon") {
-    let inside = false;
-    for (const ring of geometry.coordinates) {
-      if (pointInRing(x, y, ring)) inside = !inside;
-    }
-    return inside;
-  }
-
-  if (geometry.type === "MultiPolygon") {
-    for (const polygon of geometry.coordinates) {
-      let inside = false;
-      for (const ring of polygon) {
-        if (pointInRing(x, y, ring)) inside = !inside;
-      }
-      if (inside) return true;
-    }
-    return false;
-  }
-
-  return false;
-}
+import { pointInGeometry } from "../_shared/geo.js";
 
 export async function onRequestPost({ request, env }) {
   let body;
