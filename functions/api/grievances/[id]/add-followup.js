@@ -15,16 +15,10 @@
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
+import { DEPARTMENTS } from "../../../_shared/departments.js";
 
-const VALID_DEPARTMENTS = [
-  "Water Supply",
-  "Electricity",
-  "Sanitation / Garbage",
-  "Roads & Public Works",
-  "Health",
-  "Legal / Land Records",
-  "Other",
-];
+// The list lives in _shared/departments.js (shared with the admin Issue types page).
+const VALID_DEPARTMENTS = DEPARTMENTS;
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;

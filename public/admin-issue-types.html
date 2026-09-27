@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GrievIQ Admin — Issue types</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-import.html">Import</a>
+    <a href="/admin-import-wards.html">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html">Jurisdiction</a>
+    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-issue-types.html" class="active" aria-current="page">Issue types</a> <a href="/admin-staff.html">Staff</a>
+    <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main>
+  <h1>Issue types <span class="readonly-tag" id="readonly-tag" hidden>View only</span></h1>
+  <p class="subtitle">Each type of problem citizens can report, its time limits, and the department suggested to representatives.</p>
+
+  <div class="note">
+    The <b>suggested department</b> is listed first, marked "(suggested)", when a representative logs a follow-up on a case of this type.
+    Nothing is pre-selected: the representative always chooses the department. Every change here is recorded in the audit log.
+    Time limits are shown for reference and cannot be changed on this page.
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Issue type</th>
+            <th scope="col">Acknowledge within</th>
+            <th scope="col">Respond within (per level)</th>
+            <th scope="col">Suggested department</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="4" class="muted">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="status-msg" role="status" aria-live="polite"></div>
+  </div>
+</main>
+
+<script>
+// Every value from the server is escaped before it goes into the page.
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function hoursText(h) {
+  if (h === null || h === undefined) return null;
+  var days = h / 24;
+  var dayText = Number.isInteger(days) ? days + (days === 1 ? " day" : " days") : (Math.round(days * 10) / 10) + " days";
+  return h + " hours (" + dayText + ")";
+}
+
+function setStatus(msg, type) {
+  var el = document.getElementById("status-msg");
+  el.textContent = msg || "";
+  el.className = type || "";
+}
+
+var state = { canEdit: false, departments: [], issueTypes: [] };
+
+function deptLabel(d) { return d ? d : "No suggestion"; }
+
+function render() {
+  var tbody = document.getElementById("rows");
+  document.getElementById("readonly-tag").hidden = state.canEdit;
+  if (!state.issueTypes.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">No issue types found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.issueTypes.map(function (t) {
+    var ack = hoursText(t.ackHours) || "—";
+    var resp = hoursText(t.resolutionHours);
+    var respCell = resp ? esc(resp) : '<span class="dept-none">No limit — goes to legal review</span>';
+    var deptCell;
+    if (state.canEdit) {
+      var opts = '<option value="">No suggestion</option>' + state.departments.map(function (d) {
+        return '<option value="' + esc(d) + '"' + (d === t.suggestedDepartment ? " selected" : "") + ">" + esc(d) + "</option>";
+      }).join("");
+      deptCell =
+        '<div class="row-actions">' +
+          '<label class="visually-hidden" for="dept-' + esc(t.id) + '">Suggested department for ' + esc(t.name) + "</label>" +
+          '<select class="dept-select" id="dept-' + esc(t.id) + '" data-id="' + esc(t.id) + '">' + opts + "</select>" +
+          '<button class="primary save-btn" data-id="' + esc(t.id) + '">Save</button>' +
+        "</div>";
+    } else {
+      deptCell = t.suggestedDepartment
+        ? '<span class="dept-now">' + esc(t.suggestedDepartment) + "</span>"
+        : '<span class="dept-none">No suggestion</span>';
+    }
+    return "<tr>" +
+      '<td class="name">' + esc(t.name) + '<span class="sub">' + esc(t.id) + "</span></td>" +
+      "<td>" + esc(ack) + "</td>" +
+      "<td>" + respCell + "</td>" +
+      "<td>" + deptCell + "</td>" +
+    "</tr>";
+  }).join("");
+
+  document.querySelectorAll(".save-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { save(btn.getAttribute("data-id"), btn); });
+  });
+}
+
+async function load() {
+  try {
+    var res = await fetch("/api/admin/issue-types");
+    var data = await res.json();
+    if (!res.ok) {
+      var msg = data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE"
+        ? "Your account does not have access to this page."
+        : "Could not load issue types (" + (data.error || res.status) + ").";
+      document.getElementById("rows").innerHTML = '<tr><td colspan="4" class="muted">' + esc(msg) + "</td></tr>";
+      return;
+    }
+    state = data;
+    render();
+  } catch (err) {
+    document.getElementById("rows").innerHTML = '<tr><td colspan="4" class="muted">Network error loading issue types.</td></tr>';
+  }
+}
+
+async function save(id, btn) {
+  var select = document.getElementById("dept-" + id);
+  var value = select.value || null;
+  var t = state.issueTypes.filter(function (x) { return x.id === id; })[0];
+  if (t && (t.suggestedDepartment || null) === value) {
+    setStatus(t.name + ": no change to save.", "");
+    return;
+  }
+  btn.disabled = true;
+  setStatus("Saving...", "");
+  try {
+    var res = await fetch("/api/admin/issue-types", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id, suggestedDepartment: value }),
+    });
+    var data = await res.json();
+    btn.disabled = false;
+    if (!res.ok) {
+      setStatus(data.error === "INSUFFICIENT_ROLE" ? "Your role can view this page but not change it." : (data.error || "Failed to save."), "error");
+      return;
+    }
+    if (t) {
+      setStatus(t.name + ": suggestion changed from " + deptLabel(data.before === undefined ? t.suggestedDepartment : data.before) +
+        " to " + deptLabel(data.suggestedDepartment) + ".", "success");
+      t.suggestedDepartment = data.suggestedDepartment;
+    }
+  } catch (err) {
+    btn.disabled = false;
+    setStatus("Network error while saving.", "error");
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+}
+var savedTheme = "dark";
+try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", function () {
+  var current = "dark";
+  try { current = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  var next = current === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+
+load();
+</script>
+
+</body>
+</html>
