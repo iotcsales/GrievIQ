@@ -339,8 +339,54 @@
   .device-note button { background: none; border: none; padding: 0; font: inherit; color: var(--teal-dark); text-decoration: underline; cursor: pointer; }
   .rep-link { margin-top: 10px; font-size: 11px; }
   .rep-link a { color: var(--ink-soft); }
+  /* ---- "Where is the problem?" card (location-first Home, Sept 2026) ---- */
+  .loc-card { border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin: 4px 0 18px; background: var(--paper); }
+  .loc-card h2 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; margin: 0 0 2px; }
+  .loc-sub { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 12px; }
+  .loc-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 46px; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); font: inherit; font-weight: 600; font-size: 14px; border-radius: 12px; padding: 10px 14px; cursor: pointer; text-align: left; }
+  .loc-btn:hover { background: var(--teal-tint); }
+  .loc-btn:focus-visible, .loc-link:focus-visible, .loc-small:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; box-shadow: 0 0 0 5px var(--ink); }
+  .loc-note { font-size: 11.5px; color: var(--ink-soft); margin: 6px 2px 12px; line-height: 1.45; }
+  .loc-label { display: block; font-size: 13px; font-weight: 600; margin: 4px 0 6px; }
+  #loc-search gmp-place-autocomplete { width: 100%; }
+  .loc-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 13px; }
+  .loc-link { background: none; border: none; padding: 4px 0; font: inherit; color: var(--teal-dark); text-decoration: underline; cursor: pointer; min-height: 24px; }
+  .loc-status { font-size: 13px; margin-top: 10px; color: var(--ink-soft); }
+  .loc-status:empty { display: none; }
+  .loc-status.err { color: var(--brick); }
+  .loc-map { width: 100%; height: 260px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
+  .loc-map-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .loc-small { border: 1px solid var(--grey-line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; border-radius: 10px; padding: 8px 12px; min-height: 36px; cursor: pointer; }
+  .loc-small.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .loc-small:disabled { opacity: .5; cursor: not-allowed; }
+  .loc-result-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .loc-kicker { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); }
+  html[lang='hi'] .loc-kicker { text-transform: none; letter-spacing: 0; font-size: 12px; }
+  .loc-place { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 18px; margin: 2px 0 2px; }
+  .loc-place-sub { font-size: 12.5px; color: var(--ink-soft); }
+  .loc-mini { height: 150px; margin-top: 10px; }
+  .loc-who { margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+  .loc-who li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .loc-who .lvl { color: var(--ink-soft); }
+  .loc-who .nm { font-weight: 600; text-align: right; }
+  .loc-who .nm.none { font-weight: 400; color: var(--ink-soft); font-style: italic; }
+  .loc-snap { font-size: 12.5px; color: var(--ink-soft); margin: 10px 0 0; }
+  .loc-cta { margin-top: 12px; }
+  .loc-share { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--ink-soft); }
+  .loc-share a, .loc-share button { font-size: 12.5px; }
+  .loc-warn { margin-top: 12px; font-size: 13px; line-height: 1.5; border-radius: 10px; padding: 10px 12px; background: var(--brick-dim); border: 1px solid var(--brick); }
+  .loc-warn ul { margin: 6px 0 0; padding-left: 18px; }
+  .loc-warn a { color: var(--teal-dark); }
+  [hidden] { display: none !important; }
 </style>
 <script src="/i18n.js"></script>
+<script>
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+    key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
+    v: "weekly",
+    language: (function () { try { return localStorage.getItem("griq-lang") === "hi" ? "hi" : "en"; } catch (e) { return "en"; } })(),
+  });
+</script>
 </head>
 <body>
 <div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation &amp; redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -355,6 +401,33 @@
     <h1 data-i18n="home.title">Get civic problems in Lucknow fixed</h1>
     <p class="intro" data-i18n="home.intro">Report a problem like no water, garbage, broken roads or street lights. GrievIQ sends it to your ward's elected representative. If it isn't dealt with in time, it moves up to the next level automatically, and stays visible to everyone it has reached.</p>
 
+
+    <section class="loc-card" id="loc-card" aria-labelledby="loc-q">
+      <div id="loc-ask">
+        <h2 id="loc-q" data-i18n="home.loc_q">Where is the problem?</h2>
+        <p class="loc-sub" data-i18n="home.loc_sub">Find the ward first. We'll show you who is responsible there.</p>
+        <button type="button" class="loc-btn" id="loc-gps"><span aria-hidden="true">📍</span><span data-i18n="home.loc_gps">Use my current location</span></button>
+        <p class="loc-note" data-i18n="home.loc_gps_note">We use your location only to find the ward. It isn't saved unless you file a complaint.</p>
+        <div id="loc-search-wrap">
+          <span class="loc-label" id="loc-search-label" data-i18n="home.loc_search_label">Or search an address, landmark or PIN code</span>
+          <div id="loc-search"></div>
+        </div>
+        <div class="loc-links">
+          <button type="button" class="loc-link" id="loc-map-open" data-i18n="home.loc_map_btn">Pick the spot on a map</button>
+          <a class="loc-link" href="/submit" data-i18n="home.loc_list">Or choose your ward from the list</a>
+        </div>
+        <div id="loc-picker" hidden>
+          <p class="loc-note" data-i18n="home.loc_map_hint">Tap the map to place the pin. Tap again to move it.</p>
+          <div class="loc-map" id="loc-map"></div>
+          <div class="loc-map-actions">
+            <button type="button" class="loc-small primary" id="loc-map-use" disabled data-i18n="home.loc_map_use">Use this spot</button>
+            <button type="button" class="loc-small" id="loc-map-cancel" data-i18n="home.loc_map_cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="loc-status" id="loc-status" role="status" aria-live="polite"></div>
+      <div id="loc-result" hidden tabindex="-1"></div>
+    </section>
     <div class="stats" aria-label="GrievIQ at a glance" data-i18n-aria="home.glance">
       <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label" data-i18n="home.stat_wards">Wards reachable</div></div>
       <div class="stat"><div class="stat-value" data-i18n="home.stat_levels_value">Up to 4</div><div class="stat-label" data-i18n="home.stat_levels">Escalation levels</div></div>
@@ -417,6 +490,268 @@
     .then(r => r.ok ? r.json() : null)
     .then(d => { if (d && Array.isArray(d.localUnits)) document.getElementById('stat-wards').textContent = d.localUnits.length; })
     .catch(() => {});
+})();
+
+// ---------------------------------------------------------------------
+// "Where is the problem?" -- location-first Home (approved Sept 2026)
+// ---------------------------------------------------------------------
+// Three ways to answer, none required: current location (only when the
+// button is pressed), address/landmark/PIN search, or tapping a map
+// (WCAG 2.2 2.5.7: no dragging needed). The answer is matched to a ward,
+// then the card shows the ward, who handles complaints there (names only),
+// a 30-day count, and "Report a problem here".
+// Privacy: coordinates are never stored on the server unless a complaint
+// is filed; they go to the complaint form through sessionStorage (not the
+// URL), and only the ward's id and name are remembered on this device.
+(function () {
+  const LUCKNOW = { lat: 26.8467, lng: 80.9462 };
+  const PLACE_KEY = 'griq-place';
+  const HANDOFF_KEY = 'griq-handoff';
+  const DEMAND_KEY = 'griq-demand';
+  const $ = (id) => document.getElementById(id);
+  const T = (k, v) => GIQ.t(k, v);
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  let current = null;     // { place, lat, lng, saved }
+  let outside = null;     // { city, state, inUP }
+
+  function status(msg, isErr) { const el = $('loc-status'); el.textContent = msg || ''; el.className = 'loc-status' + (isErr ? ' err' : ''); }
+  function remember(place) { try { localStorage.setItem(PLACE_KEY, JSON.stringify({ id: place.id, name: place.name })); } catch (e) {} }
+  function forget() { try { localStorage.removeItem(PLACE_KEY); } catch (e) {} }
+  function remembered() { try { const v = JSON.parse(localStorage.getItem(PLACE_KEY) || 'null'); return v && v.id ? v : null; } catch (e) { return null; } }
+
+  function setTitle() {
+    const h1 = document.querySelector('h1');
+    if (current && current.place) h1.textContent = T('home.loc_title', { place: current.place.name });
+    else h1.textContent = T('home.title');
+  }
+
+  // ---- Ward lookups ----
+  async function fromCoords(lat, lng) {
+    status(T('home.loc_finding'));
+    try {
+      const res = await fetch('/api/resolve-ward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat, lng }) });
+      const data = await res.json();
+      if (data.matched) return showWard(data.local_unit_id, { lat, lng });
+      return showOutside(lat, lng);
+    } catch (e) { status(T('common.generic_error'), true); }
+  }
+
+  async function showWard(idOrSlug, pin, opts) {
+    opts = opts || {};
+    status(T('home.loc_finding'));
+    try {
+      const q = opts.bySlug ? 'slug=' + encodeURIComponent(idOrSlug) : 'ward=' + encodeURIComponent(idOrSlug);
+      const res = await fetch('/api/place?' + q);
+      const data = await res.json();
+      if (res.status === 409 && data.candidates) return showChoices(data.candidates);
+      if (!res.ok || !data.place) { status(opts.fromLink ? T('home.loc_link_missing') : T('common.generic_error'), true); if (opts.fromSaved) forget(); return; }
+      outside = null;
+      current = { place: data.place, lat: pin ? pin.lat : null, lng: pin ? pin.lng : null, saved: !!opts.fromSaved };
+      remember(data.place);
+      status('');
+      render();
+      if (!opts.quiet) $('loc-result').focus();
+    } catch (e) { status(T('common.generic_error'), true); }
+  }
+
+  function showChoices(list) {
+    status('');
+    const box = $('loc-result');
+    box.hidden = false;
+    box.innerHTML = '<p class="loc-sub">' + esc(T('home.loc_ambiguous')) + '</p>' +
+      list.map((c) => '<button type="button" class="loc-small" data-ward="' + esc(c.id) + '">' + esc(c.name) +
+        ' <span style="font-weight:400">(' + esc([c.type === 'RURAL' ? T('adm.rural_village') : T('adm.urban_ward'), c.mla].filter(Boolean).join(', ')) + ')</span>' + '</button> ').join('');
+    box.querySelectorAll('[data-ward]').forEach((b) => b.addEventListener('click', () => showWard(b.dataset.ward)));
+  }
+
+  // ---- Result card ----
+  function render() {
+    const box = $('loc-result');
+    setTitle();
+    if (outside) return renderOutside();
+    if (!current) { box.hidden = true; box.innerHTML = ''; $('loc-ask').hidden = false; return; }
+    const p = current.place;
+    $('loc-ask').hidden = true;
+    const kind = p.type === 'RURAL' ? T('home.loc_village') : T('home.loc_ward');
+    const where = [p.municipalBody, p.city].filter(Boolean).join(' · ');
+    const levels = (p.levels || []).map((l) =>
+      '<li><span class="lvl">' + esc(GIQ.level(l.label)) + '</span>' +
+      (l.name ? '<span class="nm">' + esc(l.name) + '</span>' : '<span class="nm none">' + esc(T('home.loc_not_on_record')) + '</span>') + '</li>').join('');
+    const url = location.origin + p.link;
+    const shareText = T('home.loc_share_text', { place: p.name }) + ' ' + url;
+    box.hidden = false;
+    box.innerHTML =
+      '<div class="loc-result-head"><div>' +
+        '<div class="loc-kicker">' + esc(current.saved ? T('home.loc_saved') : kind) + '</div>' +
+        '<div class="loc-place">' + esc(p.name) + '</div>' +
+        '<div class="loc-place-sub">' + esc(where) + '</div>' +
+      '</div><div>' +
+        '<button type="button" class="loc-link" id="loc-change">' + esc(T('home.loc_change')) + '</button>' +
+        (current.saved ? '<br><button type="button" class="loc-link" id="loc-forget">' + esc(T('home.loc_forget')) + '</button>' : '') +
+      '</div></div>' +
+      (current.lat != null ? '<div class="loc-map loc-mini" id="loc-mini" aria-hidden="true"></div><div class="loc-links"><button type="button" class="loc-link" id="loc-adjust">' + esc(T('home.loc_adjust')) + '</button></div>' : '') +
+      '<h3 class="loc-kicker" style="margin:14px 0 0">' + esc(T('home.loc_who')) + '</h3>' +
+      '<ul class="loc-who">' + levels + '</ul>' +
+      '<p class="loc-snap">' + T('home.loc_snapshot', { filed: Number(p.last30Days.filed) || 0, resolved: Number(p.last30Days.resolved) || 0 }) + '</p>' +
+      (p.openForFiling
+        ? '<a class="task-card primary-task loc-cta" href="/submit" id="loc-report"><span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span><span><span class="task-title">' + esc(T('home.loc_report_here')) + '</span><span class="task-sub" style="display:block">' + esc(p.name) + '</span></span><span class="task-arrow" aria-hidden="true">→</span></a>'
+        : '<div class="loc-warn">' + esc(T('home.loc_not_open')) + '<br>' + esc(T('home.loc_outside_where')) + '<ul><li>' + T('home.loc_alt_up') + '</li><li>' + T('home.loc_alt_india') + '</li></ul></div>') +
+      '<div class="loc-share"><span>' + esc(T('home.loc_share')) + '</span>' +
+        '<a class="loc-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(shareText) + '">' + esc(T('home.loc_whatsapp')) + '</a>' +
+        '<button type="button" class="loc-small" id="loc-copy">' + esc(T('home.loc_copy')) + '</button>' +
+      '</div>';
+    $('loc-change').addEventListener('click', () => { current = null; outside = null; render(); $('loc-gps').focus(); });
+    if ($('loc-forget')) $('loc-forget').addEventListener('click', () => { forget(); current = null; render(); $('loc-gps').focus(); });
+    if ($('loc-adjust')) $('loc-adjust').addEventListener('click', () => { const pin = { lat: current.lat, lng: current.lng }; current = null; render(); openPicker(pin); });
+    $('loc-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(url); status(T('home.loc_copied')); } catch (e) { status(url); }
+    });
+    const report = $('loc-report');
+    if (report) report.addEventListener('click', () => {
+      try { sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ wardId: p.id, wardName: p.name, lat: current.lat, lng: current.lng, at: Date.now() })); } catch (e) {}
+    });
+    if (current.lat != null) drawMini(current.lat, current.lng);
+  }
+
+  function renderOutside() {
+    $('loc-ask').hidden = true;
+    const box = $('loc-result');
+    const o = outside;
+    const items = o.inUP ? [T('home.loc_alt_up'), T('home.loc_alt_india')] : (o.state ? [T('home.loc_alt_india')] : [T('home.loc_alt_up'), T('home.loc_alt_india')]);
+    let asked = [];
+    try { asked = JSON.parse(localStorage.getItem(DEMAND_KEY) || '[]'); } catch (e) {}
+    const key = (o.state || '') + '|' + (o.city || '');
+    box.hidden = false;
+    box.innerHTML =
+      '<div class="loc-result-head"><div class="loc-place">' + esc(o.city || '') + '</div><button type="button" class="loc-link" id="loc-change">' + esc(T('home.loc_change')) + '</button></div>' +
+      '<div class="loc-warn"><b>' + esc(T('home.loc_outside')) + '</b><br>' + esc(T('home.loc_outside_where')) + '<ul>' + items.map((i) => '<li>' + i + '</li>').join('') + '</ul></div>' +
+      (o.city ? (asked.indexOf(key) === -1
+        ? '<div class="loc-links"><button type="button" class="loc-small primary" id="loc-want">' + esc(T('home.loc_want', { city: o.city })) + '</button></div>'
+        : '<p class="loc-snap">' + esc(T('home.loc_want_done', { city: o.city })) + '</p>') : '');
+    $('loc-change').addEventListener('click', () => { outside = null; current = null; render(); $('loc-gps').focus(); });
+    const want = $('loc-want');
+    if (want) want.addEventListener('click', async () => {
+      want.disabled = true;
+      try {
+        const res = await fetch('/api/demand', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: o.city, state: o.state || '' }) });
+        if (res.ok) { asked.push(key); try { localStorage.setItem(DEMAND_KEY, JSON.stringify(asked)); } catch (e) {} renderOutside(); status(T('home.loc_want_done', { city: o.city })); return; }
+      } catch (e) {}
+      want.disabled = false; status(T('common.generic_error'), true);
+    });
+    $('loc-result').focus();
+  }
+
+  // City and state of a point outside our wards, from Google (if it loaded).
+  function readComponents(list) {
+    const out = { city: '', state: '', inUP: false };
+    (list || []).forEach((c) => {
+      const types = c.types || [];
+      const long = c.longText || c.long_name || '';
+      const short = c.shortText || c.short_name || '';
+      if (types.indexOf('administrative_area_level_1') !== -1) { out.state = long; out.inUP = short === 'UP' || /uttar pradesh|उत्तर प्रदेश/i.test(long); }
+      if (types.indexOf('locality') !== -1 && !out.city) out.city = long;
+      if (types.indexOf('administrative_area_level_2') !== -1 && !out.city) out.city = long;
+    });
+    return out;
+  }
+
+  async function showOutside(lat, lng, components) {
+    status('');
+    let info = components ? readComponents(components) : { city: '', state: '', inUP: false };
+    if (!components) {
+      try {
+        const { Geocoder } = await google.maps.importLibrary('geocoding');
+        const r = await new Geocoder().geocode({ location: { lat, lng } });
+        if (r && r.results && r.results[0]) info = readComponents(r.results[0].address_components);
+      } catch (e) {}
+    }
+    outside = info;
+    current = null;
+    render();
+  }
+
+  // ---- 1. Current location (only when asked) ----
+  $('loc-gps').addEventListener('click', () => {
+    if (!navigator.geolocation) { status(T('home.loc_gps_unavailable'), true); return; }
+    status(T('home.loc_finding'));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fromCoords(pos.coords.latitude, pos.coords.longitude),
+      (err) => status(T(err && err.code === 1 ? 'home.loc_gps_denied' : 'home.loc_gps_unavailable'), true),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  });
+
+  // ---- 2. Address / landmark / PIN search ----
+  (async function initSearch() {
+    try {
+      const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+      const el = new PlaceAutocompleteElement({ includedRegionCodes: ['in'], locationBias: { center: LUCKNOW, radius: 30000 } });
+      el.setAttribute('aria-labelledby', 'loc-search-label');
+      $('loc-search').appendChild(el);
+      el.addEventListener('gmp-select', async ({ placePrediction }) => {
+        try {
+          const place = placePrediction.toPlace();
+          await place.fetchFields({ fields: ['location', 'addressComponents'] });
+          if (!place.location) return;
+          const lat = place.location.lat(), lng = place.location.lng();
+          status(T('home.loc_finding'));
+          const res = await fetch('/api/resolve-ward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat, lng }) });
+          const data = await res.json();
+          if (data.matched) showWard(data.local_unit_id, { lat, lng });
+          else showOutside(lat, lng, place.addressComponents);
+        } catch (e) { status(T('common.generic_error'), true); }
+      });
+    } catch (e) {
+      // Shown in place of the search box, so it never hides another message.
+      $('loc-search-wrap').innerHTML = '<p class="loc-note" data-i18n="home.loc_search_fail">' + esc(T('home.loc_search_fail')) + '</p>';
+      $('loc-map-open').hidden = true;
+    }
+  })();
+
+  // ---- 3. Tap on a map (no dragging needed) ----
+  let pickMap = null, pickMarker = null, picked = null;
+  async function openPicker(start) {
+    $('loc-picker').hidden = false;
+    $('loc-map-use').disabled = !start;
+    picked = start || null;
+    try {
+      const { Map } = await google.maps.importLibrary('maps');
+      const { Marker } = await google.maps.importLibrary('marker');
+      const center = start || LUCKNOW;
+      if (!pickMap) {
+        pickMap = new Map($('loc-map'), { center, zoom: start ? 17 : 12, clickableIcons: false, streetViewControl: false, mapTypeControl: false, fullscreenControl: false });
+        pickMap.addListener('click', (e) => {
+          picked = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+          if (pickMarker) pickMarker.setPosition(e.latLng); else pickMarker = new Marker({ position: e.latLng, map: pickMap });
+          $('loc-map-use').disabled = false;
+        });
+      } else { pickMap.setCenter(center); pickMap.setZoom(start ? 17 : 12); }
+      if (start) { if (pickMarker) pickMarker.setPosition(start); else pickMarker = new Marker({ position: start, map: pickMap }); }
+    } catch (e) { $('loc-picker').hidden = true; status(T('home.loc_search_fail'), true); }
+  }
+  $('loc-map-open').addEventListener('click', () => openPicker(null));
+  $('loc-map-cancel').addEventListener('click', () => { $('loc-picker').hidden = true; $('loc-map-open').focus(); });
+  $('loc-map-use').addEventListener('click', () => { if (!picked) return; $('loc-picker').hidden = true; fromCoords(picked.lat, picked.lng); });
+
+  async function drawMini(lat, lng) {
+    try {
+      const { Map } = await google.maps.importLibrary('maps');
+      const { Marker } = await google.maps.importLibrary('marker');
+      const m = new Map($('loc-mini'), { center: { lat, lng }, zoom: 16, disableDefaultUI: true, gestureHandling: 'none', clickableIcons: false, keyboardShortcuts: false });
+      new Marker({ position: { lat, lng }, map: m });
+    } catch (e) { const el = $('loc-mini'); if (el) el.hidden = true; }
+  }
+
+  // ---- Start: a ward link (/lucknow/<ward> or ?ward=), else the remembered ward ----
+  const m = location.pathname.match(/^\/lucknow\/([^\/?#]+)\/?$/i);
+  const qp = new URLSearchParams(location.search);
+  if (m) showWard(decodeURIComponent(m[1]), null, { bySlug: true, fromLink: true, quiet: true });
+  else if (qp.get('ward')) showWard(qp.get('ward'), null, { fromLink: true, quiet: true });
+  else { const r = remembered(); if (r) showWard(r.id, null, { fromSaved: true, quiet: true }); }
+
+  // Switching हिन्दी / English: i18n.js resets the fixed text; redraw ours.
+  document.addEventListener('giq:lang', () => { setTitle(); if (current || outside) render(); });
 })();
 </script>
 </body>

@@ -68,9 +68,14 @@ export async function findWardBySlug(env, part) {
   if (!p) return null;
   const byId = await env.DB.prepare("SELECT id FROM local_units WHERE id = ?").bind(decodeURIComponent(p)).first();
   if (byId) return { id: byId.id };
-  const { results } = await env.DB.prepare("SELECT id, name FROM local_units").all();
+  const { results } = await env.DB.prepare(
+    `SELECT lu.id, lu.name, lu.unit_type, mla.name AS mla_name
+     FROM local_units lu LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id`
+  ).all();
   const hits = (results || []).filter((r) => wardSlug(r.name) === p);
   if (hits.length === 1) return { id: hits[0].id };
-  if (hits.length > 1) return { ambiguous: hits.map((h) => ({ id: h.id, name: h.name })) };
+  // Same name in more than one place: let the person choose, with enough
+  // detail (type and assembly constituency) to tell them apart.
+  if (hits.length > 1) return { ambiguous: hits.map((h) => ({ id: h.id, name: h.name, type: h.unit_type, mla: h.mla_name || null, detail: [h.unit_type === "RURAL" ? "Rural" : "Urban", h.mla_name].filter(Boolean).join(", ") })) };
   return null;
 }

@@ -1487,6 +1487,50 @@
   };
   for (var ak2 in A2) { if (Object.prototype.hasOwnProperty.call(A2, ak2)) D[ak2] = A2[ak2]; }
 
+  // ---- Home: "Where is the problem?" (location-first, Sept 2026) ----
+  var L = {
+"home.loc_q": ["Where is the problem?", "समस्या कहाँ है?"],
+"home.loc_sub": ["Find the ward first. We'll show you who is responsible there.", "पहले वार्ड खोजें। हम बताएँगे कि वहाँ कौन ज़िम्मेदार है।"],
+"home.loc_gps": ["Use my current location", "मेरी वर्तमान लोकेशन का उपयोग करें"],
+"home.loc_gps_note": ["We use your location only to find the ward. It isn't saved unless you file a complaint.", "आपकी लोकेशन का उपयोग केवल वार्ड खोजने के लिए होता है। शिकायत दर्ज न करने पर यह सहेजी नहीं जाती।"],
+"home.loc_search_label": ["Or search an address, landmark or PIN code", "या पता, कोई प्रसिद्ध स्थान या पिन कोड खोजें"],
+"home.loc_map_btn": ["Pick the spot on a map", "नक्शे पर स्थान चुनें"],
+"home.loc_map_hint": ["Tap the map to place the pin. Tap again to move it.", "पिन लगाने के लिए नक्शे पर टैप करें। बदलने के लिए दोबारा टैप करें।"],
+"home.loc_map_use": ["Use this spot", "यह स्थान चुनें"],
+"home.loc_map_cancel": ["Cancel", "रद्द करें"],
+"home.loc_list": ["Or choose your ward from the list", "या सूची से अपना वार्ड चुनें"],
+"home.loc_finding": ["Finding the ward…", "वार्ड खोजा जा रहा है…"],
+"home.loc_gps_denied": ["Location permission wasn't given. You can search for the address instead.", "लोकेशन की अनुमति नहीं मिली। इसके बजाय पता खोजें।"],
+"home.loc_gps_unavailable": ["Your location couldn't be found. Please search for the address instead.", "आपकी लोकेशन नहीं मिल सकी। कृपया पता खोजें।"],
+"home.loc_ward": ["Ward", "वार्ड"],
+"home.loc_village": ["Village", "गाँव"],
+"home.loc_who": ["Who handles complaints here", "यहाँ शिकायतें कौन देखता है"],
+"home.loc_not_on_record": ["not yet on record", "अभी दर्ज नहीं"],
+"home.loc_snapshot": ["In the last 30 days: <b>{filed}</b> complaints filed · <b>{resolved}</b> resolved", "पिछले 30 दिनों में: <b>{filed}</b> शिकायतें दर्ज · <b>{resolved}</b> निस्तारित"],
+"home.loc_report_here": ["Report a problem here", "यहाँ की समस्या दर्ज करें"],
+"home.loc_adjust": ["Adjust pin", "पिन बदलें"],
+"home.loc_share": ["Share this ward:", "यह वार्ड साझा करें:"],
+"home.loc_whatsapp": ["WhatsApp", "व्हाट्सऐप"],
+"home.loc_copy": ["Copy link", "लिंक कॉपी करें"],
+"home.loc_copied": ["Link copied", "लिंक कॉपी हो गया"],
+"home.loc_share_text": ["Report civic problems in {place} on GrievIQ:", "{place} की नागरिक समस्याएँ GrievIQ पर दर्ज करें:"],
+"home.loc_change": ["Change location", "स्थान बदलें"],
+"home.loc_saved": ["Your ward", "आपका वार्ड"],
+"home.loc_forget": ["Forget", "भूल जाएँ"],
+"home.loc_title": ["Get civic problems in {place} fixed", "{place} की नागरिक समस्याओं का समाधान कराएँ"],
+"home.loc_not_open": ["We know this ward, but it can't take complaints yet. Its details are still being collected.", "हम इस वार्ड को जानते हैं, पर यहाँ अभी शिकायत दर्ज नहीं हो सकती। इसका विवरण अभी एकत्र किया जा रहा है।"],
+"home.loc_outside": ["GrievIQ doesn't cover this location yet.", "GrievIQ अभी इस स्थान पर उपलब्ध नहीं है।"],
+"home.loc_outside_where": ["You can still complain here:", "आप यहाँ शिकायत कर सकते हैं:"],
+"home.loc_alt_up": ["<b>Uttar Pradesh:</b> <a href=\"https://jansunwai.up.nic.in\" target=\"_blank\" rel=\"noopener noreferrer\">Jansunwai (IGRS)</a>, or call the CM Helpline <b>1076</b>.", "<b>उत्तर प्रदेश:</b> <a href=\"https://jansunwai.up.nic.in\" target=\"_blank\" rel=\"noopener noreferrer\">जनसुनवाई (IGRS)</a>, या मुख्यमंत्री हेल्पलाइन <b>1076</b> पर कॉल करें।"],
+"home.loc_alt_india": ["<b>Anywhere in India:</b> <a href=\"https://pgportal.gov.in\" target=\"_blank\" rel=\"noopener noreferrer\">CPGRAMS</a>, the Government of India's public grievance portal.", "<b>पूरे भारत में:</b> <a href=\"https://pgportal.gov.in\" target=\"_blank\" rel=\"noopener noreferrer\">CPGRAMS</a>, भारत सरकार का लोक शिकायत पोर्टल।"],
+"home.loc_want": ["I want GrievIQ in {city}", "मुझे {city} में GrievIQ चाहिए"],
+"home.loc_want_done": ["Thanks. We've counted your request for {city}.", "धन्यवाद। {city} के लिए आपका अनुरोध गिन लिया गया है।"],
+"home.loc_search_fail": ["Address search couldn't load. You can still use your location or choose from the list.", "पता खोज लोड नहीं हो सकी। आप अब भी अपनी लोकेशन या सूची का उपयोग कर सकते हैं।"],
+"home.loc_ambiguous": ["More than one ward has this name. Please choose:", "इस नाम के एक से अधिक वार्ड हैं। कृपया चुनें:"],
+"home.loc_link_missing": ["That ward link wasn't found. Please find the ward below.", "यह वार्ड लिंक नहीं मिला। कृपया नीचे वार्ड खोजें।"]
+  };
+  for (var lk in L) { if (Object.prototype.hasOwnProperty.call(L, lk)) D[lk] = L[lk]; }
+
   var lang = 'en';
   try { if (localStorage.getItem(STORE) === 'hi') lang = 'hi'; } catch (e) {}
   document.documentElement.lang = lang;
