@@ -21,14 +21,30 @@
 // GPS (EXIF), an exact fingerprint (SHA-256), whether it matches a photo on
 // another case (exactly, or visually similar), and whether it is one of the
 // citizen's own "before" photos.
+//
+// Also accepted (item 7b-1 update): where the rep's phone was when adding
+// the photo -- dev_status (OK / DENIED / UNAVAILABLE), dev_lat, dev_lng,
+// dev_acc (metres) -- from the browser, asked for with their permission.
+// Phones strip a photo's own location when uploading from a website, so
+// this is the main location check. Only stored when inside a rough box
+// around India.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { readExif } from "../../../_shared/exif.js";
 import { photoLink } from "../../../_shared/photo-links.js";
 import {
-  sniffImage, sha256Hex, validDhash, hamming, SIMILAR_BITS, MAX_PHOTO_BYTES, photoWarnings,
+  sniffImage, sha256Hex, validDhash, hamming, SIMILAR_BITS, MAX_PHOTO_BYTES, photoWarnings, parseWard,
 } from "../../../_shared/resolution-evidence.js";
+
+function readDevice(form) {
+  const status = String(form.get("dev_status") || "").toUpperCase();
+  if (status === "DENIED" || status === "UNAVAILABLE") return { status, lat: null, lng: null, acc: null };
+  if (status !== "OK") return { status: null, lat: null, lng: null, acc: null };
+  const lat = Number(form.get("dev_lat")), lng = Number(form.get("dev_lng")), acc = Number(form.get("dev_acc"));
+  if (!isFinite(lat) || !isFinite(lng) || lat < 6 || lat > 38 || lng < 68 || lng > 98) return { status: "UNAVAILABLE", lat: null, lng: null, acc: null };
+  return { status: "OK", lat: Math.round(lat * 1e5) / 1e5, lng: Math.round(lng * 1e5) / 1e5, acc: isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc), 100000) : null };
+}
 
 const MAX_UNATTACHED = 6;
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -48,7 +64,8 @@ export async function onRequestPost(context) {
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
 
   const g = await env.DB.prepare(
-    "SELECT id, status, local_unit_id, created_at, pin_lat, pin_lng, photo_url FROM grievances WHERE id = ?"
+    `SELECT g.id, g.status, g.local_unit_id, g.created_at, g.pin_lat, g.pin_lng, g.photo_url, lu.ward_boundary_geojson
+     FROM grievances g LEFT JOIN local_units lu ON lu.id = g.local_unit_id WHERE g.id = ?`
   ).bind(params.id).first();
   if (!g) return Response.json({ error: "Grievance not found" }, { status: 404 });
   if (g.status === "RESOLVED" || g.status === "CLOSED" || g.status === "PENDING_CONFIRMATION") {
@@ -85,6 +102,7 @@ export async function onRequestPost(context) {
   const sha = await sha256Hex(buf);
   const dhash = validDhash(String(form.get("dhash") || "").toLowerCase());
   const exif = type === "image/jpeg" ? readExif(buf) : { takenAt: null, lat: null, lng: null };
+  const dev = readDevice(form);
 
   // Same photo already used on another case?
   let dupId = null, dupKind = null;
@@ -116,12 +134,14 @@ export async function onRequestPost(context) {
   await env.DB.prepare(
     `INSERT INTO resolution_photos
        (id, grievance_id, report_id, r2_key, content_type, byte_size, sha256, dhash, taken_at, gps_lat, gps_lng,
-        dup_grievance_id, dup_kind, matches_citizen, uploaded_by, created_at)
-     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        dup_grievance_id, dup_kind, matches_citizen, uploaded_by, created_at,
+        dev_lat, dev_lng, dev_accuracy, dev_status)
+     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, g.id, key, type, buf.byteLength, sha, dhash, exif.takenAt, exif.lat, exif.lng,
-    dupId, dupKind, matchesCitizen, auth.email, now).run();
+    dupId, dupKind, matchesCitizen, auth.email, now, dev.lat, dev.lng, dev.acc, dev.status).run();
 
-  const row = { taken_at: exif.takenAt, gps_lat: exif.lat, gps_lng: exif.lng, dup_grievance_id: dupId, dup_kind: dupKind, matches_citizen: matchesCitizen, created_at: now };
-  const warnings = photoWarnings(g, row).map((w) => { const c = Object.assign({}, w); delete c.otherCaseId; return c; });
+  const row = { taken_at: exif.takenAt, gps_lat: exif.lat, gps_lng: exif.lng, dup_grievance_id: dupId, dup_kind: dupKind, matches_citizen: matchesCitizen, created_at: now,
+    dev_lat: dev.lat, dev_lng: dev.lng, dev_accuracy: dev.acc, dev_status: dev.status };
+  const warnings = photoWarnings(g, row, parseWard(g.ward_boundary_geojson)).map((w) => { const c = Object.assign({}, w); delete c.otherCaseId; return c; });
   return Response.json({ id, url: await photoLink(env, id), takenAt: exif.takenAt, warnings });
 }

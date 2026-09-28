@@ -540,8 +540,13 @@
     if (w.code === "REUSED_OTHER_CASE") return (w.kind === "similar" ? "Very similar to a photo on " : "Same photo already used on ") + "another case";
     if (w.code === "CITIZEN_PHOTO") return "This is one of the citizen's own photos";
     if (w.code === "NO_DATE") return "No date in photo";
-    if (w.code === "NO_LOCATION") return "No location in photo";
-    if (w.code === "NO_PIN") return "No pin on the complaint to compare the location with";
+    if (w.code === "NO_LOCATION") return "No location in photo or from the representative's phone";
+    if (w.code === "NO_PIN") return "No pin or ward boundary to compare the location with";
+    if (w.code === "DEVICE_FAR_FROM_PIN") return "Representative added this photo about " + w.metres + " m from the complaint's pin (phone accuracy ±" + w.accuracy + " m)";
+    if (w.code === "DEVICE_OUTSIDE_WARD") return "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)";
+    if (w.code === "PHOTO_OUTSIDE_WARD") return "Photo's own location is outside the complaint's ward";
+    if (w.code === "DEVICE_NOT_SHARED") return "Representative's location not shared";
+    if (w.code === "DEVICE_ROUGH") return "Representative's location too rough to check (±" + w.accuracy + " m)";
     return w.code;
   }
   function renderResolutionPanel(c) {

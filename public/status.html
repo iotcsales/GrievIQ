@@ -839,7 +839,8 @@
   // and "after" photos side by side (item 7b). Only serious warnings are
   // shown here, in plain words.
   const CIT_EV = { DATE_BEFORE_FILING: 'status.ev_date_before', DATE_FUTURE: 'status.ev_date_future', FAR_FROM_PIN: 'status.ev_far',
-    REUSED_OTHER_CASE: 'status.ev_reused', CITIZEN_PHOTO: 'status.ev_citizen' };
+    REUSED_OTHER_CASE: 'status.ev_reused', CITIZEN_PHOTO: 'status.ev_citizen',
+    DEVICE_FAR_FROM_PIN: 'status.ev_dev_far', DEVICE_OUTSIDE_WARD: 'status.ev_dev_outside', PHOTO_OUTSIDE_WARD: 'status.ev_photo_outside' };
   function renderResolution(c) {
     const box = document.getElementById('status-resolution');
     const r = c.resolution;

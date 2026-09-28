@@ -711,6 +711,18 @@
 "This photo has also been used on another complaint.",
 "यह फ़ोटो किसी दूसरी शिकायत में भी उपयोग की गई है।"
 ],
+"status.ev_dev_far": [
+"The representative added this photo about {m} m from the spot you marked.",
+"जनप्रतिनिधि ने यह फ़ोटो आपके चिह्नित स्थान से लगभग {m} मीटर दूर से जोड़ी।"
+],
+"status.ev_dev_outside": [
+"The representative added this photo from outside your ward.",
+"जनप्रतिनिधि ने यह फ़ोटो आपके वार्ड के बाहर से जोड़ी।"
+],
+"status.ev_photo_outside": [
+"This photo seems to have been taken outside your ward.",
+"यह फ़ोटो आपके वार्ड के बाहर ली गई लगती है।"
+],
 "status.ev_citizen": [
 "This is one of your own photos.",
 "यह आपकी अपनी फ़ोटो में से एक है।"
@@ -1023,6 +1035,14 @@
 "If you're not satisfied with our response, you can complain to the Data Protection Board of India.",
 "यदि आप हमारे उत्तर से संतुष्ट नहीं हैं, तो आप भारतीय डेटा संरक्षण बोर्ड (Data Protection Board of India) में शिकायत कर सकते हैं।"
 ],
+"priv.h_reps": [
+"For representatives",
+"जनप्रतिनिधियों के लिए"
+],
+"priv.reps": [
+"When you add a photo of the work done, we ask your phone for your location once, only with your permission, to show the photo was taken at the spot. It is saved with that photo and never tracked in the background. GrievIQ staff see how far it was from the complaint's location; citizens see only a warning if it was far away, never your exact location. You can say no, and still add the photo.",
+"कार्य की फ़ोटो जोड़ते समय, फ़ोटो मौके पर ली गई है यह दिखाने के लिए, हम केवल आपकी अनुमति से एक बार आपके फ़ोन से आपकी लोकेशन माँगते हैं। यह उसी फ़ोटो के साथ सहेजी जाती है और कभी पृष्ठभूमि में ट्रैक नहीं की जाती। GrievIQ कर्मचारी देखते हैं कि यह शिकायत के स्थान से कितनी दूर थी; नागरिक केवल दूर होने पर चेतावनी देखते हैं, आपकी सटीक लोकेशन कभी नहीं। आप मना कर सकते हैं और फिर भी फ़ोटो जोड़ सकते हैं।"
+],
 "priv.h_operator": [
 "Who operates GrievIQ",
 "GrievIQ का संचालन कौन करता है"
@@ -1256,8 +1276,16 @@
 "rep.ev_similar": ["Very similar to a photo on another case", "किसी दूसरी शिकायत की फ़ोटो से बहुत मिलती-जुलती"],
 "rep.ev_citizen": ["This is one of the citizen's own photos", "यह नागरिक की अपनी फ़ोटो में से एक है"],
 "rep.ev_no_date": ["No date in photo", "फ़ोटो में तिथि नहीं"],
-"rep.ev_no_location": ["No location in photo", "फ़ोटो में लोकेशन नहीं"],
-"rep.ev_no_pin": ["No pin on the complaint to compare", "तुलना के लिए शिकायत पर पिन नहीं"],
+"rep.ev_no_location": ["No location in photo or from your phone", "न फ़ोटो में लोकेशन है, न आपके फ़ोन से"],
+"rep.ev_no_pin": ["No pin or ward boundary to compare with", "तुलना के लिए न पिन है, न वार्ड की सीमा"],
+"rep.ev_dev_far": ["You added this photo about {m} m from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से लगभग {m} मीटर दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"rep.ev_dev_outside": ["You added this photo from outside the complaint's ward (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के वार्ड के बाहर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"rep.ev_photo_outside": ["Photo's own location is outside the complaint's ward", "फ़ोटो की अपनी लोकेशन शिकायत के वार्ड के बाहर है"],
+"rep.ev_dev_not_shared": ["Your location wasn't shared", "आपकी लोकेशन साझा नहीं की गई"],
+"rep.ev_dev_rough": ["Your location was too rough to check (±{acc} m)", "आपकी लोकेशन जाँचने के लिए पर्याप्त सटीक नहीं थी (±{acc} मीटर)"],
+"rep.r_loc_hint": ["We'll ask for your location once, to show the photo was taken at the spot.", "फ़ोटो मौके पर ली गई है, यह दिखाने के लिए हम एक बार आपकी लोकेशन माँगेंगे।"],
+"rep.r_loc_ok": ["Your location: shared (±{m} m).", "आपकी लोकेशन: साझा की गई (±{m} मीटर)।"],
+"rep.r_loc_no": ["Your location: not shared. The photo can still be added.", "आपकी लोकेशन: साझा नहीं की गई। फ़ोटो फिर भी जोड़ी जा सकती है।"],
 "rep.badge_now_with": ["now with {level}", "अब {level} के पास"],
 "rep.badge_ack": ["acknowledged {date}", "प्राप्ति स्वीकार: {date}"],
 "rep.badge_ack_overdue": ["ack overdue", "प्राप्ति स्वीकार में विलंब"],

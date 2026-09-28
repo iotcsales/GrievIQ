@@ -7,14 +7,27 @@
 // shown to GrievIQ staff, the representative, and (the serious ones) the
 // citizen when asked to confirm.
 //
+// Two kinds of location are checked:
+//   - DEVICE: where the rep's phone was when they added the photo (browser
+//     location, asked for with their permission). Phones strip the photo's
+//     own location when uploading from a website, so this is the main check.
+//   - PHOTO: the photo's own GPS (EXIF), when a phone keeps it.
+// Each is compared with the complaint's pin; when there is no pin, with the
+// ward's boundary instead.
+//
 // Warning codes:
-//   serious ("warn"):  DATE_BEFORE_FILING, DATE_FUTURE, FAR_FROM_PIN,
+//   serious ("warn"):  DATE_BEFORE_FILING, DATE_FUTURE,
+//                      DEVICE_FAR_FROM_PIN, DEVICE_OUTSIDE_WARD,
+//                      FAR_FROM_PIN, PHOTO_OUTSIDE_WARD,
 //                      REUSED_OTHER_CASE, CITIZEN_PHOTO
-//   neutral ("info"):  NO_DATE, NO_LOCATION, NO_PIN
+//   neutral ("info"):  NO_DATE, DEVICE_NOT_SHARED, DEVICE_ROUGH,
+//                      NO_LOCATION, NO_PIN
 
 import { toUtcMs } from "./time-limits.js";
+import { pointInGeometry } from "./geo.js";
 
-export const FAR_METRES = 250;          // see note on the design: GPS + pin error allowance
+export const FAR_METRES = 250;          // GPS error (~10 m typical, ~100 m worst) + pin error allowance
+export const ROUGH_METRES = 1000;       // a device fix this rough (e.g. Wi-Fi/IP only) can't be checked
 export const SIMILAR_BITS = 6;          // visual fingerprint: <= 6 of 64 bits different
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const MAX_PHOTOS = 3;
@@ -58,8 +71,15 @@ export function metresBetween(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-// Warnings for one stored photo row against its complaint.
-export function photoWarnings(g, p) {
+// Parses a ward boundary (GeoJSON text) once; null if missing or unreadable.
+export function parseWard(geojsonText) {
+  if (!geojsonText || !String(geojsonText).trim()) return null;
+  try { return JSON.parse(geojsonText); } catch (e) { return null; }
+}
+
+// Warnings for one stored photo row against its complaint. ward = parsed
+// ward boundary (parseWard), or null.
+export function photoWarnings(g, p, ward) {
   const out = [];
   const filedMs = toUtcMs(g.created_at);
   const takenMs = p.taken_at ? toUtcMs(p.taken_at) : NaN;
@@ -69,13 +89,30 @@ export function photoWarnings(g, p) {
   else if (takenMs > uploadedMs + 86400000) out.push({ code: "DATE_FUTURE", level: "warn", takenAt: p.taken_at });
 
   const hasPin = g.pin_lat != null && g.pin_lng != null;
-  const hasGps = p.gps_lat != null && p.gps_lng != null;
-  if (!hasGps) out.push({ code: "NO_LOCATION", level: "info" });
-  else if (!hasPin) out.push({ code: "NO_PIN", level: "info" });
+  const canCompare = hasPin || !!ward;
+  // Where the rep's phone was when adding the photo.
+  const devOk = p.dev_status === "OK" && p.dev_lat != null && p.dev_lng != null;
+  if (!devOk) out.push({ code: "DEVICE_NOT_SHARED", level: "info" });
   else {
+    const acc = Math.round(Number(p.dev_accuracy) || 0);
+    if (acc > ROUGH_METRES) out.push({ code: "DEVICE_ROUGH", level: "info", accuracy: acc });
+    else if (hasPin) {
+      const m = Math.round(metresBetween(Number(g.pin_lat), Number(g.pin_lng), Number(p.dev_lat), Number(p.dev_lng)));
+      if (m - acc > FAR_METRES) out.push({ code: "DEVICE_FAR_FROM_PIN", level: "warn", metres: m, accuracy: acc });
+    } else if (ward && !pointInGeometry(Number(p.dev_lng), Number(p.dev_lat), ward)) {
+      out.push({ code: "DEVICE_OUTSIDE_WARD", level: "warn", accuracy: acc });
+    }
+  }
+  // The photo's own location, when the phone kept it.
+  const hasGps = p.gps_lat != null && p.gps_lng != null;
+  if (!hasGps) { if (!devOk) out.push({ code: "NO_LOCATION", level: "info" }); }
+  else if (hasPin) {
     const m = Math.round(metresBetween(Number(g.pin_lat), Number(g.pin_lng), Number(p.gps_lat), Number(p.gps_lng)));
     if (m > FAR_METRES) out.push({ code: "FAR_FROM_PIN", level: "warn", metres: m });
+  } else if (ward && !pointInGeometry(Number(p.gps_lng), Number(p.gps_lat), ward)) {
+    out.push({ code: "PHOTO_OUTSIDE_WARD", level: "warn" });
   }
+  if ((devOk || hasGps) && !canCompare) out.push({ code: "NO_PIN", level: "info" });
   if (p.dup_grievance_id) out.push({ code: "REUSED_OTHER_CASE", level: "warn", kind: p.dup_kind || "exact", otherCaseId: p.dup_grievance_id });
   if (Number(p.matches_citizen) === 1) out.push({ code: "CITIZEN_PHOTO", level: "warn" });
   return out;
@@ -83,11 +120,11 @@ export function photoWarnings(g, p) {
 
 // Shapes a report + its photos for a page. audience: "staff" | "rep" | "citizen".
 // linkFor(photoId) -> Promise<string|null>. refFor(grievanceId) -> tracking ref (staff only).
-export async function shapeResolution(g, report, photos, audience, linkFor, refFor) {
+export async function shapeResolution(g, report, photos, audience, linkFor, refFor, ward) {
   if (!report) return null;
   const shaped = [];
   for (const p of photos) {
-    let warnings = photoWarnings(g, p);
+    let warnings = photoWarnings(g, p, ward || null);
     if (audience === "citizen") warnings = warnings.filter((w) => w.level === "warn");
     warnings = warnings.map((w) => {
       const c = Object.assign({}, w);

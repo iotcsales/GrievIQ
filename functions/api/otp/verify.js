@@ -23,7 +23,7 @@ import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind } from "../../_shared/confirmation.js";
-import { loadResolution, shapeResolution } from "../../_shared/resolution-evidence.js";
+import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolution-evidence.js";
 import { photoLink } from "../../_shared/photo-links.js";
 
 // The citizen's own "before" photos (public links today; item 7c makes them private).
@@ -98,7 +98,7 @@ async function buildCaseDetail(env, grievance) {
   // which other case a reused photo came from.
   const loaded = await loadResolution(env, grievance.id);
   const resolution = loaded.report
-    ? await shapeResolution(grievance, loaded.report, loaded.photos, "citizen", (pid) => photoLink(env, pid))
+    ? await shapeResolution(grievance, loaded.report, loaded.photos, "citizen", (pid) => photoLink(env, pid), null, parseWard(chain.localUnit.ward_boundary_geojson))
     : null;
 
   // Which levels are past their time limit, and the deadlines, come from

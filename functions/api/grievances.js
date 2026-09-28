@@ -18,7 +18,7 @@ import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_share
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind } from "../_shared/confirmation.js";
-import { shapeResolution } from "../_shared/resolution-evidence.js";
+import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoLink } from "../_shared/photo-links.js";
 
 export async function onRequestGet(context) {
@@ -178,7 +178,7 @@ export async function onRequestGet(context) {
 
     const report = reportByGrievance.get(grievance.id) || null;
     const resolution = report
-      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (pid) => photoLink(env, pid))
+      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (pid) => photoLink(env, pid), null, parseWard(chain.localUnit.ward_boundary_geojson))
       : null;
 
     visible.push({

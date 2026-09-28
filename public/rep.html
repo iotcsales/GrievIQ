@@ -536,6 +536,8 @@
     .ladder { justify-content: flex-start; }
     .followup-field, .followup-field select, .followup-field input { width: 100%; }
     .followup-form .resolve-btn { width: auto; }
+    /* 16px text in form fields: iPhone Safari zooms in on anything smaller. */
+    .resolve-form textarea, .followup-field select, .followup-field input { font-size: 16px; }
   }
   .top-strip { background: var(--ink); color: #E8EAED; font-size: 12px; }
   .top-strip-inner { max-width: 780px; margin: 0 auto; padding: 6px 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -732,7 +734,8 @@ function renderResolveControl(c) {
     '<textarea id="rnote-' + id + '" class="r-note" data-id="' + id + '" maxlength="1000" aria-describedby="rnote-hint-' + id + ' rnote-err-' + id + '"' + (d.errors.note ? ' aria-invalid="true"' : '') + '>' + esc(d.note) + '</textarea>' +
     '<div class="field-err" id="rnote-err-' + id + '" role="alert">' + esc(d.errors.note || '') + '</div>' +
     '<label for="rphoto-' + id + '">' + esc(T('rep.r_photos')) + '</label>' +
-    '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T('rep.r_photos_hint')) + '</p>' +
+    '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T('rep.r_photos_hint')) + ' ' + esc(T('rep.r_loc_hint')) + '</p>' +
+    (d.loc ? '<p class="hint" role="status">' + esc(d.loc.status === 'OK' ? T('rep.r_loc_ok', { m: Math.round(d.loc.acc || 0) }) : T('rep.r_loc_no')) + '</p>' : '') +
     '<input type="file" id="rphoto-' + id + '" class="r-photo" data-id="' + id + '" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="rphoto-hint-' + id + ' rphoto-err-' + id + '"' + (full || d.noPhoto ? ' disabled' : '') + (d.errors.photos ? ' aria-invalid="true"' : '') + ' />' +
     '<div class="r-thumbs" aria-live="polite">' +
       d.photos.map(function(p, i) {
@@ -763,12 +766,14 @@ var MAX_RES_PHOTOS = 3;
 var drafts = {};   // case id -> Mark resolved form state, kept across redraws
 
 var EV_KEYS = { DATE_BEFORE_FILING: 'rep.ev_date_before', DATE_FUTURE: 'rep.ev_date_future', FAR_FROM_PIN: 'rep.ev_far',
-  CITIZEN_PHOTO: 'rep.ev_citizen', NO_DATE: 'rep.ev_no_date', NO_LOCATION: 'rep.ev_no_location', NO_PIN: 'rep.ev_no_pin' };
+  CITIZEN_PHOTO: 'rep.ev_citizen', NO_DATE: 'rep.ev_no_date', NO_LOCATION: 'rep.ev_no_location', NO_PIN: 'rep.ev_no_pin',
+  DEVICE_FAR_FROM_PIN: 'rep.ev_dev_far', DEVICE_OUTSIDE_WARD: 'rep.ev_dev_outside', PHOTO_OUTSIDE_WARD: 'rep.ev_photo_outside',
+  DEVICE_NOT_SHARED: 'rep.ev_dev_not_shared', DEVICE_ROUGH: 'rep.ev_dev_rough' };
 function warningText(w) {
   if (w.code === 'REUSED_OTHER_CASE') return T(w.kind === 'similar' ? 'rep.ev_similar' : 'rep.ev_reused');
   var key = EV_KEYS[w.code];
   if (!key) return w.code;
-  return T(key, { m: w.metres, date: w.takenAt ? formatDate(w.takenAt) : '' });
+  return T(key, { m: w.metres, acc: w.accuracy, date: w.takenAt ? formatDate(w.takenAt) : '' });
 }
 function renderWarnings(list) {
   if (!list || !list.length) return '';
@@ -1469,11 +1474,32 @@ function attachResolveHandlers() {
       redraw(id, '#rnote-' + cssId(id));
     });
   });
+  // An error goes away as soon as that field is corrected (no redraw, so
+  // typing is never interrupted).
+  function clearFieldError(el, d, key, errId) {
+    if (!d.errors[key]) return;
+    var ok = key === 'note' ? el.value.trim().length >= 10 : el.value.trim().length >= 10;
+    if (!ok) return;
+    d.errors[key] = '';
+    el.removeAttribute('aria-invalid');
+    var err = document.getElementById(errId);
+    if (err) err.textContent = '';
+  }
   document.querySelectorAll('.r-note').forEach(function(el) {
-    el.addEventListener('input', function() { var d = draft(el.getAttribute('data-id')); if (d) d.note = el.value; });
+    el.addEventListener('input', function() {
+      var id = el.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.note = el.value;
+      clearFieldError(el, d, 'note', 'rnote-err-' + id);
+    });
   });
   document.querySelectorAll('.r-reason').forEach(function(el) {
-    el.addEventListener('input', function() { var d = draft(el.getAttribute('data-id')); if (d) d.reason = el.value; });
+    el.addEventListener('input', function() {
+      var id = el.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.reason = el.value;
+      clearFieldError(el, d, 'reason', 'rreason-err-' + id);
+    });
   });
   document.querySelectorAll('.r-nophoto').forEach(function(el) {
     el.addEventListener('change', function() {
@@ -1512,10 +1538,21 @@ function attachResolveHandlers() {
       });
       d.uploading += files.length;
       redraw(id);
+      // Where the rep is right now (asked once; refreshed after 2 minutes).
+      if (files.length && (!d.loc || Date.now() - d.loc.at > 120000)) {
+        d.loc = await currentLocation();
+        redraw(id);
+      }
       for (var i = 0; i < files.length; i++) {
         try {
           var fd = new FormData();
           fd.append('photo', files[i]);
+          fd.append('dev_status', d.loc ? d.loc.status : 'UNAVAILABLE');
+          if (d.loc && d.loc.status === 'OK') {
+            fd.append('dev_lat', String(d.loc.lat));
+            fd.append('dev_lng', String(d.loc.lng));
+            fd.append('dev_acc', String(d.loc.acc));
+          }
           var h = await visualFingerprint(files[i]);
           if (h) fd.append('dhash', h);
           var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/resolution-photo', { method: 'POST', body: fd });
@@ -1537,6 +1574,10 @@ function attachResolveHandlers() {
       var id = btn.getAttribute('data-id'), d = draft(id);
       if (!d) return;
       d.errors = {};
+      // Read what is in the boxes now (phone keyboards can skip input events).
+      var noteEl = document.getElementById('rnote-' + id), reasonEl = document.getElementById('rreason-' + id);
+      if (noteEl) d.note = noteEl.value;
+      if (reasonEl) d.reason = reasonEl.value;
       var note = d.note.trim(), reason = d.reason.trim();
       if (note.length < 10) d.errors.note = T('rep.r_err_note');
       if (!d.photos.length && !d.noPhoto) d.errors.photos = T('rep.r_err_photo');
@@ -1575,6 +1616,23 @@ function attachResolveHandlers() {
         redraw(id);
       }
     });
+  });
+}
+
+// The phone's current location, with the rep's permission (the browser asks).
+// Resolves to { status: 'OK', lat, lng, acc, at } or { status: 'DENIED' | 'UNAVAILABLE', at }.
+function currentLocation() {
+  return new Promise(function(resolve) {
+    if (!navigator.geolocation) return resolve({ status: 'UNAVAILABLE', at: Date.now() });
+    var done = false;
+    var timer = setTimeout(function() { if (!done) { done = true; resolve({ status: 'UNAVAILABLE', at: Date.now() }); } }, 20000);
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      if (done) return; done = true; clearTimeout(timer);
+      resolve({ status: 'OK', lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() });
+    }, function(err) {
+      if (done) return; done = true; clearTimeout(timer);
+      resolve({ status: err && err.code === 1 ? 'DENIED' : 'UNAVAILABLE', at: Date.now() });
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   });
 }
 

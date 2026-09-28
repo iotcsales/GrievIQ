@@ -20,7 +20,7 @@ import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations, resolutionKind, confirmDeadline } from "../../_shared/confirmation.js";
-import { loadResolution, shapeResolution } from "../../_shared/resolution-evidence.js";
+import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolution-evidence.js";
 import { photoLink } from "../../_shared/photo-links.js";
 
 function toMs(s) {
@@ -176,7 +176,7 @@ async function caseDetail(env, auth, id) {
     }
   }
   const resolution = loaded.report
-    ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), (id) => refs.get(id))
+    ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), (id) => refs.get(id), chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null)
     : null;
 
   const ex = exceptionCases.find((e) => e.id === g.id);
