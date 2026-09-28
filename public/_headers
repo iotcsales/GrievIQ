@@ -1,0 +1,4 @@
+# Browsers must check for a newer copy of the text file before using a saved one
+# (a stale copy showed raw keys like "rep.r_loc_ok" on an iPhone, Sept 2026).
+/i18n.js
+  Cache-Control: no-cache

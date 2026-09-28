@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js"></script>
+<script src="/i18n.js?v=7b1"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -512,6 +512,7 @@
   .r-thumbs, .res-photos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
   .r-thumb, .res-photo { width: 124px; font-size: 11.5px; color: var(--steel-2); }
   .r-thumb img, .res-photo img { width: 124px; height: 96px; object-fit: cover; border: 1px solid var(--line); border-radius: 3px; display: block; background: var(--paper); }
+  .r-loc-retry { font: inherit; font-size: 12px; background: none; border: none; color: var(--brand); text-decoration: underline; padding: 0; cursor: pointer; }
   .r-thumb button { margin-top: 4px; font: inherit; font-size: 12px; background: none; border: none; color: var(--brand); text-decoration: underline; padding: 0; cursor: pointer; }
   .ev-list { list-style: none; margin: 4px 0 0; padding: 0; }
   .ev-list li { line-height: 1.35; margin-top: 2px; }
@@ -735,7 +736,7 @@ function renderResolveControl(c) {
     '<div class="field-err" id="rnote-err-' + id + '" role="alert">' + esc(d.errors.note || '') + '</div>' +
     '<label for="rphoto-' + id + '">' + esc(T('rep.r_photos')) + '</label>' +
     '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T('rep.r_photos_hint')) + ' ' + esc(T('rep.r_loc_hint')) + '</p>' +
-    (d.loc ? '<p class="hint" role="status">' + esc(d.loc.status === 'OK' ? T('rep.r_loc_ok', { m: Math.round(d.loc.acc || 0) }) : T('rep.r_loc_no')) + '</p>' : '') +
+    '<p class="hint" role="status" id="rloc-' + id + '">' + locLineHtml(d, id) + '</p>' +
     '<input type="file" id="rphoto-' + id + '" class="r-photo" data-id="' + id + '" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="rphoto-hint-' + id + ' rphoto-err-' + id + '"' + (full || d.noPhoto ? ' disabled' : '') + (d.errors.photos ? ' aria-invalid="true"' : '') + ' />' +
     '<div class="r-thumbs" aria-live="polite">' +
       d.photos.map(function(p, i) {
@@ -1472,6 +1473,10 @@ function attachResolveHandlers() {
       var id = btn.getAttribute('data-id');
       drafts[id] = { open: true, note: '', photos: [], uploading: 0, noPhoto: false, reason: '', errors: {}, busy: false };
       redraw(id, '#rnote-' + cssId(id));
+      // Ask for the location as the form opens, so it is ready by the time
+      // a photo has been taken.
+      startLocation(drafts[id], id);
+      updateLocLine(id);
     });
   });
   // An error goes away as soon as that field is corrected (no redraw, so
@@ -1517,6 +1522,15 @@ function attachResolveHandlers() {
       redraw(id, '#rphoto-' + cssId(id));
     });
   });
+  document.querySelectorAll('.r-loc-retry').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.loc = null; d.locPromise = null;
+      startLocation(d, id);
+      updateLocLine(id);
+    });
+  });
   document.querySelectorAll('.r-cancel').forEach(function(el) {
     el.addEventListener('click', function() {
       var id = el.getAttribute('data-id');
@@ -1539,10 +1553,7 @@ function attachResolveHandlers() {
       d.uploading += files.length;
       redraw(id);
       // Where the rep is right now (asked once; refreshed after 2 minutes).
-      if (files.length && (!d.loc || Date.now() - d.loc.at > 120000)) {
-        d.loc = await currentLocation();
-        redraw(id);
-      }
+      if (files.length) await startLocation(d, id);
       for (var i = 0; i < files.length; i++) {
         try {
           var fd = new FormData();
@@ -1621,19 +1632,59 @@ function attachResolveHandlers() {
 
 // The phone's current location, with the rep's permission (the browser asks).
 // Resolves to { status: 'OK', lat, lng, acc, at } or { status: 'DENIED' | 'UNAVAILABLE', at }.
+// The browser's own timeout doesn't count the time the permission question
+// is on screen, so there is no short timer of ours around it. If a precise
+// (GPS) fix isn't found in time -- common indoors -- it tries once more with
+// a quicker, rougher fix. A 2-minute safety net covers browsers that never answer.
 function currentLocation() {
-  return new Promise(function(resolve) {
-    if (!navigator.geolocation) return resolve({ status: 'UNAVAILABLE', at: Date.now() });
-    var done = false;
-    var timer = setTimeout(function() { if (!done) { done = true; resolve({ status: 'UNAVAILABLE', at: Date.now() }); } }, 20000);
-    navigator.geolocation.getCurrentPosition(function(pos) {
-      if (done) return; done = true; clearTimeout(timer);
-      resolve({ status: 'OK', lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() });
-    }, function(err) {
-      if (done) return; done = true; clearTimeout(timer);
-      resolve({ status: err && err.code === 1 ? 'DENIED' : 'UNAVAILABLE', at: Date.now() });
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  function ask(high, timeout) {
+    return new Promise(function(resolve) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        resolve({ status: 'OK', lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() });
+      }, function(err) {
+        resolve({ status: err && err.code === 1 ? 'DENIED' : 'UNAVAILABLE', at: Date.now() });
+      }, { enableHighAccuracy: high, timeout: timeout, maximumAge: 60000 });
+    });
+  }
+  if (!navigator.geolocation) return Promise.resolve({ status: 'UNAVAILABLE', at: Date.now() });
+  var safety = new Promise(function(resolve) { setTimeout(function() { resolve({ status: 'UNAVAILABLE', at: Date.now() }); }, 120000); });
+  var attempt = ask(true, 20000).then(function(r) { return r.status === 'UNAVAILABLE' ? ask(false, 20000) : r; });
+  return Promise.race([attempt, safety]);
+}
+
+function locLineHtml(d, id) {
+  var text = d.locating && !d.loc ? T('rep.r_loc_finding')
+    : !d.loc ? ''
+    : d.loc.status === 'OK' ? T('rep.r_loc_ok', { m: Math.round(d.loc.acc || 0) })
+    : d.loc.status === 'DENIED' ? T('rep.r_loc_no') : T('rep.r_loc_unavailable');
+  return esc(text) + (d.loc && d.loc.status !== 'OK' && !d.locating
+    ? ' <button type="button" class="r-loc-retry" data-id="' + esc(id) + '">' + esc(T('rep.r_loc_retry')) + '</button>' : '');
+}
+
+// Updates just the location line, so whatever the rep is typing keeps focus.
+function updateLocLine(id) {
+  var d = drafts[id], el = document.getElementById('rloc-' + id);
+  if (!d || !el) return;
+  el.innerHTML = locLineHtml(d, id);
+  var btn = el.querySelector('.r-loc-retry');
+  if (btn) btn.addEventListener('click', function() {
+    d.loc = null; d.locPromise = null;
+    startLocation(d, id);
+    updateLocLine(id);
   });
+}
+
+// Starts finding the location (once per form); returns the pending promise.
+function startLocation(d, id) {
+  if (d.locPromise && d.loc && Date.now() - d.loc.at < 120000) return d.locPromise;
+  if (d.locPromise && !d.loc) return d.locPromise;
+  d.locating = true;
+  d.locPromise = currentLocation().then(function(loc) {
+    d.loc = loc; d.locating = false;
+    if (drafts[id] === d) updateLocLine(id);
+    return loc;
+  });
+  return d.locPromise;
 }
 
 function cssId(id) { return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, '\\$&'); }
