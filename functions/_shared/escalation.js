@@ -37,8 +37,13 @@ export function computeEscalation(grievance, category, chainTiers) {
   }
 
   // A resolved/closed case freezes wherever it last was — it doesn't keep
-  // climbing the chain after the fact.
-  if (grievance.status === "RESOLVED" || grievance.status === "CLOSED") {
+  // climbing the chain after the fact. So does a case waiting for the
+  // citizen to confirm the fix (PENDING_CONFIRMATION, item 7a): it stays
+  // at the level where it was marked resolved (current_tier, stored by
+  // mark-resolved.js). If the citizen disputes, the case reopens and this
+  // clock counts all time since filing again, waiting time included.
+  if (grievance.status === "RESOLVED" || grievance.status === "CLOSED" ||
+      grievance.status === "PENDING_CONFIRMATION") {
     const frozenIndex = Math.max(
       0,
       chainTiers.findIndex((t) => t.tier === grievance.current_tier)

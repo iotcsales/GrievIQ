@@ -19,6 +19,7 @@ import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
+import { settleOverdueConfirmations, resolutionKind, confirmDeadline } from "../../_shared/confirmation.js";
 
 function toMs(s) {
   if (!s) return NaN;
@@ -76,6 +77,9 @@ export async function onRequestGet({ request, env }) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
+  // Close any case whose confirmation time has run out (item 7a).
+  await settleOverdueConfirmations(env);
+
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   return id ? caseDetail(env, auth, id) : caseList(env, auth);
@@ -85,6 +89,8 @@ async function caseList(env, auth) {
   const [casesRes, exceptionCases] = await Promise.all([
     env.DB.prepare(
       `SELECT g.id, g.tracking_ref, g.status, g.current_tier, g.created_at, g.resolved_at,
+              g.citizen_confirmed,
+              CASE WHEN COALESCE(TRIM(g.citizen_email), '') = '' THEN 0 ELSE 1 END AS has_email,
               g.local_unit_id, lu.name AS ward_name, lu.unit_type,
               c.name AS category_name
        FROM grievances g
@@ -107,6 +113,10 @@ async function caseList(env, auth) {
       id: g.id,
       trackingRef: g.tracking_ref,
       status: g.status,
+      // CONFIRMED / NOT_CONFIRMED / NO_EMAIL once resolved (item 7a). The
+      // list never carries the email itself, only whether there was one.
+      resolutionKind: resolutionKind({ status: g.status, citizen_confirmed: g.citizen_confirmed, citizen_email: g.has_email ? "yes" : null }),
+      confirmBy: g.status === "PENDING_CONFIRMATION" ? confirmDeadline(g.resolved_at) : null,
       ward: { id: g.local_unit_id, name: g.ward_name || "Unknown ward", type: g.unit_type },
       category: g.category_name || "",
       createdAt: g.created_at,
@@ -173,6 +183,8 @@ async function caseDetail(env, auth, id) {
       acknowledgedAt: g.acknowledged_at || null,
       resolvedAt: g.resolved_at || null,
       citizenConfirmedAt: g.citizen_confirmed_at || null,
+      resolutionKind: resolutionKind(g),
+      confirmBy: g.status === "PENDING_CONFIRMATION" ? confirmDeadline(g.resolved_at) : null,
       daysOpen: daysBetween(g.created_at, finished ? g.resolved_at : null),
       flags: ex ? ex.flags : [],
       level,

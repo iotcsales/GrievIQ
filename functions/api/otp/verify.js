@@ -22,6 +22,7 @@
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
+import { settleOverdueConfirmations, resolutionKind } from "../../_shared/confirmation.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -40,6 +41,7 @@ function isoMinutesAgo(minutes) {
 async function listReports(env, email) {
   const { results } = await env.DB.prepare(
     `SELECT g.tracking_ref, g.status, g.description, g.created_at, g.category_id,
+            g.citizen_confirmed, g.citizen_email,
             lu.name AS ward_name, c.name AS category_name
      FROM grievances g
      LEFT JOIN local_units lu ON lu.id = g.local_unit_id
@@ -50,6 +52,7 @@ async function listReports(env, email) {
   return results.map((r) => ({
     trackingRef: r.tracking_ref,
     status: r.status,
+    resolutionKind: resolutionKind(r),
     description: String(r.description || "").slice(0, 140),
     wardName: r.ward_name || "",
     category: r.category_name || "",
@@ -104,6 +107,10 @@ async function buildCaseDetail(env, grievance) {
       createdAt: grievance.created_at,
       acknowledgedAt: grievance.acknowledged_at,
       resolvedAt: grievance.resolved_at,
+      // Item 7a: when a case waiting for the citizen closes by itself, and
+      // how a closed case was resolved (CONFIRMED / NOT_CONFIRMED / NO_EMAIL).
+      confirmBy: limits.confirmBy,
+      resolutionKind: resolutionKind(grievance),
       elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
       ackOverdue: result.ackOverdue,
       needsLegalReview: result.needsLegalReview,
@@ -126,7 +133,7 @@ async function buildCaseDetail(env, grievance) {
 async function caseForEmail(env, email, trackingRef) {
   const grievance = await env.DB.prepare(
     `SELECT id, tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
-            citizen_email, local_unit_id, category_id
+            citizen_email, citizen_confirmed, local_unit_id, category_id
      FROM grievances WHERE tracking_ref = ?`
   ).bind(trackingRef).first();
   if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email) {
@@ -149,6 +156,9 @@ export async function onRequestPost({ request, env }) {
     const email = String(body.email || "").trim().toLowerCase();
     const trackingRef = body.trackingRef ? String(body.trackingRef).trim().toUpperCase() : "";
     if (!email) return json({ error: "email is required" }, 400);
+
+    // Close any case whose confirmation time has run out before showing it.
+    await settleOverdueConfirmations(env);
 
     // ---- Open one report inside the verified window (no new code) ----
     if (body.open) {

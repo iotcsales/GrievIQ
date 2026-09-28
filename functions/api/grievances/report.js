@@ -13,6 +13,7 @@
 import { getVerifiedRep } from "../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
+import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 
 // Timestamps in this table come in two shapes: full ISO strings with a
 // "T" and trailing "Z" (e.g. from newer writes), and legacy plain
@@ -39,6 +40,9 @@ export async function onRequestGet(context) {
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
+
+  // Close any case whose confirmation time has run out (item 7a).
+  await settleOverdueConfirmations(env);
 
   const url = new URL(request.url);
   const mandateId = url.searchParams.get("mandateId");

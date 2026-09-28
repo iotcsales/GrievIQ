@@ -346,6 +346,9 @@
 <script>
   const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
   const STATUS_LABELS = { OPEN: "Open", PENDING_CONFIRMATION: "Awaiting citizen", RESOLVED: "Resolved", CLOSED: "Closed" };
+  // How a resolved case was resolved (item 7a).
+  const KIND_LABELS = { CONFIRMED: "confirmed by citizen", NOT_CONFIRMED: "not confirmed by citizen", NO_EMAIL: "citizen had no email" };
+  const CONFIRM_DAYS = 7;
   const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review" };
   const EVENT_LABELS = {
     ACKNOWLEDGED: "Acknowledged by representative",
@@ -383,7 +386,10 @@
     const whole = Math.floor(n);
     return whole < 1 ? "Under a day" : whole + (whole === 1 ? " day" : " days");
   }
-  function statusTag(s) { return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(STATUS_LABELS[s] || s) + '</span>'; }
+  function statusTag(s, kind) {
+    return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(STATUS_LABELS[s] || s) + '</span>' +
+      (KIND_LABELS[kind] ? '<div class="ward-sub">' + escapeHtml(KIND_LABELS[kind]) + '</div>' : '');
+  }
   function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(FLAG_LABELS[f] || f) + '</span>').join(""); }
   function whoLine(role) {
     document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] || role || "") + '</b><br>All wards · Read-only';
@@ -430,7 +436,8 @@
           '<td><a class="case-link" href="?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a>' +
             '<div class="ward-sub">' + escapeHtml(c.category) + '</div></td>' +
           '<td>' + escapeHtml(c.ward.name) + '</td>' +
-          '<td>' + statusTag(c.status) + '</td>' +
+          '<td>' + statusTag(c.status, c.resolutionKind) +
+            (c.confirmBy ? '<div class="ward-sub">Closes ' + escapeHtml(dateOnly(c.confirmBy)) + ' if no reply</div>' : '') + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(dateOnly(c.createdAt)) + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(days(c.daysOpen)) + '</td>' +
           '<td>' + (c.currentLevel ? escapeHtml(c.currentLevel) : '<span class="muted">—</span>') + '</td>' +
@@ -504,6 +511,15 @@
         body,
       });
     });
+    // Closing after no reply isn't a stored event; it happens CONFIRM_DAYS
+    // after the case was marked resolved (item 7a).
+    if (c.resolutionKind === "NOT_CONFIRMED" && c.resolvedAt) {
+      const d = toDate(c.resolvedAt);
+      if (d && !isNaN(d)) {
+        items.push({ cls: "done", title: "Closed as resolved: no reply from the citizen in " + CONFIRM_DAYS + " days",
+          meta: dateTime(new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString()), body: "" });
+      }
+    }
     return items;
   }
 
@@ -535,6 +551,8 @@
       '<a class="back-link" href="/admin-cases.html" id="back-link">← All cases</a>' +
       '<div class="identity-bar">' +
         '<div class="ref">' + escapeHtml(c.trackingRef) + ' ' + statusTag(c.status) + '</div>' +
+        (KIND_LABELS[c.resolutionKind] ? '<div class="facts">Resolved · <b>' + escapeHtml(KIND_LABELS[c.resolutionKind]) + '</b></div>' : '') +
+        (c.confirmBy ? '<div class="facts">Waiting for the citizen to confirm. Escalation is paused. Closes as resolved on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if the citizen doesn\'t reply.</div>' : '') +
         '<div class="facts"><b>' + escapeHtml(c.ward.name) + '</b>' + (wardType ? ' · ' + wardType : '') +
           ' · ' + escapeHtml(c.category) + ' · Filed ' + escapeHtml(dateOnly(c.createdAt)) +
           ' · ' + (c.status === "RESOLVED" || c.status === "CLOSED" ? 'Took ' : 'Open for ') + escapeHtml(days(c.daysOpen).toLowerCase()) + '</div>' +

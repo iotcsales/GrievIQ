@@ -739,7 +739,12 @@ function renderAcknowledgeControl(c) {
 }
 
 function renderDueLines(c) {
-  if (c.status === 'RESOLVED' || c.status === 'CLOSED' || c.status === 'PENDING_CONFIRMATION') return '';
+  // Item 7a: while the citizen is asked to confirm, the clock is paused;
+  // show when the case closes by itself instead of deadlines.
+  if (c.status === 'PENDING_CONFIRMATION') {
+    return c.confirmBy ? '<div class="due-line">' + esc(T('rep.closes_by', { date: formatDate(c.confirmBy) })) + '</div>' : '';
+  }
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED') return '';
   var lines = [];
   if (c.ackDueAt) lines.push(T(c.ackOverdue ? 'rep.ack_was_due' : 'rep.ack_by', { date: formatDate(c.ackDueAt) }));
   if (c.respondDueAt) lines.push(T('rep.respond_by', { date: formatDate(c.respondDueAt) }));
@@ -752,7 +757,11 @@ function renderCase(c) {
   var badge = '';
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
     var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
-    badge = '<span class="badge resolved">' + esc(T(c.status === 'CLOSED' ? 'rep.badge_closed' : 'rep.badge_resolved')) + resolvedWhen + '</span>';
+    // How it was resolved (item 7a): confirmed by the citizen, closed with no
+    // reply, or the citizen had no email to be asked.
+    var KIND_KEYS = { CONFIRMED: 'rep.kind_confirmed', NOT_CONFIRMED: 'rep.kind_not_confirmed', NO_EMAIL: 'rep.kind_no_email' };
+    var kind = KIND_KEYS[c.resolutionKind] ? ' &middot; ' + esc(T(KIND_KEYS[c.resolutionKind])) : '';
+    badge = '<span class="badge resolved">' + esc(T(c.status === 'CLOSED' ? 'rep.badge_closed' : 'rep.badge_resolved')) + resolvedWhen + kind + '</span>';
   } else if (c.status === 'PENDING_CONFIRMATION') {
     badge = '<span class="badge pending">' + esc(T('rep.badge_pending')) + '</span>';
   } else if (c.hasEscalatedPastMyTier) {

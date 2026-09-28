@@ -6,10 +6,25 @@
 // they say so. If there's no email (phone-only citizen — a known MVP gap
 // that resolves once SMS/phone OTP ships), there's no way to reach them
 // for confirmation, so the case goes straight to RESOLVED.
+//
+// Item 7a (Sept 2026): while the case waits for the citizen, escalation is
+// paused. If the citizen doesn't reply within CONFIRM_DAYS it closes as
+// "Resolved (not confirmed by citizen)" -- the email says so, with the date.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
+import { CONFIRM_DAYS, confirmDeadline } from "../../../_shared/confirmation.js";
+
+// "4 Oct 2026" / "4 अक्तू॰ 2026" in India time, for the email.
+function emailDate(iso, lang) {
+  try {
+    return new Date(iso).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN",
+      { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+  } catch (e) {
+    return String(iso).slice(0, 10);
+  }
+}
 export async function onRequestPost(context) {
   const { request, env, params } = context;
   const grievanceId = params.id;
@@ -72,6 +87,7 @@ export async function onRequestPost(context) {
 
   if (hasEmail) {
     const statusUrl = new URL(request.url).origin + "/status?ref=" + encodeURIComponent(grievance.tracking_ref);
+    const byDate = emailDate(confirmDeadline(now), grievance.lang);
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -87,10 +103,12 @@ export async function onRequestPost(context) {
         html: grievance.lang === "hi"
           ? `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
              <p>कृपया "मेरी शिकायतों की स्थिति" पृष्ठ पर जाकर अपना ईमेल दर्ज करें और बताएँ कि क्या समस्या वास्तव में हल हुई है:</p>
-             <p><a href="${statusUrl}">${statusUrl}</a></p>`
+             <p><a href="${statusUrl}">${statusUrl}</a></p>
+             <p>यदि ${byDate} तक (${CONFIRM_DAYS} दिन में) आपका उत्तर नहीं मिलता, तो शिकायत "निस्तारित (नागरिक द्वारा पुष्टि नहीं)" के रूप में बंद कर दी जाएगी।</p>`
           : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
              <p>Please visit our status page and enter your email to confirm whether this actually fixed the problem:</p>
-             <p><a href="${statusUrl}">${statusUrl}</a></p>`,
+             <p><a href="${statusUrl}">${statusUrl}</a></p>
+             <p>If we don't hear from you by ${byDate} (${CONFIRM_DAYS} days), the case will be closed as "Resolved (not confirmed by citizen)".</p>`,
       }),
     });
 

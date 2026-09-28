@@ -20,8 +20,12 @@
 
 import { resolveChain } from "./jurisdiction.js";
 import { computeEscalation, visibleTiers } from "./escalation.js";
+import { settleOverdueConfirmations } from "./confirmation.js";
 
 export async function findExceptionCases(env) {
+  // Close any case whose confirmation time has run out (item 7a).
+  await settleOverdueConfirmations(env);
+
   const { results: grievanceRows } = await env.DB.prepare(
     `SELECT * FROM grievances
      WHERE status NOT IN ('RESOLVED', 'CLOSED', 'PENDING_CONFIRMATION')

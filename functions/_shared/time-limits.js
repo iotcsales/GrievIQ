@@ -21,7 +21,14 @@
 //  - categories with no resolution limit (e.g. land disputes) go to legal
 //    review and have no response deadline.
 //
+//  - while a case waits for the citizen to confirm a fix
+//    (PENDING_CONFIRMATION, item 7a) the clock is paused: no level is
+//    current, none turns red and no deadline is shown; confirmBy says when
+//    the case closes if the citizen doesn't reply (_shared/confirmation.js).
+//
 // `result` is the output of computeEscalation() for the same case.
+
+import { confirmDeadline } from "./confirmation.js";
 
 const HOUR = 3600000;
 
@@ -36,12 +43,13 @@ export function toUtcMs(value) {
 }
 
 export function timeLimitStatus(grievance, category, chainTiers, result) {
-  const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED";
+  const awaitingCitizen = grievance.status === "PENDING_CONFIRMATION";
+  const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED" && !awaitingCitizen;
   const createdMs = toUtcMs(grievance.created_at);
   const slaHours = category.resolution_sla_hours || null;
   const lastIndex = chainTiers.length - 1;
 
-  const ackDueAt = !grievance.acknowledged_at && category.ack_sla_hours && !isNaN(createdMs)
+  const ackDueAt = isUnresolved && !grievance.acknowledged_at && category.ack_sla_hours && !isNaN(createdMs)
     ? new Date(createdMs + category.ack_sla_hours * HOUR).toISOString()
     : null;
 
@@ -66,5 +74,11 @@ export function timeLimitStatus(grievance, category, chainTiers, result) {
     };
   });
 
-  return { isUnresolved, ackDueAt, tiers };
+  return {
+    isUnresolved,
+    awaitingCitizen,
+    confirmBy: awaitingCitizen ? confirmDeadline(grievance.resolved_at) : null,
+    ackDueAt,
+    tiers,
+  };
 }

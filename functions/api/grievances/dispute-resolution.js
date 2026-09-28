@@ -8,6 +8,8 @@
 
 const VALID_REASONS = ['NOT_FIXED', 'PARTIALLY_FIXED', 'CAME_BACK', 'WRONG_ISSUE', 'OTHER'];
 
+import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
+
 export async function onRequestPost({ request, env }) {
   try {
     const { email, trackingRef, reason, note } = await request.json();
@@ -40,6 +42,10 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'Please verify your email again before responding' }), { status: 401 });
     }
 
+    // A case whose confirmation time has run out is closed first, so the
+    // deadline shown to the citizen is the one that applies (item 7a).
+    await settleOverdueConfirmations(env);
+
     const grievance = await env.DB.prepare(
       'SELECT id, status, citizen_email FROM grievances WHERE tracking_ref = ?'
     ).bind(trackingRef).first();
@@ -49,7 +55,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (grievance.status !== 'PENDING_CONFIRMATION') {
-      return new Response(JSON.stringify({ error: 'This case is not awaiting confirmation' }), { status: 409 });
+      return new Response(JSON.stringify({ error: 'This case is not awaiting confirmation', code: 'NOT_WAITING' }), { status: 409 });
     }
 
     const trimmedNote = note ? note.trim().slice(0, 200) : null;

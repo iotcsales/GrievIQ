@@ -25,6 +25,7 @@
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
+import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 
 const NOTE_KEY = "data_collection_note";
 
@@ -54,6 +55,10 @@ export async function onRequestGet({ request, env }) {
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
+
+  // Close any case whose confirmation time has run out before counting
+  // (item 7a), so "open cases" never includes one that has closed.
+  await settleOverdueConfirmations(env);
 
   // Boundary GeoJSON can be large, so only its presence is selected.
   const [unitsRes, openRes, reviewsRes, noteRow, exceptionCases] = await Promise.all([

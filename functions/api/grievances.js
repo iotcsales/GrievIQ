@@ -17,6 +17,7 @@ import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
+import { settleOverdueConfirmations, resolutionKind } from "../_shared/confirmation.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -38,6 +39,9 @@ export async function onRequestGet(context) {
       }
     }
   }
+
+  // Close any case whose confirmation time has run out (item 7a).
+  await settleOverdueConfirmations(env);
 
   const allUnitIds = Array.from(unitToMandate.keys());
   if (allUnitIds.length === 0) {
@@ -196,6 +200,10 @@ export async function onRequestGet(context) {
       citizenDisputeNote: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.note : null,
       citizenDisputeAt: latestEvent && latestEvent.event_type === 'CITIZEN_DISPUTED' ? latestEvent.created_at : null,
       resolvedAt: grievance.resolved_at || null,
+      // Item 7a: when a case waiting for the citizen closes by itself, and
+      // how a closed case was resolved (CONFIRMED / NOT_CONFIRMED / NO_EMAIL).
+      confirmBy: limits.confirmBy,
+      resolutionKind: resolutionKind(grievance),
       acknowledgedAt: grievance.acknowledged_at || null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       adminNudges: nudgeEvents.map((e) => ({ note: e.note, createdAt: e.created_at })), followupHistory: followupEvents.map((e) => ({

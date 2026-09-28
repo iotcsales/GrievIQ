@@ -413,6 +413,7 @@
       <h2 class="section-title" data-i18n="status.confirm_title">Has this been fixed?</h2>
       <p class="section-note" data-i18n="status.confirm_lede">The representative handling this case marked it resolved. Let us know if that's right.</p>
       <div id="confirm-error"></div>
+      <p class="confirm-note" id="confirm-deadline"></p>
       <p class="confirm-note" id="confirm-done" style="display:none;"></p>
       <div class="confirm-actions" id="confirm-actions">
         <button type="button" class="primary" id="btn-confirm-yes" data-i18n="status.yes_fixed">Yes, this fixed it</button>
@@ -754,9 +755,17 @@
     pill.className = 'status-pill' + (resolved ? ' resolved' : '');
 
     showConfirmCard(c.status === 'PENDING_CONFIRMATION');
+    // Item 7a: when the case closes if the citizen doesn't reply.
+    document.getElementById('confirm-deadline').textContent =
+      c.status === 'PENDING_CONFIRMATION' && c.confirmBy ? GIQ.t('status.confirm_by', { date: formatDue(c.confirmBy) }) : '';
 
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
+    // How a closed case was resolved.
+    const OUTCOME_KEYS = { CONFIRMED: 'status.outcome_confirmed', NOT_CONFIRMED: 'status.outcome_not_confirmed', NO_EMAIL: 'status.outcome_no_email' };
+    if (resolved && OUTCOME_KEYS[c.resolutionKind]) {
+      banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t(OUTCOME_KEYS[c.resolutionKind]))}</div>`;
+    }
     if (c.needsLegalReview) {
       banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.legal_banner'))}</div>`;
     }
@@ -780,12 +789,14 @@
 
     const ladder = document.getElementById('ladder');
     ladder.innerHTML = '';
-    c.tiers.forEach(t => {
+    c.tiers.forEach((t, i) => {
       const li = document.createElement('li');
       li.className = (t.visible ? 'reached ' : '') + (t.slaBreached ? 'breached' : '');
       const finished = c.status === 'RESOLVED' || c.status === 'CLOSED';
       let statusText = '';
+      const waiting = c.status === 'PENDING_CONFIRMATION';
       if (t.slaBreached) statusText = GIQ.t('status.tier_late');
+      else if (waiting && t.visible) statusText = GIQ.t(i === c.currentTierIndex ? 'status.tier_waiting' : 'status.tier_handled');
       else if (t.visible) statusText = finished ? GIQ.t('status.tier_handled') : GIQ.t('status.tier_current');
       else statusText = GIQ.t('status.tier_not_yet');
 
@@ -859,6 +870,20 @@
   const disputeNote = document.getElementById('dispute-note');
   let selectedReason = null;
 
+  // 401: verify again. 409 NOT_WAITING: the time to reply ran out and the
+  // case has closed (item 7a).
+  function confirmErrorText(res, data) {
+    if (res.status === 401) return GIQ.t('status.verify_again');
+    if (data && data.code === 'NOT_WAITING') {
+      // Nothing left to answer: hide the buttons that can no longer work.
+      confirmActions.style.display = 'none';
+      disputeForm.style.display = 'none';
+      document.getElementById('confirm-deadline').textContent = '';
+      return GIQ.t('status.not_waiting');
+    }
+    return (GIQ.lang === 'en' && data && data.error) || GIQ.t('common.generic_error');
+  }
+
   const confirmDone = document.getElementById('confirm-done');
   function showConfirmDone(text) {
     confirmActions.style.display = 'none';
@@ -904,7 +929,7 @@
     renderError(confirmError, '');
     btnConfirmYes.disabled = true;
     btnConfirmNo.disabled = true;
-    btnConfirmYes.innerHTML = '<span class="spinner"></span>Confirming…';
+    btnConfirmYes.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.confirming'));
     try {
       const res = await fetch(API_BASE + '/api/grievances/confirm-resolution', {
         method: 'POST',
@@ -913,7 +938,7 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        renderError(confirmError, res.status === 401 ? GIQ.t('status.verify_again') : (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error'));
+        renderError(confirmError, confirmErrorText(res, data));
         btnConfirmYes.disabled = false;
         btnConfirmNo.disabled = false;
         btnConfirmYes.textContent = GIQ.t('status.yes_fixed');
@@ -944,7 +969,7 @@
       return;
     }
     btnDisputeSubmit.disabled = true;
-    btnDisputeSubmit.innerHTML = '<span class="spinner"></span>Submitting…';
+    btnDisputeSubmit.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.submitting'));
     try {
       const res = await fetch(API_BASE + '/api/grievances/dispute-resolution', {
         method: 'POST',
@@ -953,7 +978,7 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        renderError(confirmError, res.status === 401 ? GIQ.t('status.verify_again') : (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error'));
+        renderError(confirmError, confirmErrorText(res, data));
         btnDisputeSubmit.disabled = false;
         btnDisputeSubmit.textContent = GIQ.t('status.submit');
         return;

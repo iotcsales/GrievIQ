@@ -659,6 +659,38 @@
 "Submit",
 "जमा करें"
 ],
+"status.confirming": [
+"Confirming…",
+"पुष्टि की जा रही है…"
+],
+"status.submitting": [
+"Submitting…",
+"जमा किया जा रहा है…"
+],
+"status.confirm_by": [
+"If we don't hear from you by {date}, this case will be closed as resolved (not confirmed by you).",
+"यदि {date} तक आपका उत्तर नहीं मिलता, तो यह शिकायत निस्तारित (आपके द्वारा पुष्टि नहीं) मानकर बंद कर दी जाएगी।"
+],
+"status.not_waiting": [
+"This case is no longer waiting for your reply. It may have been closed because we didn't hear from you in time.",
+"यह शिकायत अब आपके उत्तर की प्रतीक्षा में नहीं है। समय पर उत्तर न मिलने के कारण इसे बंद किया जा चुका हो सकता है।"
+],
+"status.tier_waiting": [
+"Marked resolved — waiting for your confirmation",
+"निस्तारित बताया गया — आपकी पुष्टि की प्रतीक्षा है"
+],
+"status.outcome_confirmed": [
+"You confirmed this was fixed. Thank you for letting us know.",
+"आपने पुष्टि की कि समस्या हल हो गई है। बताने के लिए धन्यवाद।"
+],
+"status.outcome_not_confirmed": [
+"Closed as resolved. We didn't hear back from you within 7 days of the representative marking it resolved, so it was closed without your confirmation.",
+"निस्तारित मानकर बंद। जनप्रतिनिधि द्वारा निस्तारित बताए जाने के 7 दिन के भीतर आपका उत्तर नहीं मिला, इसलिए इसे आपकी पुष्टि के बिना बंद किया गया।"
+],
+"status.outcome_no_email": [
+"Closed as resolved. It was closed on the representative's word, as no email was given to ask for confirmation.",
+"निस्तारित मानकर बंद। पुष्टि के लिए कोई ईमेल नहीं दिया गया था, इसलिए इसे जनप्रतिनिधि की सूचना के आधार पर बंद किया गया।"
+],
 "status.confirmed": [
 "Thanks for confirming — this case is now marked resolved.",
 "पुष्टि के लिए धन्यवाद — यह शिकायत अब निस्तारित मानी गई है।"
@@ -1127,6 +1159,10 @@
 "rep.badge_resolved": ["resolved", "निस्तारित"],
 "rep.badge_closed": ["closed", "बंद"],
 "rep.badge_pending": ["awaiting citizen confirmation", "नागरिक की पुष्टि लंबित"],
+"rep.closes_by": ["Closes as resolved {date} if the citizen doesn't reply", "नागरिक का उत्तर न मिलने पर {date} को निस्तारित मानकर बंद होगी"],
+"rep.kind_confirmed": ["confirmed by citizen", "नागरिक द्वारा पुष्टि"],
+"rep.kind_not_confirmed": ["not confirmed by citizen", "नागरिक द्वारा पुष्टि नहीं"],
+"rep.kind_no_email": ["citizen had no email", "नागरिक का ईमेल नहीं था"],
 "rep.badge_now_with": ["now with {level}", "अब {level} के पास"],
 "rep.badge_ack": ["acknowledged {date}", "प्राप्ति स्वीकार: {date}"],
 "rep.badge_ack_overdue": ["ack overdue", "प्राप्ति स्वीकार में विलंब"],

@@ -11,6 +11,7 @@
 //   - a 30-day snapshot: complaints filed and resolved -- counts only.
 
 import { resolveChain } from "./jurisdiction.js";
+import { settleOverdueConfirmations } from "./confirmation.js";
 
 // Pilot city. Phase 2 moves this into a city settings record.
 export const PILOT_CITY = { slug: "lucknow", name: "Lucknow", state: "Uttar Pradesh" };
@@ -27,6 +28,9 @@ export async function placeInfo(env, localUnitId) {
   const chain = await resolveChain(env, localUnitId);
   if (!chain) return null;
   const lu = chain.localUnit;
+  // Close any case whose confirmation time has run out, so the 30-day
+  // "resolved" count includes it (item 7a).
+  await settleOverdueConfirmations(env);
 
   const counts = await env.DB.prepare(
     `SELECT
