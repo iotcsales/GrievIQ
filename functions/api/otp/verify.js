@@ -50,7 +50,7 @@ function isoMinutesAgo(minutes) {
 async function listReports(env, email) {
   const { results } = await env.DB.prepare(
     `SELECT g.tracking_ref, g.status, g.description, g.created_at, g.category_id,
-            g.citizen_confirmed, g.citizen_email,
+            g.citizen_confirmed, g.citizen_email, g.closure_kind,
             lu.name AS ward_name, c.name AS category_name
      FROM grievances g
      LEFT JOIN local_units lu ON lu.id = g.local_unit_id
@@ -152,7 +152,7 @@ async function buildCaseDetail(env, grievance) {
 async function caseForEmail(env, email, trackingRef) {
   const grievance = await env.DB.prepare(
     `SELECT id, tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
-            citizen_email, citizen_confirmed, local_unit_id, category_id,
+            citizen_email, citizen_confirmed, closure_kind, local_unit_id, category_id,
             photo_url, pin_lat, pin_lng
      FROM grievances WHERE tracking_ref = ?`
   ).bind(trackingRef).first();

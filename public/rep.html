@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=7b2"></script>
+<script src="/i18n.js?v=7b3"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -652,7 +652,7 @@ function hasAutocomplete() {
 // signal (WCAG 2.2, 1.4.1) -- every state also has words.
 function caseState(c) {
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') return { key: 'done', text: T('rep.state_done') };
-  if (c.status === 'PENDING_CONFIRMATION') return { key: 'gold', text: T('rep.state_gold') };
+  if (c.status === 'PENDING_CONFIRMATION') return { key: 'gold', text: T(c.awaitingStaffCheck ? 'rep.state_check' : 'rep.state_gold') };
   if (c.isLate) return { key: 'red', text: T('rep.state_red') };
   return { key: 'green', text: T('rep.state_green') };
 }
@@ -704,6 +704,15 @@ function renderDisputeNote(c) {
   var note = c.citizenDisputeNote ? ' &mdash; "' + esc(c.citizenDisputeNote) + '"' : '';
   var when = c.citizenDisputeAt ? ' <span class="muted-inline">(' + formatDate(c.citizenDisputeAt) + ')</span>' : '';
   return '<div class="dispute-note"><b>' + esc(label) + '</b>' + when + note + '</div>';
+}
+
+// Item 7b-2: GrievIQ checked the fix (citizen had no email) and found it
+// not fixed -- shown while the reopened case is still open.
+function renderStaffCheckNote(c) {
+  var k = c.staffCheck;
+  if (!k || k.outcome !== 'NOT_FIXED' || c.status === 'PENDING_CONFIRMATION' || c.status === 'RESOLVED' || c.status === 'CLOSED') return '';
+  return '<div class="dispute-note"><b>' + esc(T(k.method === 'PHONE' ? 'rep.check_not_fixed_phone' : 'rep.check_not_fixed_photo')) + '</b>' +
+    ' <span class="muted-inline">(' + formatDate(k.at) + ')</span>' + (k.note ? ' &mdash; "' + esc(k.note) + '"' : '') + '</div>';
 }
 
 function renderNudgeNote(c) {
@@ -844,7 +853,7 @@ function renderDueLines(c) {
   // Item 7a: while the citizen is asked to confirm, the clock is paused;
   // show when the case closes by itself instead of deadlines.
   if (c.status === 'PENDING_CONFIRMATION') {
-    return c.confirmBy ? '<div class="due-line">' + esc(T('rep.closes_by', { date: formatDate(c.confirmBy) })) + '</div>' : '';
+    return c.confirmBy ? '<div class="due-line">' + esc(T(c.awaitingStaffCheck ? 'rep.closes_by_check' : 'rep.closes_by', { date: formatDate(c.confirmBy) })) + '</div>' : '';
   }
   if (c.status === 'RESOLVED' || c.status === 'CLOSED') return '';
   var lines = [];
@@ -861,11 +870,12 @@ function renderCase(c) {
     var resolvedWhen = c.resolvedAt ? ' &middot; ' + formatDate(c.resolvedAt) : '';
     // How it was resolved (item 7a): confirmed by the citizen, closed with no
     // reply, or the citizen had no email to be asked.
-    var KIND_KEYS = { CONFIRMED: 'rep.kind_confirmed', NOT_CONFIRMED: 'rep.kind_not_confirmed', NO_EMAIL: 'rep.kind_no_email' };
+    var KIND_KEYS = { CONFIRMED: 'rep.kind_confirmed', NOT_CONFIRMED: 'rep.kind_not_confirmed', NO_EMAIL: 'rep.kind_no_email',
+      VERIFIED_BY_GRIEVIQ: 'rep.kind_verified', NOT_VERIFIED: 'rep.kind_not_verified' };
     var kind = KIND_KEYS[c.resolutionKind] ? ' &middot; ' + esc(T(KIND_KEYS[c.resolutionKind])) : '';
     badge = '<span class="badge resolved">' + esc(T(c.status === 'CLOSED' ? 'rep.badge_closed' : 'rep.badge_resolved')) + resolvedWhen + kind + '</span>';
   } else if (c.status === 'PENDING_CONFIRMATION') {
-    badge = '<span class="badge pending">' + esc(T('rep.badge_pending')) + '</span>';
+    badge = '<span class="badge pending">' + esc(T(c.awaitingStaffCheck ? 'rep.badge_check' : 'rep.badge_pending')) + '</span>';
   } else if (c.hasEscalatedPastMyTier) {
     badge = '<span class="badge escalated">' + esc(T('rep.badge_now_with', { level: tierLabel(c.currentTopTier) })) + '</span>';
   }
@@ -883,7 +893,7 @@ function renderCase(c) {
       renderPhotoThumbs(c.photoUrls) +
       badge +
       renderResolution(c) +
-      renderDisputeNote(c) + renderNudgeNote(c) +
+      renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
       renderFollowupControl(c) +
       renderAcknowledgeControl(c) +
       renderResolveControl(c) +

@@ -308,7 +308,7 @@
     <nav>
       <a href="/admin-dashboard.html">Dashboard</a>
       <a href="/admin-cases.html" class="active">Cases</a>
-      <a href="/admin-import.html">Import</a>
+      <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
       <a href="/admin-import-wards.html">Ward boundaries</a>
       <a href="/admin-jurisdiction.html">Jurisdiction</a>
       <a href="/admin-exceptions.html">Exceptions</a>
@@ -355,7 +355,9 @@
   const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
   const STATUS_LABELS = { OPEN: "Open", PENDING_CONFIRMATION: "Awaiting citizen", RESOLVED: "Resolved", CLOSED: "Closed" };
   // How a resolved case was resolved (item 7a).
-  const KIND_LABELS = { CONFIRMED: "confirmed by citizen", NOT_CONFIRMED: "not confirmed by citizen", NO_EMAIL: "citizen had no email" };
+  const KIND_LABELS = { CONFIRMED: "confirmed by citizen", NOT_CONFIRMED: "not confirmed by citizen", NO_EMAIL: "citizen had no email",
+    VERIFIED_BY_GRIEVIQ: "checked by GrievIQ", NOT_VERIFIED: "not verified (no email, not checked in time)" };
+  const CHECK_LABELS = { VERIFIED: "fixed", NOT_FIXED: "not fixed", CANT_TELL: "can't tell from photos", NO_ANSWER: "no answer" };
   const CONFIRM_DAYS = 7;
   const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review" };
   const EVENT_LABELS = {
@@ -394,8 +396,8 @@
     const whole = Math.floor(n);
     return whole < 1 ? "Under a day" : whole + (whole === 1 ? " day" : " days");
   }
-  function statusTag(s, kind) {
-    return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(STATUS_LABELS[s] || s) + '</span>' +
+  function statusTag(s, kind, awaitingCheck) {
+    return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(awaitingCheck ? "Awaiting GrievIQ check" : (STATUS_LABELS[s] || s)) + '</span>' +
       (KIND_LABELS[kind] ? '<div class="ward-sub">' + escapeHtml(KIND_LABELS[kind]) + '</div>' : '');
   }
   function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(FLAG_LABELS[f] || f) + '</span>').join(""); }
@@ -444,7 +446,7 @@
           '<td><a class="case-link" href="?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a>' +
             '<div class="ward-sub">' + escapeHtml(c.category) + '</div></td>' +
           '<td>' + escapeHtml(c.ward.name) + '</td>' +
-          '<td>' + statusTag(c.status, c.resolutionKind) +
+          '<td>' + statusTag(c.status, c.resolutionKind, c.awaitingCheck) +
             (c.confirmBy ? '<div class="ward-sub">Closes ' + escapeHtml(dateOnly(c.confirmBy)) + ' if no reply</div>' : '') + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(dateOnly(c.createdAt)) + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(days(c.daysOpen)) + '</td>' +
@@ -507,7 +509,7 @@
 
   // ---- Detail -------------------------------------------------------------
   function timelineItems(c) {
-    const items = [{ cls: "", title: "Complaint filed", meta: dateTime(c.createdAt), body: "" }];
+    const items = [{ cls: "", title: "Complaint filed", meta: dateTime(c.createdAt), body: "", at: c.createdAt }];
     c.events.forEach((e) => {
       const cls = e.type === "CITIZEN_DISPUTED" || e.type === "ADMIN_NUDGE" ? "warn"
         : (e.type === "MARKED_RESOLVED" || e.type === "CITIZEN_CONFIRMED") ? "done" : "";
@@ -517,7 +519,14 @@
         title: EVENT_LABELS[e.type] || e.type,
         meta: dateTime(e.at) + (e.actor ? " · " + e.actor : ""),
         body,
+        at: e.at,
       });
+    });
+    // GrievIQ staff checks (item 7b-2).
+    (c.staffChecks || []).forEach((k) => {
+      items.push({ cls: k.outcome === "VERIFIED" ? "done" : k.outcome === "NOT_FIXED" ? "warn" : "",
+        title: "GrievIQ check (" + (k.method === "PHONE" ? "phone call" : "photos") + "): " + (CHECK_LABELS[k.outcome] || k.outcome),
+        meta: dateTime(k.at) + (k.by ? " · " + k.by : ""), body: k.note || "", at: k.at });
     });
     // Closing after no reply isn't a stored event; it happens CONFIRM_DAYS
     // after the case was marked resolved (item 7a).
@@ -525,10 +534,19 @@
       const d = toDate(c.resolvedAt);
       if (d && !isNaN(d)) {
         items.push({ cls: "done", title: "Closed as resolved: no reply from the citizen in " + CONFIRM_DAYS + " days",
-          meta: dateTime(new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString()), body: "" });
+          meta: dateTime(new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString()), body: "", at: new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString() });
       }
     }
-    return items;
+    if (c.resolutionKind === "NOT_VERIFIED" && c.resolvedAt) {
+      const d = toDate(c.resolvedAt);
+      if (d && !isNaN(d)) {
+        const at = new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString();
+        items.push({ cls: "warn", title: "Closed as not verified: GrievIQ didn't check it within " + CONFIRM_DAYS + " days", meta: dateTime(at), body: "", at });
+      }
+    }
+    // One record in date order (both timestamp shapes; stable for ties).
+    return items.map((it, i) => ({ it, i, t: (toDate(it.at) || new Date(0)).getTime() }))
+      .sort((x, y) => (x.t - y.t) || (x.i - y.i)).map((x) => x.it);
   }
 
   // Resolution report and photo warnings (item 7b). Warnings never block;
@@ -598,9 +616,10 @@
     view.innerHTML =
       '<a class="back-link" href="/admin-cases.html" id="back-link">← All cases</a>' +
       '<div class="identity-bar">' +
-        '<div class="ref">' + escapeHtml(c.trackingRef) + ' ' + statusTag(c.status) + '</div>' +
+        '<div class="ref">' + escapeHtml(c.trackingRef) + ' ' + statusTag(c.status, null, c.awaitingCheck) + '</div>' +
         (KIND_LABELS[c.resolutionKind] ? '<div class="facts">Resolved · <b>' + escapeHtml(KIND_LABELS[c.resolutionKind]) + '</b></div>' : '') +
-        (c.confirmBy ? '<div class="facts">Waiting for the citizen to confirm. Escalation is paused. Closes as resolved on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if the citizen doesn\'t reply.</div>' : '') +
+        (c.confirmBy && !c.awaitingCheck ? '<div class="facts">Waiting for the citizen to confirm. Escalation is paused. Closes as resolved on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if the citizen doesn\'t reply.</div>' : '') +
+        (c.confirmBy && c.awaitingCheck ? '<div class="facts">The citizen gave no email, so GrievIQ staff check the fix. Escalation is paused. Closes as <b>not verified</b> on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if nobody checks it. <a href="/admin-checks.html" style="color:var(--admin-accent)">Go to Checks</a></div>' : '') +
         '<div class="facts"><b>' + escapeHtml(c.ward.name) + '</b>' + (wardType ? ' · ' + wardType : '') +
           ' · ' + escapeHtml(c.category) + ' · Filed ' + escapeHtml(dateOnly(c.createdAt)) +
           ' · ' + (c.status === "RESOLVED" || c.status === "CLOSED" ? 'Took ' : 'Open for ') + escapeHtml(days(c.daysOpen).toLowerCase()) + '</div>' +

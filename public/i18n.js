@@ -999,6 +999,10 @@
 "Confirm it's you when you track your reports",
 "शिकायत की स्थिति देखते समय आपकी पहचान की पुष्टि करना"
 ],
+"priv.u5": [
+"Check with you by phone, if you gave no email, whether your problem was really fixed",
+"यदि आपने ईमेल नहीं दिया है, तो फ़ोन पर आपसे जाँचना कि आपकी समस्या वास्तव में हल हुई या नहीं"
+],
 "priv.u4": [
 "Let GrievIQ staff oversee how complaints are handled, for example by reviewing overdue or disputed cases",
 "GrievIQ कर्मचारियों द्वारा शिकायतों पर हो रही कार्यवाही की निगरानी, जैसे समय-सीमा बीत चुकी या विवादित शिकायतों की समीक्षा"
@@ -1158,8 +1162,8 @@
 "GrievIQ का निर्माण और संचालन IOTC (Indus Overseas Tech. Corp.) द्वारा किया जाता है। गोपनीयता से संबंधित किसी भी प्रश्न के लिए <a href=\"mailto:support@grieviq.in\" style=\"color:var(--teal-dark);\">support@grieviq.in</a> पर संपर्क करें।"
 ],
 "priv.c_mobile": [
-"<strong>Your mobile number</strong> (required): kept with your complaint so it can be identified if you contact us about it.",
-"<strong>आपका मोबाइल नंबर</strong> (आवश्यक): आपकी शिकायत के साथ रखा जाता है, ताकि आपके संपर्क करने पर शिकायत की पहचान की जा सके।"
+"<strong>Your mobile number</strong> (required): kept with your complaint so it can be identified if you contact us about it. If you didn't give an email, GrievIQ staff may call you once, after your representative marks the case resolved, to check the problem was really fixed.",
+"<strong>आपका मोबाइल नंबर</strong> (आवश्यक): आपकी शिकायत के साथ रखा जाता है, ताकि आपके संपर्क करने पर शिकायत की पहचान की जा सके। यदि आपने ईमेल नहीं दिया है, तो जनप्रतिनिधि द्वारा शिकायत निस्तारित बताए जाने के बाद GrievIQ कर्मचारी यह जाँचने के लिए आपको एक बार फ़ोन कर सकते हैं कि समस्या वास्तव में हल हुई या नहीं।"
 ],
 "priv.c_email": [
 "<strong>Your email address</strong> (optional): to send you a one-time code when you track your reports online, and to email you when your case is marked resolved.",
@@ -1186,8 +1190,8 @@
 "<strong>आपके जनप्रतिनिधि</strong>: वार्ड के जनप्रतिनिधि और, शिकायत आगे बढ़ने पर, हर वह स्तर जहाँ तक वह पहुँचती है — आपका विवरण, स्थान और फ़ोटो देख सकते हैं। वे आपका मोबाइल नंबर या ईमेल पता नहीं देख सकते।"
 ],
 "priv.w_staff": [
-"<strong>GrievIQ staff</strong>: see your complaint to oversee how it's handled. Your mobile number and email are partly hidden from them, and every time a staff member opens a case, it is recorded.",
-"<strong>GrievIQ कर्मचारी</strong>: कार्यवाही की निगरानी के लिए आपकी शिकायत देखते हैं। आपका मोबाइल नंबर और ईमेल उनसे आंशिक रूप से छिपा रहता है, और कोई कर्मचारी जब भी कोई शिकायत खोलता है, उसका रिकॉर्ड रखा जाता है।"
+"<strong>GrievIQ staff</strong>: see your complaint to oversee how it's handled. Your mobile number and email are partly hidden from them, and every time a staff member opens a case, it is recorded. Only two senior roles can see your full number, and only to call you to check a fix; each time, the reason is recorded.",
+"<strong>GrievIQ कर्मचारी</strong>: कार्यवाही की निगरानी के लिए आपकी शिकायत देखते हैं। आपका मोबाइल नंबर और ईमेल उनसे आंशिक रूप से छिपा रहता है, और कोई कर्मचारी जब भी कोई शिकायत खोलता है, उसका रिकॉर्ड रखा जाता है। आपका पूरा नंबर केवल दो वरिष्ठ भूमिकाएँ देख सकती हैं, और केवल समाधान जाँचने के लिए आपको फ़ोन करने हेतु; हर बार कारण दर्ज किया जाता है।"
 ],
 "priv.w_photos": [
 "<strong>Photos</strong>: photos are stored at unlisted web addresses. Anyone who has a photo's exact link can open it, so please don't include anything in a photo that you wouldn't want seen.",
@@ -1243,6 +1247,13 @@
 "rep.kind_confirmed": ["confirmed by citizen", "नागरिक द्वारा पुष्टि"],
 "rep.kind_not_confirmed": ["not confirmed by citizen", "नागरिक द्वारा पुष्टि नहीं"],
 "rep.kind_no_email": ["citizen had no email", "नागरिक का ईमेल नहीं था"],
+"rep.kind_verified": ["checked by GrievIQ", "GrievIQ द्वारा जाँचा गया"],
+"rep.kind_not_verified": ["not verified", "सत्यापित नहीं"],
+"rep.state_check": ["Awaiting GrievIQ check", "GrievIQ जाँच लंबित"],
+"rep.badge_check": ["awaiting GrievIQ check (citizen gave no email)", "GrievIQ जाँच लंबित (नागरिक ने ईमेल नहीं दिया)"],
+"rep.closes_by_check": ["Closes as resolved (not verified) {date} if GrievIQ doesn't check it", "GrievIQ द्वारा जाँच न होने पर {date} को निस्तारित (सत्यापित नहीं) मानकर बंद होगी"],
+"rep.check_not_fixed_photo": ["GrievIQ checked the photos: not fixed", "GrievIQ ने फ़ोटो जाँचीं: समस्या हल नहीं हुई"],
+"rep.check_not_fixed_phone": ["GrievIQ called the citizen: not fixed", "GrievIQ ने नागरिक से बात की: समस्या हल नहीं हुई"],
 // ---- Mark resolved form and after-photo warnings (item 7b) ----
 "rep.r_note": ["What was done?", "क्या कार्यवाही की गई?"],
 "rep.r_note_hint": ["Say what was fixed and when. The citizen will see this.", "बताएँ कि क्या ठीक किया गया और कब। नागरिक इसे देखेंगे।"],
@@ -1374,6 +1385,10 @@
 "adm.brand": ["Admin", "प्रशासन"],
 "adm.nav_dashboard": ["Dashboard", "डैशबोर्ड"],
 "adm.nav_cases": ["Cases", "शिकायतें"],
+"adm.nav_checks": ["Checks", "जाँच"],
+"adm.d_c_checks": ["Fixes to check", "जाँच हेतु समाधान"],
+"adm.d_c_checks_h": ["Cases marked resolved where the citizen gave no email. Check the photos or call.", "निस्तारित बताई गई शिकायतें जिनमें नागरिक ने ईमेल नहीं दिया। फ़ोटो जाँचें या फ़ोन करें।"],
+"adm.d_c_checks_oldest": ["Oldest waiting since {date}.", "सबसे पुरानी {date} से प्रतीक्षा में।"],
 "adm.nav_import": ["Import", "आयात"],
 "adm.nav_boundaries": ["Ward boundaries", "वार्ड सीमाएँ"],
 "adm.nav_jurisdiction": ["Jurisdiction", "क्षेत्राधिकार"],

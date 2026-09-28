@@ -28,6 +28,13 @@ export const PERMISSIONS = {
   view_jurisdiction: ["super_admin", "operations_admin", "data_entry_operator"],
   request_changes: ["data_entry_operator"],
   approve_changes: ["super_admin", "operations_admin"],
+  // Item 7b-2: GrievIQ staff check a fix when the citizen gave no email.
+  // Checking (by photos or a phone call) is moderation work; showing a
+  // citizen's full phone number is limited to the two senior roles (least
+  // privilege, NIST AC-6) and every reveal is logged with a reason.
+  view_checks: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  check_resolutions: ["super_admin", "operations_admin", "data_moderator"],
+  reveal_citizen_phone: ["super_admin", "operations_admin"],
 };
 
 /**

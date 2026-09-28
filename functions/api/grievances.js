@@ -17,7 +17,7 @@ import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
-import { settleOverdueConfirmations, resolutionKind } from "../_shared/confirmation.js";
+import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "../_shared/confirmation.js";
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoLink } from "../_shared/photo-links.js";
 
@@ -66,6 +66,8 @@ export async function onRequestGet(context) {
   // Latest resolution report per case, and its photos (item 7b).
   const reportByGrievance = new Map();
   const photosByReport = new Map();
+  // Latest GrievIQ staff check per case (item 7b-2).
+  const checkByGrievance = new Map();
   const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
@@ -88,12 +90,17 @@ export async function onRequestGet(context) {
          JOIN grievances g ON g.id = rp.grievance_id ${s.join}
          WHERE rp.report_id IS NOT NULL AND ${s.where}
          ORDER BY rp.created_at ASC, rp.rowid ASC`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT rc.grievance_id, rc.method, rc.outcome, rc.note, rc.checked_at, rc.rowid AS check_rowid FROM resolution_checks rc
+         JOIN grievances g ON g.id = rc.grievance_id ${s.join}
+         WHERE ${s.where}`
       ).bind(...s.binds)
     );
   }
   const batch = await env.DB.batch(stmts);
   const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
-  for (let i = 1; i < batch.length; i += 4) {
+  for (let i = 1; i < batch.length; i += 5) {
     for (const g of batch[i].results || []) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
@@ -110,6 +117,12 @@ export async function onRequestGet(context) {
       if (!photosByReport.has(p.report_id)) photosByReport.set(p.report_id, []);
       const list = photosByReport.get(p.report_id);
       if (!list.some((x) => x.id === p.id)) list.push(p);
+    }
+    for (const k of batch[i + 4].results || []) {
+      const prev = checkByGrievance.get(k.grievance_id);
+      if (!prev || k.checked_at > prev.checked_at || (k.checked_at === prev.checked_at && k.check_rowid > prev.check_rowid)) {
+        checkByGrievance.set(k.grievance_id, k);
+      }
     }
   }
 
@@ -245,6 +258,12 @@ export async function onRequestGet(context) {
       resolutionKind: resolutionKind(grievance),
       // What the rep said was done, with "after" photos and warnings (item 7b).
       resolution,
+      // Item 7b-2: no citizen email, so GrievIQ staff check the fix; and the
+      // latest staff check (shown when they found it not fixed).
+      awaitingStaffCheck: awaitingStaffCheck(grievance),
+      staffCheck: checkByGrievance.has(grievance.id)
+        ? (({ outcome, method, note, checked_at }) => ({ outcome, method, note: note || null, at: checked_at }))(checkByGrievance.get(grievance.id))
+        : null,
       acknowledgedAt: grievance.acknowledged_at || null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       adminNudges: nudgeEvents.map((e) => ({ note: e.note, createdAt: e.created_at })), followupHistory: followupEvents.map((e) => ({

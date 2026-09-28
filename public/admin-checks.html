@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Checks — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+    --admin-input: #11151c;
+    --admin-track: #2a313d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  header .service-tag { font-size: 12px; color: var(--admin-muted); font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .who-line { font-size: 12px; color: var(--admin-muted); text-align: right; line-height: 1.4; }
+  .who-line b { color: var(--admin-text); font-weight: 600; }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 1150px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  p.section-sub { color: var(--admin-muted); margin: 0 0 18px; font-size: 13px; line-height: 1.5; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--admin-accent); outline-offset: 2px;
+  }
+  select, input[type="text"], input[type="search"], textarea {
+    background: var(--admin-input);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select { min-width: 170px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+
+  /* Summary banner */
+  .banner { border-left: 4px solid var(--admin-warn); }
+  .banner.all-good { border-left-color: var(--admin-success); }
+  .banner .headline { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .banner .note { font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+  .banner .note-empty { color: var(--admin-muted); font-style: italic; }
+  .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Headline cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
+    padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
+  }
+  a.card:hover { border-color: var(--admin-accent); }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
+  .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
+  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+
+  /* Coverage bars */
+  .bar-group { margin-bottom: 22px; }
+  .bar-group:last-child { margin-bottom: 0; }
+  .bar-group h3 { font-size: 13px; font-weight: 600; color: var(--admin-muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-group .group-note { font-size: 13px; color: var(--admin-muted); }
+  .bar-row { margin-bottom: 12px; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .bar-top .name { font-weight: 600; }
+  .bar-top .frac { color: var(--admin-muted); white-space: nowrap; }
+  .bar-top .frac b { color: var(--admin-text); }
+  .bar-track { height: 10px; background: var(--admin-track); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--admin-accent); border-radius: 6px; }
+  .bar-fill.low { background: var(--admin-warn); }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor;
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .tag.complete { color: var(--admin-success); }
+  .tag.partial { color: var(--admin-accent); }
+  .tag.low { color: var(--admin-warn); }
+
+  /* Ward table */
+  .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: block; font-size: 13px; color: var(--admin-muted); margin-bottom: 6px; }
+  .filters .check label { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: var(--admin-text); font-size: 14px; cursor: pointer; }
+  .filters input[type="search"] { min-width: 220px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--admin-muted); font-weight: 600; padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border); white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--admin-border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ward-name { font-weight: 600; }
+  .ward-sub { font-size: 12px; color: var(--admin-muted); margin-top: 3px; line-height: 1.4; }
+  .ok-mark { color: var(--admin-success); font-weight: 700; }
+  .missing { color: var(--admin-warn); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .na { color: var(--admin-muted); }
+  .attn { color: var(--admin-danger); font-weight: 700; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .empty, .error-msg { padding: 28px; text-align: center; font-size: 14px; color: var(--admin-muted); }
+  .error-msg { color: var(--admin-danger); }
+
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.5; }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+    --admin-input: #ffffff;
+    --admin-track: #e6e9ee;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme .bar-fill.low { background: #c98a00; }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+
+  /* Cases page */
+  .status {
+    display: inline-block; font-size: 12px; font-weight: 600; border-radius: 4px;
+    padding: 2px 8px; white-space: nowrap; border: 1px solid currentColor;
+  }
+  .status.OPEN { color: var(--admin-accent); }
+  .status.PENDING_CONFIRMATION { color: var(--admin-warn); }
+  .status.RESOLVED, .status.CLOSED { color: var(--admin-success); }
+  .badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    border: 1px solid currentColor; border-radius: 4px;
+    padding: 2px 7px; margin: 0 4px 4px 0; white-space: nowrap;
+  }
+  .badge.ACK_OVERDUE { color: var(--admin-warn); }
+  .badge.ESCALATED { color: var(--admin-danger); }
+  .badge.DISPUTED { color: var(--admin-danger); }
+  .badge.LEGAL_REVIEW { color: var(--admin-accent); }
+  tr.case-row { cursor: pointer; }
+  tr.case-row:hover td { background: rgba(76, 124, 240, 0.06); }
+  .case-link { color: var(--admin-text); font-weight: 600; text-decoration: none; }
+  .case-link:hover { text-decoration: underline; }
+  .muted { color: var(--admin-muted); }
+  .back-link { display: inline-block; font-size: 14px; color: var(--admin-accent); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+
+  /* Identity bar (MoJ pattern): tells the user which case they are in */
+  .identity-bar {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 4px solid var(--admin-accent);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;
+  }
+  .identity-bar .ref { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .identity-bar .facts { font-size: 14px; color: var(--admin-muted); margin-top: 6px; line-height: 1.6; }
+  .identity-bar .facts b { color: var(--admin-text); font-weight: 600; }
+  .identity-bar .badges { margin-top: 10px; }
+
+  .detail-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+  .detail-grid .panel { margin-bottom: 0; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field .k { font-size: 12px; font-weight: 600; color: var(--admin-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .field .v { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .masked { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .mask-note { font-size: 12px; color: var(--admin-muted); margin-top: 6px; line-height: 1.5; }
+  .photos { display: flex; flex-wrap: wrap; gap: 10px; }
+  .photos a { display: block; border: 1px solid var(--admin-border); border-radius: 8px; overflow: hidden; }
+  .photos img { display: block; width: 120px; height: 120px; object-fit: cover; }
+  .tiers { list-style: none; margin: 0; padding: 0; }
+  .tiers li { font-size: 14px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid var(--admin-border); display: flex; gap: 10px; }
+  .tiers li:last-child { border-bottom: none; }
+  .tiers .mark { width: 18px; flex: none; font-weight: 700; }
+  .tiers li.reached .mark { color: var(--admin-danger); }
+  .tiers li.current { font-weight: 600; }
+  .tiers .who { color: var(--admin-muted); }
+
+  /* Timeline (MoJ / DWP pattern): record of events in date order */
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid var(--admin-border); }
+  .timeline li { position: relative; padding: 0 0 20px 14px; }
+  .timeline li:last-child { padding-bottom: 0; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -25px; top: 5px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--admin-panel); border: 2px solid var(--admin-accent);
+  }
+  .timeline li.warn::before { border-color: var(--admin-danger); }
+  .timeline li.done::before { border-color: var(--admin-success); }
+  .timeline .t-title { font-size: 14px; font-weight: 600; }
+  .timeline .t-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 2px; }
+  .timeline .t-body { font-size: 13.5px; margin-top: 6px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .res-note { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .res-photos { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; }
+  .res-photo { width: 170px; font-size: 12.5px; }
+  .res-photo img { width: 170px; height: 128px; object-fit: cover; border: 1px solid var(--admin-border); border-radius: 8px; display: block; }
+  .ev { list-style: none; margin: 6px 0 0; padding: 0; line-height: 1.45; }
+  .ev li.warn { color: var(--admin-danger); font-weight: 600; }
+  .ev li.info { color: var(--admin-muted); }
+  .ev a { color: inherit; }
+  .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
+  @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  /* Checks page (item 7b-2) */
+  .check-card { border-left: 4px solid var(--admin-warn); }
+  .check-card.soon { border-left-color: var(--admin-danger); }
+  .check-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .check-head .ref { font-size: 18px; font-weight: 700; }
+  .check-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
+  @media (max-width: 800px) { .check-cols { grid-template-columns: 1fr; } }
+  fieldset { border: 1px solid var(--admin-border); border-radius: 8px; padding: 10px 14px 12px; margin: 0 0 12px; }
+  legend { font-size: 13px; font-weight: 600; color: var(--admin-muted); padding: 0 4px; }
+  .radio { display: inline-flex; gap: 6px; align-items: center; margin-right: 18px; font-size: 14px; cursor: pointer; }
+  .actions-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 6px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  textarea.note { width: 100%; min-height: 64px; resize: vertical; }
+  textarea[aria-invalid="true"], fieldset[aria-invalid="true"] { border-color: var(--admin-danger); }
+  .reveal-box { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--admin-border); border-radius: 8px; }
+  .phone-big { font-size: 20px; font-weight: 700; letter-spacing: .03em; }
+  .phone-big a { color: var(--admin-accent); }
+  .conflict { background: var(--admin-danger-bg); color: var(--admin-danger); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-top: 12px; }
+  .hist { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; }
+  .hist li { padding: 4px 0; border-bottom: 1px solid var(--admin-border); }
+  .hist li:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="header-right">
+    <nav>
+      <a href="/admin-dashboard.html">Dashboard</a>
+      <a href="/admin-cases.html">Cases</a>
+      <a href="/admin-checks.html" class="active">Checks</a>
+      <a href="/admin-import.html">Import</a>
+      <a href="/admin-import-wards.html">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html">Jurisdiction</a>
+      <a href="/admin-exceptions.html">Exceptions</a>
+      <a href="/admin-reviews.html">Reviews</a>
+      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    </nav>
+    <div class="who-line" id="who-line"></div>
+  </div>
+</header>
+
+<main>
+  <h1>Checks</h1>
+  <p class="subtitle">Fixes to check. These cases were marked resolved by a representative, but the citizen gave no email, so they can't confirm it themselves. Look at the before and after photos, or call the citizen, and record what you found. Escalation is paused while a case waits here. If nobody checks within 7 days, it closes as <b>not verified</b>.</p>
+  <div id="notice-area" role="status"></div>
+  <div class="result-bar"><span id="result-count">Loading…</span><span><button id="refresh-btn" type="button">Refresh</button></span></div>
+  <div id="queue"></div>
+  <div class="panel" id="recent-panel" hidden>
+    <h2 style="margin-bottom:12px">Latest decisions</h2>
+    <div class="table-wrap" id="recent"></div>
+  </div>
+</main>
+
+<script>
+  const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
+  const OUTCOME_LABELS = { VERIFIED: "Fixed", NOT_FIXED: "Not fixed", CANT_TELL: "Can't tell from photos", NO_ANSWER: "No answer" };
+  let data = null;
+  const state = {};   // case id -> { method, note, errors, busy, reveal: { open, reason, phone, error } }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function toDate(s) { if (!s) return null; return String(s).indexOf("T") !== -1 ? new Date(s) : new Date(String(s).replace(" ", "T") + "Z"); }
+  function dateOnly(s) { const d = toDate(s); return d && !isNaN(d) ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""; }
+  function dateTime(s) { const d = toDate(s); return d && !isNaN(d) ? dateOnly(s) + ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""; }
+  function dist(m) { m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km"; }
+  function evText(w) {
+    const M = {
+      DATE_BEFORE_FILING: () => "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")",
+      DATE_FUTURE: () => "Photo date is in the future (" + dateTime(w.takenAt) + ")",
+      FAR_FROM_PIN: () => "Photo taken about " + dist(w.metres) + " from the complaint's pin",
+      DEVICE_FAR_FROM_PIN: () => "Representative added this photo about " + dist(w.metres) + " from the complaint's pin (phone accuracy ±" + w.accuracy + " m)",
+      DEVICE_OUTSIDE_WARD: () => "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)",
+      PHOTO_OUTSIDE_WARD: () => "Photo's own location is outside the complaint's ward",
+      REUSED_OTHER_CASE: () => (w.kind === "similar" ? "Very similar to a photo on another case" : "Same photo already used on another case"),
+      CITIZEN_PHOTO: () => "This is one of the citizen's own photos",
+      NO_DATE: () => "No date in photo",
+      NO_LOCATION: () => "No location in photo or from the representative's phone",
+      NO_PIN: () => "No pin or ward boundary to compare the location with",
+      DEVICE_NOT_SHARED: () => "Representative's location not shared",
+      DEVICE_ROUGH: () => "Representative's location too rough to check (±" + w.accuracy + " m)",
+    };
+    return M[w.code] ? M[w.code]() : w.code;
+  }
+  function st(id) { return state[id] || (state[id] = { method: "", note: "", errors: {}, busy: false, reveal: { open: false, reason: "", phone: "", error: "" } }); }
+
+  function photosHtml(list, who) {
+    if (!list || !list.length) return '<span class="muted">None.</span>';
+    return '<div class="res-photos">' + list.map((p, i) => {
+      const url = typeof p === "string" ? p : p.url;
+      const warns = typeof p === "string" ? [] : (p.warnings || []);
+      return '<div class="res-photo">' + (url
+        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Open ' + who + ' photo ' + (i + 1) + ' full size"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(who + " photo " + (i + 1)) + '" loading="lazy" /></a>'
+        : '<span class="muted">Photo unavailable.</span>') +
+        (warns.length ? '<ul class="ev">' + warns.map((w) => '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) + '</li>').join("") + '</ul>' : '') +
+      '</div>';
+    }).join("") + '</div>';
+  }
+
+  function actionsHtml(c) {
+    const s = st(c.id);
+    if (c.conflict) return '<div class="conflict">You can\'t check this case: you are one of its representatives, or you marked it resolved.</div>';
+    if (!data.canCheck) return '<p class="muted" style="margin-top:12px">Your role can view checks but not record them.</p>';
+    const id = escapeHtml(c.id);
+    return '<div style="margin-top:14px">' +
+      '<fieldset id="method-' + id + '"' + (s.errors.method ? ' aria-invalid="true" aria-describedby="method-err-' + id + '"' : '') + '><legend>How did you check?</legend>' +
+        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHOTO" data-id="' + id + '" class="m-radio"' + (s.method === "PHOTO" ? " checked" : "") + '> Looked at the photos</label>' +
+        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHONE" data-id="' + id + '" class="m-radio"' + (s.method === "PHONE" ? " checked" : "") + '> Called the citizen</label>' +
+        '<div class="field-err" id="method-err-' + id + '" role="alert">' + escapeHtml(s.errors.method || "") + '</div>' +
+      '</fieldset>' +
+      '<label for="note-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin-bottom:5px">Note <span style="font-weight:400">(required for "Not fixed": the representative will see it)</span></label>' +
+      '<textarea class="note" id="note-' + id + '" data-id="' + id + '" maxlength="500"' + (s.errors.note ? ' aria-invalid="true" aria-describedby="note-err-' + id + '"' : '') + '>' + escapeHtml(s.note) + '</textarea>' +
+      '<div class="field-err" id="note-err-' + id + '" role="alert">' + escapeHtml(s.errors.note || "") + '</div>' +
+      '<div class="actions-row">' +
+        '<button type="button" class="primary act" data-id="' + id + '" data-action="verify"' + (s.busy ? " disabled" : "") + '>Fixed</button>' +
+        '<button type="button" class="act" data-id="' + id + '" data-action="not_fixed"' + (s.busy ? " disabled" : "") + '>Not fixed</button>' +
+        (s.method !== "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="cant_tell"' + (s.busy ? " disabled" : "") + '>Can\'t tell from photos</button>' : '') +
+        (s.method === "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="no_answer"' + (s.busy ? " disabled" : "") + '>No answer</button>' : '') +
+      '</div>' +
+      '<div class="field-err" id="act-err-' + id + '" role="alert">' + escapeHtml(s.errors.form || "") + '</div>' +
+      revealHtml(c) +
+    '</div>';
+  }
+
+  function revealHtml(c) {
+    const s = st(c.id), r = s.reveal, id = escapeHtml(c.id);
+    const masked = '<div>Citizen\'s mobile: <span class="masked">' + escapeHtml(c.phoneMasked || "not on file") + '</span></div>';
+    if (!data.canReveal) return '<div class="reveal-box">' + masked + '<div class="mask-note">Only Super admins and Operations admins can see the full number to call.</div></div>';
+    if (r.phone) {
+      return '<div class="reveal-box"><div class="phone-big"><a href="tel:' + escapeHtml(r.phone) + '">' + escapeHtml(r.phone) + '</a></div>' +
+        '<div class="mask-note">Shown for this case only. This was recorded in the admin log with your reason. After the call, choose "Called the citizen" above and record what they said.</div></div>';
+    }
+    if (!r.open) return '<div class="reveal-box">' + masked + (c.phoneMasked ? '<button type="button" class="small reveal-open" data-id="' + id + '" style="margin-top:8px">Show number to call</button>' : '') + '</div>';
+    return '<div class="reveal-box">' + masked +
+      '<label for="reason-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:8px 0 5px">Why do you need the number?</label>' +
+      '<textarea class="note reason" id="reason-' + id + '" data-id="' + id + '" maxlength="300"' + (r.error ? ' aria-invalid="true" aria-describedby="reason-err-' + id + '"' : '') + ' placeholder="e.g. Photos don\'t show whether water supply is back; calling to check">' + escapeHtml(r.reason) + '</textarea>' +
+      '<div class="field-err" id="reason-err-' + id + '" role="alert">' + escapeHtml(r.error || "") + '</div>' +
+      '<div class="actions-row"><button type="button" class="primary reveal-go" data-id="' + id + '">Show number</button><button type="button" class="reveal-cancel" data-id="' + id + '">Cancel</button></div>' +
+      '<div class="mask-note">Your name, the time and your reason are recorded in the admin log.</div></div>';
+  }
+
+  function caseHtml(c) {
+    const r = c.resolution;
+    const hoursLeft = c.closesAt ? (toDate(c.closesAt) - Date.now()) / 3600000 : 999;
+    return '<div class="panel check-card' + (hoursLeft < 48 ? ' soon' : '') + '" id="case-' + escapeHtml(c.id) + '">' +
+      '<div class="check-head"><div><div class="ref"><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a></div>' +
+        '<div class="ward-sub">' + escapeHtml(c.ward) + ' · ' + escapeHtml(c.category) + ' · filed ' + escapeHtml(dateOnly(c.createdAt)) + ' · marked resolved ' + escapeHtml(dateTime(c.markedResolvedAt)) + '</div></div>' +
+        '<div class="' + (hoursLeft < 48 ? 'attn' : 'muted') + '" style="font-size:13px">Closes as not verified ' + escapeHtml(dateTime(c.closesAt)) + '</div></div>' +
+      '<div class="check-cols">' +
+        '<div><div class="field"><div class="k">What the citizen reported</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
+          (c.locationDetail ? '<div class="field"><div class="k">Location</div><div class="v">' + escapeHtml(c.locationDetail) + '</div></div>' : '') +
+          (c.pin ? '<div class="field"><a href="https://www.google.com/maps/search/?api=1&query=' + Number(c.pin.lat) + ',' + Number(c.pin.lng) + '" target="_blank" rel="noopener noreferrer" style="color:var(--admin-accent)">Open the complaint\'s pin in Google Maps</a></div>' : '') +
+          '<div class="field"><div class="k">Before (citizen\'s photos)</div>' + photosHtml(c.beforePhotos, "Citizen's") + '</div></div>' +
+        '<div><div class="field"><div class="k">What the representative says was done' + (r && r.warningCount ? ' · <span class="attn">' + r.warningCount + (r.warningCount === 1 ? ' warning' : ' warnings') + '</span>' : '') + '</div><div class="v">' + escapeHtml(r ? r.note : "No report (marked resolved before reports existed).") + '</div></div>' +
+          (r && !r.photos.length && r.noPhotoReason ? '<div class="field"><div class="k">No photo — reason given</div><div class="v">' + escapeHtml(r.noPhotoReason) + '</div></div>' : '') +
+          '<div class="field"><div class="k">After (representative\'s photos)</div>' + photosHtml(r ? r.photos : [], "Representative's") + '</div></div>' +
+      '</div>' +
+      (c.history.length ? '<div class="field" style="margin-top:6px"><div class="k">Earlier checks on this case</div><ul class="hist">' + c.history.map((h) =>
+        '<li><b>' + escapeHtml(OUTCOME_LABELS[h.outcome] || h.outcome) + '</b> (' + (h.method === "PHONE" ? "phone call" : "photos") + ') · ' + escapeHtml(dateTime(h.checked_at)) + ' · ' + escapeHtml(h.checked_by) + (h.note ? '<br>' + escapeHtml(h.note) : '') + '</li>').join("") + '</ul></div>' : '') +
+      actionsHtml(c) +
+    '</div>';
+  }
+
+  function render() {
+    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[data.role] || data.role || "") + '</b><br>All wards';
+    const n = data.cases.length;
+    document.getElementById("result-count").innerHTML = n ? '<b>' + n + '</b> ' + (n === 1 ? 'fix' : 'fixes') + ' waiting, oldest first' : 'Nothing waiting to be checked.';
+    document.getElementById("queue").innerHTML = n ? data.cases.map(caseHtml).join("") : '<div class="panel"><div class="empty">No fixes are waiting for a check.</div></div>';
+    const rp = document.getElementById("recent-panel");
+    rp.hidden = !data.recent.length;
+    document.getElementById("recent").innerHTML = data.recent.length ? '<table><thead><tr><th>Case</th><th>Found</th><th>How</th><th>When</th><th>By</th><th>Note</th></tr></thead><tbody>' +
+      data.recent.map((x) => '<tr><td><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(x.grievanceId) + '">' + escapeHtml(x.trackingRef) + '</a></td><td>' + escapeHtml(OUTCOME_LABELS[x.outcome] || x.outcome) + '</td><td>' + (x.method === "PHONE" ? "Phone call" : "Photos") + '</td><td style="white-space:nowrap">' + escapeHtml(dateTime(x.at)) + '</td><td>' + escapeHtml(x.by) + '</td><td>' + escapeHtml(x.note || "") + '</td></tr>').join("") + '</tbody></table>' : '';
+    attach();
+  }
+
+  function redraw(focusSel) { render(); if (focusSel) { const el = document.querySelector(focusSel); if (el) el.focus(); } }
+  function sel(id) { return window.CSS && CSS.escape ? CSS.escape(id) : id; }
+
+  function attach() {
+    document.querySelectorAll(".m-radio").forEach((el) => el.addEventListener("change", () => {
+      const s = st(el.dataset.id); s.method = el.value; s.errors.method = ""; redraw('input[name="m-' + sel(el.dataset.id) + '"][value="' + el.value + '"]');
+    }));
+    document.querySelectorAll("textarea.note:not(.reason)").forEach((el) => el.addEventListener("input", () => {
+      const s = st(el.dataset.id); s.note = el.value;
+      if (s.errors.note && el.value.trim().length >= 10) { s.errors.note = ""; el.removeAttribute("aria-invalid"); document.getElementById("note-err-" + el.dataset.id).textContent = ""; }
+    }));
+    document.querySelectorAll("textarea.reason").forEach((el) => el.addEventListener("input", () => { st(el.dataset.id).reveal.reason = el.value; }));
+    document.querySelectorAll(".act").forEach((b) => b.addEventListener("click", () => decide(b.dataset.id, b.dataset.action)));
+    document.querySelectorAll(".reveal-open").forEach((b) => b.addEventListener("click", () => { st(b.dataset.id).reveal.open = true; redraw("#reason-" + sel(b.dataset.id)); }));
+    document.querySelectorAll(".reveal-cancel").forEach((b) => b.addEventListener("click", () => { const r = st(b.dataset.id).reveal; r.open = false; r.error = ""; redraw('.reveal-open[data-id="' + sel(b.dataset.id) + '"]'); }));
+    document.querySelectorAll(".reveal-go").forEach((b) => b.addEventListener("click", () => reveal(b.dataset.id)));
+  }
+
+  async function decide(id, action) {
+    const s = st(id);
+    s.errors = {};
+    const noteEl = document.getElementById("note-" + id); if (noteEl) s.note = noteEl.value;
+    if (!s.method) s.errors.method = "Choose how you checked.";
+    if (action === "not_fixed" && s.note.trim().length < 10) s.errors.note = "Tell the representative what is still wrong (at least 10 characters).";
+    if (s.errors.method || s.errors.note) { redraw(s.errors.method ? 'input[name="m-' + sel(id) + '"]' : "#note-" + sel(id)); return; }
+    s.busy = true; render();
+    try {
+      const res = await fetch("/api/admin/checks", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, grievanceId: id, method: s.method, note: s.note.trim() }) });
+      const body = await res.json().catch(() => ({}));
+      s.busy = false;
+      if (!res.ok) {
+        const f = body.fields || {};
+        if (f.method) s.errors.method = body.error; else if (f.note) s.errors.note = body.error; else s.errors.form = body.error || "Could not save. Please try again.";
+        redraw('#case-' + sel(id) + ' [aria-invalid="true"], #act-err-' + sel(id));
+        return;
+      }
+      const c = data.cases.find((x) => x.id === id);
+      const msg = c.trackingRef + ": " + (action === "verify" ? "recorded as fixed. The case is closed as \u201cResolved \u2014 checked by GrievIQ\u201d."
+        : action === "not_fixed" ? "recorded as not fixed. The case is reopened and the representative can see your note."
+        : action === "cant_tell" ? "recorded. It stays here; try a phone call." : "recorded as no answer. It stays here; try again later.");
+      document.getElementById("notice-area").innerHTML = '<div class="notice ok">' + escapeHtml(msg) + '</div>';
+      delete state[id];
+      await load(true);
+      document.getElementById("notice-area").focus();
+    } catch (e) {
+      s.busy = false; s.errors.form = "Could not reach the server. Check your connection and try again."; render();
+    }
+  }
+
+  async function reveal(id) {
+    const r = st(id).reveal;
+    const el = document.getElementById("reason-" + id); if (el) r.reason = el.value;
+    if (r.reason.trim().length < 10) { r.error = "Give a reason of at least 10 characters."; redraw("#reason-" + sel(id)); return; }
+    try {
+      const res = await fetch("/api/admin/checks", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reveal_phone", grievanceId: id, reason: r.reason.trim() }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { r.error = body.error || "Could not show the number."; redraw("#reason-" + sel(id)); return; }
+      r.phone = body.phone; r.error = ""; st(id).method = "PHONE";
+      redraw('#case-' + sel(id) + ' .phone-big a');
+    } catch (e) { r.error = "Could not reach the server."; redraw("#reason-" + sel(id)); }
+  }
+
+  async function load(keepNotice) {
+    if (!keepNotice) document.getElementById("notice-area").innerHTML = "";
+    document.getElementById("result-count").textContent = "Loading…";
+    try {
+      const res = await fetch("/api/admin/checks");
+      const body = await res.json();
+      if (!res.ok) {
+        document.getElementById("result-count").textContent = "";
+        document.getElementById("queue").innerHTML = '<div class="panel"><div class="error-msg">' + escapeHtml(body.error === "INSUFFICIENT_ROLE" ? "Your role doesn't have access to Checks." : body.error === "NOT_ADMIN" ? "Your account is not an admin." : (body.error || "Could not load checks.")) + '</div></div>';
+        return;
+      }
+      data = body; render();
+    } catch (e) {
+      document.getElementById("result-count").textContent = "";
+      document.getElementById("queue").innerHTML = '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div></div>';
+    }
+  }
+  document.getElementById("notice-area").setAttribute("tabindex", "-1");
+  document.getElementById("refresh-btn").addEventListener("click", () => load());
+
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  }
+  let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(savedTheme);
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    let cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    const next = cur === "light" ? "dark" : "light";
+    try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+    applyTheme(next);
+  });
+  load();
+</script>
+
+</body>
+</html>

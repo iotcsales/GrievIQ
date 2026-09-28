@@ -3,9 +3,10 @@
 // Rep-only action: marks a grievance as resolved. If the citizen has an
 // email on file, the case moves to PENDING_CONFIRMATION and an email
 // invites them to confirm the fix via /status — it isn't final until
-// they say so. If there's no email (phone-only citizen — a known MVP gap
-// that resolves once SMS/phone OTP ships), there's no way to reach them
-// for confirmation, so the case goes straight to RESOLVED.
+// they say so. If there's no email, the case also waits
+// (PENDING_CONFIRMATION): GrievIQ staff check the fix from the photos or by
+// calling the citizen (item 7b-2, admin Checks page). Before 7b-2 it went
+// straight to RESOLVED.
 //
 // Item 7a (Sept 2026): while the case waits for the citizen, escalation is
 // paused. If the citizen doesn't reply within CONFIRM_DAYS it closes as
@@ -117,7 +118,8 @@ export async function onRequestPost(context) {
       "UPDATE resolution_photos SET report_id = ? WHERE id = ? AND grievance_id = ? AND report_id IS NULL"
     ).bind(reportId, pid, grievanceId).run();
   }
-  const newStatus = hasEmail ? "PENDING_CONFIRMATION" : "RESOLVED";
+  // Both wait: the citizen confirms by email, or GrievIQ staff check (item 7b-2).
+  const newStatus = "PENDING_CONFIRMATION";
 
   await env.DB.prepare(
     `UPDATE grievances

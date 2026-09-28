@@ -144,6 +144,13 @@ export async function onRequestGet({ request, env }) {
   // requests; a data entry operator sees how many of their own are waiting.
   const canApprove = can(role, "approve_changes");
   const canRequest = can(role, "request_changes");
+  // Item 7b-2: fixes waiting for a GrievIQ staff check (citizen gave no
+  // email), and how long the oldest has waited.
+  const checksRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS n, MIN(resolved_at) AS oldest FROM grievances
+     WHERE status = 'PENDING_CONFIRMATION' AND COALESCE(TRIM(citizen_email), '') = ''`
+  ).first();
+
   let changeRequestsWaiting = null;
   if (canApprove || canRequest) {
     const row = canApprove
@@ -159,6 +166,8 @@ export async function onRequestGet({ request, env }) {
     pendingReviews: reviewsRes ? reviewsRes.n : 0,
     changeRequestsWaiting,
     changeRequestsScope: canApprove ? "all" : canRequest ? "own" : null,
+    checksWaiting: can(role, "view_checks") ? (checksRow ? checksRow.n : 0) : null,
+    checksOldestAt: can(role, "view_checks") && checksRow ? checksRow.oldest || null : null,
     note: noteRow
       ? { value: noteRow.value || "", updatedBy: noteRow.updated_by, updatedAt: noteRow.updated_at }
       : { value: "", updatedBy: null, updatedAt: null },
@@ -171,6 +180,7 @@ export async function onRequestGet({ request, env }) {
       reviews: can(role, "review_queue"),
       cases: can(role, "view_cases"),
       changeRequests: canApprove || canRequest,
+      checks: can(role, "view_checks"),
     },
     generatedAt: new Date().toISOString(),
   });
