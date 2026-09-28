@@ -659,6 +659,62 @@
 "Submit",
 "जमा करें"
 ],
+"status.res_title": [
+"What the representative says was done",
+"जनप्रतिनिधि के अनुसार की गई कार्यवाही"
+],
+"status.before": [
+"Before (your photos)",
+"पहले (आपकी फ़ोटो)"
+],
+"status.after": [
+"After (representative's photos)",
+"बाद में (जनप्रतिनिधि की फ़ोटो)"
+],
+"status.before_alt": [
+"Your photo {n}, before",
+"आपकी फ़ोटो {n}, पहले"
+],
+"status.after_alt": [
+"Representative's photo {n}, after",
+"जनप्रतिनिधि की फ़ोटो {n}, बाद में"
+],
+"status.no_before": [
+"You didn't add photos.",
+"आपने फ़ोटो नहीं जोड़ी थी।"
+],
+"status.no_after": [
+"No photo added.",
+"कोई फ़ोटो नहीं जोड़ी गई।"
+],
+"status.no_after_reason": [
+"No photo. Reason given: {reason}",
+"फ़ोटो नहीं। बताया गया कारण: {reason}"
+],
+"status.photo_unavailable": [
+"Photo unavailable. Refresh the page to try again.",
+"फ़ोटो उपलब्ध नहीं। पुनः प्रयास के लिए पृष्ठ रीफ़्रेश करें।"
+],
+"status.ev_date_before": [
+"This photo seems to have been taken before you filed your complaint.",
+"यह फ़ोटो आपकी शिकायत दर्ज होने से पहले ली गई लगती है।"
+],
+"status.ev_date_future": [
+"This photo's date looks wrong.",
+"इस फ़ोटो की तिथि सही नहीं लगती।"
+],
+"status.ev_far": [
+"This photo seems to have been taken about {m} m from the spot you marked.",
+"यह फ़ोटो आपके चिह्नित स्थान से लगभग {m} मीटर दूर ली गई लगती है।"
+],
+"status.ev_reused": [
+"This photo has also been used on another complaint.",
+"यह फ़ोटो किसी दूसरी शिकायत में भी उपयोग की गई है।"
+],
+"status.ev_citizen": [
+"This is one of your own photos.",
+"यह आपकी अपनी फ़ोटो में से एक है।"
+],
 "status.confirming": [
 "Confirming…",
 "पुष्टि की जा रही है…"
@@ -1097,6 +1153,10 @@
 "<strong>Where the problem is</strong> (optional): if you use your current location, search for an address or put a pin on a map, we use it only to find the ward. It isn't saved unless you file a complaint; then the pin is saved with the complaint so your representative can find the exact spot. It is never shown publicly.",
 "<strong>समस्या का स्थान</strong> (वैकल्पिक): यदि आप अपनी वर्तमान लोकेशन का उपयोग करते हैं, कोई पता खोजते हैं या नक्शे पर पिन लगाते हैं, तो हम इसका उपयोग केवल वार्ड खोजने के लिए करते हैं। शिकायत दर्ज न करने पर यह सहेजा नहीं जाता; शिकायत दर्ज करने पर पिन शिकायत के साथ सहेजा जाता है, ताकि आपके जनप्रतिनिधि सटीक स्थान तक पहुँच सकें। इसे कभी सार्वजनिक रूप से नहीं दिखाया जाता।"
 ],
+"priv.w_after_photos": [
+"<strong>Photos of the work done</strong>: photos your representative adds to show the problem was fixed are stored privately. Only you (after the email code), your representatives and GrievIQ staff can see them, through links that stop working after 15 minutes.",
+"<strong>कार्य की फ़ोटो</strong>: समस्या हल होने को दिखाने के लिए आपके जनप्रतिनिधि द्वारा जोड़ी गई फ़ोटो निजी रूप से रखी जाती हैं। इन्हें केवल आप (ईमेल कोड के बाद), आपके जनप्रतिनिधि और GrievIQ कर्मचारी ही ऐसे लिंक से देख सकते हैं जो 15 मिनट बाद काम करना बंद कर देते हैं।"
+],
 "priv.c_rep": [
 "<strong>A representative's name or phone number</strong> (optional, only if you tell us): used only to check and update our records of public representatives.",
 "<strong>किसी जनप्रतिनिधि का नाम या फ़ोन नंबर</strong> (वैकल्पिक, केवल यदि आप बताएँ): इसका उपयोग केवल जनप्रतिनिधियों के हमारे अभिलेखों की जाँच और अद्यतन के लिए किया जाता है।"
@@ -1163,6 +1223,41 @@
 "rep.kind_confirmed": ["confirmed by citizen", "नागरिक द्वारा पुष्टि"],
 "rep.kind_not_confirmed": ["not confirmed by citizen", "नागरिक द्वारा पुष्टि नहीं"],
 "rep.kind_no_email": ["citizen had no email", "नागरिक का ईमेल नहीं था"],
+// ---- Mark resolved form and after-photo warnings (item 7b) ----
+"rep.r_note": ["What was done?", "क्या कार्यवाही की गई?"],
+"rep.r_note_hint": ["Say what was fixed and when. The citizen will see this.", "बताएँ कि क्या ठीक किया गया और कब। नागरिक इसे देखेंगे।"],
+"rep.r_photos": ["\"After\" photos (up to 3)", "कार्य के बाद की फ़ोटो (अधिकतम 3)"],
+"rep.r_photos_hint": ["Take them at the spot, with location turned on, so the citizen and GrievIQ can see the fix. JPG, PNG or WEBP, up to 5 MB each.", "मौके पर, लोकेशन चालू रखकर फ़ोटो लें, ताकि नागरिक और GrievIQ समाधान देख सकें। JPG, PNG या WEBP, प्रत्येक अधिकतम 5 MB।"],
+"rep.r_photo_alt": ["After-photo {n}", "कार्य के बाद की फ़ोटो {n}"],
+"rep.r_remove": ["Remove photo {n}", "फ़ोटो {n} हटाएँ"],
+"rep.r_uploading": ["Uploading…", "अपलोड हो रही है…"],
+"rep.r_no_photo": ["No photo possible", "फ़ोटो लेना संभव नहीं"],
+"rep.r_reason": ["Why is there no photo?", "फ़ोटो क्यों नहीं है?"],
+"rep.r_reason_hint": ["For example: water supply restored; nothing to photograph.", "उदाहरण: जल आपूर्ति बहाल हो गई; फ़ोटो लेने योग्य कुछ नहीं।"],
+"rep.r_submit": ["Mark resolved", "निस्तारित चिह्नित करें"],
+"rep.r_cancel": ["Cancel", "रद्द करें"],
+"rep.r_err_note": ["Say what was done, in at least 10 characters.", "कम से कम 10 अक्षरों में बताएँ कि क्या कार्यवाही की गई।"],
+"rep.r_err_photo": ["Add at least one photo, or tick \"No photo possible\".", "कम से कम एक फ़ोटो जोड़ें, या \"फ़ोटो लेना संभव नहीं\" चुनें।"],
+"rep.r_err_reason": ["Say why there is no photo, in at least 10 characters.", "कम से कम 10 अक्षरों में बताएँ कि फ़ोटो क्यों नहीं है।"],
+"rep.r_err_max": ["You can add up to 3 photos.", "अधिकतम 3 फ़ोटो जोड़ी जा सकती हैं।"],
+"rep.r_err_size": ["Each photo must be smaller than 5 MB.", "प्रत्येक फ़ोटो 5 MB से छोटी होनी चाहिए।"],
+"rep.r_err_type": ["Only JPG, PNG or WEBP photos can be added.", "केवल JPG, PNG या WEBP फ़ोटो जोड़ी जा सकती हैं।"],
+"rep.r_err_many": ["Too many photos are waiting for this case. Reload the page and try again.", "इस शिकायत के लिए बहुत सारी फ़ोटो प्रतीक्षा में हैं। पृष्ठ रीफ़्रेश करके पुनः प्रयास करें।"],
+"rep.r_err_storage": ["Photo storage isn't set up yet. Tick \"No photo possible\" for now, and tell GrievIQ support.", "फ़ोटो संग्रह अभी तैयार नहीं है। अभी \"फ़ोटो लेना संभव नहीं\" चुनें और GrievIQ सहायता को बताएँ।"],
+"rep.r_err_missing": ["One of the photos couldn't be found. Please add it again.", "एक फ़ोटो नहीं मिली। कृपया उसे फिर से जोड़ें।"],
+"rep.r_email_failed": ["Case marked resolved, but the email to the citizen couldn't be sent.", "शिकायत निस्तारित चिह्नित हो गई, पर नागरिक को ईमेल नहीं भेजा जा सका।"],
+"rep.r_done": ["What was done:", "की गई कार्यवाही:"],
+"rep.r_no_photo_given": ["No photo — reason:", "फ़ोटो नहीं — कारण:"],
+"rep.r_photo_unavailable": ["Photo unavailable", "फ़ोटो उपलब्ध नहीं"],
+"rep.ev_date_before": ["Photo taken before the complaint was filed ({date})", "फ़ोटो शिकायत दर्ज होने से पहले ली गई ({date})"],
+"rep.ev_date_future": ["Photo date is in the future ({date})", "फ़ोटो की तिथि भविष्य की है ({date})"],
+"rep.ev_far": ["Photo taken about {m} m from the complaint's pin", "फ़ोटो शिकायत के पिन से लगभग {m} मीटर दूर ली गई"],
+"rep.ev_reused": ["Same photo already used on another case", "यही फ़ोटो किसी दूसरी शिकायत में उपयोग हो चुकी है"],
+"rep.ev_similar": ["Very similar to a photo on another case", "किसी दूसरी शिकायत की फ़ोटो से बहुत मिलती-जुलती"],
+"rep.ev_citizen": ["This is one of the citizen's own photos", "यह नागरिक की अपनी फ़ोटो में से एक है"],
+"rep.ev_no_date": ["No date in photo", "फ़ोटो में तिथि नहीं"],
+"rep.ev_no_location": ["No location in photo", "फ़ोटो में लोकेशन नहीं"],
+"rep.ev_no_pin": ["No pin on the complaint to compare", "तुलना के लिए शिकायत पर पिन नहीं"],
 "rep.badge_now_with": ["now with {level}", "अब {level} के पास"],
 "rep.badge_ack": ["acknowledged {date}", "प्राप्ति स्वीकार: {date}"],
 "rep.badge_ack_overdue": ["ack overdue", "प्राप्ति स्वीकार में विलंब"],

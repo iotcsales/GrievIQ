@@ -498,6 +498,28 @@
   .followup-form .resolve-btn { margin-top: 0; }
   .followup-dept[aria-invalid="true"] { border-color: var(--red); border-width: 2px; }
   .resolve-btn { min-height: 36px; margin-right: 8px; }
+  /* Mark resolved form and resolution report (item 7b) */
+  .resolve-form { margin-top: 10px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 6px; background: #FAFBFC; max-width: 520px; }
+  .resolve-form label { display: block; font-size: 12.5px; font-weight: 600; color: var(--steel); margin: 10px 0 3px; }
+  .resolve-form label:first-child { margin-top: 0; }
+  .resolve-form .hint { font-size: 12px; color: var(--steel-2); margin: 0 0 5px; line-height: 1.45; }
+  .resolve-form textarea { width: 100%; font: inherit; font-size: 13.5px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 4px; min-height: 64px; resize: vertical; }
+  .resolve-form textarea[aria-invalid="true"], .resolve-form input[aria-invalid="true"] { border-color: var(--red); border-width: 2px; }
+  .resolve-form .check { display: flex; gap: 8px; align-items: center; font-weight: 500; color: var(--ink); cursor: pointer; }
+  .resolve-form .field-err { font-size: 12px; color: var(--red); margin-top: 4px; font-weight: 600; }
+  .resolve-form .field-err:empty { display: none; }
+  .resolve-form .actions { margin-top: 12px; }
+  .r-thumbs, .res-photos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+  .r-thumb, .res-photo { width: 124px; font-size: 11.5px; color: var(--steel-2); }
+  .r-thumb img, .res-photo img { width: 124px; height: 96px; object-fit: cover; border: 1px solid var(--line); border-radius: 3px; display: block; background: var(--paper); }
+  .r-thumb button { margin-top: 4px; font: inherit; font-size: 12px; background: none; border: none; color: var(--brand); text-decoration: underline; padding: 0; cursor: pointer; }
+  .ev-list { list-style: none; margin: 4px 0 0; padding: 0; }
+  .ev-list li { line-height: 1.35; margin-top: 2px; }
+  .ev-list li.warn { color: var(--red); font-weight: 600; }
+  .ev-list li.info { color: var(--steel-2); }
+  .res-block { margin-top: 10px; padding: 10px 12px; background: var(--brand-tint); border-left: 3px solid var(--brand); font-size: 13px; color: var(--steel); max-width: 520px; }
+  .res-block b { color: var(--ink); }
+  .res-block .res-note { white-space: pre-wrap; word-break: break-word; }
   .resolve-error:empty { display: none; }
   .table-scroll { overflow-x: auto; }
   button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
@@ -695,8 +717,76 @@ function renderResolveControl(c) {
   // Own class (mark-resolved-btn) so ONLY this button marks a case
   // resolved -- previously every button sharing the resolve-btn style
   // (Acknowledge, Log follow-up) also triggered Mark resolved.
-  return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + esc(c.id) + '">' + esc(T('rep.mark_resolved')) + '</button>' +
-    '<div class="resolve-error" id="resolve-error-' + esc(c.id) + '" role="alert"></div>';
+  var id = esc(c.id);
+  var d = drafts[c.id];
+  if (!d || !d.open) {
+    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T('rep.mark_resolved')) + '</button>';
+  }
+  // Item 7b: say what was done, and add "after" photos or the reason there
+  // are none. Photos upload as soon as they are chosen, so any warnings show
+  // before the case is marked resolved. Errors show next to each field.
+  var full = d.photos.length + d.uploading >= MAX_RES_PHOTOS;
+  return '<div class="resolve-form" id="resolve-form-' + id + '">' +
+    '<label for="rnote-' + id + '">' + esc(T('rep.r_note')) + '</label>' +
+    '<p class="hint" id="rnote-hint-' + id + '">' + esc(T('rep.r_note_hint')) + '</p>' +
+    '<textarea id="rnote-' + id + '" class="r-note" data-id="' + id + '" maxlength="1000" aria-describedby="rnote-hint-' + id + ' rnote-err-' + id + '"' + (d.errors.note ? ' aria-invalid="true"' : '') + '>' + esc(d.note) + '</textarea>' +
+    '<div class="field-err" id="rnote-err-' + id + '" role="alert">' + esc(d.errors.note || '') + '</div>' +
+    '<label for="rphoto-' + id + '">' + esc(T('rep.r_photos')) + '</label>' +
+    '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T('rep.r_photos_hint')) + '</p>' +
+    '<input type="file" id="rphoto-' + id + '" class="r-photo" data-id="' + id + '" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="rphoto-hint-' + id + ' rphoto-err-' + id + '"' + (full || d.noPhoto ? ' disabled' : '') + (d.errors.photos ? ' aria-invalid="true"' : '') + ' />' +
+    '<div class="r-thumbs" aria-live="polite">' +
+      d.photos.map(function(p, i) {
+        return '<div class="r-thumb">' + (p.url ? '<img src="' + esc(p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '">' : '') +
+          renderWarnings(p.warnings) +
+          '<button type="button" class="r-remove" data-id="' + id + '" data-photo="' + esc(p.id) + '">' + esc(T('rep.r_remove', { n: i + 1 })) + '</button></div>';
+      }).join('') +
+      (d.uploading ? '<div class="r-thumb">' + esc(T('rep.r_uploading')) + '</div>' : '') +
+    '</div>' +
+    '<div class="field-err" id="rphoto-err-' + id + '" role="alert">' + esc(d.errors.photos || '') + '</div>' +
+    '<label class="check"><input type="checkbox" class="r-nophoto" data-id="' + id + '"' + (d.noPhoto ? ' checked' : '') + (d.photos.length ? ' disabled' : '') + ' /> ' + esc(T('rep.r_no_photo')) + '</label>' +
+    (d.noPhoto
+      ? '<label for="rreason-' + id + '">' + esc(T('rep.r_reason')) + '</label>' +
+        '<p class="hint" id="rreason-hint-' + id + '">' + esc(T('rep.r_reason_hint')) + '</p>' +
+        '<textarea id="rreason-' + id + '" class="r-reason" data-id="' + id + '" maxlength="300" aria-describedby="rreason-hint-' + id + ' rreason-err-' + id + '"' + (d.errors.reason ? ' aria-invalid="true"' : '') + '>' + esc(d.reason) + '</textarea>' +
+        '<div class="field-err" id="rreason-err-' + id + '" role="alert">' + esc(d.errors.reason || '') + '</div>'
+      : '') +
+    '<div class="actions">' +
+      '<button type="button" class="resolve-btn r-submit" data-id="' + id + '"' + (d.busy || d.uploading ? ' disabled' : '') + '>' + esc(T(d.busy ? 'rep.marking' : 'rep.r_submit')) + '</button>' +
+      '<button type="button" class="resolve-btn r-cancel" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.r_cancel')) + '</button>' +
+    '</div>' +
+    '<div class="resolve-error" id="resolve-error-' + id + '" role="alert">' + esc(d.errors.form || '') + '</div>' +
+  '</div>';
+}
+
+// ---- Resolution report and photo warnings (item 7b) ----
+var MAX_RES_PHOTOS = 3;
+var drafts = {};   // case id -> Mark resolved form state, kept across redraws
+
+var EV_KEYS = { DATE_BEFORE_FILING: 'rep.ev_date_before', DATE_FUTURE: 'rep.ev_date_future', FAR_FROM_PIN: 'rep.ev_far',
+  CITIZEN_PHOTO: 'rep.ev_citizen', NO_DATE: 'rep.ev_no_date', NO_LOCATION: 'rep.ev_no_location', NO_PIN: 'rep.ev_no_pin' };
+function warningText(w) {
+  if (w.code === 'REUSED_OTHER_CASE') return T(w.kind === 'similar' ? 'rep.ev_similar' : 'rep.ev_reused');
+  var key = EV_KEYS[w.code];
+  if (!key) return w.code;
+  return T(key, { m: w.metres, date: w.takenAt ? formatDate(w.takenAt) : '' });
+}
+function renderWarnings(list) {
+  if (!list || !list.length) return '';
+  return '<ul class="ev-list">' + list.map(function(w) {
+    return '<li class="' + (w.level === 'warn' ? 'warn' : 'info') + '">' + (w.level === 'warn' ? '⚠ ' : '') + esc(warningText(w)) + '</li>';
+  }).join('') + '</ul>';
+}
+function renderResolution(c) {
+  var r = c.resolution;
+  if (!r || (c.status !== 'PENDING_CONFIRMATION' && c.status !== 'RESOLVED' && c.status !== 'CLOSED')) return '';
+  var photos = r.photos && r.photos.length
+    ? '<div class="res-photos">' + r.photos.map(function(p, i) {
+        return '<div class="res-photo">' + (p.url
+          ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '" loading="lazy"><span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>'
+          : '<span>' + esc(T('rep.r_photo_unavailable')) + '</span>') + renderWarnings(p.warnings) + '</div>';
+      }).join('') + '</div>'
+    : (r.noPhotoReason ? '<div><b>' + esc(T('rep.r_no_photo_given')) + '</b> ' + esc(r.noPhotoReason) + '</div>' : '');
+  return '<div class="res-block"><div><b>' + esc(T('rep.r_done')) + '</b></div><div class="res-note">' + esc(r.note) + '</div>' + photos + '</div>';
 }
 
 // Department list: nothing pre-selected (GOV.UK / NHS guidance: a
@@ -718,6 +808,9 @@ function renderFollowupControl(c) {
     return '<option value="' + esc(d) + '">' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
   }).join('');
   var id = esc(c.id);
+  // Item 7b: the form is hidden while waiting for the citizen (the rep has
+  // already marked it resolved); the department history stays visible.
+  if (c.status === 'PENDING_CONFIRMATION') return deptLine + history;
   return deptLine + history +
     '<div class="followup-form">' +
       '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
@@ -730,6 +823,8 @@ function renderFollowupControl(c) {
 }
 
 function renderAcknowledgeControl(c) {
+  // Item 7b: nothing to acknowledge once the rep has marked it resolved.
+  if (c.status === 'PENDING_CONFIRMATION') return '';
   if (c.acknowledgedAt) {
     return '<span class="badge acknowledged">' + esc(T('rep.badge_ack', { date: formatDate(c.acknowledgedAt) })) + '</span>';
   }
@@ -780,6 +875,7 @@ function renderCase(c) {
       renderMapLink(c) +
       renderPhotoThumbs(c.photoUrls) +
       badge +
+      renderResolution(c) +
       renderDisputeNote(c) + renderNudgeNote(c) +
       renderFollowupControl(c) +
       renderAcknowledgeControl(c) +
@@ -1138,7 +1234,8 @@ function renderContent() {
       '<h2 class="register-title">' + esc(T('rep.register')) + '</h2>' +
       '<span class="register-count" aria-live="polite">' + esc(countText) +
         (attention > 0 ? ' &middot; <span class="attention">' + esc(T('rep.n_late', { n: attention })) + '</span>' : '') + '</span>' +
-    '</div>';
+    '</div>' +
+    '<p class="resolve-error" id="resolve-status" role="status"></p>';
   if (cases.length === 0) {
     html += '<div class="empty-state"><p>' + esc(T(activeWardId ? 'rep.none_ward' : 'rep.none')) + '</p></div>';
   } else {
@@ -1356,33 +1453,163 @@ function attachFollowupHandlers() {
   });
 }
 function attachResolveHandlers() {
+  // Item 7b: "Mark resolved" opens a short form (what was done + "after"
+  // photos or the reason there are none). Form state lives in drafts[] so
+  // redraws (language switch, filters) keep what was typed.
+  function redraw(id, focusSel) {
+    renderContent();
+    if (focusSel) { var el = document.querySelector(focusSel); if (el) el.focus(); }
+  }
+  function draft(id) { return drafts[id]; }
+
   document.querySelectorAll('.mark-resolved-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+    btn.addEventListener('click', function() {
       var id = btn.getAttribute('data-id');
-      var errorEl = document.getElementById('resolve-error-' + id);
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = T('rep.marking');
+      drafts[id] = { open: true, note: '', photos: [], uploading: 0, noPhoto: false, reason: '', errors: {}, busy: false };
+      redraw(id, '#rnote-' + cssId(id));
+    });
+  });
+  document.querySelectorAll('.r-note').forEach(function(el) {
+    el.addEventListener('input', function() { var d = draft(el.getAttribute('data-id')); if (d) d.note = el.value; });
+  });
+  document.querySelectorAll('.r-reason').forEach(function(el) {
+    el.addEventListener('input', function() { var d = draft(el.getAttribute('data-id')); if (d) d.reason = el.value; });
+  });
+  document.querySelectorAll('.r-nophoto').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var id = el.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.noPhoto = el.checked; d.errors.photos = ''; d.errors.reason = '';
+      redraw(id, el.checked ? '#rreason-' + cssId(id) : '#rphoto-' + cssId(id));
+    });
+  });
+  document.querySelectorAll('.r-remove').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.photos = d.photos.filter(function(p) { return p.id !== el.getAttribute('data-photo'); });
+      redraw(id, '#rphoto-' + cssId(id));
+    });
+  });
+  document.querySelectorAll('.r-cancel').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.getAttribute('data-id');
+      delete drafts[id];
+      redraw(id, '.mark-resolved-btn[data-id="' + cssId(id) + '"]');
+    });
+  });
+  document.querySelectorAll('.r-photo').forEach(function(input) {
+    input.addEventListener('change', async function() {
+      var id = input.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.errors.photos = '';
+      var files = Array.prototype.slice.call(input.files || []);
+      var room = MAX_RES_PHOTOS - d.photos.length - d.uploading;
+      if (files.length > room) { d.errors.photos = T('rep.r_err_max'); files = files.slice(0, Math.max(0, room)); }
+      files = files.filter(function(f) {
+        if (f.size > 5 * 1024 * 1024) { d.errors.photos = T('rep.r_err_size'); return false; }
+        return true;
+      });
+      d.uploading += files.length;
+      redraw(id);
+      for (var i = 0; i < files.length; i++) {
+        try {
+          var fd = new FormData();
+          fd.append('photo', files[i]);
+          var h = await visualFingerprint(files[i]);
+          if (h) fd.append('dhash', h);
+          var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/resolution-photo', { method: 'POST', body: fd });
+          var data = await res.json().catch(function() { return {}; });
+          if (!res.ok) d.errors.photos = uploadErr(data);
+          else d.photos.push({ id: data.id, url: data.url, warnings: data.warnings || [] });
+        } catch (e) {
+          d.errors.photos = T('common.network_error');
+        }
+        d.uploading--;
+        redraw(id);
+      }
+      var again = document.getElementById('rphoto-' + id);
+      if (again && !again.disabled) again.focus();
+    });
+  });
+  document.querySelectorAll('.r-submit').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id'), d = draft(id);
+      if (!d) return;
+      d.errors = {};
+      var note = d.note.trim(), reason = d.reason.trim();
+      if (note.length < 10) d.errors.note = T('rep.r_err_note');
+      if (!d.photos.length && !d.noPhoto) d.errors.photos = T('rep.r_err_photo');
+      if (!d.photos.length && d.noPhoto && reason.length < 10) d.errors.reason = T('rep.r_err_reason');
+      if (d.errors.note || d.errors.photos || d.errors.reason) {
+        redraw(id, d.errors.note ? '#rnote-' + cssId(id) : d.errors.photos ? '#rphoto-' + cssId(id) : '#rreason-' + cssId(id));
+        return;
+      }
+      d.busy = true;
+      redraw(id);
       try {
-        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', { method: 'POST' });
-        var data = await res.json();
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: note, photoIds: d.photos.map(function(p) { return p.id; }), noPhotoReason: d.photos.length ? '' : reason }),
+        });
+        var data = await res.json().catch(function() { return {}; });
         if (!res.ok || data.error) {
-          errorEl.textContent = errText(data.error);
-          btn.disabled = false;
-          btn.textContent = T('rep.mark_resolved');
+          d.busy = false;
+          var fe = data.fields || {};
+          if (fe.note) d.errors.note = T('rep.r_err_note');
+          if (fe.photos) d.errors.photos = T(fe.photos === 'PHOTO_MISSING' ? 'rep.r_err_missing' : 'rep.r_err_photo');
+          if (!fe.note && !fe.photos) d.errors.form = errText(data.error);
+          redraw(id, '#resolve-form-' + cssId(id) + ' [aria-invalid="true"]');
           return;
         }
-        if (data.warning) {
-          errorEl.textContent = data.warning;
-        }
+        delete drafts[id];
         await init();
+        if (data.warning) {
+          var st = document.getElementById('resolve-status');
+          if (st) st.textContent = T('rep.r_email_failed');
+        }
       } catch (err) {
-        errorEl.textContent = T('common.network_error');
-        btn.disabled = false;
-        btn.textContent = T('rep.mark_resolved');
+        d.busy = false;
+        d.errors.form = T('common.network_error');
+        redraw(id);
       }
     });
   });
+}
+
+function cssId(id) { return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, '\\$&'); }
+
+function uploadErr(data) {
+  var map = { TOO_BIG: 'rep.r_err_size', BAD_TYPE: 'rep.r_err_type', TOO_MANY: 'rep.r_err_many', NO_FILE: 'rep.r_err_type', STORAGE_NOT_SET: 'rep.r_err_storage' };
+  return data && map[data.code] ? T(map[data.code]) : errText(data && data.error);
+}
+
+// Visual fingerprint (difference hash): shrink to 9x8 grey pixels and record
+// whether each pixel is brighter than the next. Similar-looking photos get
+// fingerprints that differ in only a few of the 64 bits, even after
+// resizing or recompressing. Best effort: returns null if the browser
+// can't read the image.
+async function visualFingerprint(file) {
+  try {
+    var bmp = await createImageBitmap(file);
+    var cv = document.createElement('canvas');
+    cv.width = 9; cv.height = 8;
+    var cx = cv.getContext('2d');
+    cx.drawImage(bmp, 0, 0, 9, 8);
+    var px = cx.getImageData(0, 0, 9, 8).data;
+    var hex = '', nib = 0, n = 0;
+    for (var y = 0; y < 8; y++) {
+      for (var x = 0; x < 8; x++) {
+        var a = (y * 9 + x) * 4, b = a + 4;
+        var l = px[a] * 0.299 + px[a + 1] * 0.587 + px[a + 2] * 0.114;
+        var r = px[b] * 0.299 + px[b + 1] * 0.587 + px[b + 2] * 0.114;
+        nib = (nib << 1) | (l > r ? 1 : 0);
+        if (++n % 4 === 0) { hex += nib.toString(16); nib = 0; }
+      }
+    }
+    return hex;
+  } catch (e) { return null; }
 }
 
 async function init() {

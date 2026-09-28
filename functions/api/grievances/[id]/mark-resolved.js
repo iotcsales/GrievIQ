@@ -10,11 +10,23 @@
 // Item 7a (Sept 2026): while the case waits for the citizen, escalation is
 // paused. If the citizen doesn't reply within CONFIRM_DAYS it closes as
 // "Resolved (not confirmed by citizen)" -- the email says so, with the date.
+//
+// Item 7b (Sept 2026): the rep must say what was done. JSON body:
+//   { note: 10-1000 characters,
+//     photoIds: up to 3 ids from /resolution-photo uploads for this case,
+//     noPhotoReason: 10-300 characters, required when there are no photos }
+// Saved as a resolution report (resolution_reports), with the photos
+// joined to it (resolution_photos.report_id).
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
 import { CONFIRM_DAYS, confirmDeadline } from "../../../_shared/confirmation.js";
+import { NOTE_MIN, NOTE_MAX, REASON_MIN, REASON_MAX, MAX_PHOTOS } from "../../../_shared/resolution-evidence.js";
+
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 
 // "4 Oct 2026" / "4 अक्तू॰ 2026" in India time, for the email.
 function emailDate(iso, lang) {
@@ -60,6 +72,28 @@ export async function onRequestPost(context) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
   }
 
+  // ---- What was done (item 7b) ----
+  let body = {};
+  try { body = await request.json(); } catch (e) { body = {}; }
+  const note = String(body.note || "").trim();
+  const photoIds = Array.isArray(body.photoIds) ? Array.from(new Set(body.photoIds.map(String))).slice(0, MAX_PHOTOS + 1) : [];
+  const noPhotoReason = String(body.noPhotoReason || "").trim();
+  const fieldErrors = {};
+  if (note.length < NOTE_MIN || note.length > NOTE_MAX) fieldErrors.note = "NOTE_LENGTH";
+  if (photoIds.length > MAX_PHOTOS) fieldErrors.photos = "TOO_MANY_PHOTOS";
+  if (photoIds.length === 0 && (noPhotoReason.length < REASON_MIN || noPhotoReason.length > REASON_MAX)) fieldErrors.photos = "PHOTO_OR_REASON";
+  if (Object.keys(fieldErrors).length) {
+    return Response.json({ error: "Please say what was done, and add a photo or the reason there isn't one.", fields: fieldErrors }, { status: 400 });
+  }
+  for (const pid of photoIds) {
+    const p = await env.DB.prepare(
+      "SELECT id FROM resolution_photos WHERE id = ? AND grievance_id = ? AND report_id IS NULL"
+    ).bind(pid, grievanceId).first();
+    if (!p) {
+      return Response.json({ error: "One of the photos couldn't be found. Please add it again.", fields: { photos: "PHOTO_MISSING" } }, { status: 400 });
+    }
+  }
+
   const chain = await resolveChain(env, grievance.local_unit_id);
   const category = await env.DB.prepare(
     "SELECT * FROM grievance_categories WHERE id = ?"
@@ -72,6 +106,17 @@ export async function onRequestPost(context) {
   const result = computeEscalation(grievance, category, chain.tiers);
   const now = new Date().toISOString();
   const hasEmail = !!grievance.citizen_email;
+
+  const reportId = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO resolution_reports (id, grievance_id, note, no_photo_reason, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(reportId, grievanceId, note, photoIds.length ? null : noPhotoReason, auth.email, now).run();
+  for (const pid of photoIds) {
+    await env.DB.prepare(
+      "UPDATE resolution_photos SET report_id = ? WHERE id = ? AND grievance_id = ? AND report_id IS NULL"
+    ).bind(reportId, pid, grievanceId).run();
+  }
   const newStatus = hasEmail ? "PENDING_CONFIRMATION" : "RESOLVED";
 
   await env.DB.prepare(
@@ -102,10 +147,12 @@ export async function onRequestPost(context) {
           : `Your GrievIQ case ${grievance.tracking_ref} has been marked resolved`,
         html: grievance.lang === "hi"
           ? `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
+             <p>जनप्रतिनिधि के अनुसार की गई कार्यवाही: <em>${escHtml(note)}</em></p>
              <p>कृपया "मेरी शिकायतों की स्थिति" पृष्ठ पर जाकर अपना ईमेल दर्ज करें और बताएँ कि क्या समस्या वास्तव में हल हुई है:</p>
              <p><a href="${statusUrl}">${statusUrl}</a></p>
              <p>यदि ${byDate} तक (${CONFIRM_DAYS} दिन में) आपका उत्तर नहीं मिलता, तो शिकायत "निस्तारित (नागरिक द्वारा पुष्टि नहीं)" के रूप में बंद कर दी जाएगी।</p>`
           : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
+             <p>What the representative says was done: <em>${escHtml(note)}</em></p>
              <p>Please visit our status page and enter your email to confirm whether this actually fixed the problem:</p>
              <p><a href="${statusUrl}">${statusUrl}</a></p>
              <p>If we don't hear from you by ${byDate} (${CONFIRM_DAYS} days), the case will be closed as "Resolved (not confirmed by citizen)".</p>`,

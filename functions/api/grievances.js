@@ -18,6 +18,8 @@ import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_share
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind } from "../_shared/confirmation.js";
+import { shapeResolution } from "../_shared/resolution-evidence.js";
+import { photoLink } from "../_shared/photo-links.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -54,6 +56,9 @@ export async function onRequestGet(context) {
   // 100 per query, which an MP or large MLA mandate would exceed.
   const grievanceById = new Map();
   const eventById = new Map();
+  // Latest resolution report per case, and its photos (item 7b).
+  const reportByGrievance = new Map();
+  const photosByReport = new Map();
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
     const { results: gRows } = await env.DB.prepare(
@@ -69,6 +74,28 @@ export async function onRequestGet(context) {
     ).bind(...s.binds).all();
     for (const e of eRows) {
       if (!eventById.has(e.id)) eventById.set(e.id, e);
+    }
+    const { results: rRows } = await env.DB.prepare(
+      `SELECT rr.*, rr.rowid AS report_rowid FROM resolution_reports rr
+       JOIN grievances g ON g.id = rr.grievance_id ${s.join}
+       WHERE ${s.where}`
+    ).bind(...s.binds).all();
+    for (const r of rRows) {
+      const prev = reportByGrievance.get(r.grievance_id);
+      if (!prev || r.created_at > prev.created_at || (r.created_at === prev.created_at && r.report_rowid > prev.report_rowid)) {
+        reportByGrievance.set(r.grievance_id, r);
+      }
+    }
+    const { results: pRows } = await env.DB.prepare(
+      `SELECT rp.* FROM resolution_photos rp
+       JOIN grievances g ON g.id = rp.grievance_id ${s.join}
+       WHERE rp.report_id IS NOT NULL AND ${s.where}
+       ORDER BY rp.created_at ASC, rp.rowid ASC`
+    ).bind(...s.binds).all();
+    for (const p of pRows) {
+      if (!photosByReport.has(p.report_id)) photosByReport.set(p.report_id, []);
+      const list = photosByReport.get(p.report_id);
+      if (!list.some((x) => x.id === p.id)) list.push(p);
     }
   }
 
@@ -149,6 +176,11 @@ export async function onRequestGet(context) {
       }
     }
 
+    const report = reportByGrievance.get(grievance.id) || null;
+    const resolution = report
+      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (pid) => photoLink(env, pid))
+      : null;
+
     visible.push({
       id: grievance.id,
       trackingRef: grievance.tracking_ref,
@@ -204,6 +236,8 @@ export async function onRequestGet(context) {
       // how a closed case was resolved (CONFIRMED / NOT_CONFIRMED / NO_EMAIL).
       confirmBy: limits.confirmBy,
       resolutionKind: resolutionKind(grievance),
+      // What the rep said was done, with "after" photos and warnings (item 7b).
+      resolution,
       acknowledgedAt: grievance.acknowledged_at || null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       adminNudges: nudgeEvents.map((e) => ({ note: e.note, createdAt: e.created_at })), followupHistory: followupEvents.map((e) => ({

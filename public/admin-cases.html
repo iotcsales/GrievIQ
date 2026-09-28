@@ -288,6 +288,14 @@
   .timeline .t-title { font-size: 14px; font-weight: 600; }
   .timeline .t-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 2px; }
   .timeline .t-body { font-size: 13.5px; margin-top: 6px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .res-note { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .res-photos { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; }
+  .res-photo { width: 170px; font-size: 12.5px; }
+  .res-photo img { width: 170px; height: 128px; object-fit: cover; border: 1px solid var(--admin-border); border-radius: 8px; display: block; }
+  .ev { list-style: none; margin: 6px 0 0; padding: 0; line-height: 1.45; }
+  .ev li.warn { color: var(--admin-danger); font-weight: 600; }
+  .ev li.info { color: var(--admin-muted); }
+  .ev a { color: inherit; }
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
@@ -523,6 +531,40 @@
     return items;
   }
 
+  // Resolution report and photo warnings (item 7b). Warnings never block;
+  // photo dates and locations can be missing or edited.
+  function evText(w) {
+    if (w.code === "DATE_BEFORE_FILING") return "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")";
+    if (w.code === "DATE_FUTURE") return "Photo date is in the future (" + dateTime(w.takenAt) + ")";
+    if (w.code === "FAR_FROM_PIN") return "Photo taken about " + w.metres + " m from the complaint's pin";
+    if (w.code === "REUSED_OTHER_CASE") return (w.kind === "similar" ? "Very similar to a photo on " : "Same photo already used on ") + "another case";
+    if (w.code === "CITIZEN_PHOTO") return "This is one of the citizen's own photos";
+    if (w.code === "NO_DATE") return "No date in photo";
+    if (w.code === "NO_LOCATION") return "No location in photo";
+    if (w.code === "NO_PIN") return "No pin on the complaint to compare the location with";
+    return w.code;
+  }
+  function renderResolutionPanel(c) {
+    const r = c.resolution;
+    if (!r) return "";
+    const photos = r.photos.length
+      ? '<div class="res-photos">' + r.photos.map((p, i) =>
+          '<div class="res-photo">' + (p.url
+            ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="Open after-photo ' + (i + 1) + ' full size"><img src="' + escapeHtml(p.url) + '" alt="After-photo ' + (i + 1) + ' added by the representative" loading="lazy" /></a>'
+            : '<span class="muted">Photo unavailable (photo links are not set up).</span>') +
+          '<ul class="ev">' + p.warnings.map((w) =>
+            '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) +
+            (w.otherCaseIdForLink ? ' — <a href="?case=' + encodeURIComponent(w.otherCaseIdForLink) + '">' + escapeHtml(w.otherCaseRef || "open it") + '</a>' : '') +
+            '</li>').join("") + '</ul></div>').join("") + '</div>'
+      : '<div class="field"><div class="k">No photo — reason given</div><div class="v">' + escapeHtml(r.noPhotoReason || "—") + '</div></div>';
+    return '<div class="panel" style="margin-top:20px">' +
+      '<h2 style="margin-bottom:6px">What the representative says was done</h2>' +
+      '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(dateTime(r.createdAt)) + (r.by ? ' · ' + escapeHtml(r.by) : '') +
+        (r.warningCount ? ' · <b style="color:var(--admin-danger)">' + r.warningCount + (r.warningCount === 1 ? ' warning' : ' warnings') + '</b>' : '') + '</p>' +
+      '<div class="res-note">' + escapeHtml(r.note) + '</div>' + photos +
+    '</div>';
+  }
+
   function renderDetail(body) {
     const c = body.case;
     const view = document.getElementById("detail-view");
@@ -570,6 +612,7 @@
             '<div class="mask-note">Partly hidden for every admin role. Admins contact representatives, not citizens.</div></div>' +
         '</div>' +
       '</div>' +
+      renderResolutionPanel(c) +
       '<div class="panel" style="margin-top:20px">' +
         '<h2 style="margin-bottom:16px">History</h2>' +
         '<ol class="timeline">' + timelineItems(c).map((it) =>

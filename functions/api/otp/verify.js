@@ -23,6 +23,15 @@ import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind } from "../../_shared/confirmation.js";
+import { loadResolution, shapeResolution } from "../../_shared/resolution-evidence.js";
+import { photoLink } from "../../_shared/photo-links.js";
+
+// The citizen's own "before" photos (public links today; item 7c makes them private).
+function beforePhotos(v) {
+  if (!v) return [];
+  try { const a = JSON.parse(v); if (Array.isArray(a)) return a.filter((u) => typeof u === "string" && /^https:\/\//.test(u)).slice(0, 3); } catch (e) { /* single URL */ }
+  return /^https:\/\//.test(String(v)) ? [String(v)] : [];
+}
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -84,6 +93,14 @@ async function buildCaseDetail(env, grievance) {
 
   const result = computeEscalation(grievance, category, chain.tiers);
 
+  // What the representative says was done (item 7b): shown when the case is
+  // waiting for the citizen or resolved. Serious warnings only, and never
+  // which other case a reused photo came from.
+  const loaded = await loadResolution(env, grievance.id);
+  const resolution = loaded.report
+    ? await shapeResolution(grievance, loaded.report, loaded.photos, "citizen", (pid) => photoLink(env, pid))
+    : null;
+
   // Which levels are past their time limit, and the deadlines, come from
   // the shared rule in _shared/time-limits.js (also used by the rep
   // console), so the two pages can never disagree.
@@ -111,6 +128,8 @@ async function buildCaseDetail(env, grievance) {
       // how a closed case was resolved (CONFIRMED / NOT_CONFIRMED / NO_EMAIL).
       confirmBy: limits.confirmBy,
       resolutionKind: resolutionKind(grievance),
+      resolution,
+      beforePhotos: beforePhotos(grievance.photo_url),
       elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
       ackOverdue: result.ackOverdue,
       needsLegalReview: result.needsLegalReview,
@@ -133,7 +152,8 @@ async function buildCaseDetail(env, grievance) {
 async function caseForEmail(env, email, trackingRef) {
   const grievance = await env.DB.prepare(
     `SELECT id, tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
-            citizen_email, citizen_confirmed, local_unit_id, category_id
+            citizen_email, citizen_confirmed, local_unit_id, category_id,
+            photo_url, pin_lat, pin_lng
      FROM grievances WHERE tracking_ref = ?`
   ).bind(trackingRef).first();
   if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email) {

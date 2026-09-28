@@ -20,6 +20,8 @@ import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations, resolutionKind, confirmDeadline } from "../../_shared/confirmation.js";
+import { loadResolution, shapeResolution } from "../../_shared/resolution-evidence.js";
+import { photoLink } from "../../_shared/photo-links.js";
 
 function toMs(s) {
   if (!s) return NaN;
@@ -163,6 +165,20 @@ async function caseDetail(env, auth, id) {
     };
   }
 
+  // Resolution report with every warning, including which other case a
+  // reused photo came from (item 7b).
+  const loaded = await loadResolution(env, g.id);
+  const refs = new Map();
+  for (const p of loaded.photos) {
+    if (p.dup_grievance_id && !refs.has(p.dup_grievance_id)) {
+      const o = await env.DB.prepare("SELECT tracking_ref FROM grievances WHERE id = ?").bind(p.dup_grievance_id).first();
+      refs.set(p.dup_grievance_id, o ? o.tracking_ref : null);
+    }
+  }
+  const resolution = loaded.report
+    ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), (id) => refs.get(id))
+    : null;
+
   const ex = exceptionCases.find((e) => e.id === g.id);
   const finished = g.status === "RESOLVED" || g.status === "CLOSED";
 
@@ -185,6 +201,7 @@ async function caseDetail(env, auth, id) {
       citizenConfirmedAt: g.citizen_confirmed_at || null,
       resolutionKind: resolutionKind(g),
       confirmBy: g.status === "PENDING_CONFIRMATION" ? confirmDeadline(g.resolved_at) : null,
+      resolution,
       daysOpen: daysBetween(g.created_at, finished ? g.resolved_at : null),
       flags: ex ? ex.flags : [],
       level,
