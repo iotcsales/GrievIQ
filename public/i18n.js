@@ -704,16 +704,16 @@
 "इस फ़ोटो की तिथि सही नहीं लगती।"
 ],
 "status.ev_far": [
-"This photo seems to have been taken about {m} m from the spot you marked.",
-"यह फ़ोटो आपके चिह्नित स्थान से लगभग {m} मीटर दूर ली गई लगती है।"
+"This photo seems to have been taken about {dist} from the spot you marked.",
+"यह फ़ोटो आपके चिह्नित स्थान से लगभग {dist} दूर ली गई लगती है।"
 ],
 "status.ev_reused": [
 "This photo has also been used on another complaint.",
 "यह फ़ोटो किसी दूसरी शिकायत में भी उपयोग की गई है।"
 ],
 "status.ev_dev_far": [
-"The representative added this photo about {m} m from the spot you marked.",
-"जनप्रतिनिधि ने यह फ़ोटो आपके चिह्नित स्थान से लगभग {m} मीटर दूर से जोड़ी।"
+"The representative added this photo about {dist} from the spot you marked.",
+"जनप्रतिनिधि ने यह फ़ोटो आपके चिह्नित स्थान से लगभग {dist} दूर से जोड़ी।"
 ],
 "status.ev_dev_outside": [
 "The representative added this photo from outside your ward.",
@@ -1271,14 +1271,14 @@
 "rep.r_photo_unavailable": ["Photo unavailable", "फ़ोटो उपलब्ध नहीं"],
 "rep.ev_date_before": ["Photo taken before the complaint was filed ({date})", "फ़ोटो शिकायत दर्ज होने से पहले ली गई ({date})"],
 "rep.ev_date_future": ["Photo date is in the future ({date})", "फ़ोटो की तिथि भविष्य की है ({date})"],
-"rep.ev_far": ["Photo taken about {m} m from the complaint's pin", "फ़ोटो शिकायत के पिन से लगभग {m} मीटर दूर ली गई"],
+"rep.ev_far": ["Photo taken about {dist} from the complaint's pin", "फ़ोटो शिकायत के पिन से लगभग {dist} दूर ली गई"],
 "rep.ev_reused": ["Same photo already used on another case", "यही फ़ोटो किसी दूसरी शिकायत में उपयोग हो चुकी है"],
 "rep.ev_similar": ["Very similar to a photo on another case", "किसी दूसरी शिकायत की फ़ोटो से बहुत मिलती-जुलती"],
 "rep.ev_citizen": ["This is one of the citizen's own photos", "यह नागरिक की अपनी फ़ोटो में से एक है"],
 "rep.ev_no_date": ["No date in photo", "फ़ोटो में तिथि नहीं"],
 "rep.ev_no_location": ["No location in photo or from your phone", "न फ़ोटो में लोकेशन है, न आपके फ़ोन से"],
 "rep.ev_no_pin": ["No pin or ward boundary to compare with", "तुलना के लिए न पिन है, न वार्ड की सीमा"],
-"rep.ev_dev_far": ["You added this photo about {m} m from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से लगभग {m} मीटर दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"rep.ev_dev_far": ["You added this photo about {dist} from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_dev_outside": ["You added this photo from outside the complaint's ward (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के वार्ड के बाहर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_photo_outside": ["Photo's own location is outside the complaint's ward", "फ़ोटो की अपनी लोकेशन शिकायत के वार्ड के बाहर है"],
 "rep.ev_dev_not_shared": ["Your location wasn't shared", "आपकी लोकेशन साझा नहीं की गई"],
@@ -1286,6 +1286,9 @@
 "rep.r_loc_hint": ["We'll ask for your location once, to show the photo was taken at the spot.", "फ़ोटो मौके पर ली गई है, यह दिखाने के लिए हम एक बार आपकी लोकेशन माँगेंगे।"],
 "rep.r_loc_ok": ["Your location: shared (±{m} m).", "आपकी लोकेशन: साझा की गई (±{m} मीटर)।"],
 "rep.r_loc_no": ["Your location: not shared. The photo can still be added.", "आपकी लोकेशन: साझा नहीं की गई। फ़ोटो फिर भी जोड़ी जा सकती है।"],
+"rep.r_loc_finding": ["Finding your location…", "आपकी लोकेशन खोजी जा रही है…"],
+"rep.r_loc_unavailable": ["Your location couldn't be found. The photo can still be added.", "आपकी लोकेशन नहीं मिल सकी। फ़ोटो फिर भी जोड़ी जा सकती है।"],
+"rep.r_loc_retry": ["Try again", "फिर से प्रयास करें"],
 "rep.badge_now_with": ["now with {level}", "अब {level} के पास"],
 "rep.badge_ack": ["acknowledged {date}", "प्राप्ति स्वीकार: {date}"],
 "rep.badge_ack_overdue": ["ack overdue", "प्राप्ति स्वीकार में विलंब"],
@@ -1777,7 +1780,16 @@
   var DEPTS = { 'Water Supply': 'dept.water', 'Electricity': 'dept.electricity', 'Sanitation / Garbage': 'dept.sanitation',
     'Roads & Public Works': 'dept.roads', 'Health': 'dept.health', 'Legal / Land Records': 'dept.legal', 'Other': 'dept.other' };
 
+  // "420 m" / "384 km" (Hindi: "420 मीटर" / "384 किमी"), for distances in warnings.
+  function distance(metres) {
+    var m = Math.round(Number(metres) || 0);
+    if (m < 1000) return m + (lang === 'hi' ? ' मीटर' : ' m');
+    var km = m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000);
+    return km.toLocaleString(lang === 'hi' ? 'hi-IN' : 'en-IN') + (lang === 'hi' ? ' किमी' : ' km');
+  }
+
   window.GIQ = {
+    distance: distance,
     get lang() { return lang; },
     t: t,
     has: has,

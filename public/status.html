@@ -850,7 +850,7 @@
     const before = (c.beforePhotos || []).map((u, i) => `<figure>${img(u, GIQ.t('status.before_alt', { n: i + 1 }))}</figure>`).join('')
       || `<p class="none">${escapeHtml(GIQ.t('status.no_before'))}</p>`;
     const after = (r.photos || []).map((p, i) => `<figure>${p.url ? img(p.url, GIQ.t('status.after_alt', { n: i + 1 })) : `<p class="none">${escapeHtml(GIQ.t('status.photo_unavailable'))}</p>`}` +
-        (p.warnings || []).filter(w => CIT_EV[w.code]).map(w => `<div class="ba-warn">⚠ ${escapeHtml(GIQ.t(CIT_EV[w.code], { m: w.metres }))}</div>`).join('') + `</figure>`).join('')
+        (p.warnings || []).filter(w => CIT_EV[w.code]).map(w => `<div class="ba-warn">⚠ ${escapeHtml(GIQ.t(CIT_EV[w.code], { dist: GIQ.distance(w.metres) }))}</div>`).join('') + `</figure>`).join('')
       || `<p class="none">${escapeHtml(r.noPhotoReason ? GIQ.t('status.no_after_reason', { reason: r.noPhotoReason }) : GIQ.t('status.no_after'))}</p>`;
     box.innerHTML =
       `<h2 class="section-title" id="res-title">${escapeHtml(GIQ.t('status.res_title'))}</h2>` +

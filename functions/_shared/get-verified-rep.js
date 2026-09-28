@@ -42,10 +42,14 @@ export async function getVerifiedRep(request, env) {
 
   const mandates = [];
 
-  const localUnits = await env.DB.prepare(
-    "SELECT id, name, unit_type FROM local_units WHERE rep_email = ?"
-  ).bind(email).all();
-  for (const row of localUnits.results) {
+  // One round trip for all four lookups (Sept 2026 speed-up).
+  const [localUnits, municipalBodies, mlaConstituencies, mpConstituencies] = await env.DB.batch([
+    env.DB.prepare("SELECT id, name, unit_type FROM local_units WHERE rep_email = ?").bind(email),
+    env.DB.prepare("SELECT id, name FROM municipal_bodies WHERE mayor_email = ?").bind(email),
+    env.DB.prepare("SELECT id, name FROM mla_constituencies WHERE mla_email = ?").bind(email),
+    env.DB.prepare("SELECT id, name FROM mp_constituencies WHERE mp_email = ?").bind(email),
+  ]);
+  for (const row of localUnits.results || []) {
     mandates.push({
       tier: "LOCAL",
       id: row.id,
@@ -53,25 +57,13 @@ export async function getVerifiedRep(request, env) {
       label: row.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan",
     });
   }
-
-  const municipalBodies = await env.DB.prepare(
-    "SELECT id, name FROM municipal_bodies WHERE mayor_email = ?"
-  ).bind(email).all();
-  for (const row of municipalBodies.results) {
+  for (const row of municipalBodies.results || []) {
     mandates.push({ tier: "MAYOR", id: row.id, name: row.name, label: "Mayor" });
   }
-
-  const mlaConstituencies = await env.DB.prepare(
-    "SELECT id, name FROM mla_constituencies WHERE mla_email = ?"
-  ).bind(email).all();
-  for (const row of mlaConstituencies.results) {
+  for (const row of mlaConstituencies.results || []) {
     mandates.push({ tier: "MLA", id: row.id, name: row.name, label: "MLA" });
   }
-
-  const mpConstituencies = await env.DB.prepare(
-    "SELECT id, name FROM mp_constituencies WHERE mp_email = ?"
-  ).bind(email).all();
-  for (const row of mpConstituencies.results) {
+  for (const row of mpConstituencies.results || []) {
     mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP" });
   }
 

@@ -32,18 +32,25 @@ export async function onRequestGet(context) {
   // Map every local unit this rep has any mandate over to which of their
   // mandate tiers covers it — a rep only ever checks visibility against
   // their own tier for cases under that specific mandate.
+  //
+  // Speed (Sept 2026): the database is far from most visitors, so every
+  // round trip costs time. The unit lookups run side by side, and all the
+  // case queries go in ONE batch (one round trip) instead of 4 per mandate
+  // one after another; ward chains are looked up side by side too.
+  // Closing overdue confirmations (item 7a) runs alongside the unit
+  // lookups and finishes before any case is read.
+  const [unitLists] = await Promise.all([
+    Promise.all(auth.mandates.map((m) => getLocalUnitIdsForMandate(env, m))),
+    settleOverdueConfirmations(env),
+  ]);
   const unitToMandate = new Map();
-  for (const mandate of auth.mandates) {
-    const unitIds = await getLocalUnitIdsForMandate(env, mandate);
-    for (const unitId of unitIds) {
+  auth.mandates.forEach((mandate, i) => {
+    for (const unitId of unitLists[i]) {
       if (!unitToMandate.has(unitId)) {
         unitToMandate.set(unitId, mandate);
       }
     }
-  }
-
-  // Close any case whose confirmation time has run out (item 7a).
-  await settleOverdueConfirmations(env);
+  });
 
   const allUnitIds = Array.from(unitToMandate.keys());
   if (allUnitIds.length === 0) {
@@ -59,40 +66,47 @@ export async function onRequestGet(context) {
   // Latest resolution report per case, and its photos (item 7b).
   const reportByGrievance = new Map();
   const photosByReport = new Map();
+  const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
-    const { results: gRows } = await env.DB.prepare(
-      `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ORDER BY g.created_at ASC`
-    ).bind(...s.binds).all();
-    for (const g of gRows) {
+    stmts.push(
+      env.DB.prepare(
+        `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ORDER BY g.created_at ASC`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT e.*, e.rowid AS event_rowid FROM grievance_events e
+         JOIN grievances g ON g.id = e.grievance_id ${s.join}
+         WHERE ${s.where}`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT rr.*, rr.rowid AS report_rowid FROM resolution_reports rr
+         JOIN grievances g ON g.id = rr.grievance_id ${s.join}
+         WHERE ${s.where}`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT rp.* FROM resolution_photos rp
+         JOIN grievances g ON g.id = rp.grievance_id ${s.join}
+         WHERE rp.report_id IS NOT NULL AND ${s.where}
+         ORDER BY rp.created_at ASC, rp.rowid ASC`
+      ).bind(...s.binds)
+    );
+  }
+  const batch = await env.DB.batch(stmts);
+  const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
+  for (let i = 1; i < batch.length; i += 4) {
+    for (const g of batch[i].results || []) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
-    const { results: eRows } = await env.DB.prepare(
-      `SELECT e.*, e.rowid AS event_rowid FROM grievance_events e
-       JOIN grievances g ON g.id = e.grievance_id ${s.join}
-       WHERE ${s.where}`
-    ).bind(...s.binds).all();
-    for (const e of eRows) {
+    for (const e of batch[i + 1].results || []) {
       if (!eventById.has(e.id)) eventById.set(e.id, e);
     }
-    const { results: rRows } = await env.DB.prepare(
-      `SELECT rr.*, rr.rowid AS report_rowid FROM resolution_reports rr
-       JOIN grievances g ON g.id = rr.grievance_id ${s.join}
-       WHERE ${s.where}`
-    ).bind(...s.binds).all();
-    for (const r of rRows) {
+    for (const r of batch[i + 2].results || []) {
       const prev = reportByGrievance.get(r.grievance_id);
       if (!prev || r.created_at > prev.created_at || (r.created_at === prev.created_at && r.report_rowid > prev.report_rowid)) {
         reportByGrievance.set(r.grievance_id, r);
       }
     }
-    const { results: pRows } = await env.DB.prepare(
-      `SELECT rp.* FROM resolution_photos rp
-       JOIN grievances g ON g.id = rp.grievance_id ${s.join}
-       WHERE rp.report_id IS NOT NULL AND ${s.where}
-       ORDER BY rp.created_at ASC, rp.rowid ASC`
-    ).bind(...s.binds).all();
-    for (const p of pRows) {
+    for (const p of batch[i + 3].results || []) {
       if (!photosByReport.has(p.report_id)) photosByReport.set(p.report_id, []);
       const list = photosByReport.get(p.report_id);
       if (!list.some((x) => x.id === p.id)) list.push(p);
@@ -120,28 +134,21 @@ export async function onRequestGet(context) {
     eventsByGrievance.get(event.grievance_id).push(event);
   }
 
+  // Every ward chain needed, looked up side by side.
   const chainCache = new Map();
-  const categoryCache = new Map();
+  const neededUnits = Array.from(new Set(grievanceRows.map((x) => x.local_unit_id)));
+  const chains = await Promise.all(neededUnits.map((u) => resolveChain(env, u)));
+  neededUnits.forEach((u, i) => chainCache.set(u, chains[i]));
   const visible = [];
 
   for (const grievance of grievanceRows) {
     const myMandate = unitToMandate.get(grievance.local_unit_id);
     const myTier = myMandate.tier;
 
-    let chain = chainCache.get(grievance.local_unit_id);
-    if (chain === undefined) {
-      chain = await resolveChain(env, grievance.local_unit_id);
-      chainCache.set(grievance.local_unit_id, chain);
-    }
+    const chain = chainCache.get(grievance.local_unit_id);
     if (!chain) continue;
 
-    let category = categoryCache.get(grievance.category_id);
-    if (category === undefined) {
-      category = await env.DB.prepare(
-        "SELECT * FROM grievance_categories WHERE id = ?"
-      ).bind(grievance.category_id).first();
-      categoryCache.set(grievance.category_id, category);
-    }
+    const category = categoryById.get(grievance.category_id);
     if (!category) continue;
 
     const result = computeEscalation(grievance, category, chain.tiers);
