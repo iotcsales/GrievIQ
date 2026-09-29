@@ -15,31 +15,58 @@
 // of mandates rather than assuming exactly one.
 
 import { verifyAccessJwt } from "./verify-access-jwt.js";
+import { sessionEmail } from "./rep-session.js";
+
+// Item 8a (Sept 2026): who is signed in comes first from our own "Sign in
+// with Google" session (_shared/rep-session.js). During the switch-over a
+// Cloudflare Access login is still accepted, so nobody is locked out while
+// the rep console is being moved off Access.
 
 /**
  * @param {Request} request
- * @param {object} env - expects ACCESS_TEAM_DOMAIN, ACCESS_AUD, DB
+ * @param {object} env - expects DB; ACCESS_TEAM_DOMAIN and ACCESS_AUD for the Access fallback
  * @returns {Promise<
- *   { ok: true, email: string, mandates: Array<{tier: string, id: string, name: string}> }
+ *   { ok: true, email: string, mandates: Array<{tier: string, id: string, name: string}>, via: "google" | "access" }
  *   | { ok: false, status: number, error: string }
  * >}
  */
 export async function getVerifiedRep(request, env) {
-  let email;
+  let email = null, via = null;
   try {
+    email = await sessionEmail(request, env);
+    if (email) via = "google";
+  } catch (e) {
+    email = null; // sessions table not there yet: fall back to Access
+  }
+  if (!email) {
     const token = request.headers.get("Cf-Access-Jwt-Assertion");
-    const payload = await verifyAccessJwt(token, {
-      teamDomain: env.ACCESS_TEAM_DOMAIN,
-      aud: env.ACCESS_AUD,
-    });
-    email = String(payload.email || "").toLowerCase();
-    if (!email) {
-      return { ok: false, status: 401, error: "No email in Access token" };
+    if (!token) return { ok: false, status: 401, error: "SIGNED_OUT" };
+    try {
+      const payload = await verifyAccessJwt(token, {
+        teamDomain: env.ACCESS_TEAM_DOMAIN,
+        aud: env.ACCESS_AUD,
+      });
+      email = String(payload.email || "").toLowerCase();
+      via = "access";
+      if (!email) {
+        return { ok: false, status: 401, error: "No email in Access token" };
+      }
+    } catch (err) {
+      return { ok: false, status: 401, error: (err && err.message) || "Unauthorized" };
     }
-  } catch (err) {
-    return { ok: false, status: 401, error: (err && err.message) || "Unauthorized" };
   }
 
+  const mandates = await lookupMandates(env, email);
+  if (mandates.length === 0) {
+    return { ok: false, status: 403, error: "NOT_PROVISIONED" };
+  }
+  return { ok: true, email, mandates, via };
+}
+
+// Which offices (ward, municipal body, MLA or MP constituency) list this
+// email as their representative.
+export async function lookupMandates(env, emailIn) {
+  const email = String(emailIn || "").toLowerCase();
   const mandates = [];
 
   // One round trip for all four lookups (Sept 2026 speed-up).
@@ -67,9 +94,5 @@ export async function getVerifiedRep(request, env) {
     mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP" });
   }
 
-  if (mandates.length === 0) {
-    return { ok: false, status: 403, error: "NOT_PROVISIONED" };
-  }
-
-  return { ok: true, email, mandates };
+  return mandates;
 }

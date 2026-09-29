@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=7d"></script>
+<script src="/i18n.js?v=8a"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -227,6 +227,20 @@
     gap: 6px;
     margin-top: 10px;
   }
+  /* Item 8a: sign-in screen */
+  .signin-card { max-width: 420px; margin: 48px auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 28px 24px; text-align: center; }
+  .signin-card .console-icon { margin: 0 auto 12px; }
+  .signin-card h1 { font-size: 20px; margin: 0 0 8px; }
+  .signin-lede { color: var(--steel); font-size: 14px; line-height: 1.5; margin: 0 0 18px; }
+  .signin-msg { font-size: 14px; line-height: 1.5; padding: 10px 12px; border-radius: 6px; background: var(--brand-tint); margin: 0 0 16px; text-align: left; }
+  .signin-msg.err { background: var(--red-tint); color: var(--red); font-weight: 600; }
+  .google-btn { display: inline-flex; align-items: center; gap: 10px; background: #fff; color: #1f1f1f; border: 1px solid #747775; border-radius: 4px; padding: 0 16px; height: 44px; font: 500 15px/1 Roboto, Arial, sans-serif; text-decoration: none; }
+  .google-btn:hover { background: #f8f9fa; }
+  .google-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+  .signin-note { color: var(--steel-2); font-size: 12.5px; line-height: 1.5; margin: 18px 0 0; }
+  .who-signed { font-size: 12px; color: var(--steel-2); margin-top: 4px; }
+  .signout-btn { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer; }
+  .signout-btn:hover { background: var(--paper); }
   .photo-removed { font-size: 12px; color: var(--steel-2); align-self: center; }
   .photo-thumb {
     width: 52px;
@@ -1216,10 +1230,59 @@ function renderReportTab() {
   return html;
 }
 
-function renderNotice(title, message) {
+function renderNotice(title, message, withSignOut) {
   document.getElementById('app').innerHTML =
-    '<div class="notice"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p></div>';
+    '<div class="notice"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p>' +
+    (withSignOut ? '<p><button type="button" class="signout-btn" id="notice-signout">' + esc(T('rep.signout')) + '</button></p>' : '') + '</div>';
+  var so = document.getElementById('notice-signout');
+  if (so) so.addEventListener('click', signOut);
 }
+
+// Item 8a: "Sign in with Google". The button follows Google's sign-in
+// branding guidelines (white button, Google "G", "Sign in with Google").
+var GOOGLE_G = '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+var SIGNIN_MSG = { not_registered: 'rep.si_not_registered', failed: 'rep.si_failed', expired: 'rep.si_expired', cancelled: 'rep.si_cancelled',
+  not_set_up: 'rep.si_not_set_up', timeout: 'rep.si_timeout', signed_out: 'rep.si_signed_out' };
+function renderSignIn(reason) {
+  var msgKey = SIGNIN_MSG[reason];
+  var isError = reason && reason !== 'signed_out';
+  document.getElementById('app').innerHTML =
+    '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
+      '<button type="button" class="lang-toggle" data-lang-toggle></button></div></div>' +
+    '<main><div class="signin-card">' +
+      '<div class="console-icon">' + LAYERS_ICON + '</div>' +
+      '<h1>' + esc(T('rep.si_title')) + '</h1>' +
+      '<p class="signin-lede">' + esc(T('rep.si_lede')) + '</p>' +
+      (msgKey ? '<p class="signin-msg' + (isError ? ' err' : '') + '" role="' + (isError ? 'alert' : 'status') + '">' + esc(T(msgKey)) + '</p>' : '') +
+      '<a class="google-btn" href="/api/auth/google/start" id="google-signin">' + GOOGLE_G + '<span>' + esc(T('rep.si_button')) + '</span></a>' +
+      '<p class="signin-note">' + esc(T('rep.si_note')) + '</p>' +
+    '</div></main>';
+  if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));
+  signInShown = reason || 'none';
+}
+var signInShown = null;
+
+async function signOut() {
+  try { await fetch('/api/auth/signout', { method: 'POST' }); } catch (e) { /* signed out locally anyway */ }
+  currentMe = null;
+  renderSignIn('signed_out');
+}
+
+// A session that ran out while the page was open (1 hour idle, 24 hours at
+// most): any 401 from our API shows the sign-in screen.
+(function () {
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function (input, opts) {
+    return realFetch(input, opts).then(function (res) {
+      var u = typeof input === 'string' ? input : (input && input.url) || '';
+      if (res.status === 401 && u.indexOf('/api/') === 0 && u.indexOf('/api/auth/') !== 0 && currentMe && currentMe.via === 'google') {
+        currentMe = null;
+        renderSignIn('timeout');
+      }
+      return res;
+    });
+  };
+})();
 
 function renderShell() {
   document.getElementById('app').innerHTML =
@@ -1230,7 +1293,9 @@ function renderShell() {
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
         '<div><p class="console-title">' + esc(T('rep.title')) + '</p><p class="console-subtitle">' + esc(T('rep.subtitle')) + '</p></div>' +
       '</div>' +
-      '<div class="console-header-right" id="viewing-summary" aria-live="polite"></div>' +
+      '<div class="console-header-right"><div id="viewing-summary" aria-live="polite"></div>' +
+        (currentMe && currentMe.via === 'google' ? '<div class="who-signed">' + esc(currentMe.email) + ' &middot; <button type="button" class="signout-btn" id="signout-btn">' + esc(T('rep.signout')) + '</button></div>' : '') +
+      '</div>' +
     '</div></div>' +
     '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
@@ -1240,6 +1305,8 @@ function renderShell() {
     '<main><div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
   if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
+  var soBtn = document.getElementById('signout-btn');
+  if (soBtn) soBtn.addEventListener('click', signOut);
   renderViewingControl();
   updateSummary();
   updateTabs();
@@ -1769,10 +1836,17 @@ async function visualFingerprint(file) {
 }
 
 async function init() {
+  // Item 8a: the outcome of a Google sign-in comes back as ?signin=...;
+  // read it once and tidy the address.
+  var params = new URLSearchParams(location.search);
+  var signinOutcome = params.get('signin');
+  if (signinOutcome !== null) { params.delete('signin'); history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : '') + location.hash); }
   var meRes = await fetch('/api/me');
   if (!meRes.ok) {
     if (meRes.status === 403) {
-      renderNotice(T('rep.not_provisioned_t'), T('rep.not_provisioned'));
+      renderNotice(T('rep.not_provisioned_t'), T('rep.not_provisioned'), true);
+    } else if (meRes.status === 401) {
+      renderSignIn(signinOutcome || '');
     } else {
       renderNotice(T('rep.session_t'), T('rep.session'));
     }
@@ -1794,7 +1868,7 @@ async function init() {
 // Switching हिन्दी / English redraws the console from the data already
 // loaded (no reload, the chosen area / ward / tab are kept).
 document.addEventListener('giq:lang', function() {
-  if (!currentMe) return;
+  if (!currentMe) { if (signInShown !== null && document.querySelector('.signin-card')) renderSignIn(signInShown === 'none' ? '' : signInShown); return; }
   renderShell();
   if (activeTab === 'report' && reportData && !reportData.error) { renderFilters(); updateSummary(); renderContent(); }
   else if (activeTab === 'report') loadReportTab();

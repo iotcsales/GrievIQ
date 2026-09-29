@@ -20,5 +20,7 @@ export async function onRequestGet(context) {
   return Response.json({
     email: result.email,
     mandates: result.mandates,
-  });
+    // Item 8a: "google" (our own sign-in, can sign out) or "access".
+    via: result.via || "access",
+  }, { headers: { "Cache-Control": "no-store" } });
 }
