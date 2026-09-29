@@ -15,12 +15,16 @@
 // "Needs attention" comes from _shared/exception-cases.js, the same rules
 // as the Exceptions page and the dashboard.
 
-import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations, resolutionKind, confirmDeadline, awaitingStaffCheck } from "../../_shared/confirmation.js";
 import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolution-evidence.js";
+// Sept 2026: "Show full number" (reveal_citizen_phone: Super admin and
+// Operations admin). Numbers stay partly hidden by default; a reveal needs a
+// reason, shows the number for that one case, and is logged
+// (admin_events "citizen_phone_revealed", source "cases").
 import { photoLink } from "../../_shared/photo-links.js";
 
 function toMs(s) {
@@ -169,6 +173,14 @@ async function caseDetail(env, auth, id) {
   // Resolution report with every warning, including which other case a
   // reused photo came from (item 7b).
   const loaded = await loadResolution(env, g.id);
+  // Every resolution report (a case can be marked resolved more than once),
+  // so the history shows what the rep said each time.
+  const { results: allReports } = await env.DB.prepare(
+    "SELECT * FROM resolution_reports WHERE grievance_id = ? ORDER BY created_at ASC, rowid ASC"
+  ).bind(g.id).all();
+  const { results: allPhotos } = await env.DB.prepare(
+    "SELECT * FROM resolution_photos WHERE grievance_id = ? AND report_id IS NOT NULL ORDER BY created_at ASC, rowid ASC"
+  ).bind(g.id).all();
   const refs = new Map();
   for (const p of loaded.photos) {
     if (p.dup_grievance_id && !refs.has(p.dup_grievance_id)) {
@@ -179,6 +191,13 @@ async function caseDetail(env, auth, id) {
   const resolution = loaded.report
     ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), (id) => refs.get(id), chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null)
     : null;
+
+  const wardGeom = chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null;
+  const reports = [];
+  for (const rep of allReports || []) {
+    reports.push(await shapeResolution(g, rep, (allPhotos || []).filter((p) => p.report_id === rep.id), "staff",
+      (pid) => photoLink(env, pid), (id) => refs.get(id), wardGeom));
+  }
 
   const ex = exceptionCases.find((e) => e.id === g.id);
   const finished = g.status === "RESOLVED" || g.status === "CLOSED";
@@ -203,6 +222,7 @@ async function caseDetail(env, auth, id) {
       resolutionKind: resolutionKind(g),
       confirmBy: g.status === "PENDING_CONFIRMATION" ? confirmDeadline(g.resolved_at) : null,
       resolution,
+      reports,
       awaitingCheck: awaitingStaffCheck(g),
       staffChecks: ((await env.DB.prepare(
         "SELECT method, outcome, note, checked_by, checked_at FROM resolution_checks WHERE grievance_id = ? ORDER BY checked_at ASC"
@@ -225,7 +245,33 @@ async function caseDetail(env, auth, id) {
       })),
     },
     role: auth.role,
+    canReveal: (PERMISSIONS.reveal_citizen_phone || []).includes(auth.role),
     viewedBy: auth.email,
     viewedAt: new Date().toISOString(),
+  });
+}
+
+// POST { action: "reveal_phone", id, reason } -- Super admin / Operations
+// admin only. Any case. Reason (10+ characters) required; logged.
+export async function onRequestPost({ request, env }) {
+  const auth = await getVerifiedAdmin(request, env, "reveal_citizen_phone");
+  if (!auth.ok) {
+    return Response.json({ error: auth.error }, { status: auth.status });
+  }
+  let body;
+  try { body = await request.json(); } catch (e) { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
+  if (String(body.action || "") !== "reveal_phone") {
+    return Response.json({ error: "Unknown action." }, { status: 400 });
+  }
+  const reason = String(body.reason || "").trim().slice(0, 300);
+  if (reason.length < 10) {
+    return Response.json({ error: "Give a reason of at least 10 characters.", fields: { reason: "REASON_LENGTH" } }, { status: 400 });
+  }
+  const g = await env.DB.prepare("SELECT id, tracking_ref, citizen_phone FROM grievances WHERE id = ?").bind(String(body.id || "")).first();
+  if (!g) return Response.json({ error: "Case not found." }, { status: 404 });
+  await logEvent(env, auth.email, "citizen_phone_revealed", g.id, { trackingRef: g.tracking_ref, reason, role: auth.role, source: "cases" });
+  return new Response(JSON.stringify({ phone: String(g.citizen_phone || "") }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }

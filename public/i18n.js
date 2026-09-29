@@ -1190,8 +1190,8 @@
 "<strong>आपके जनप्रतिनिधि</strong>: वार्ड के जनप्रतिनिधि और, शिकायत आगे बढ़ने पर, हर वह स्तर जहाँ तक वह पहुँचती है — आपका विवरण, स्थान और फ़ोटो देख सकते हैं। वे आपका मोबाइल नंबर या ईमेल पता नहीं देख सकते।"
 ],
 "priv.w_staff": [
-"<strong>GrievIQ staff</strong>: see your complaint to oversee how it's handled. Your mobile number and email are partly hidden from them, and every time a staff member opens a case, it is recorded. Only two senior roles can see your full number, and only to call you to check a fix; each time, the reason is recorded.",
-"<strong>GrievIQ कर्मचारी</strong>: कार्यवाही की निगरानी के लिए आपकी शिकायत देखते हैं। आपका मोबाइल नंबर और ईमेल उनसे आंशिक रूप से छिपा रहता है, और कोई कर्मचारी जब भी कोई शिकायत खोलता है, उसका रिकॉर्ड रखा जाता है। आपका पूरा नंबर केवल दो वरिष्ठ भूमिकाएँ देख सकती हैं, और केवल समाधान जाँचने के लिए आपको फ़ोन करने हेतु; हर बार कारण दर्ज किया जाता है।"
+"<strong>GrievIQ staff</strong>: see your complaint to oversee how it's handled. Your mobile number and email are partly hidden from them, and every time a staff member opens a case, it is recorded. Only two senior roles can see your full number, and only when there is a need, such as calling you to check a fix; each time, the reason is recorded.",
+"<strong>GrievIQ कर्मचारी</strong>: कार्यवाही की निगरानी के लिए आपकी शिकायत देखते हैं। आपका मोबाइल नंबर और ईमेल उनसे आंशिक रूप से छिपा रहता है, और कोई कर्मचारी जब भी कोई शिकायत खोलता है, उसका रिकॉर्ड रखा जाता है। आपका पूरा नंबर केवल दो वरिष्ठ भूमिकाएँ देख सकती हैं, और केवल आवश्यकता होने पर, जैसे समाधान जाँचने के लिए आपको फ़ोन करना; हर बार कारण दर्ज किया जाता है।"
 ],
 "priv.w_photos": [
 "<strong>Photos</strong>: photos are stored at unlisted web addresses. Anyone who has a photo's exact link can open it, so please don't include anything in a photo that you wouldn't want seen.",

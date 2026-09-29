@@ -322,7 +322,7 @@
 <main>
   <div id="list-view" hidden>
     <h1>Cases</h1>
-    <p class="subtitle">Every complaint across all wards, read-only. Open a case to see its full history. Citizens' phone numbers and email addresses are always partly hidden, and each case you open is recorded in the access log.</p>
+    <p class="subtitle">Every complaint across all wards, read-only. Open a case to see its full history. Citizens' phone numbers and email addresses are partly hidden by default, and each case you open is recorded in the access log. Super admins and Operations admins can show a full number, with a reason, which is also recorded.</p>
 
     <div class="panel">
       <div class="filters" style="margin-bottom:0">
@@ -402,7 +402,7 @@
   }
   function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(FLAG_LABELS[f] || f) + '</span>').join(""); }
   function whoLine(role) {
-    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] || role || "") + '</b><br>All wards · Read-only';
+    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] || role || "") + '</b><br>All wards';
   }
   function errorText(body, fallback) {
     if (body && body.error === "NOT_ADMIN") return "Your account is not an admin.";
@@ -508,6 +508,26 @@
   }
 
   // ---- Detail -------------------------------------------------------------
+  // The rep's report for a "Marked resolved" event: same moment (both are
+  // saved together), or else the nearest report within 2 minutes.
+  function reportFor(c, eventAt) {
+    const t = (toDate(eventAt) || new Date(0)).getTime();
+    let best = null, bestGap = 120000;
+    (c.reports || []).forEach((r) => {
+      const gap = Math.abs((toDate(r.createdAt) || new Date(0)).getTime() - t);
+      if (gap <= bestGap) { best = r; bestGap = gap; }
+    });
+    return best;
+  }
+  function reportHtml(r) {
+    const photos = r.photos && r.photos.length
+      ? '<div class="res-photos" style="margin-top:8px">' + r.photos.map((p, i) => '<div class="res-photo" style="width:120px">' +
+          (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.url) + '" alt="After-photo ' + (i + 1) + '" loading="lazy" /></a>' : '<span class="muted">Photo unavailable.</span>') +
+          (p.warnings.some((w) => w.level === "warn") ? '<div class="attn" style="font-size:12px;margin-top:3px">⚠ ' + p.warnings.filter((w) => w.level === "warn").length + ' warning(s)</div>' : '') + '</div>').join("") + '</div>'
+      : (r.noPhotoReason ? '<div class="t-body" style="margin-top:4px"><b>No photo — reason:</b> ' + escapeHtml(r.noPhotoReason) + '</div>' : '');
+    return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos;
+  }
+
   function timelineItems(c) {
     const items = [{ cls: "", title: "Complaint filed", meta: dateTime(c.createdAt), body: "", at: c.createdAt }];
     c.events.forEach((e) => {
@@ -520,6 +540,7 @@
         meta: dateTime(e.at) + (e.actor ? " · " + e.actor : ""),
         body,
         at: e.at,
+        html: e.type === "MARKED_RESOLVED" && reportFor(c, e.at) ? reportHtml(reportFor(c, e.at)) : "",
       });
     });
     // GrievIQ staff checks (item 7b-2).
@@ -634,7 +655,8 @@
         '<div class="panel">' +
           '<div class="field"><div class="k">Escalation</div>' + tiers + '</div>' +
           '<div class="field"><div class="k">Citizen contact</div><div class="v">' + contact + '</div>' +
-            '<div class="mask-note">Partly hidden for every admin role. Admins contact representatives, not citizens.</div></div>' +
+            '<div class="mask-note">Partly hidden by default. Super admins and Operations admins can show the full number, with a reason, to call the citizen about a fix; each time is recorded.</div>' +
+            (body.canReveal && c.citizen.phone ? '<div id="reveal-area"></div>' : '') + '</div>' +
         '</div>' +
       '</div>' +
       renderResolutionPanel(c) +
@@ -643,7 +665,7 @@
         '<ol class="timeline">' + timelineItems(c).map((it) =>
           '<li class="' + it.cls + '"><div class="t-title">' + escapeHtml(it.title) + '</div>' +
           '<div class="t-meta">' + escapeHtml(it.meta) + '</div>' +
-          (it.body ? '<div class="t-body">' + escapeHtml(it.body) + '</div>' : '') + '</li>').join("") +
+          (it.body ? '<div class="t-body">' + escapeHtml(it.body) + '</div>' : '') + (it.html || '') + '</li>').join("") +
         '</ol>' +
         '<p class="access-note">You opened this case on ' + escapeHtml(dateTime(body.viewedAt)) + '. This was recorded in the admin access log.</p>' +
       '</div>';
@@ -655,6 +677,42 @@
       }
     });
     document.title = c.trackingRef + " — Cases — GrievIQ Admin";
+    if (body.canReveal && c.citizen.phone) renderReveal(c.id, { open: false, reason: "", error: "", phone: "" });
+  }
+
+  // "Show full number" (Super admin / Operations admin): reason required,
+  // shown for this case only, recorded in the admin log.
+  function renderReveal(caseId, r) {
+    const area = document.getElementById("reveal-area");
+    if (!area) return;
+    if (r.phone) {
+      area.innerHTML = '<div style="margin-top:10px;font-size:18px;font-weight:700"><a href="tel:' + escapeHtml(r.phone) + '" style="color:var(--admin-accent)">' + escapeHtml(r.phone) + '</a></div>' +
+        '<div class="mask-note">Shown for this case only. Recorded in the admin log with your reason.</div>';
+      area.querySelector("a").focus();
+      return;
+    }
+    if (!r.open) {
+      area.innerHTML = '<button type="button" class="small" id="reveal-open" style="margin-top:10px">Show full number</button>';
+      document.getElementById("reveal-open").addEventListener("click", () => { r.open = true; renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); });
+      return;
+    }
+    area.innerHTML =
+      '<label for="reveal-reason" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:10px 0 5px">Why do you need the full number?</label>' +
+      '<textarea id="reveal-reason" maxlength="300" style="width:100%;min-height:60px"' + (r.error ? ' aria-invalid="true" aria-describedby="reveal-err"' : '') + '>' + escapeHtml(r.reason) + '</textarea>' +
+      '<div id="reveal-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(r.error) + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="primary small" id="reveal-go">Show number</button><button type="button" class="small" id="reveal-cancel">Cancel</button></div>' +
+      '<div class="mask-note">Your name, the time and your reason are recorded in the admin log.</div>';
+    document.getElementById("reveal-cancel").addEventListener("click", () => { r.open = false; r.error = ""; renderReveal(caseId, r); document.getElementById("reveal-open").focus(); });
+    document.getElementById("reveal-go").addEventListener("click", async () => {
+      r.reason = document.getElementById("reveal-reason").value;
+      if (r.reason.trim().length < 10) { r.error = "Give a reason of at least 10 characters."; renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
+      try {
+        const res = await fetch("/api/admin/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reveal_phone", id: caseId, reason: r.reason.trim() }) });
+        const b = await res.json().catch(() => ({}));
+        if (!res.ok) { r.error = b.error === "INSUFFICIENT_ROLE" ? "Your role can't see full numbers." : (b.error || "Could not show the number."); renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
+        r.phone = b.phone; r.error = ""; renderReveal(caseId, r);
+      } catch (e) { r.error = "Could not reach the server."; renderReveal(caseId, r); }
+    });
   }
 
   async function initDetail(id) {
