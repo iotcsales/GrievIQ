@@ -20,6 +20,7 @@ import { timeLimitStatus } from "../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "../_shared/confirmation.js";
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
+import { shapeReopen } from "../_shared/reopen.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -70,6 +71,8 @@ export async function onRequestGet(context) {
   const checkByGrievance = new Map();
   // The citizen's private photos per case (item 7c).
   const complaintPhotosByGrievance = new Map();
+  // Latest reopening per case (item 7d).
+  const reopenByGrievance = new Map();
   const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
@@ -102,12 +105,17 @@ export async function onRequestGet(context) {
         `SELECT cp.* FROM complaint_photos cp
          JOIN grievances g ON g.id = cp.grievance_id ${s.join}
          WHERE ${s.where}`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT ro.*, ro.rowid AS reopen_rowid FROM grievance_reopens ro
+         JOIN grievances g ON g.id = ro.grievance_id ${s.join}
+         WHERE ${s.where}`
       ).bind(...s.binds)
     );
   }
   const batch = await env.DB.batch(stmts);
   const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
-  for (let i = 1; i < batch.length; i += 6) {
+  for (let i = 1; i < batch.length; i += 7) {
     for (const g of batch[i].results || []) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
@@ -135,6 +143,12 @@ export async function onRequestGet(context) {
       if (!complaintPhotosByGrievance.has(cp.grievance_id)) complaintPhotosByGrievance.set(cp.grievance_id, []);
       const list = complaintPhotosByGrievance.get(cp.grievance_id);
       if (!list.some((x) => x.id === cp.id)) list.push(cp);
+    }
+    for (const ro of batch[i + 6].results || []) {
+      const prev = reopenByGrievance.get(ro.grievance_id);
+      if (!prev || ro.reopened_at > prev.reopened_at || (ro.reopened_at === prev.reopened_at && ro.reopen_rowid > prev.reopen_rowid)) {
+        reopenByGrievance.set(ro.grievance_id, ro);
+      }
     }
   }
 
@@ -261,6 +275,9 @@ export async function onRequestGet(context) {
       resolutionKind: resolutionKind(grievance),
       // What the rep said was done, with "after" photos and warnings (item 7b).
       resolution,
+      // Item 7d: reopened by the citizen (or staff for them): when, why, and
+      // which level it went to.
+      reopen: shapeReopen(reopenByGrievance.get(grievance.id) || null, "rep"),
       // Item 7b-2: no citizen email, so GrievIQ staff check the fix; and the
       // latest staff check (shown when they found it not fixed).
       awaitingStaffCheck: awaitingStaffCheck(grievance),

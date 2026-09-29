@@ -111,6 +111,7 @@
   .badge.ESCALATED { color: var(--admin-danger); }
   .badge.DISPUTED { color: var(--admin-danger); }
   .badge.LEGAL_REVIEW { color: var(--admin-accent); }
+  .badge.REOPENED, .badge.REOPENED_TOP { color: var(--admin-danger); }
   .dispute-detail { font-size: 12px; color: var(--admin-muted); margin-top: 2px; }
   .level-sub { font-size: 12px; color: var(--admin-muted); }
   .resp { font-size: 13px; line-height: 1.6; }
@@ -202,6 +203,8 @@
           <option value="ESCALATED">Escalated</option>
           <option value="DISPUTED">Citizen disputed</option>
           <option value="LEGAL_REVIEW">Legal review</option>
+          <option value="REOPENED">Reopened after closing</option>
+          <option value="REOPENED_TOP">Reopened at the top level</option>
         </select>
       </div>
       <div>
@@ -249,6 +252,8 @@
     ESCALATED: "Escalated",
     DISPUTED: "Citizen disputed",
     LEGAL_REVIEW: "Legal review",
+    REOPENED: "Reopened after closing",
+    REOPENED_TOP: "Reopened at the top level",
   };
 
   const DISPUTE_LABELS = {

@@ -26,6 +26,7 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 // reason, shows the number for that one case, and is logged
 // (admin_events "citizen_phone_revealed", source "cases").
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
+import { reopenStatus, readReopenInput, reopenCase, loadReopen, shapeReopen, STAFF_REASON_MIN } from "../../_shared/reopen.js";
 
 function toMs(s) {
   if (!s) return NaN;
@@ -87,7 +88,7 @@ async function caseList(env, auth) {
   const [casesRes, exceptionCases] = await Promise.all([
     env.DB.prepare(
       `SELECT g.id, g.tracking_ref, g.status, g.current_tier, g.created_at, g.resolved_at,
-              g.citizen_confirmed, g.closure_kind,
+              g.citizen_confirmed, g.closure_kind, g.reopen_count,
               CASE WHEN COALESCE(TRIM(g.citizen_email), '') = '' THEN 0 ELSE 1 END AS has_email,
               g.local_unit_id, lu.name AS ward_name, lu.unit_type,
               c.name AS category_name
@@ -123,6 +124,8 @@ async function caseList(env, auth) {
       flags: a ? a.flags : [],
       currentLevel: a ? a.currentTierLabel : null,
       storedTier: g.current_tier || null,
+      // Item 7d: reopened after it closed.
+      reopened: Number(g.reopen_count || 0) > 0,
     };
   });
 
@@ -238,6 +241,12 @@ async function caseDetail(env, auth, id) {
     },
     role: auth.role,
     canReveal: (PERMISSIONS.reveal_citizen_phone || []).includes(auth.role),
+    // Item 7d: the reopening (if any), and whether staff may reopen for a
+    // citizen with no email (once, within 30 days of closing).
+    reopen: shapeReopen(await loadReopen(env, g.id), "staff"),
+    reopens: ((await env.DB.prepare("SELECT * FROM grievance_reopens WHERE grievance_id = ? ORDER BY reopened_at ASC, rowid ASC").bind(g.id).all()).results || []).map((r) => shapeReopen(r, "staff")),
+    reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(g)),
+    canStaffReopen: (PERMISSIONS.reopen_cases || []).includes(auth.role) && !String(g.citizen_email || "").trim() && reopenStatus(g).can,
     viewedBy: auth.email,
     viewedAt: new Date().toISOString(),
   });
@@ -245,14 +254,19 @@ async function caseDetail(env, auth, id) {
 
 // POST { action: "reveal_phone", id, reason } -- Super admin / Operations
 // admin only. Any case. Reason (10+ characters) required; logged.
+// POST { action: "reopen", id, reason, note, staffReason } -- item 7d.
+// Super admin / Operations admin, for a citizen who gave no email only;
+// same rules as the citizen's own reopening; logged.
 export async function onRequestPost({ request, env }) {
+  let body;
+  try { body = await request.json(); } catch (e) { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
+  const action = String(body.action || "");
+  if (action === "reopen") return staffReopen(request, env, body);
   const auth = await getVerifiedAdmin(request, env, "reveal_citizen_phone");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
-  let body;
-  try { body = await request.json(); } catch (e) { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
-  if (String(body.action || "") !== "reveal_phone") {
+  if (action !== "reveal_phone") {
     return Response.json({ error: "Unknown action." }, { status: 400 });
   }
   const reason = String(body.reason || "").trim().slice(0, 300);
@@ -266,4 +280,34 @@ export async function onRequestPost({ request, env }) {
     status: 200,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+}
+
+async function staffReopen(request, env, body) {
+  const auth = await getVerifiedAdmin(request, env, "reopen_cases");
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
+  await settleOverdueConfirmations(env);
+
+  const input = readReopenInput(body.reason, body.note);
+  const staffReason = String(body.staffReason || "").trim().slice(0, 300);
+  const fields = Object.assign({}, input.fields || {});
+  if (staffReason.length < STAFF_REASON_MIN) fields.staffReason = "REASON_LENGTH";
+  if (Object.keys(fields).length) return Response.json({ error: "Please correct the highlighted fields.", fields }, { status: 400 });
+
+  const g = await env.DB.prepare("SELECT * FROM grievances WHERE id = ?").bind(String(body.id || "")).first();
+  if (!g) return Response.json({ error: "Case not found." }, { status: 404 });
+  if (String(g.citizen_email || "").trim()) {
+    return Response.json({ error: "This citizen gave an email, so they can reopen the case themselves from the status page.", code: "HAS_EMAIL" }, { status: 409 });
+  }
+  const st = reopenStatus(g);
+  if (!st.can) {
+    const msg = st.code === "ALREADY_REOPENED" ? "This case has already been reopened once."
+      : st.code === "TOO_LATE" ? "The 30 days to reopen this case have passed." : "This case isn't closed.";
+    return Response.json({ error: msg, code: st.code }, { status: 409 });
+  }
+  const chain = await resolveChain(env, g.local_unit_id);
+  if (!chain) return Response.json({ error: "Could not find who handles this area." }, { status: 500 });
+  const done = await reopenCase(env, g, chain, input, { actor: "staff", staffEmail: auth.email, staffReason });
+  if (!done.ok) return Response.json({ error: "This case can't be reopened now. Refresh the page.", code: done.code }, { status: 409 });
+  await logEvent(env, auth.email, "case_reopened_for_citizen", g.id, { trackingRef: g.tracking_ref, reason: input.reason, staffReason, fromTier: done.fromTier, toTier: done.toTier, role: auth.role });
+  return Response.json({ ok: true, toTier: done.toTier, toLabel: done.toLabel, atTop: done.atTop });
 }

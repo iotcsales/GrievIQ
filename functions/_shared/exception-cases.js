@@ -7,7 +7,8 @@
 //
 // A case needs attention when it is unresolved and at least one of these
 // is true: not acknowledged in time, escalated past the first tier,
-// disputed by the citizen, or in legal review. Uses the exact same
+// disputed by the citizen, or in legal review. Reopened cases (item 7d)
+// are marked REOPENED (and REOPENED_TOP at the top level). Uses the exact same
 // computeEscalation / visibleTiers rules the rep console uses.
 //
 // Cases awaiting the citizen's confirmation (PENDING_CONFIRMATION) are
@@ -84,6 +85,12 @@ export async function findExceptionCases(env) {
     if (result.currentTierIndex > 0) flags.push("ESCALATED");
     if (latest && latest.event_type === "CITIZEN_DISPUTED") flags.push("DISPUTED");
     if (result.needsLegalReview) flags.push("LEGAL_REVIEW");
+    // Item 7d: reopened after it closed; at the top level it has nowhere
+    // further to go, so GrievIQ staff should watch it.
+    if (g.reopened_at) {
+      flags.push("REOPENED");
+      if (g.reopen_start_tier && g.reopen_start_tier === chain.tiers[chain.tiers.length - 1].tier) flags.push("REOPENED_TOP");
+    }
     if (flags.length === 0) continue;
 
     const responsible = visibleTiers(chain.tiers, result.currentTierIndex).map((t) => ({

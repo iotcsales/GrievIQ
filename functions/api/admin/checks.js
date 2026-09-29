@@ -182,9 +182,9 @@ export async function onRequestPost({ request, env }) {
   ];
   if (outcome === "VERIFIED") {
     stmts.push(env.DB.prepare(
-      `UPDATE grievances SET status = 'RESOLVED', closure_kind = 'STAFF_VERIFIED', updated_at = ?
+      `UPDATE grievances SET status = 'RESOLVED', closure_kind = 'STAFF_VERIFIED', updated_at = ?, closed_at = ?
        WHERE id = ? AND status = 'PENDING_CONFIRMATION'`
-    ).bind(now, g.id));
+    ).bind(now, now, g.id));
   } else if (outcome === "NOT_FIXED") {
     // Reopened like a citizen dispute: escalation counts all time since filing.
     stmts.push(env.DB.prepare(

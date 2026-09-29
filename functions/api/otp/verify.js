@@ -27,6 +27,7 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 // The citizen's own "before" photos: private since item 7c, shown through
 // short-lived signed links (plus any old public links not moved yet).
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
+import { reopenStatus, loadReopen, shapeReopen } from "../../_shared/reopen.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -124,6 +125,11 @@ async function buildCaseDetail(env, grievance) {
       confirmBy: limits.confirmBy,
       resolutionKind: resolutionKind(grievance),
       resolution,
+      // Item 7d: whether the citizen can reopen this case (once, within 30
+      // days of closing), until when, and the reopening if there was one.
+      reopen: shapeReopen(await loadReopen(env, grievance.id), "citizen"),
+      reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(grievance)),
+      currentLevelLabel: result.currentTier ? result.currentTier.label : null,
       beforePhotos: await complaintPhotoList(env, grievance, await loadComplaintPhotos(env, grievance.id)),
       elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
       ackOverdue: result.ackOverdue,
@@ -148,7 +154,8 @@ async function caseForEmail(env, email, trackingRef) {
   const grievance = await env.DB.prepare(
     `SELECT id, tracking_ref, description, status, current_tier, created_at, acknowledged_at, resolved_at,
             citizen_email, citizen_confirmed, closure_kind, local_unit_id, category_id,
-            photo_url, pin_lat, pin_lng
+            photo_url, pin_lat, pin_lng,
+            closed_at, citizen_confirmed_at, updated_at, reopened_at, reopen_start_tier, reopen_count
      FROM grievances WHERE tracking_ref = ?`
   ).bind(trackingRef).first();
   if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email) {

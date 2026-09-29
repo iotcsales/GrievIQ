@@ -359,13 +359,18 @@
     VERIFIED_BY_GRIEVIQ: "checked by GrievIQ", NOT_VERIFIED: "not verified (no email, not checked in time)" };
   const CHECK_LABELS = { VERIFIED: "fixed", NOT_FIXED: "not fixed", CANT_TELL: "can't tell from photos", NO_ANSWER: "no answer" };
   const CONFIRM_DAYS = 7;
-  const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review" };
+  const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review", REOPENED: "Reopened after closing", REOPENED_TOP: "Reopened at the top level" };
+  // Item 7d: reopening reasons (same list as disputes).
+  const REOPEN_REASONS = { NOT_FIXED: "Not fixed at all", PARTIALLY_FIXED: "Partially fixed", CAME_BACK: "Fixed, but came back", WRONG_ISSUE: "Wrong issue fixed", OTHER: "Other" };
+  const TIER_NAMES = { LOCAL: "Ward representative", MAYOR: "Mayor", MLA: "MLA", MP: "MP" };
   const EVENT_LABELS = {
     ACKNOWLEDGED: "Acknowledged by representative",
     FOLLOW_UP: "Follow-up logged",
     MARKED_RESOLVED: "Marked resolved by representative",
     CITIZEN_CONFIRMED: "Citizen confirmed it is resolved",
     CITIZEN_DISPUTED: "Citizen disputed the resolution",
+    CITIZEN_REOPENED: "Reopened by the citizen",
+    STAFF_REOPENED: "Reopened by GrievIQ staff for the citizen",
     ADMIN_NUDGE: "Reminder sent by GrievIQ admin",
   };
 
@@ -447,7 +452,8 @@
             '<div class="ward-sub">' + escapeHtml(c.category) + '</div></td>' +
           '<td>' + escapeHtml(c.ward.name) + '</td>' +
           '<td>' + statusTag(c.status, c.resolutionKind, c.awaitingCheck) +
-            (c.confirmBy ? '<div class="ward-sub">Closes ' + escapeHtml(dateOnly(c.confirmBy)) + ' if no reply</div>' : '') + '</td>' +
+            (c.confirmBy ? '<div class="ward-sub">Closes ' + escapeHtml(dateOnly(c.confirmBy)) + ' if no reply</div>' : '') +
+            (c.reopened ? '<div class="ward-sub">Reopened</div>' : '') + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(dateOnly(c.createdAt)) + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(days(c.daysOpen)) + '</td>' +
           '<td>' + (c.currentLevel ? escapeHtml(c.currentLevel) : '<span class="muted">—</span>') + '</td>' +
@@ -543,7 +549,13 @@
         html: e.type === "MARKED_RESOLVED" && reportFor(c, e.at) ? reportHtml(reportFor(c, e.at)) : "",
       });
     });
-    // GrievIQ staff checks (item 7b-2).
+    // Reopenings (item 7d), kept in their own table.
+    (c.reopens || []).forEach((r) => {
+      items.push({ cls: "warn", title: r.by === "staff" ? EVENT_LABELS.STAFF_REOPENED : EVENT_LABELS.CITIZEN_REOPENED,
+        meta: dateTime(r.at) + (r.by === "staff" && r.staffEmail ? " · " + r.staffEmail : " · Citizen") + " · sent to " + (TIER_NAMES[r.toTier] || r.toTier),
+        body: "Reason: " + (REOPEN_REASONS[r.reason] || r.reason) + "\n" + r.note, at: r.at });
+    });
+        // GrievIQ staff checks (item 7b-2).
     (c.staffChecks || []).forEach((k) => {
       items.push({ cls: k.outcome === "VERIFIED" ? "done" : k.outcome === "NOT_FIXED" ? "warn" : "",
         title: "GrievIQ check (" + (k.method === "PHONE" ? "phone call" : "photos") + "): " + (CHECK_LABELS[k.outcome] || k.outcome),
@@ -620,6 +632,7 @@
 
   function renderDetail(body) {
     const c = body.case;
+    c.reopens = body.reopens || [];
     const view = document.getElementById("detail-view");
     const wardType = c.ward.type === "URBAN" ? "Urban ward" : c.ward.type === "RURAL" ? "Rural village" : "";
 
@@ -671,6 +684,7 @@
         '</div>' +
       '</div>' +
       renderResolutionPanel(c) +
+      renderReopenPanel(body) +
       '<div class="panel" style="margin-top:20px">' +
         '<h2 style="margin-bottom:16px">History</h2>' +
         '<ol class="timeline">' + timelineItems(c).map((it) =>
@@ -689,6 +703,90 @@
     });
     document.title = c.trackingRef + " — Cases — GrievIQ Admin";
     if (body.canReveal && c.citizen.phone) renderReveal(c.id, { open: false, reason: "", error: "", phone: "" });
+    if (body.canStaffReopen) renderStaffReopen(c.id, { open: false, reason: "", note: "", staffReason: "", errors: {}, busy: false });
+  }
+
+  // Item 7d: the reopening, and whether the case can still be reopened.
+  function renderReopenPanel(body) {
+    const r = body.reopen, st = body.reopenStatus || {};
+    let inner = "";
+    if (r) {
+      inner += '<div style="font-size:14px;line-height:1.6;margin-bottom:12px">Reopened on <b>' + escapeHtml(dateTime(r.at)) + '</b> ' +
+        (r.by === "staff" ? 'by GrievIQ staff (' + escapeHtml(r.staffEmail || "") + ') for the citizen' : 'by the citizen') +
+        ' · moved from ' + escapeHtml(TIER_NAMES[r.fromTier] || r.fromTier) + ' to <b>' + escapeHtml(TIER_NAMES[r.toTier] || r.toTier) + '</b>' +
+        (r.fromTier === r.toTier ? ' (already the top level)' : '') + '</div>' +
+        '<div class="field"><div class="k">Why</div><div class="v"><b>' + escapeHtml(REOPEN_REASONS[r.reason] || r.reason) + '</b> — ' + escapeHtml(r.note) + '</div></div>' +
+        (r.staffReason ? '<div class="field"><div class="k">How the citizen asked</div><div class="v">' + escapeHtml(r.staffReason) + '</div></div>' : '');
+    } else if (st.code === "OK") {
+      inner += '<p class="section-sub">The citizen can reopen this case once, until <b>' + escapeHtml(dateTime(st.until)) + '</b>. It would go one level up with a fresh time limit.</p>';
+    } else if (st.code === "TOO_LATE") {
+      inner += '<p class="section-sub">The 30 days to reopen this case have passed.</p>';
+    } else {
+      return "";
+    }
+    inner += '<div id="staff-reopen-area"></div>';
+    return '<div class="panel" style="margin-top:20px"><h2 style="margin-bottom:10px">Reopening</h2>' + inner + '</div>';
+  }
+
+  // Reopen for a citizen who gave no email (Super admin / Operations admin).
+  function renderStaffReopen(caseId, f) {
+    const area = document.getElementById("staff-reopen-area");
+    if (!area) return;
+    if (f.done) {
+      area.innerHTML = '<div class="notice ok" role="status" tabindex="-1" id="reopen-done" style="margin-top:12px">' + escapeHtml(f.done) + '</div>';
+      document.getElementById("reopen-done").focus();
+      return;
+    }
+    if (!f.open) {
+      area.innerHTML = '<p class="mask-note" style="margin-top:10px">The citizen gave no email, so they can\'t reopen it from the status page. If they ask (for example by phone), you can reopen it for them.</p>' +
+        '<button type="button" class="small" id="reopen-open">Reopen for the citizen</button>';
+      document.getElementById("reopen-open").addEventListener("click", () => { f.open = true; renderStaffReopen(caseId, f); document.getElementById("ro-reason").focus(); });
+      return;
+    }
+    const err = (k, key) => '<div id="ro-' + k + '-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(f.errors[key || k] || "") + '</div>';
+    const inv = (k) => f.errors[k] ? ' aria-invalid="true"' : '';
+    const lab = (id, t) => '<label for="' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:12px 0 5px">' + t + '</label>';
+    area.innerHTML =
+      lab("ro-reason", "What the citizen says") +
+      '<select id="ro-reason" aria-describedby="ro-reason-err"' + inv("reason") + '><option value="">Choose…</option>' +
+        Object.keys(REOPEN_REASONS).map((k) => '<option value="' + k + '"' + (f.reason === k ? ' selected' : '') + '>' + escapeHtml(REOPEN_REASONS[k]) + '</option>').join("") + '</select>' + err("reason") +
+      lab("ro-note", "What is still wrong, in the citizen's words (10 to 500 characters)") +
+      '<textarea id="ro-note" maxlength="500" style="width:100%;min-height:70px" aria-describedby="ro-note-err"' + inv("note") + '>' + escapeHtml(f.note) + '</textarea>' + err("note") +
+      lab("ro-staff", "How the citizen asked (for the record, e.g. phoned support on 2 Oct)") +
+      '<textarea id="ro-staff" maxlength="300" style="width:100%;min-height:50px" aria-describedby="ro-staff-err"' + inv("staffReason") + '>' + escapeHtml(f.staffReason) + '</textarea>' + err("staff", "staffReason") +
+      '<div role="alert" id="ro-err" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:6px">' + escapeHtml(f.errors.form || "") + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="primary small" id="ro-go"' + (f.busy ? ' disabled' : '') + '>Reopen case</button><button type="button" class="small" id="ro-cancel">Cancel</button></div>' +
+      '<div class="mask-note">It goes one level up with a fresh time limit. Your name, the time and these details are recorded.</div>';
+    const read = () => { f.reason = document.getElementById("ro-reason").value; f.note = document.getElementById("ro-note").value; f.staffReason = document.getElementById("ro-staff").value; };
+    document.getElementById("ro-cancel").addEventListener("click", () => { f.open = false; f.errors = {}; renderStaffReopen(caseId, f); document.getElementById("reopen-open").focus(); });
+    document.getElementById("ro-go").addEventListener("click", async () => {
+      read();
+      f.errors = {};
+      if (!f.reason) f.errors.reason = "Choose what the citizen says.";
+      if (f.note.trim().length < 10 || f.note.trim().length > 500) f.errors.note = "Write 10 to 500 characters.";
+      if (f.staffReason.trim().length < 10) f.errors.staffReason = "Write at least 10 characters.";
+      const first = f.errors.reason ? "ro-reason" : f.errors.note ? "ro-note" : f.errors.staffReason ? "ro-staff" : null;
+      if (first) { renderStaffReopen(caseId, f); document.getElementById(first).focus(); return; }
+      f.busy = true; renderStaffReopen(caseId, f);
+      try {
+        const res = await fetch("/api/admin/cases", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reopen", id: caseId, reason: f.reason, note: f.note.trim(), staffReason: f.staffReason.trim() }) });
+        const b = await res.json().catch(() => ({}));
+        f.busy = false;
+        if (!res.ok) {
+          const fl = b.fields || {};
+          if (fl.reason) f.errors.reason = "Choose what the citizen says.";
+          if (fl.note) f.errors.note = "Write 10 to 500 characters.";
+          if (fl.staffReason) f.errors.staffReason = "Write at least 10 characters.";
+          if (!fl.reason && !fl.note && !fl.staffReason) f.errors.form = b.error === "INSUFFICIENT_ROLE" ? "Your role can't reopen cases." : (b.error || "Could not reopen the case.");
+          renderStaffReopen(caseId, f);
+          return;
+        }
+        f.done = "Case reopened and sent to " + (TIER_NAMES[b.toTier] || b.toLabel || b.toTier) + (b.atTop ? " (it was already at the top level, so it stays there and shows in Exceptions)." : ".") + " Reloading…";
+        renderStaffReopen(caseId, f);
+        setTimeout(() => initDetail(caseId), 1200);
+      } catch (e) { f.busy = false; f.errors.form = "Could not reach the server."; renderStaffReopen(caseId, f); }
+    });
   }
 
   // "Show full number" (Super admin / Operations admin): reason required,

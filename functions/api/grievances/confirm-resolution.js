@@ -51,9 +51,9 @@ export async function onRequestPost({ request, env }) {
     const now = new Date().toISOString();
     await env.DB.prepare(
       `UPDATE grievances
-       SET status = 'RESOLVED', citizen_confirmed = 1, citizen_confirmed_at = ?, updated_at = ?
+       SET status = 'RESOLVED', citizen_confirmed = 1, citizen_confirmed_at = ?, updated_at = ?, closed_at = ?
        WHERE id = ?`
-    ).bind(now, now, grievance.id).run();
+    ).bind(now, now, now, grievance.id).run();
 
     await env.DB.prepare(
       `INSERT INTO grievance_events (id, grievance_id, event_type, actor, created_at)

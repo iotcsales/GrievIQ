@@ -62,11 +62,15 @@ export function awaitingStaffCheck(g) {
   return !!g && g.status === "PENDING_CONFIRMATION" && (g.citizen_email == null || String(g.citizen_email).trim() === "");
 }
 
+// Closes every case whose confirmation time has run out, recording when it
+// closed (closed_at, item 7d: the end of the waiting time).
 export async function settleOverdueConfirmations(env) {
   try {
     await env.DB.prepare(
       `UPDATE grievances
        SET status = 'RESOLVED', updated_at = ?,
+           -- Item 7d: when it closed (the end of the waiting time).
+           closed_at = datetime(REPLACE(REPLACE(resolved_at, 'T', ' '), 'Z', ''), '+${CONFIRM_DAYS} days'),
            closure_kind = CASE WHEN COALESCE(TRIM(citizen_email), '') = '' THEN 'STAFF_NOT_CHECKED' ELSE closure_kind END
        WHERE status = 'PENDING_CONFIRMATION'
          AND resolved_at IS NOT NULL

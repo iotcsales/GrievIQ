@@ -26,6 +26,10 @@
 //    current, none turns red and no deadline is shown; confirmBy says when
 //    the case closes if the citizen doesn't reply (_shared/confirmation.js).
 //
+// Reopened cases (item 7d): the clock starts at the reopening, at the
+// level the case was sent to (result.clockStartMs / result.startIndex from
+// computeEscalation). Levels below that start were skipped, not late.
+//
 // `result` is the output of computeEscalation() for the same case.
 
 import { confirmDeadline } from "./confirmation.js";
@@ -45,7 +49,9 @@ export function toUtcMs(value) {
 export function timeLimitStatus(grievance, category, chainTiers, result) {
   const awaitingCitizen = grievance.status === "PENDING_CONFIRMATION";
   const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED" && !awaitingCitizen;
-  const createdMs = toUtcMs(grievance.created_at);
+  const createdMs = result && result.clockStartMs != null && !isNaN(result.clockStartMs) ? result.clockStartMs : toUtcMs(grievance.created_at);
+  const startIndex = result && result.startIndex ? result.startIndex : 0;
+  const clockHours = result && result.clockHours != null ? result.clockHours : result.elapsedHours;
   const slaHours = category.resolution_sla_hours || null;
   const lastIndex = chainTiers.length - 1;
 
@@ -57,19 +63,19 @@ export function timeLimitStatus(grievance, category, chainTiers, result) {
   // own time has run out (resolution limit x number of levels).
   const lastLevelOverdue = Boolean(isUnresolved && slaHours &&
     result.currentTierIndex === lastIndex &&
-    result.elapsedHours >= slaHours * chainTiers.length);
+    clockHours >= slaHours * (chainTiers.length - startIndex));
 
   const tiers = chainTiers.map((t, i) => {
     const isCurrent = i === result.currentTierIndex;
     return {
       current: isCurrent && isUnresolved,
       slaBreached: isUnresolved && (
-        i < result.currentTierIndex ||
+        (i >= startIndex && i < result.currentTierIndex) ||
         (isCurrent && result.ackOverdue) ||
         (isCurrent && lastLevelOverdue)
       ),
       dueAt: isCurrent && isUnresolved && slaHours && !isNaN(createdMs)
-        ? new Date(createdMs + slaHours * (i + 1) * HOUR).toISOString()
+        ? new Date(createdMs + slaHours * (i - startIndex + 1) * HOUR).toISOString()
         : null,
     };
   });

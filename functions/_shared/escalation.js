@@ -14,25 +14,50 @@
 // Categories with no resolution SLA (e.g. land disputes) never
 // auto-escalate on this clock — see needsLegalReview below instead.
 
+//
+// Reopened cases (item 7d): once a citizen reopens a resolved case, it
+// moves up one level from where it was resolved (reopen_start_tier) and a
+// fresh clock starts at reopened_at. From there it escalates one level per
+// resolution limit as usual, and the acknowledgement clock also starts
+// again (acknowledged_at is cleared on reopening). elapsedHours stays the
+// total age of the case since filing; clockHours is the time on the clock
+// that drives escalation.
+
+import { toUtcMs } from "./time-limits.js";
+
+// Where the escalation clock starts: filing at the first level, or (for a
+// reopened case) the reopening at the level it was sent to.
+export function clockStart(grievance, chainTiers) {
+  if (grievance.reopened_at && grievance.reopen_start_tier) {
+    const ms = toUtcMs(grievance.reopened_at);
+    const index = chainTiers.findIndex((t) => t.tier === grievance.reopen_start_tier);
+    if (!isNaN(ms)) return { ms, index: Math.max(0, index), reopened: true };
+  }
+  return { ms: toUtcMs(grievance.created_at), index: 0, reopened: false };
+}
+
 export function computeEscalation(grievance, category, chainTiers) {
-  const createdAtMs = new Date(grievance.created_at.replace(" ", "T") + "Z").getTime();
+  const createdAtMs = toUtcMs(grievance.created_at);
   const nowMs = Date.now();
   const elapsedHours = (nowMs - createdAtMs) / (1000 * 60 * 60);
+  const start = clockStart(grievance, chainTiers);
+  const clockHours = (nowMs - start.ms) / (1000 * 60 * 60);
+  const base = { elapsedHours, clockHours, clockStartMs: start.ms, startIndex: start.index, reopened: start.reopened };
 
   // Clock A: acknowledgment overdue check — independent of tier escalation.
   const ackOverdue =
-    !grievance.acknowledged_at && elapsedHours >= category.ack_sla_hours;
+    !grievance.acknowledged_at && clockHours >= category.ack_sla_hours;
 
   // Categories with no resolution SLA (e.g. land disputes) don't
   // auto-escalate — they're flagged for manual/legal review instead of
   // being pushed up the chain on a clock that doesn't fairly apply.
   if (!category.resolution_sla_hours) {
     return {
-      currentTierIndex: 0,
-      currentTier: chainTiers[0],
+      ...base,
+      currentTierIndex: start.index,
+      currentTier: chainTiers[start.index],
       ackOverdue,
       needsLegalReview: true,
-      elapsedHours,
     };
   }
 
@@ -49,27 +74,28 @@ export function computeEscalation(grievance, category, chainTiers) {
       chainTiers.findIndex((t) => t.tier === grievance.current_tier)
     );
     return {
+      ...base,
       currentTierIndex: frozenIndex,
       currentTier: chainTiers[frozenIndex],
       ackOverdue: false,
       needsLegalReview: false,
-      elapsedHours,
     };
   }
 
-  let tierIndex = 0;
-  for (let i = 1; i < chainTiers.length; i++) {
-    if (elapsedHours >= category.resolution_sla_hours * i) {
+  // One level up per full resolution limit on the clock, from its start level.
+  let tierIndex = start.index;
+  for (let i = start.index + 1; i < chainTiers.length; i++) {
+    if (clockHours >= category.resolution_sla_hours * (i - start.index)) {
       tierIndex = i;
     }
   }
 
   return {
+    ...base,
     currentTierIndex: tierIndex,
     currentTier: chainTiers[tierIndex],
     ackOverdue,
     needsLegalReview: false,
-    elapsedHours,
   };
 }
 

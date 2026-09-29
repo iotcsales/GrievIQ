@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=7c"></script>
+<script src="/i18n.js?v=7d"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -713,6 +713,22 @@ function renderDisputeNote(c) {
   return '<div class="dispute-note"><b>' + esc(label) + '</b>' + when + note + '</div>';
 }
 
+// Item 7d: the case was reopened after it closed -- why, when, which level
+// it went to, and what the previous resolution report said.
+function renderReopenNote(c) {
+  var r = c.reopen;
+  if (!r) return '';
+  var open = c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.status !== 'PENDING_CONFIRMATION';
+  var who = T(r.by === 'staff' ? 'rep.reopened_staff' : 'rep.reopened_citizen');
+  var html = '<div class="dispute-note"><b>' + esc(who) + '</b> <span class="muted-inline">(' + formatDate(r.at) + ' &middot; ' +
+    esc(T('rep.reopened_to', { level: tierLabel(r.toTier) })) + ')</span><br>' +
+    esc(T(DISPUTE_REASON_KEYS[r.reason] || 'rep.d_other')) + ' &mdash; "' + esc(r.note) + '"';
+  if (open && c.resolution && c.resolution.note) {
+    html += '<br><span class="muted-inline">' + esc(T('rep.reopened_prev')) + '</span> ' + esc(c.resolution.note);
+  }
+  return html + '</div>';
+}
+
 // Item 7b-2: GrievIQ checked the fix (citizen had no email) and found it
 // not fixed -- shown while the reopened case is still open.
 function renderStaffCheckNote(c) {
@@ -854,6 +870,10 @@ function renderAcknowledgeControl(c) {
     return '<span class="badge acknowledged">' + esc(T('rep.badge_ack', { date: formatDate(c.acknowledgedAt) })) + '</span>';
   }
   var overdueNote = c.ackOverdue ? ' <span class="badge escalated">' + esc(T('rep.badge_ack_overdue')) + '</span>' : '';
+  // Item 7d: a reopened case is acknowledged by the level now responsible.
+  if (c.reopen && c.hasEscalatedPastMyTier) {
+    return '<span class="badge pending">' + esc(T('rep.ack_waiting_higher', { level: tierLabel(c.currentTopTier) })) + '</span>' + overdueNote;
+  }
   return '<button type="button" class="resolve-btn ack-btn" data-id="' + esc(c.id) + '">' + esc(T('rep.acknowledge')) + '</button>' +
     '<div class="resolve-error ack-error" id="ack-error-' + esc(c.id) + '" role="alert"></div>' + overdueNote;
 }
@@ -888,6 +908,10 @@ function renderCase(c) {
   } else if (c.hasEscalatedPastMyTier) {
     badge = '<span class="badge escalated">' + esc(T('rep.badge_now_with', { level: tierLabel(c.currentTopTier) })) + '</span>';
   }
+  // Item 7d: reopened and not yet resolved again.
+  if (c.reopen && c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.status !== 'PENDING_CONFIRMATION') {
+    badge += ' <span class="badge escalated">' + esc(T('rep.badge_reopened')) + '</span>';
+  }
   var locationLine = c.locationDetail
     ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
     : '';
@@ -902,7 +926,7 @@ function renderCase(c) {
       renderPhotoThumbs(c.photos) +
       badge +
       renderResolution(c) +
-      renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
+      renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
       renderFollowupControl(c) +
       renderAcknowledgeControl(c) +
       renderResolveControl(c) +
@@ -1424,7 +1448,7 @@ function attachAcknowledgeHandlers() {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/acknowledge', { method: 'POST' });
         var data = await res.json();
         if (!res.ok || data.error) {
-          errorEl.textContent = errText(data.error);
+          errorEl.textContent = data.code === 'HIGHER_LEVEL' ? T('rep.ack_higher') : errText(data.error);
           btn.disabled = false;
           btn.textContent = T('rep.acknowledge');
           return;

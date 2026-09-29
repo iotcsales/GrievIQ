@@ -38,6 +38,9 @@ export const PERMISSIONS = {
   // Item 7c: photo storage -- moving old public photos to private storage
   // and running the retention clean-up by hand.
   manage_photos: ["super_admin"],
+  // Item 7d: reopen a resolved case for a citizen who gave no email (and so
+  // can't use the status page), e.g. after they phone support. Logged.
+  reopen_cases: ["super_admin", "operations_admin"],
 };
 
 /**

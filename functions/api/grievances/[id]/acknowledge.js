@@ -9,9 +9,14 @@
 //
 // No citizen email is sent here -- unlike mark-resolved.js, acknowledging
 // is an internal/rep-side signal with no citizen-facing consequence.
+//
+// Item 7d: a reopened case needs a fresh acknowledgement from the level now
+// responsible (the level it was sent to, or higher if it has escalated
+// since). A lower level can still see it, but can't acknowledge it.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
-import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
+import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
+import { computeEscalation } from "../../../_shared/escalation.js";
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -37,15 +42,30 @@ export async function onRequestPost(context) {
   // Confirm this rep actually has jurisdiction over this case's local unit --
   // same check grievances.js and mark-resolved.js use to decide visibility.
   let hasAccess = false;
+  const myTiers = [];
   for (const mandate of auth.mandates) {
     const unitIds = await getLocalUnitIdsForMandate(env, mandate);
     if (unitIds.includes(grievance.local_unit_id)) {
       hasAccess = true;
-      break;
+      myTiers.push(mandate.tier);
     }
   }
   if (!hasAccess) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
+  }
+
+  if (grievance.reopened_at) {
+    const [chain, category] = await Promise.all([
+      resolveChain(env, grievance.local_unit_id),
+      env.DB.prepare("SELECT * FROM grievance_categories WHERE id = ?").bind(grievance.category_id).first(),
+    ]);
+    if (chain && category) {
+      const current = computeEscalation(grievance, category, chain.tiers).currentTierIndex;
+      const mine = Math.max(...myTiers.map((t) => chain.tiers.findIndex((x) => x.tier === t)));
+      if (mine < current) {
+        return Response.json({ error: "This case was reopened and is now with a higher level, which needs to acknowledge it.", code: "HIGHER_LEVEL" }, { status: 403 });
+      }
+    }
   }
 
   const now = new Date().toISOString();

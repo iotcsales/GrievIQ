@@ -283,6 +283,15 @@
     border-radius: 11px; resize: vertical; min-height: 60px; margin-bottom: 4px;
   }
   .confirm-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 12px; }
+  .reopen-reasons { border: 0; padding: 0; margin: 14px 0 4px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .reopen-reasons legend { font-size: 13.5px; font-weight: 700; margin-bottom: 8px; padding: 0; }
+  .reason-radio { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 100px; font-size: 12.5px; cursor: pointer; background: var(--card); }
+  .reason-radio:has(input:checked) { border-color: var(--teal); color: var(--teal-dark); font-weight: 700; }
+  .reason-radio input { accent-color: var(--teal); margin: 0; }
+  .reopen-label { display: block; font-size: 13.5px; font-weight: 700; margin-top: 12px; }
+  textarea#reopen-note { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 90px; margin-top: 6px; }
+  textarea#reopen-note[aria-invalid="true"] { border-color: var(--brick); }
+  .field-err { color: var(--brick); font-size: 12.5px; font-weight: 600; margin-top: 4px; min-height: 0; }
 
   .footer-actions { margin-top: 28px; text-align: center; }
 
@@ -340,7 +349,7 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js?v=7c"></script>
+<script src="/i18n.js?v=7d"></script>
 </head>
 <body>
 <div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -447,6 +456,36 @@
           <button type="button" class="primary" id="btn-dispute-submit" data-i18n="status.submit">Submit</button>
         </div>
       </div>
+    </div>
+
+    <!-- Item 7d: reopen a resolved case (once, within 30 days of closing). -->
+    <div id="reopen-card" class="confirm-card" style="display:none;">
+      <h2 class="section-title" id="reopen-title"></h2>
+      <p class="section-note" id="reopen-lede"></p>
+      <div id="reopen-error"></div>
+      <p class="confirm-note" id="reopen-done" role="status" style="display:none;"></p>
+      <div class="confirm-actions" id="reopen-actions">
+        <button type="button" class="secondary" id="btn-reopen" data-i18n="status.reopen_btn">Reopen this case</button>
+      </div>
+      <form id="reopen-form" style="display:none;" novalidate>
+        <fieldset class="reopen-reasons" aria-describedby="reopen-reason-err">
+          <legend data-i18n="status.reopen_why">Why are you reopening it?</legend>
+          <label class="reason-radio"><input type="radio" name="reopen-reason" value="NOT_FIXED"> <span data-i18n="status.r_not_fixed">Not fixed at all</span></label>
+          <label class="reason-radio"><input type="radio" name="reopen-reason" value="PARTIALLY_FIXED"> <span data-i18n="status.r_partial">Partially fixed</span></label>
+          <label class="reason-radio"><input type="radio" name="reopen-reason" value="CAME_BACK"> <span data-i18n="status.r_came_back">Fixed, but came back</span></label>
+          <label class="reason-radio"><input type="radio" name="reopen-reason" value="WRONG_ISSUE"> <span data-i18n="status.r_wrong">Wrong issue fixed</span></label>
+          <label class="reason-radio"><input type="radio" name="reopen-reason" value="OTHER"> <span data-i18n="status.r_other">Other</span></label>
+        </fieldset>
+        <div class="field-err" id="reopen-reason-err" role="alert"></div>
+        <label for="reopen-note" class="reopen-label" data-i18n="status.reopen_note">What is still wrong?</label>
+        <p class="confirm-note" id="reopen-note-hint" data-i18n="status.reopen_note_hint">10 to 500 characters. This goes to the representative at the next level.</p>
+        <textarea id="reopen-note" maxlength="500" aria-describedby="reopen-note-hint reopen-note-err"></textarea>
+        <div class="field-err" id="reopen-note-err" role="alert"></div>
+        <div class="confirm-actions">
+          <button type="submit" class="primary" id="btn-reopen-submit" data-i18n="status.reopen_submit">Reopen case</button>
+          <button type="button" class="secondary" id="btn-reopen-cancel" data-i18n="status.reopen_cancel">Cancel</button>
+        </div>
+      </form>
     </div>
 
     <h2 class="section-title" data-i18n="status.where_title">Where this case stands</h2>
@@ -775,6 +814,7 @@
       c.status === 'PENDING_CONFIRMATION' && c.confirmBy ? GIQ.t('status.confirm_by', { date: formatDue(c.confirmBy) }) : '';
 
     renderResolution(c);
+    renderReopen(c);
 
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
@@ -906,6 +946,127 @@
     if (diffDays === 1) return GIQ.t('status.yesterday');
     return GIQ.t('status.on_date', { date: d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short', year: 'numeric' }) });
   }
+
+  // --- Reopen a resolved case (item 7d) ---
+  const reopenCard = document.getElementById('reopen-card');
+  const reopenForm = document.getElementById('reopen-form');
+  const reopenActions = document.getElementById('reopen-actions');
+  const reopenDone = document.getElementById('reopen-done');
+  const reopenNote = document.getElementById('reopen-note');
+  const btnReopenSubmit = document.getElementById('btn-reopen-submit');
+  const dayOnly = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short', year: 'numeric' }); };
+  function setFieldErr(id, msg, input) {
+    document.getElementById(id).textContent = msg || '';
+    if (input) { if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid'); }
+  }
+  function renderReopen(c) {
+    const st = c.reopenStatus || {};
+    const resolved = c.status === 'RESOLVED' || c.status === 'CLOSED';
+    const title = document.getElementById('reopen-title'), lede = document.getElementById('reopen-lede');
+    reopenForm.style.display = 'none';
+    reopenDone.style.display = 'none';
+    renderError(document.getElementById('reopen-error'), '');
+    setFieldErr('reopen-reason-err', ''); setFieldErr('reopen-note-err', '', reopenNote);
+    // Already reopened: say so (while open, and after it closes again).
+    if (c.reopen) {
+      reopenCard.style.display = 'block';
+      reopenActions.style.display = 'none';
+      title.textContent = GIQ.t('status.reopened_title');
+      lede.textContent = GIQ.t(c.reopen.by === 'staff' ? 'status.reopened_by_staff' : 'status.reopened_by_you', { date: dayOnly(c.reopen.at), level: GIQ.level(levelLabel(c, c.reopen.toTier)) }) +
+        (resolved ? ' ' + GIQ.t('status.reopen_used') : '');
+      return;
+    }
+    if (!resolved || !st.can) {
+      reopenCard.style.display = resolved && st.code === 'TOO_LATE' ? 'block' : 'none';
+      reopenActions.style.display = 'none';
+      title.textContent = GIQ.t('status.reopen_title');
+      lede.textContent = GIQ.t('status.reopen_too_late');
+      return;
+    }
+    reopenCard.style.display = 'block';
+    reopenActions.style.display = 'flex';
+    title.textContent = GIQ.t('status.reopen_title');
+    lede.textContent = GIQ.t('status.reopen_lede', { date: dayOnly(st.until) });
+    document.getElementById('btn-reopen').disabled = false;
+    btnReopenSubmit.disabled = false;
+    btnReopenSubmit.textContent = GIQ.t('status.reopen_submit');
+  }
+  // English label of a level in this case's chain, for GIQ.level().
+  function levelLabel(c, tier) {
+    const t = (c.tiers || []).find(x => x.tier === tier);
+    return t ? t.label : tier;
+  }
+  document.getElementById('btn-reopen').addEventListener('click', () => {
+    reopenActions.style.display = 'none';
+    reopenForm.style.display = 'block';
+    const first = reopenForm.querySelector('input[name="reopen-reason"]');
+    if (first) first.focus();
+  });
+  document.getElementById('btn-reopen-cancel').addEventListener('click', () => {
+    reopenForm.reset();
+    reopenForm.style.display = 'none';
+    reopenActions.style.display = 'flex';
+    setFieldErr('reopen-reason-err', ''); setFieldErr('reopen-note-err', '', reopenNote);
+    document.getElementById('btn-reopen').focus();
+  });
+  reopenForm.addEventListener('change', (e) => { if (e.target.name === 'reopen-reason') setFieldErr('reopen-reason-err', ''); });
+  reopenNote.addEventListener('input', () => setFieldErr('reopen-note-err', '', reopenNote));
+  reopenForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    renderError(document.getElementById('reopen-error'), '');
+    const checked = reopenForm.querySelector('input[name="reopen-reason"]:checked');
+    const note = reopenNote.value.trim();
+    let bad = null;
+    if (!checked) { setFieldErr('reopen-reason-err', GIQ.t('status.reopen_err_reason')); bad = bad || reopenForm.querySelector('input[name="reopen-reason"]'); }
+    if (note.length < 10 || note.length > 500) { setFieldErr('reopen-note-err', GIQ.t('status.reopen_err_note'), reopenNote); bad = bad || reopenNote; }
+    if (bad) { bad.focus(); return; }
+    btnReopenSubmit.disabled = true;
+    btnReopenSubmit.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.submitting'));
+    try {
+      const res = await fetch(API_BASE + '/api/grievances/reopen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, reason: checked.value, note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        if (data.fields && data.fields.note) setFieldErr('reopen-note-err', GIQ.t('status.reopen_err_note'), reopenNote);
+        else if (data.fields && data.fields.reason) setFieldErr('reopen-reason-err', GIQ.t('status.reopen_err_reason'));
+        else renderError(document.getElementById('reopen-error'), res.status === 401 ? GIQ.t('status.verify_again')
+          : data.code === 'ALREADY_REOPENED' ? GIQ.t('status.reopen_used') : data.code === 'TOO_LATE' ? GIQ.t('status.reopen_too_late')
+          : (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error'));
+        btnReopenSubmit.disabled = false;
+        btnReopenSubmit.textContent = GIQ.t('status.reopen_submit');
+        return;
+      }
+      reopenForm.style.display = 'none';
+      updateCachedStatus(state.trackingRef, 'OPEN');
+      // Show the case as it is now (reopened, new level, new deadlines),
+      // using the still-valid verification; then the confirmation.
+      try {
+        const again = await fetch(API_BASE + '/api/otp/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, open: true }),
+        });
+        const fresh = await again.json().catch(() => ({}));
+        if (again.ok && fresh.case) { lastCase = fresh.case; renderStatus(lastCase); }
+      } catch (e2) { /* keep the page as it is */ }
+      document.getElementById('reopen-lede').textContent = '';
+      reopenCard.style.display = 'block';
+      reopenDone.textContent = GIQ.t(data.atTop ? 'status.reopen_done_top' : 'status.reopen_done', { level: GIQ.level(data.toLabel || '') });
+      reopenDone.style.display = 'block';
+      reopenDone.setAttribute('tabindex', '-1');
+      reopenDone.focus();
+      updateCachedStatus(state.trackingRef, 'OPEN');
+      const pill = document.getElementById('status-pill');
+      pill.textContent = statusLabel('OPEN'); if (lastCase) { lastCase.status = 'OPEN'; lastCase.reopen = { at: new Date().toISOString(), by: 'citizen', toTier: data.toTier }; lastCase.reopenStatus = { can: false, code: 'NOT_CLOSED' }; }
+      pill.className = 'status-pill';
+    } catch (err) {
+      renderError(document.getElementById('reopen-error'), GIQ.t('common.network_error'));
+      btnReopenSubmit.disabled = false;
+      btnReopenSubmit.textContent = GIQ.t('status.reopen_submit');
+    }
+  });
 
   // --- Confirm / dispute resolution ---
   const confirmCard = document.getElementById('confirm-card');

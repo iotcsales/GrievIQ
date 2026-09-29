@@ -15,8 +15,8 @@
 // one-year minimum in DPDP Rules 2025 r.8(3)):
 //   - Open, waiting or reopened cases: everything is kept.
 //   - Full-size photos are removed 1 year after the case finally closes.
-//     Final closure is at most CONFIRM_DAYS after resolved_at, so the clock
-//     counts 1 year + CONFIRM_DAYS from resolved_at (never early).
+//     Final closure is closed_at (item 7d); for cases closed before that
+//     column existed, resolved_at + CONFIRM_DAYS (never early).
 //   - Small previews stay as light evidence until the record's own
 //     retention ends: 3 years from filing or 1 year after resolution,
 //     whichever is later. Then they are removed too.
@@ -41,7 +41,7 @@ import { CONFIRM_DAYS } from "./confirmation.js";
 
 export const FULL_MAX_BYTES = 3 * 1024 * 1024;   // a 1600 px photo is usually 150-600 KB
 export const THUMB_MAX_BYTES = 300 * 1024;       // a 320 px preview is usually 10-40 KB
-export const FULL_KEEP_DAYS = 365 + CONFIRM_DAYS;
+export const FULL_KEEP_DAYS = 365;
 export const RECORD_KEEP_YEARS = 3;
 export const ORPHAN_HOURS = 48;
 export const PURGE_BATCH = 50;
@@ -126,7 +126,9 @@ export function stripJpegMetadata(input) {
 // are compared in the second shape.
 const norm = (col) => `REPLACE(REPLACE(${col}, 'T', ' '), 'Z', '')`;
 const CLOSED = `g.status IN ('RESOLVED', 'CLOSED') AND COALESCE(g.photo_hold, 0) = 0`;
-const CLOSED_AT = norm("COALESCE(g.resolved_at, g.updated_at, g.created_at)");
+// When the case finally closed: closed_at (item 7d); for cases closed
+// before it existed, resolved_at + CONFIRM_DAYS (never early).
+const CLOSED_AT = `(CASE WHEN g.closed_at IS NOT NULL THEN ${norm("g.closed_at")} ELSE datetime(${norm("COALESCE(g.resolved_at, g.updated_at, g.created_at)")}, '+${CONFIRM_DAYS} days') END)`;
 const FULL_DUE = `${CLOSED} AND ${CLOSED_AT} < datetime('now', '-${FULL_KEEP_DAYS} days')`;
 const RECORD_OVER = `${norm("g.created_at")} < datetime('now', '-${RECORD_KEEP_YEARS} years')`;
 const ALL_DUE = `${FULL_DUE} AND ${RECORD_OVER}`;
