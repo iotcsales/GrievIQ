@@ -28,18 +28,13 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { settleOverdueConfirmations, confirmDeadline } from "../../_shared/confirmation.js";
 import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolution-evidence.js";
-import { photoLink } from "../../_shared/photo-links.js";
+import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
 
 const NOTE_MAX = 500;
 const REASON_MIN = 10;
 
 function can(role, permission) { return (PERMISSIONS[permission] || []).includes(role); }
 
-function beforePhotos(v) {
-  if (!v) return [];
-  try { const a = JSON.parse(v); if (Array.isArray(a)) return a.filter((u) => typeof u === "string" && /^https:\/\//.test(u)).slice(0, 3); } catch (e) { /* single URL */ }
-  return /^https:\/\//.test(String(v)) ? [String(v)] : [];
-}
 
 function maskPhone(p) {
   const d = String(p || "").replace(/\D/g, "");
@@ -96,7 +91,7 @@ export async function onRequestGet({ request, env }) {
        WHERE grievance_id = ? ORDER BY checked_at ASC`
     ).bind(g.id).all();
     const resolution = loaded.report
-      ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), () => null,
+      ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (p) => photoMedia(env, p, "r"), () => null,
           chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null)
       : null;
     cases.push({
@@ -107,7 +102,7 @@ export async function onRequestGet({ request, env }) {
       description: g.description || "",
       locationDetail: g.location_detail || "",
       pin: g.pin_lat != null && g.pin_lng != null ? { lat: Number(g.pin_lat), lng: Number(g.pin_lng) } : null,
-      beforePhotos: beforePhotos(g.photo_url),
+      beforePhotos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id)),
       createdAt: g.created_at,
       markedResolvedAt: g.resolved_at,
       closesAt: confirmDeadline(g.resolved_at),

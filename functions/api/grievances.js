@@ -19,7 +19,7 @@ import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "../_shared/confirmation.js";
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
-import { photoLink } from "../_shared/photo-links.js";
+import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -68,6 +68,8 @@ export async function onRequestGet(context) {
   const photosByReport = new Map();
   // Latest GrievIQ staff check per case (item 7b-2).
   const checkByGrievance = new Map();
+  // The citizen's private photos per case (item 7c).
+  const complaintPhotosByGrievance = new Map();
   const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
@@ -95,12 +97,17 @@ export async function onRequestGet(context) {
         `SELECT rc.grievance_id, rc.method, rc.outcome, rc.note, rc.checked_at, rc.rowid AS check_rowid FROM resolution_checks rc
          JOIN grievances g ON g.id = rc.grievance_id ${s.join}
          WHERE ${s.where}`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT cp.* FROM complaint_photos cp
+         JOIN grievances g ON g.id = cp.grievance_id ${s.join}
+         WHERE ${s.where}`
       ).bind(...s.binds)
     );
   }
   const batch = await env.DB.batch(stmts);
   const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
-  for (let i = 1; i < batch.length; i += 5) {
+  for (let i = 1; i < batch.length; i += 6) {
     for (const g of batch[i].results || []) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
@@ -123,6 +130,11 @@ export async function onRequestGet(context) {
       if (!prev || k.checked_at > prev.checked_at || (k.checked_at === prev.checked_at && k.check_rowid > prev.check_rowid)) {
         checkByGrievance.set(k.grievance_id, k);
       }
+    }
+    for (const cp of batch[i + 5].results || []) {
+      if (!complaintPhotosByGrievance.has(cp.grievance_id)) complaintPhotosByGrievance.set(cp.grievance_id, []);
+      const list = complaintPhotosByGrievance.get(cp.grievance_id);
+      if (!list.some((x) => x.id === cp.id)) list.push(cp);
     }
   }
 
@@ -183,22 +195,13 @@ export async function onRequestGet(context) {
     const followupEvents = grievanceEvents.filter((e) => e.event_type === 'FOLLOW_UP');
     const latestFollowup = followupEvents.length ? followupEvents[followupEvents.length - 1] : null;
 
-    // photo_url is stored as a JSON array string (see
-    // functions/api/grievances/submit.js) — parse defensively since it
-    // may be null for older test rows or malformed if ever hand-edited.
-    let photoUrls = [];
-    if (grievance.photo_url) {
-      try {
-        const parsed = JSON.parse(grievance.photo_url);
-        if (Array.isArray(parsed)) photoUrls = parsed;
-      } catch {
-        photoUrls = [];
-      }
-    }
+    // The citizen's photos (item 7c): private, with a preview for the list,
+    // plus any old public links not moved yet.
+    const photos = await complaintPhotoList(env, grievance, complaintPhotosByGrievance.get(grievance.id));
 
     const report = reportByGrievance.get(grievance.id) || null;
     const resolution = report
-      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (pid) => photoLink(env, pid), null, parseWard(chain.localUnit.ward_boundary_geojson))
+      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
       : null;
 
     visible.push({
@@ -211,7 +214,7 @@ export async function onRequestGet(context) {
       pin: grievance.pin_lat != null && grievance.pin_lng != null
         ? { lat: Number(grievance.pin_lat), lng: Number(grievance.pin_lng) }
         : null,
-      photoUrls,
+      photos,
       status: grievance.status,
       localUnit: {
         id: chain.localUnit.id,

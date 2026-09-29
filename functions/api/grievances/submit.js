@@ -12,6 +12,11 @@
 //    is dropped, so a wrong spot is never saved. Shown to representatives
 //    only, never publicly.
 //  - Tracking numbers come from the cryptographic random generator.
+//
+// Item 7c: photos are uploaded privately first (upload-photo.js) and sent
+// here as photo_ids (at most 3). They are attached to the new complaint
+// only if they are not already attached to another. photo_url is no longer
+// written (it held public links before 7c).
 
 import { pointInGeometry } from "../../_shared/geo.js";
 
@@ -83,7 +88,7 @@ export async function onRequestPost({ request, env }) {
     citizen_phone,
     location_detail, // optional free-text landmark/address detail
     citizen_email, // optional — needed for status-update emails and confirm/dispute
-    photo_urls, // optional array — set by prior calls to /api/grievances/upload-photo
+    photo_ids, // optional array — ids from prior calls to /api/grievances/upload-photo
     rep_suggestion, // optional { tier, name, phone } — citizen's unverified guess at a missing rep
     pin_lat, pin_lng, // optional: where the problem is, from a map pin, current location or address search
     lang, // "hi" or "en": the language the citizen used, for emails about this complaint
@@ -208,17 +213,15 @@ export async function onRequestPost({ request, env }) {
     const id = crypto.randomUUID();
     const normalizedPhone = citizen_phone.replace(/\D/g, "");
 
-    // Stored as a JSON array string in the photo_url column (avoids a schema
-    // migration for what is, for now, just a list of R2 URLs).
-    const photoUrlJson =
-      Array.isArray(photo_urls) && photo_urls.length > 0
-        ? JSON.stringify(photo_urls.slice(0, 3))
-        : null;
+    // Private photo ids from upload-photo.js (UUIDs only, at most 3).
+    const photoIds = Array.isArray(photo_ids)
+      ? Array.from(new Set(photo_ids.filter((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))).slice(0, 3)
+      : [];
 
     await env.DB.prepare(
       `INSERT INTO grievances
         (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', NULL, ?, ?, ?, ?, ?)`
     )
       .bind(
         id,
@@ -227,7 +230,6 @@ export async function onRequestPost({ request, env }) {
         description.trim(),
         category_id,
         local_unit_id,
-        photoUrlJson,
         (location_detail || "").trim() || null,
         trimmedEmail || null,
         lang === "hi" ? "hi" : "en",
@@ -235,6 +237,18 @@ export async function onRequestPost({ request, env }) {
         pin ? pin.lng : null
       )
       .run();
+
+    // Attach the photos (only ones not attached to anything yet). A failure
+    // here must not lose the complaint; unattached photos are cleaned up.
+    if (photoIds.length) {
+      try {
+        await env.DB.batch(photoIds.map((pid, i) => env.DB.prepare(
+          "UPDATE complaint_photos SET grievance_id = ?, position = ? WHERE id = ? AND grievance_id IS NULL"
+        ).bind(id, i, pid)));
+      } catch (photoErr) {
+        // Ignore -- the grievance is already saved.
+      }
+    }
 
     // Saving the suggestion must never block the complaint itself.
     if (suggestion) {

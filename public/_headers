@@ -2,3 +2,6 @@
 # (a stale copy showed raw keys like "rep.r_loc_ok" on an iPhone, Sept 2026).
 /i18n.js
   Cache-Control: no-cache
+
+/photo-tools.js
+  Cache-Control: no-cache

@@ -119,7 +119,7 @@ export function photoWarnings(g, p, ward) {
 }
 
 // Shapes a report + its photos for a page. audience: "staff" | "rep" | "citizen".
-// linkFor(photoId) -> Promise<string|null>. refFor(grievanceId) -> tracking ref (staff only).
+// linkFor(photo row) -> Promise<{ url, thumbUrl, removed, removedAt }> (photo-store.js photoMedia). refFor(grievanceId) -> tracking ref (staff only).
 export async function shapeResolution(g, report, photos, audience, linkFor, refFor, ward) {
   if (!report) return null;
   const shaped = [];
@@ -135,9 +135,15 @@ export async function shapeResolution(g, report, photos, audience, linkFor, refF
       }
       return c;
     });
+    // linkFor(row) gives { url, thumbUrl, removed, removedAt } (photo-store.js photoMedia).
+    const media = linkFor ? await linkFor(p) : null;
+    const m = media && typeof media === "object" ? media : { url: media || null, thumbUrl: media || null, removed: null, removedAt: null };
     shaped.push({
       id: p.id,
-      url: await linkFor(p.id),
+      url: m.url,
+      thumbUrl: m.thumbUrl || m.url,
+      removed: m.removed || null,
+      removedAt: m.removedAt || null,
       takenAt: p.taken_at || null,
       warnings,
     });

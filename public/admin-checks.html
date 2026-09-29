@@ -372,8 +372,8 @@
     const M = {
       DATE_BEFORE_FILING: () => "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")",
       DATE_FUTURE: () => "Photo date is in the future (" + dateTime(w.takenAt) + ")",
-      FAR_FROM_PIN: () => "Photo taken about " + dist(w.metres) + " from the complaint's pin",
-      DEVICE_FAR_FROM_PIN: () => "Representative added this photo about " + dist(w.metres) + " from the complaint's pin (phone accuracy ±" + w.accuracy + " m)",
+      FAR_FROM_PIN: () => "Photo taken about " + dist(w.metres) + " in a straight line from the complaint's pin",
+      DEVICE_FAR_FROM_PIN: () => "Representative added this photo about " + dist(w.metres) + " in a straight line from the complaint's pin (phone accuracy ±" + w.accuracy + " m)",
       DEVICE_OUTSIDE_WARD: () => "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)",
       PHOTO_OUTSIDE_WARD: () => "Photo's own location is outside the complaint's ward",
       REUSED_OTHER_CASE: () => (w.kind === "similar" ? "Very similar to a photo on another case" : "Same photo already used on another case"),
@@ -392,10 +392,16 @@
     if (!list || !list.length) return '<span class="muted">None.</span>';
     return '<div class="res-photos">' + list.map((p, i) => {
       const url = typeof p === "string" ? p : p.url;
+      const thumb = typeof p === "string" ? p : (p.thumbUrl || p.url);
       const warns = typeof p === "string" ? [] : (p.warnings || []);
+      // Item 7c: photos removed under the retention policy say so.
+      const removed = typeof p === "string" ? null : p.removed;
+      const removedText = removed === "ALL" ? "Photo removed under the retention policy on " + dateOnly(p.removedAt) + "."
+        : removed === "FULL" ? "Full-size photo removed under the retention policy on " + dateOnly(p.removedAt) + "; preview kept." : "Photo unavailable.";
       return '<div class="res-photo">' + (url
-        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Open ' + who + ' photo ' + (i + 1) + ' full size"><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(who + " photo " + (i + 1)) + '" loading="lazy" /></a>'
-        : '<span class="muted">Photo unavailable.</span>') +
+        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Open ' + who + ' photo ' + (i + 1) + (removed ? '' : ' full size') + '"><img src="' + escapeHtml(thumb) + '" alt="' + escapeHtml(who + " photo " + (i + 1)) + '" loading="lazy" /></a>' +
+          (removed ? '<div class="muted" style="font-size:12px;margin-top:3px">' + escapeHtml(removedText) + '</div>' : '')
+        : '<span class="muted">' + escapeHtml(removedText) + '</span>') +
         (warns.length ? '<ul class="ev">' + warns.map((w) => '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) + '</li>').join("") + '</ul>' : '') +
       '</div>';
     }).join("") + '</div>';

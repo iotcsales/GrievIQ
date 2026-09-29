@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title data-i18n="adm.ph_page_title">Photo storage — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=7c"></script><script src="/photo-tools.js?v=7c"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+    --admin-input: #11151c;
+    --admin-track: #2a313d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  header .service-tag { font-size: 12px; color: var(--admin-muted); font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .who-line { font-size: 12px; color: var(--admin-muted); text-align: right; line-height: 1.4; }
+  .who-line b { color: var(--admin-text); font-weight: 600; }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 1150px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  p.section-sub { color: var(--admin-muted); margin: 0 0 18px; font-size: 13px; line-height: 1.5; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--admin-accent); outline-offset: 2px;
+  }
+  select, input[type="text"], input[type="search"], textarea {
+    background: var(--admin-input);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select { min-width: 170px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+
+  /* Summary banner */
+  .banner { border-left: 4px solid var(--admin-warn); }
+  .banner.all-good { border-left-color: var(--admin-success); }
+  .banner .headline { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .banner .note { font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+  .banner .note-empty { color: var(--admin-muted); font-style: italic; }
+  .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Headline cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
+    padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
+  }
+  a.card:hover { border-color: var(--admin-accent); }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
+  .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
+  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+
+  /* Coverage bars */
+  .bar-group { margin-bottom: 22px; }
+  .bar-group:last-child { margin-bottom: 0; }
+  .bar-group h3 { font-size: 13px; font-weight: 600; color: var(--admin-muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-group .group-note { font-size: 13px; color: var(--admin-muted); }
+  .bar-row { margin-bottom: 12px; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .bar-top .name { font-weight: 600; }
+  .bar-top .frac { color: var(--admin-muted); white-space: nowrap; }
+  .bar-top .frac b { color: var(--admin-text); }
+  .bar-track { height: 10px; background: var(--admin-track); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--admin-accent); border-radius: 6px; }
+  .bar-fill.low { background: var(--admin-warn); }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor;
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .tag.complete { color: var(--admin-success); }
+  .tag.partial { color: var(--admin-accent); }
+  .tag.low { color: var(--admin-warn); }
+
+  /* Ward table */
+  .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: block; font-size: 13px; color: var(--admin-muted); margin-bottom: 6px; }
+  .filters .check label { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: var(--admin-text); font-size: 14px; cursor: pointer; }
+  .filters input[type="search"] { min-width: 220px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--admin-muted); font-weight: 600; padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border); white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--admin-border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ward-name { font-weight: 600; }
+  .ward-sub { font-size: 12px; color: var(--admin-muted); margin-top: 3px; line-height: 1.4; }
+  .ok-mark { color: var(--admin-success); font-weight: 700; }
+  .missing { color: var(--admin-warn); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .na { color: var(--admin-muted); }
+  .attn { color: var(--admin-danger); font-weight: 700; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .empty, .error-msg { padding: 28px; text-align: center; font-size: 14px; color: var(--admin-muted); }
+  .error-msg { color: var(--admin-danger); }
+
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.5; }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+    --admin-input: #ffffff;
+    --admin-track: #e6e9ee;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme .bar-fill.low { background: #c98a00; }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; font-size: 14px; }
+  .kv div span { display: block; font-size: 12px; color: var(--admin-muted); }
+  .steps { margin: 8px 0 0 18px; padding: 0; font-size: 14px; line-height: 1.7; }
+  .progress { font-size: 14px; margin-top: 10px; min-height: 20px; }
+  .actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+  .panel p { line-height: 1.6; }
+  .policy li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.ph_service_tag">Photo storage · super admin</div></div>
+  <div class="header-right">
+    <nav>
+      <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a>
+      <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a>
+      <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+      <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+      <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+      <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a>
+      <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    </nav>
+    <div class="who-line" id="who-line"></div>
+  </div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1 data-i18n="adm.ph_title">Photo storage</h1>
+      <p class="subtitle" data-i18n="adm.ph_sub">Where complaint photos are kept, and when they are removed. Every photo is private and opens only through a link that stops working after 15 minutes.</p>
+    </div>
+  </div>
+
+  <div id="notice-area" aria-live="polite"></div>
+
+  <div class="result-bar">
+    <span id="updated-at" data-i18n="adm.loading">Loading…</span>
+    <button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button>
+  </div>
+
+  <div id="content"></div>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" }; }
+  let data = null;
+  let busy = false;
+  let progress = "";
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function toDate(s) { if (!s) return null; return s.indexOf("T") !== -1 ? new Date(s) : new Date(s.replace(" ", "T") + "Z"); }
+  function dateTime(s) {
+    const d = toDate(s);
+    if (!d || isNaN(d)) return "";
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) + ", " + d.toLocaleTimeString(loc(), timeOpts());
+  }
+  function mb(bytes) { return (Math.round((Number(bytes) || 0) / 1048576 * 10) / 10).toLocaleString(loc()) + " MB"; }
+  function num(n) { return (Number(n) || 0).toLocaleString(loc()); }
+  function roleLabel(role) { const k = "adm.role_" + role; const v = T(k); return v === k ? role : v; }
+
+  function notice(kind, text) {
+    document.getElementById("notice-area").innerHTML = text ? '<div class="notice ' + kind + '" role="' + (kind === "err" ? "alert" : "status") + '">' + escapeHtml(text) + '</div>' : "";
+  }
+
+  function card(n, label, hint) {
+    return '<div class="card"><div class="num">' + escapeHtml(n) + '</div><div class="label">' + escapeHtml(label) + '</div><div class="hint">' + escapeHtml(hint) + '</div></div>';
+  }
+
+  function runText(r) {
+    const d = r.detail || {};
+    if (r.action === "photos_purged") return T("adm.ph_run_purged", { full: d.full || 0, all: d.all || 0, unused: d.unused || 0 });
+    return T("adm.ph_run_moved", { mode: T("adm.ph_mode_" + (d.mode || "resized")) }) + (d.trackingRef ? " (" + d.trackingRef + ")" : "");
+  }
+
+  function render() {
+    const c = data.complaint, a = data.after, due = data.due, lg = data.legacy;
+    let html = "";
+    if (!data.storageReady) html += '<div class="notice err" role="alert">' + escapeHtml(T("adm.ph_no_storage")) + '</div>';
+
+    html += '<div class="cards">' +
+      card(num(c.fullKept + c.previewOnly), T("adm.ph_c_citizen"), T("adm.ph_c_citizen_h", { preview: num(c.previewOnly), removed: num(c.removed) })) +
+      card(num(a.fullKept + a.previewOnly), T("adm.ph_c_after"), T("adm.ph_c_after_h", { preview: num(a.previewOnly), removed: num(a.removed) })) +
+      card(mb(c.bytes + a.bytes), T("adm.ph_c_space"), T("adm.ph_c_space_h")) +
+      card(num(lg.photos), T("adm.ph_c_legacy"), lg.photos ? T("adm.ph_c_legacy_h", { cases: num(lg.cases) }) : T("adm.ph_c_legacy_done")) +
+    '</div>';
+
+    // 1. Old public photos
+    html += '<div class="panel"><h2>' + escapeHtml(T("adm.ph_move_t")) + '</h2>';
+    if (lg.photos) {
+      html += '<p>' + escapeHtml(T("adm.ph_move_p", { n: num(lg.photos) })) + '</p>' +
+        '<div class="actions-row"><button type="button" class="primary" id="move-btn"' + (busy || !data.storageReady ? ' disabled' : '') + '>' + escapeHtml(T("adm.ph_move_btn")) + '</button></div>';
+    } else {
+      html += '<p>' + escapeHtml(T("adm.ph_move_done")) + '</p><ol class="steps">' +
+        '<li>' + escapeHtml(T("adm.ph_off_1")) + '</li><li>' + escapeHtml(T("adm.ph_off_2")) + '</li><li>' + escapeHtml(T("adm.ph_off_3")) + '</li></ol>';
+    }
+    html += '<div class="progress" role="status">' + escapeHtml(progress) + '</div></div>';
+
+    // 2. Retention
+    html += '<div class="panel" style="margin-top:20px"><h2>' + escapeHtml(T("adm.ph_policy_t")) + '</h2>' +
+      '<ul class="steps policy"><li>' + escapeHtml(T("adm.ph_policy_1")) + '</li><li>' + escapeHtml(T("adm.ph_policy_2")) + '</li><li>' + escapeHtml(T("adm.ph_policy_3")) + '</li><li>' +
+        escapeHtml(T("adm.ph_policy_4")) + '</li><li>' + escapeHtml(T("adm.ph_policy_5", { h: data.policy.unusedHours })) + '</li></ul>' +
+      '<div class="kv" style="margin-top:14px">' +
+        '<div><span>' + escapeHtml(T("adm.ph_due_full")) + '</span>' + num(due.full) + '</div>' +
+        '<div><span>' + escapeHtml(T("adm.ph_due_all")) + '</span>' + num(due.all) + '</div>' +
+        '<div><span>' + escapeHtml(T("adm.ph_due_unused")) + '</span>' + num(due.unused) + '</div>' +
+      '</div>' +
+      '<p class="section-sub" style="margin-top:12px">' + escapeHtml(T("adm.ph_auto")) + '</p>' +
+      '<div class="actions-row"><button type="button" id="purge-btn"' + (busy || !data.storageReady ? ' disabled' : '') + '>' + escapeHtml(T("adm.ph_purge_btn")) + '</button></div></div>';
+
+    // 3. Recent runs
+    html += '<div class="panel" style="margin-top:20px"><h2>' + escapeHtml(T("adm.ph_runs_t")) + '</h2>' +
+      (data.runs.length
+        ? '<table><thead><tr><th scope="col">' + escapeHtml(T("adm.ph_when")) + '</th><th scope="col">' + escapeHtml(T("adm.ph_who")) + '</th><th scope="col">' + escapeHtml(T("adm.ph_what")) + '</th></tr></thead><tbody>' +
+          data.runs.map((r) => '<tr><td>' + escapeHtml(dateTime(r.at)) + '</td><td>' + escapeHtml(r.by === "system" ? T("adm.ph_system") : r.by) + '</td><td>' + escapeHtml(runText(r)) + '</td></tr>').join("") + '</tbody></table>'
+        : '<p class="section-sub">' + escapeHtml(T("adm.ph_runs_none")) + '</p>') +
+    '</div>';
+
+    document.getElementById("content").innerHTML = html;
+    const mv = document.getElementById("move-btn");
+    if (mv) mv.addEventListener("click", moveAll);
+    const pg = document.getElementById("purge-btn");
+    if (pg) pg.addEventListener("click", purgeNow);
+  }
+
+  // Moves every old public photo: the browser fetches each one, shrinks it
+  // and makes a preview (as the complaint form now does), and sends both.
+  // If the browser can't read a photo, the server copies it as it is.
+  async function moveAll() {
+    if (busy) return;
+    busy = true; notice("", ""); render();
+    let moved = 0, failed = 0, round = 0;
+    const total = data.legacy.photos;
+    try {
+      while (round++ < 50) {
+        const items = (data.legacy && data.legacy.items) || [];
+        if (!items.length) break;
+        for (const it of items) {
+          progress = T("adm.ph_moving", { n: Math.min(moved + failed + 1, total), total: total });
+          render();
+          const fd = new FormData();
+          fd.append("action", "migrate");
+          fd.append("grievanceId", it.grievanceId);
+          fd.append("key", it.key);
+          try {
+            const res = await fetch("/api/admin/photos?legacy=" + encodeURIComponent(it.key));
+            if (res.ok) {
+              const blob = await res.blob();
+              try {
+                const p = await GIQPhoto.prepare(blob);
+                fd.append("photo", p.full, "photo.jpg");
+                fd.append("thumb", p.thumb, "thumb.jpg");
+                if (p.dhash) fd.append("dhash", p.dhash);
+              } catch (e) { /* unreadable here: the server copies the original */ }
+            }
+            const r2 = await fetch("/api/admin/photos", { method: "POST", body: fd });
+            if (r2.ok) moved++; else failed++;
+          } catch (e) { failed++; }
+        }
+        await load(true);
+        if (failed) break;
+      }
+      progress = "";
+      notice(failed ? "err" : "ok", failed ? T("adm.ph_move_some", { moved: moved, failed: failed }) : T("adm.ph_move_ok", { moved: moved }));
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+
+  async function purgeNow() {
+    if (busy) return;
+    busy = true; notice("", ""); render();
+    try {
+      const res = await fetch("/api/admin/photos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "purge" }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) notice("err", body.error || T("common.generic_error"));
+      else notice("ok", T("adm.ph_purge_ok", { full: body.done.full, all: body.done.all, unused: body.done.unused }));
+      await load(true);
+    } catch (e) {
+      notice("err", T("common.network_error"));
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+
+  async function load(quiet) {
+    try {
+      const res = await fetch("/api/admin/photos");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = body.error === "INSUFFICIENT_ROLE" ? T("adm.ph_err_role") : body.error === "NOT_ADMIN" ? T("adm.ph_err_admin") : (body.error || T("common.generic_error"));
+        document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + escapeHtml(msg) + '</div>';
+        document.getElementById("updated-at").textContent = "";
+        return;
+      }
+      data = body;
+      document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(roleLabel(data.role)) + '</b>';
+      document.getElementById("updated-at").textContent = T("adm.ph_updated", { time: dateTime(data.generatedAt) });
+      if (!quiet) render();
+    } catch (e) {
+      document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + escapeHtml(T("common.network_error")) + '</div>';
+    }
+  }
+
+  document.getElementById("refresh-btn").addEventListener("click", () => { if (!busy) load(); });
+
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle("light-theme", theme === "light");
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+  }
+  let theme = "dark";
+  try { theme = localStorage.getItem("griq-admin-theme") === "light" ? "light" : "dark"; } catch (e) { /* ignore */ }
+  applyTheme(theme);
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    theme = theme === "light" ? "dark" : "light";
+    try { localStorage.setItem("griq-admin-theme", theme); } catch (e) { /* ignore */ }
+    applyTheme(theme);
+  });
+  document.addEventListener("giq:lang", () => { applyTheme(theme); if (data) { document.getElementById("updated-at").textContent = T("adm.ph_updated", { time: dateTime(data.generatedAt) }); render(); } });
+
+  load();
+</script>
+</body>
+</html>

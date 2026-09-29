@@ -522,7 +522,7 @@
   function reportHtml(r) {
     const photos = r.photos && r.photos.length
       ? '<div class="res-photos" style="margin-top:8px">' + r.photos.map((p, i) => '<div class="res-photo" style="width:120px">' +
-          (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.url) + '" alt="After-photo ' + (i + 1) + '" loading="lazy" /></a>' : '<span class="muted">Photo unavailable.</span>') +
+          (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="After-photo ' + (i + 1) + '" loading="lazy" /></a>' : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
           (p.warnings.some((w) => w.level === "warn") ? '<div class="attn" style="font-size:12px;margin-top:3px">⚠ ' + p.warnings.filter((w) => w.level === "warn").length + ' warning(s)</div>' : '') + '</div>').join("") + '</div>'
       : (r.noPhotoReason ? '<div class="t-body" style="margin-top:4px"><b>No photo — reason:</b> ' + escapeHtml(r.noPhotoReason) + '</div>' : '');
     return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos;
@@ -576,27 +576,35 @@
   function evText(w) {
     if (w.code === "DATE_BEFORE_FILING") return "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")";
     if (w.code === "DATE_FUTURE") return "Photo date is in the future (" + dateTime(w.takenAt) + ")";
-    if (w.code === "FAR_FROM_PIN") return "Photo taken about " + dist(w.metres) + " from the complaint's pin";
+    if (w.code === "FAR_FROM_PIN") return "Photo taken about " + dist(w.metres) + " in a straight line from the complaint's pin";
     if (w.code === "REUSED_OTHER_CASE") return (w.kind === "similar" ? "Very similar to a photo on " : "Same photo already used on ") + "another case";
     if (w.code === "CITIZEN_PHOTO") return "This is one of the citizen's own photos";
     if (w.code === "NO_DATE") return "No date in photo";
     if (w.code === "NO_LOCATION") return "No location in photo or from the representative's phone";
     if (w.code === "NO_PIN") return "No pin or ward boundary to compare the location with";
-    if (w.code === "DEVICE_FAR_FROM_PIN") return "Representative added this photo about " + dist(w.metres) + " from the complaint's pin (phone accuracy ±" + w.accuracy + " m)";
+    if (w.code === "DEVICE_FAR_FROM_PIN") return "Representative added this photo about " + dist(w.metres) + " in a straight line from the complaint's pin (phone accuracy ±" + w.accuracy + " m)";
     if (w.code === "DEVICE_OUTSIDE_WARD") return "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)";
     if (w.code === "PHOTO_OUTSIDE_WARD") return "Photo's own location is outside the complaint's ward";
     if (w.code === "DEVICE_NOT_SHARED") return "Representative's location not shared";
     if (w.code === "DEVICE_ROUGH") return "Representative's location too rough to check (±" + w.accuracy + " m)";
     return w.code;
   }
+  // Item 7c: photos removed under the retention policy.
+  function removedText(p) {
+    if (p && p.removed === "ALL") return "Photo removed under the retention policy on " + dateOnly(p.removedAt) + ".";
+    if (p && p.removed === "FULL") return "Full-size photo removed under the retention policy on " + dateOnly(p.removedAt) + "; preview kept.";
+    return "Photo unavailable (photo links are not set up).";
+  }
+
   function renderResolutionPanel(c) {
     const r = c.resolution;
     if (!r) return "";
     const photos = r.photos.length
       ? '<div class="res-photos">' + r.photos.map((p, i) =>
           '<div class="res-photo">' + (p.url
-            ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="Open after-photo ' + (i + 1) + ' full size"><img src="' + escapeHtml(p.url) + '" alt="After-photo ' + (i + 1) + ' added by the representative" loading="lazy" /></a>'
-            : '<span class="muted">Photo unavailable (photo links are not set up).</span>') +
+            ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="Open after-photo ' + (i + 1) + (p.removed ? '' : ' full size') + '"><img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="After-photo ' + (i + 1) + ' added by the representative" loading="lazy" /></a>' +
+              (p.removed ? '<div class="muted" style="margin-top:3px">' + escapeHtml(removedText(p)) + '</div>' : '')
+            : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
           '<ul class="ev">' + p.warnings.map((w) =>
             '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) +
             (w.otherCaseIdForLink ? ' — <a href="?case=' + encodeURIComponent(w.otherCaseIdForLink) + '">' + escapeHtml(w.otherCaseRef || "open it") + '</a>' : '') +
@@ -616,9 +624,12 @@
     const wardType = c.ward.type === "URBAN" ? "Urban ward" : c.ward.type === "RURAL" ? "Rural village" : "";
 
     const photos = c.photos.length
-      ? '<div class="photos">' + c.photos.map((u, i) =>
-          '<a href="' + escapeHtml(u) + '" target="_blank" rel="noopener noreferrer" title="Open photo ' + (i + 1) + ' full size">' +
-          '<img src="' + escapeHtml(u) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy" /></a>').join("") + '</div>'
+      ? '<div class="photos">' + c.photos.map((p, i) => {
+          if (typeof p === "string") p = { url: p, thumbUrl: p };
+          if (!p.url) return '<span class="muted">' + escapeHtml(removedText(p)) + '</span>';
+          return '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(p.removed ? removedText(p) : "Open photo " + (i + 1) + " full size") + '">' +
+            '<img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy" /></a>';
+        }).join("") + '</div>'
       : '<span class="muted">No photo attached.</span>';
 
     const tiers = c.level

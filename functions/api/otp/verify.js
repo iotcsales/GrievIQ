@@ -24,14 +24,9 @@ import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind } from "../../_shared/confirmation.js";
 import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolution-evidence.js";
-import { photoLink } from "../../_shared/photo-links.js";
-
-// The citizen's own "before" photos (public links today; item 7c makes them private).
-function beforePhotos(v) {
-  if (!v) return [];
-  try { const a = JSON.parse(v); if (Array.isArray(a)) return a.filter((u) => typeof u === "string" && /^https:\/\//.test(u)).slice(0, 3); } catch (e) { /* single URL */ }
-  return /^https:\/\//.test(String(v)) ? [String(v)] : [];
-}
+// The citizen's own "before" photos: private since item 7c, shown through
+// short-lived signed links (plus any old public links not moved yet).
+import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -98,7 +93,7 @@ async function buildCaseDetail(env, grievance) {
   // which other case a reused photo came from.
   const loaded = await loadResolution(env, grievance.id);
   const resolution = loaded.report
-    ? await shapeResolution(grievance, loaded.report, loaded.photos, "citizen", (pid) => photoLink(env, pid), null, parseWard(chain.localUnit.ward_boundary_geojson))
+    ? await shapeResolution(grievance, loaded.report, loaded.photos, "citizen", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
     : null;
 
   // Which levels are past their time limit, and the deadlines, come from
@@ -129,7 +124,7 @@ async function buildCaseDetail(env, grievance) {
       confirmBy: limits.confirmBy,
       resolutionKind: resolutionKind(grievance),
       resolution,
-      beforePhotos: beforePhotos(grievance.photo_url),
+      beforePhotos: await complaintPhotoList(env, grievance, await loadComplaintPhotos(env, grievance.id)),
       elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
       ackOverdue: result.ackOverdue,
       needsLegalReview: result.needsLegalReview,

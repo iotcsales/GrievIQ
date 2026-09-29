@@ -25,7 +25,7 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 // Operations admin). Numbers stay partly hidden by default; a reveal needs a
 // reason, shows the number for that one case, and is logged
 // (admin_events "citizen_phone_revealed", source "cases").
-import { photoLink } from "../../_shared/photo-links.js";
+import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
 
 function toMs(s) {
   if (!s) return NaN;
@@ -55,14 +55,6 @@ function maskEmail(e) {
   return s[0] + "***" + s.slice(at);
 }
 
-function parsePhotos(v) {
-  if (!v) return [];
-  try {
-    const arr = JSON.parse(v);
-    if (Array.isArray(arr)) return arr.filter((u) => typeof u === "string" && /^https:\/\//.test(u));
-  } catch (e) { /* not JSON -- treat as a single URL */ }
-  return /^https:\/\//.test(String(v)) ? [String(v)] : [];
-}
 
 async function logEvent(env, actorEmail, action, target, detail) {
   await env.DB.prepare(
@@ -189,14 +181,14 @@ async function caseDetail(env, auth, id) {
     }
   }
   const resolution = loaded.report
-    ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (pid) => photoLink(env, pid), (id) => refs.get(id), chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null)
+    ? await shapeResolution(g, loaded.report, loaded.photos, "staff", (p) => photoMedia(env, p, "r"), (id) => refs.get(id), chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null)
     : null;
 
   const wardGeom = chain ? parseWard(chain.localUnit.ward_boundary_geojson) : null;
   const reports = [];
   for (const rep of allReports || []) {
     reports.push(await shapeResolution(g, rep, (allPhotos || []).filter((p) => p.report_id === rep.id), "staff",
-      (pid) => photoLink(env, pid), (id) => refs.get(id), wardGeom));
+      (p) => photoMedia(env, p, "r"), (id) => refs.get(id), wardGeom));
   }
 
   const ex = exceptionCases.find((e) => e.id === g.id);
@@ -214,7 +206,7 @@ async function caseDetail(env, auth, id) {
       category: category ? category.name : "",
       description: g.description || "",
       locationDetail: g.location_detail || "",
-      photos: parsePhotos(g.photo_url),
+      photos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id)),
       createdAt: g.created_at,
       acknowledgedAt: g.acknowledged_at || null,
       resolvedAt: g.resolved_at || null,

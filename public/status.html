@@ -296,6 +296,7 @@
   .ba-col figure { margin: 0 0 10px; }
   .ba-col img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); display: block; background: var(--grey-fill); }
   .ba-col .none { font-size: 12.5px; color: var(--ink-soft); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .ba-warn { font-size: 12px; color: var(--brick); font-weight: 600; margin-top: 4px; line-height: 1.4; }
 
   .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
@@ -339,7 +340,7 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js"></script>
+<script src="/i18n.js?v=7c"></script>
 </head>
 <body>
 <div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -846,10 +847,17 @@
     const r = c.resolution;
     const show = r && (c.status === 'PENDING_CONFIRMATION' || c.status === 'RESOLVED' || c.status === 'CLOSED');
     if (!show) { box.hidden = true; box.innerHTML = ''; return; }
-    const img = (url, alt) => `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" loading="lazy">`;
-    const before = (c.beforePhotos || []).map((u, i) => `<figure>${img(u, GIQ.t('status.before_alt', { n: i + 1 }))}</figure>`).join('')
+    // Item 7c: private photos -- a small preview, opening the full photo;
+    // photos removed under the retention policy say so.
+    const day = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short', year: 'numeric' }); };
+    const img = (p, alt) => {
+      if (!p || !p.url) return `<p class="none">${escapeHtml(p && p.removed ? GIQ.t('status.photo_removed', { date: day(p.removedAt) }) : GIQ.t('status.photo_unavailable'))}</p>`;
+      return `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(p.thumbUrl || p.url)}" alt="${escapeHtml(alt)}" loading="lazy"><span class="visually-hidden"> ${escapeHtml(GIQ.t('status.new_tab'))}</span></a>` +
+        (p.removed ? `<p class="none">${escapeHtml(GIQ.t('status.photo_full_removed', { date: day(p.removedAt) }))}</p>` : '');
+    };
+    const before = (c.beforePhotos || []).map((p, i) => `<figure>${img(typeof p === 'string' ? { url: p, thumbUrl: p } : p, GIQ.t('status.before_alt', { n: i + 1 }))}</figure>`).join('')
       || `<p class="none">${escapeHtml(GIQ.t('status.no_before'))}</p>`;
-    const after = (r.photos || []).map((p, i) => `<figure>${p.url ? img(p.url, GIQ.t('status.after_alt', { n: i + 1 })) : `<p class="none">${escapeHtml(GIQ.t('status.photo_unavailable'))}</p>`}` +
+    const after = (r.photos || []).map((p, i) => `<figure>${img(p, GIQ.t('status.after_alt', { n: i + 1 }))}` +
         (p.warnings || []).filter(w => CIT_EV[w.code]).map(w => `<div class="ba-warn">⚠ ${escapeHtml(GIQ.t(CIT_EV[w.code], { dist: GIQ.distance(w.metres) }))}</div>`).join('') + `</figure>`).join('')
       || `<p class="none">${escapeHtml(r.noPhotoReason ? GIQ.t('status.no_after_reason', { reason: r.noPhotoReason }) : GIQ.t('status.no_after'))}</p>`;
     box.innerHTML =

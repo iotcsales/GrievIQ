@@ -28,11 +28,16 @@
 // Phones strip a photo's own location when uploading from a website, so
 // this is the main location check. Only stored when inside a rough box
 // around India.
+//
+// Item 7c: also accepts thumb, a small preview (JPEG, 320 px) made on the
+// phone; the original is kept unchanged (its date and GPS are evidence).
+// "One of the citizen's own photos" now also compares with the citizen's
+// private photos (complaint_photos): same file, or a visually similar one.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { readExif } from "../../../_shared/exif.js";
-import { photoLink } from "../../../_shared/photo-links.js";
+import { photoMedia, legacyKey, legacyUrls, THUMB_MAX_BYTES } from "../../../_shared/photo-store.js";
 import {
   sniffImage, sha256Hex, validDhash, hamming, SIMILAR_BITS, MAX_PHOTO_BYTES, photoWarnings, parseWard,
 } from "../../../_shared/resolution-evidence.js";
@@ -49,13 +54,9 @@ function readDevice(form) {
 const MAX_UNATTACHED = 6;
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
+// Old public photos not yet moved to private storage (before 7c).
 function citizenPhotoKeys(photoUrl) {
-  let list = [];
-  try { const v = JSON.parse(photoUrl || "[]"); if (Array.isArray(v)) list = v; } catch (e) { list = photoUrl ? [photoUrl] : []; }
-  return list
-    .map((u) => { const m = /\/(grievance-photos\/[A-Za-z0-9._-]+)$/.exec(String(u)); return m ? m[1] : null; })
-    .filter(Boolean)
-    .slice(0, 3);
+  return legacyUrls(photoUrl).map(legacyKey).filter(Boolean);
 }
 
 export async function onRequestPost(context) {
@@ -120,28 +121,46 @@ export async function onRequestPost(context) {
 
   // One of the citizen's own "before" photos, sent back as the "after"?
   let matchesCitizen = 0;
-  for (const k of citizenPhotoKeys(g.photo_url)) {
+  const { results: citizenRows } = await env.DB.prepare(
+    "SELECT sha256, dhash FROM complaint_photos WHERE grievance_id = ?"
+  ).bind(g.id).all();
+  for (const c of citizenRows || []) {
+    if (c.sha256 === sha || (dhash && c.dhash && hamming(c.dhash, dhash) <= SIMILAR_BITS)) { matchesCitizen = 1; break; }
+  }
+  for (const k of matchesCitizen ? [] : citizenPhotoKeys(g.photo_url)) {
     try {
       const obj = await env.PHOTOS.get(k);
       if (obj && obj.size === buf.byteLength && (await sha256Hex(await obj.arrayBuffer())) === sha) { matchesCitizen = 1; break; }
     } catch (e) { /* can't read it: no match */ }
   }
 
+  // Small preview made on the phone (optional: older phones may not make one).
+  let thumb = null;
+  const thumbFile = form.get("thumb");
+  if (thumbFile && typeof thumbFile !== "string" && thumbFile.size > 0 && thumbFile.size <= THUMB_MAX_BYTES) {
+    const t = await thumbFile.arrayBuffer();
+    if (sniffImage(new Uint8Array(t, 0, Math.min(16, t.byteLength))) === "image/jpeg") thumb = t;
+  }
+
   const id = crypto.randomUUID();
   const key = "resolution-photos/" + id + "." + EXT[type];
+  const thumbKey = thumb ? "resolution-photos/" + id + "-thumb.jpg" : null;
   await env.PRIVATE_PHOTOS.put(key, buf, { httpMetadata: { contentType: type } });
+  if (thumb) await env.PRIVATE_PHOTOS.put(thumbKey, thumb, { httpMetadata: { contentType: "image/jpeg" } });
   const now = new Date().toISOString();
   await env.DB.prepare(
     `INSERT INTO resolution_photos
        (id, grievance_id, report_id, r2_key, content_type, byte_size, sha256, dhash, taken_at, gps_lat, gps_lng,
         dup_grievance_id, dup_kind, matches_citizen, uploaded_by, created_at,
-        dev_lat, dev_lng, dev_accuracy, dev_status)
-     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        dev_lat, dev_lng, dev_accuracy, dev_status, thumb_key, thumb_size)
+     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, g.id, key, type, buf.byteLength, sha, dhash, exif.takenAt, exif.lat, exif.lng,
-    dupId, dupKind, matchesCitizen, auth.email, now, dev.lat, dev.lng, dev.acc, dev.status).run();
+    dupId, dupKind, matchesCitizen, auth.email, now, dev.lat, dev.lng, dev.acc, dev.status,
+    thumbKey, thumb ? thumb.byteLength : null).run();
 
   const row = { taken_at: exif.takenAt, gps_lat: exif.lat, gps_lng: exif.lng, dup_grievance_id: dupId, dup_kind: dupKind, matches_citizen: matchesCitizen, created_at: now,
     dev_lat: dev.lat, dev_lng: dev.lng, dev_accuracy: dev.acc, dev_status: dev.status };
   const warnings = photoWarnings(g, row, parseWard(g.ward_boundary_geojson)).map((w) => { const c = Object.assign({}, w); delete c.otherCaseId; return c; });
-  return Response.json({ id, url: await photoLink(env, id), takenAt: exif.takenAt, warnings });
+  const media = await photoMedia(env, { id, thumb_key: thumbKey }, "r");
+  return Response.json({ id, url: media.url, thumbUrl: media.thumbUrl, takenAt: exif.takenAt, warnings });
 }

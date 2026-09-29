@@ -10,7 +10,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=7b3"></script>
+<script src="/i18n.js?v=7c"></script>
+<script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -226,6 +227,7 @@
     gap: 6px;
     margin-top: 10px;
   }
+  .photo-removed { font-size: 12px; color: var(--steel-2); align-self: center; }
   .photo-thumb {
     width: 52px;
     height: 52px;
@@ -678,11 +680,16 @@ function renderLadder(c) {
   }).join('') + '</div>';
 }
 
-function renderPhotoThumbs(photoUrls) {
-  if (!photoUrls || photoUrls.length === 0) return '';
-  return '<div class="photo-thumbs">' + photoUrls.map(function(url, i) {
-    return '<a class="photo-thumb" href="' + esc(url) + '" target="_blank" rel="noopener">' +
-      '<img src="' + esc(url) + '" alt="' + esc(T('rep.photo_alt', { n: i + 1 })) + '" loading="lazy"></a>';
+// The citizen's photos (item 7c): small previews in the list, the full
+// photo opens in a new tab. Photos removed under the retention policy say so.
+function renderPhotoThumbs(photos) {
+  if (!photos || photos.length === 0) return '';
+  return '<div class="photo-thumbs">' + photos.map(function(p, i) {
+    if (!p.url) return '<span class="photo-removed">' + esc(p.removed ? T('rep.photo_removed', { date: formatDateOnly(p.removedAt) }) : T('rep.r_photo_unavailable')) + '</span>';
+    return '<a class="photo-thumb" href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"' +
+      (p.removed ? ' title="' + esc(T('rep.photo_full_removed', { date: formatDateOnly(p.removedAt) })) + '"' : '') + '>' +
+      '<img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.photo_alt', { n: i + 1 })) + '" loading="lazy">' +
+      '<span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>';
   }).join('') + '</div>';
 }
 
@@ -750,7 +757,7 @@ function renderResolveControl(c) {
     '<input type="file" id="rphoto-' + id + '" class="r-photo" data-id="' + id + '" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="rphoto-hint-' + id + ' rphoto-err-' + id + '"' + (full || d.noPhoto ? ' disabled' : '') + (d.errors.photos ? ' aria-invalid="true"' : '') + ' />' +
     '<div class="r-thumbs" aria-live="polite">' +
       d.photos.map(function(p, i) {
-        return '<div class="r-thumb">' + (p.url ? '<img src="' + esc(p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '">' : '') +
+        return '<div class="r-thumb">' + (p.url ? '<img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '">' : '') +
           renderWarnings(p.warnings) +
           '<button type="button" class="r-remove" data-id="' + id + '" data-photo="' + esc(p.id) + '">' + esc(T('rep.r_remove', { n: i + 1 })) + '</button></div>';
       }).join('') +
@@ -798,8 +805,10 @@ function renderResolution(c) {
   var photos = r.photos && r.photos.length
     ? '<div class="res-photos">' + r.photos.map(function(p, i) {
         return '<div class="res-photo">' + (p.url
-          ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '" loading="lazy"><span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>'
-          : '<span>' + esc(T('rep.r_photo_unavailable')) + '</span>') + renderWarnings(p.warnings) + '</div>';
+          ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '" loading="lazy"><span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>'
+          : '<span>' + esc(p.removed ? T('rep.photo_removed', { date: formatDateOnly(p.removedAt) }) : T('rep.r_photo_unavailable')) + '</span>') +
+          (p.url && p.removed ? '<div class="hint">' + esc(T('rep.photo_full_removed', { date: formatDateOnly(p.removedAt) })) + '</div>' : '') +
+          renderWarnings(p.warnings) + '</div>';
       }).join('') + '</div>'
     : (r.noPhotoReason ? '<div><b>' + esc(T('rep.r_no_photo_given')) + '</b> ' + esc(r.noPhotoReason) + '</div>' : '');
   return '<div class="res-block"><div><b>' + esc(T('rep.r_done')) + '</b></div><div class="res-note">' + esc(r.note) + '</div>' + photos + '</div>';
@@ -890,7 +899,7 @@ function renderCase(c) {
       '<p class="description">' + esc(c.description) + '</p>' +
       locationLine +
       renderMapLink(c) +
-      renderPhotoThumbs(c.photoUrls) +
+      renderPhotoThumbs(c.photos) +
       badge +
       renderResolution(c) +
       renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
@@ -1575,12 +1584,15 @@ function attachResolveHandlers() {
             fd.append('dev_lng', String(d.loc.lng));
             fd.append('dev_acc', String(d.loc.acc));
           }
-          var h = await visualFingerprint(files[i]);
+          // Small preview made on the phone (item 7c); the original is kept.
+          var prev = await GIQPhoto.preview(files[i]);
+          var h = prev.dhash || await visualFingerprint(files[i]);
           if (h) fd.append('dhash', h);
+          if (prev.thumb) fd.append('thumb', prev.thumb, 'thumb.jpg');
           var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/resolution-photo', { method: 'POST', body: fd });
           var data = await res.json().catch(function() { return {}; });
           if (!res.ok) d.errors.photos = uploadErr(data);
-          else d.photos.push({ id: data.id, url: data.url, warnings: data.warnings || [] });
+          else d.photos.push({ id: data.id, url: data.url, thumbUrl: data.thumbUrl || data.url, warnings: data.warnings || [] });
         } catch (e) {
           d.errors.photos = T('common.network_error');
         }

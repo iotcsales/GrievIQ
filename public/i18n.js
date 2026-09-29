@@ -308,8 +308,8 @@
 "फ़ोटो जोड़ें (वैकल्पिक)"
 ],
 "submit.photos_hint": [
-"Up to 3 photos. They help your representative understand the issue faster.",
-"अधिकतम 3 फ़ोटो। इनसे जनप्रतिनिधि को समस्या जल्दी समझ आती है।"
+"Up to 3 photos. They help your representative understand the issue faster. Only your representatives and GrievIQ staff can see them.",
+"अधिकतम 3 फ़ोटो। इनसे जनप्रतिनिधि को समस्या जल्दी समझ आती है। इन्हें केवल आपके जनप्रतिनिधि और GrievIQ कर्मचारी देख सकते हैं।"
 ],
 "submit.photos_btn": [
 "Take or choose photos",
@@ -328,8 +328,8 @@
 "आप अधिकतम 3 फ़ोटो जोड़ सकते हैं।"
 ],
 "submit.photo_size": [
-"Each photo must be smaller than 5MB.",
-"प्रत्येक फ़ोटो 5MB से छोटी होनी चाहिए।"
+"Each photo must be smaller than 25 MB.",
+"प्रत्येक फ़ोटो 25 MB से छोटी होनी चाहिए।"
 ],
 "submit.photo_fail": [
 "Photo upload failed.",
@@ -704,16 +704,16 @@
 "इस फ़ोटो की तिथि सही नहीं लगती।"
 ],
 "status.ev_far": [
-"This photo seems to have been taken about {dist} from the spot you marked.",
-"यह फ़ोटो आपके चिह्नित स्थान से लगभग {dist} दूर ली गई लगती है।"
+"This photo seems to have been taken about {dist} in a straight line from the spot you marked.",
+"यह फ़ोटो आपके चिह्नित स्थान से सीधी रेखा में लगभग {dist} दूर ली गई लगती है।"
 ],
 "status.ev_reused": [
 "This photo has also been used on another complaint.",
 "यह फ़ोटो किसी दूसरी शिकायत में भी उपयोग की गई है।"
 ],
 "status.ev_dev_far": [
-"The representative added this photo about {dist} from the spot you marked.",
-"जनप्रतिनिधि ने यह फ़ोटो आपके चिह्नित स्थान से लगभग {dist} दूर से जोड़ी।"
+"The representative added this photo about {dist} in a straight line from the spot you marked.",
+"जनप्रतिनिधि ने यह फ़ोटो आपके चिह्नित स्थान से सीधी रेखा में लगभग {dist} दूर से जोड़ी।"
 ],
 "status.ev_dev_outside": [
 "The representative added this photo from outside your ward.",
@@ -1194,8 +1194,8 @@
 "<strong>GrievIQ कर्मचारी</strong>: कार्यवाही की निगरानी के लिए आपकी शिकायत देखते हैं। आपका मोबाइल नंबर और ईमेल उनसे आंशिक रूप से छिपा रहता है, और कोई कर्मचारी जब भी कोई शिकायत खोलता है, उसका रिकॉर्ड रखा जाता है। आपका पूरा नंबर केवल दो वरिष्ठ भूमिकाएँ देख सकती हैं, और केवल आवश्यकता होने पर, जैसे समाधान जाँचने के लिए आपको फ़ोन करना; हर बार कारण दर्ज किया जाता है।"
 ],
 "priv.w_photos": [
-"<strong>Photos</strong>: photos are stored at unlisted web addresses. Anyone who has a photo's exact link can open it, so please don't include anything in a photo that you wouldn't want seen.",
-"<strong>फ़ोटो</strong>: फ़ोटो ऐसे वेब पतों पर रखी जाती हैं जो कहीं सूचीबद्ध नहीं हैं। किसी फ़ोटो का सटीक लिंक जिसके पास हो, वह उसे खोल सकता है, इसलिए फ़ोटो में ऐसा कुछ शामिल न करें जिसे आप दूसरों को दिखाना नहीं चाहते।"
+"<strong>Your photos</strong>: before a photo is sent, your phone makes it smaller and removes its hidden details, such as the date and the location where it was taken. Your photos are stored privately. Only you (after the email code), your representatives and GrievIQ staff can see them, through links that stop working after 15 minutes.",
+"<strong>आपकी फ़ोटो</strong>: फ़ोटो भेजे जाने से पहले आपका फ़ोन उसे छोटा करता है और उसकी छिपी जानकारी, जैसे फ़ोटो लेने की तिथि और स्थान, हटा देता है। आपकी फ़ोटो निजी रूप से रखी जाती हैं। इन्हें केवल आप (ईमेल कोड के बाद), आपके जनप्रतिनिधि और GrievIQ कर्मचारी ही ऐसे लिंक से देख सकते हैं जो 15 मिनट बाद काम करना बंद कर देते हैं।"
 ]
 };
   // ---- Representative console (rep.html) ----
@@ -1282,14 +1282,14 @@
 "rep.r_photo_unavailable": ["Photo unavailable", "फ़ोटो उपलब्ध नहीं"],
 "rep.ev_date_before": ["Photo taken before the complaint was filed ({date})", "फ़ोटो शिकायत दर्ज होने से पहले ली गई ({date})"],
 "rep.ev_date_future": ["Photo date is in the future ({date})", "फ़ोटो की तिथि भविष्य की है ({date})"],
-"rep.ev_far": ["Photo taken about {dist} from the complaint's pin", "फ़ोटो शिकायत के पिन से लगभग {dist} दूर ली गई"],
+"rep.ev_far": ["Photo taken about {dist} in a straight line from the complaint's pin", "फ़ोटो शिकायत के पिन से सीधी रेखा में लगभग {dist} दूर ली गई"],
 "rep.ev_reused": ["Same photo already used on another case", "यही फ़ोटो किसी दूसरी शिकायत में उपयोग हो चुकी है"],
 "rep.ev_similar": ["Very similar to a photo on another case", "किसी दूसरी शिकायत की फ़ोटो से बहुत मिलती-जुलती"],
 "rep.ev_citizen": ["This is one of the citizen's own photos", "यह नागरिक की अपनी फ़ोटो में से एक है"],
 "rep.ev_no_date": ["No date in photo", "फ़ोटो में तिथि नहीं"],
 "rep.ev_no_location": ["No location in photo or from your phone", "न फ़ोटो में लोकेशन है, न आपके फ़ोन से"],
 "rep.ev_no_pin": ["No pin or ward boundary to compare with", "तुलना के लिए न पिन है, न वार्ड की सीमा"],
-"rep.ev_dev_far": ["You added this photo about {dist} from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"rep.ev_dev_far": ["You added this photo about {dist} in a straight line from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से सीधी रेखा में लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_dev_outside": ["You added this photo from outside the complaint's ward (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के वार्ड के बाहर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_photo_outside": ["Photo's own location is outside the complaint's ward", "फ़ोटो की अपनी लोकेशन शिकायत के वार्ड के बाहर है"],
 "rep.ev_dev_not_shared": ["Your location wasn't shared", "आपकी लोकेशन साझा नहीं की गई"],
@@ -1720,6 +1720,72 @@
 "submit.pin_removed": ["Spot removed. Your complaint will be filed for the area without a pin.", "स्थान हटा दिया गया। आपकी शिकायत बिना पिन के क्षेत्र के लिए दर्ज होगी।"],
 "submit.not_open": ["That address is in {name}, which can't take complaints yet. Its details are still being collected. You can choose another area below.", "यह पता {name} में है, जहाँ अभी शिकायत दर्ज नहीं हो सकती। इसका विवरण अभी एकत्र किया जा रहा है। आप नीचे कोई अन्य क्षेत्र चुन सकते हैं।"],
 "submit.srv_not_open": ["This area can't take complaints yet. Please choose another area.", "इस क्षेत्र में अभी शिकायत दर्ज नहीं हो सकती। कृपया कोई अन्य क्षेत्र चुनें।"],
+// ---- Item 7c: private photos and photo retention ----
+"submit.photo_n": ["Photo {n}", "फ़ोटो {n}"],
+"submit.photo_preparing": ["Getting your photo ready…", "आपकी फ़ोटो तैयार की जा रही है…"],
+"submit.photo_unreadable": ["This photo can't be read on this device. Choose a JPG or PNG photo, or take a new one with the camera.", "यह फ़ोटो इस डिवाइस पर पढ़ी नहीं जा सकी। कोई JPG या PNG फ़ोटो चुनें, या कैमरे से नई फ़ोटो लें।"],
+"submit.photo_wait": ["Please wait until your photos are ready, then send the complaint.", "कृपया फ़ोटो तैयार होने तक प्रतीक्षा करें, फिर शिकायत भेजें।"],
+"rep.photo_removed": ["Photo removed under the retention policy on {date}", "फ़ोटो {date} को संग्रहण नीति के अनुसार हटाई गई"],
+"rep.photo_full_removed": ["Full-size photo removed under the retention policy on {date}; preview kept", "पूरे आकार की फ़ोटो {date} को संग्रहण नीति के अनुसार हटाई गई; छोटी झलक रखी गई है"],
+"status.photo_removed": ["This photo was removed on {date} under our photo retention policy.", "यह फ़ोटो हमारी फ़ोटो संग्रहण नीति के अनुसार {date} को हटाई गई।"],
+"status.photo_full_removed": ["Full-size photo removed on {date} under our photo retention policy; a small preview is kept.", "पूरे आकार की फ़ोटो हमारी फ़ोटो संग्रहण नीति के अनुसार {date} को हटाई गई; एक छोटी झलक रखी गई है।"],
+"status.new_tab": ["(opens in a new tab)", "(नए टैब में खुलता है)"],
+"priv.keep_photos": ["Photos are kept while a complaint is open. One year after a complaint is finally closed, full-size photos are deleted and small previews are kept as a record; the previews are deleted when the complaint record's own time (above) ends. If a complaint is reopened, the time starts again from when it closes. Photos that were added but never sent with a complaint are deleted after 2 days.", "शिकायत खुली रहने तक फ़ोटो रखी जाती हैं। शिकायत अंतिम रूप से बंद होने के एक वर्ष बाद पूरे आकार की फ़ोटो हटा दी जाती हैं और छोटी झलक अभिलेख के रूप में रखी जाती हैं; शिकायत के अभिलेख की अपनी अवधि (ऊपर) समाप्त होने पर झलक भी हटा दी जाती हैं। शिकायत दोबारा खुलने पर अवधि उसके फिर बंद होने से गिनी जाती है। जो फ़ोटो जोड़ी गईं पर शिकायत के साथ भेजी नहीं गईं, वे 2 दिन बाद हटा दी जाती हैं।"],
+"adm.d_c_photos": ["Photos kept", "रखी गई फ़ोटो"],
+"adm.d_c_photos_h": ["Private photos (citizens' and after-work). Removed on schedule under the retention policy.", "निजी फ़ोटो (नागरिकों की और कार्य के बाद की)। संग्रहण नीति के अनुसार तय समय पर हटाई जाती हैं।"],
+"adm.d_c_photos_legacy": ["Cases with public photos", "सार्वजनिक फ़ोटो वाली शिकायतें"],
+"adm.d_c_photos_legacy_h": ["Old photos still at a public address. Move them to private storage.", "पुरानी फ़ोटो जो अभी सार्वजनिक पते पर हैं। इन्हें निजी संग्रहण में ले जाएँ।"],
+"adm.ph_page_title": ["Photo storage — GrievIQ Admin", "फ़ोटो संग्रहण — GrievIQ एडमिन"],
+"adm.ph_service_tag": ["Photo storage · super admin", "फ़ोटो संग्रहण · सुपर एडमिन"],
+"adm.ph_title": ["Photo storage", "फ़ोटो संग्रहण"],
+"adm.ph_sub": ["Where complaint photos are kept, and when they are removed. Every photo is private and opens only through a link that stops working after 15 minutes.", "शिकायतों की फ़ोटो कहाँ रखी जाती हैं और कब हटाई जाती हैं। हर फ़ोटो निजी है और केवल ऐसे लिंक से खुलती है जो 15 मिनट बाद काम करना बंद कर देता है।"],
+"adm.ph_updated": ["Updated {time}", "अद्यतन {time}"],
+"adm.ph_no_storage": ["Private photo storage (PRIVATE_PHOTOS) isn't connected, so photos can't be added or moved.", "निजी फ़ोटो संग्रहण (PRIVATE_PHOTOS) जुड़ा नहीं है, इसलिए फ़ोटो जोड़ी या स्थानांतरित नहीं की जा सकतीं।"],
+"adm.ph_c_citizen": ["Citizens' photos", "नागरिकों की फ़ोटो"],
+"adm.ph_c_citizen_h": ["{preview} kept as preview only · {removed} removed", "{preview} केवल झलक के रूप में · {removed} हटाई गईं"],
+"adm.ph_c_after": ["After-work photos", "कार्य के बाद की फ़ोटो"],
+"adm.ph_c_after_h": ["{preview} kept as preview only · {removed} removed", "{preview} केवल झलक के रूप में · {removed} हटाई गईं"],
+"adm.ph_c_space": ["Space used", "प्रयुक्त स्थान"],
+"adm.ph_c_space_h": ["Photos and previews still kept.", "अभी रखी गई फ़ोटो और झलक।"],
+"adm.ph_c_legacy": ["Old public photos", "पुरानी सार्वजनिक फ़ोटो"],
+"adm.ph_c_legacy_h": ["On {cases} complaints. Move them below.", "{cases} शिकायतों में। नीचे से स्थानांतरित करें।"],
+"adm.ph_c_legacy_done": ["None left. All photos are private.", "कोई शेष नहीं। सभी फ़ोटो निजी हैं।"],
+"adm.ph_move_t": ["Move old photos to private storage", "पुरानी फ़ोटो निजी संग्रहण में ले जाएँ"],
+"adm.ph_move_p": ["{n} photos from before September 2026 are still at a public address. Moving them makes each one smaller with a small preview (as new photos are), stores them privately, and deletes the public copy. Keep this page open until it finishes. It is safe to run again.", "सितंबर 2026 से पहले की {n} फ़ोटो अभी सार्वजनिक पते पर हैं। स्थानांतरण से हर फ़ोटो छोटी की जाती है और उसकी छोटी झलक बनती है (नई फ़ोटो की तरह), उन्हें निजी रूप से रखा जाता है, और सार्वजनिक प्रति हटा दी जाती है। पूरा होने तक यह पेज खुला रखें। इसे दोबारा चलाना सुरक्षित है।"],
+"adm.ph_move_btn": ["Move photos to private storage", "फ़ोटो निजी संग्रहण में ले जाएँ"],
+"adm.ph_moving": ["Moving photo {n} of {total}…", "{total} में से फ़ोटो {n} स्थानांतरित हो रही है…"],
+"adm.ph_move_ok": ["Done. {moved} photos moved to private storage.", "पूरा हुआ। {moved} फ़ोटो निजी संग्रहण में ले जाई गईं।"],
+"adm.ph_move_some": ["{moved} photos moved; {failed} couldn't be moved. Try again.", "{moved} फ़ोटो स्थानांतरित हुईं; {failed} नहीं हो सकीं। फिर से प्रयास करें।"],
+"adm.ph_move_done": ["Every old photo has been moved. You can now turn off the public address of the old photo bucket:", "सभी पुरानी फ़ोटो स्थानांतरित हो चुकी हैं। अब आप पुराने फ़ोटो बकेट का सार्वजनिक पता बंद कर सकते हैं:"],
+"adm.ph_off_1": ["In Cloudflare, open R2, then the grieviq-photos bucket, then Settings.", "Cloudflare में R2 खोलें, फिर grieviq-photos बकेट, फिर Settings।"],
+"adm.ph_off_2": ["Under Public Development URL (r2.dev), choose Disable.", "Public Development URL (r2.dev) में Disable चुनें।"],
+"adm.ph_off_3": ["Confirm. New photos don't use that bucket.", "पुष्टि करें। नई फ़ोटो उस बकेट का उपयोग नहीं करतीं।"],
+"adm.ph_policy_t": ["Retention policy", "संग्रहण नीति"],
+"adm.ph_policy_1": ["While a case is open, waiting or reopened, every photo is kept.", "शिकायत खुली, प्रतीक्षारत या दोबारा खुली रहने तक हर फ़ोटो रखी जाती है।"],
+"adm.ph_policy_2": ["One year after a case is finally closed, full-size photos are deleted; small previews are kept as evidence.", "शिकायत अंतिम रूप से बंद होने के एक वर्ष बाद पूरे आकार की फ़ोटो हटाई जाती हैं; छोटी झलक साक्ष्य के रूप में रखी जाती है।"],
+"adm.ph_policy_3": ["Previews are deleted when the record's retention ends: 3 years from filing or 1 year after resolution, whichever is later.", "अभिलेख की संग्रहण अवधि समाप्त होने पर झलक हटाई जाती हैं: दर्ज करने से 3 वर्ष या निस्तारण के 1 वर्ष बाद, जो भी बाद में हो।"],
+"adm.ph_policy_4": ["A reopened case starts the clock again. A case on audit hold keeps all its photos.", "दोबारा खुली शिकायत में अवधि फिर से शुरू होती है। ऑडिट होल्ड वाली शिकायत की सभी फ़ोटो रखी जाती हैं।"],
+"adm.ph_policy_5": ["Photos added but never sent with a complaint or a resolution are deleted after {h} hours.", "जो फ़ोटो जोड़ी गईं पर शिकायत या समाधान के साथ भेजी नहीं गईं, वे {h} घंटे बाद हटाई जाती हैं।"],
+"adm.ph_due_full": ["Full-size photos due for deletion", "हटाने योग्य पूरे आकार की फ़ोटो"],
+"adm.ph_due_all": ["Photos due for full deletion (record ended)", "पूरी तरह हटाने योग्य फ़ोटो (अभिलेख अवधि समाप्त)"],
+"adm.ph_due_unused": ["Unused uploads due for deletion", "हटाने योग्य अप्रयुक्त अपलोड"],
+"adm.ph_auto": ["Clean-up runs by itself in small batches whenever the admin dashboard opens. Every run that deletes something is recorded below.", "एडमिन डैशबोर्ड खुलने पर सफ़ाई अपने-आप छोटे-छोटे हिस्सों में चलती है। कुछ भी हटाने वाला हर रन नीचे दर्ज होता है।"],
+"adm.ph_purge_btn": ["Run clean-up now", "अभी सफ़ाई चलाएँ"],
+"adm.ph_purge_ok": ["Clean-up done: {full} full-size photos, {all} photos fully and {unused} unused uploads deleted.", "सफ़ाई पूरी: {full} पूरे आकार की फ़ोटो, {all} फ़ोटो पूरी तरह और {unused} अप्रयुक्त अपलोड हटाए गए।"],
+"adm.ph_runs_t": ["Recent activity", "हाल की गतिविधि"],
+"adm.ph_runs_none": ["Nothing yet.", "अभी कुछ नहीं।"],
+"adm.ph_when": ["When", "कब"],
+"adm.ph_who": ["By", "किसके द्वारा"],
+"adm.ph_what": ["What", "क्या"],
+"adm.ph_system": ["Automatic", "स्वचालित"],
+"adm.ph_run_purged": ["Clean-up: {full} full-size, {all} fully, {unused} unused deleted", "सफ़ाई: {full} पूरे आकार की, {all} पूरी तरह, {unused} अप्रयुक्त हटाई गईं"],
+"adm.ph_run_moved": ["Old photo moved to private storage ({mode})", "पुरानी फ़ोटो निजी संग्रहण में ले जाई गई ({mode})"],
+"adm.ph_mode_resized": ["resized, with preview", "छोटी की गई, झलक सहित"],
+"adm.ph_mode_copied": ["copied as it was, no preview", "जैसी थी वैसी, बिना झलक"],
+"adm.ph_mode_missing": ["file was already gone; link removed", "फ़ाइल पहले से नहीं थी; लिंक हटाया गया"],
+"adm.ph_mode_already": ["already moved", "पहले ही स्थानांतरित"],
+"adm.ph_err_role": ["Only the super admin can open Photo storage.", "फ़ोटो संग्रहण केवल सुपर एडमिन खोल सकते हैं।"],
+"adm.ph_err_admin": ["Your account is not an admin.", "आपका खाता एडमिन नहीं है।"],
 // ---- Privacy: location and remembered ward ----
 "priv.device_ward": ["If you look up a ward, its name is remembered on this device so the home page can show it next time. You can remove it with \"Forget\".", "यदि आप कोई वार्ड खोजते हैं, तो उसका नाम इस डिवाइस पर याद रखा जाता है, ताकि अगली बार मुख्य पृष्ठ पर दिख सके। आप इसे \"भूल जाएँ\" से हटा सकते हैं।"]
   };

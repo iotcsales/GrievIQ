@@ -35,6 +35,9 @@ export const PERMISSIONS = {
   view_checks: ["super_admin", "operations_admin", "data_moderator", "auditor"],
   check_resolutions: ["super_admin", "operations_admin", "data_moderator"],
   reveal_citizen_phone: ["super_admin", "operations_admin"],
+  // Item 7c: photo storage -- moving old public photos to private storage
+  // and running the retention clean-up by hand.
+  manage_photos: ["super_admin"],
 };
 
 /**

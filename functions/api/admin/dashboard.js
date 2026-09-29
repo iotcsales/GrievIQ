@@ -26,6 +26,7 @@
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
+import { purgeDuePhotos, PURGE_BATCH } from "../../_shared/photo-store.js";
 
 const NOTE_KEY = "data_collection_note";
 
@@ -50,11 +51,16 @@ async function logEvent(env, actorEmail, action, target, detail) {
   ).run();
 }
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet(context) {
+  const { request, env } = context;
   const auth = await getVerifiedAdmin(request, env, "view_dashboard");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
+
+  // Photo retention (item 7c): remove a small batch of photos that are due,
+  // in the background so the page isn't slowed down.
+  if (context.waitUntil) context.waitUntil(purgeDuePhotos(env, PURGE_BATCH));
 
   // Close any case whose confirmation time has run out before counting
   // (item 7a), so "open cases" never includes one that has closed.
@@ -151,6 +157,27 @@ export async function onRequestGet({ request, env }) {
      WHERE status = 'PENDING_CONFIRMATION' AND COALESCE(TRIM(citizen_email), '') = ''`
   ).first();
 
+  // Item 7c: photo storage, for the super admin only -- old public photos
+  // still to move, and photos kept privately.
+  let photoStorage = null;
+  if (can(role, "manage_photos")) {
+    try {
+      const [legacyRow, keptRow] = await env.DB.batch([
+        env.DB.prepare("SELECT COUNT(*) AS n FROM grievances WHERE photo_url LIKE '%grievance-photos/%'"),
+        env.DB.prepare(
+          `SELECT (SELECT COUNT(*) FROM complaint_photos WHERE grievance_id IS NOT NULL AND deleted_at IS NULL)
+                + (SELECT COUNT(*) FROM resolution_photos WHERE report_id IS NOT NULL AND deleted_at IS NULL) AS n`
+        ),
+      ]);
+      photoStorage = {
+        legacyCases: legacyRow.results[0] ? legacyRow.results[0].n : 0,
+        keptPhotos: keptRow.results[0] ? keptRow.results[0].n : 0,
+      };
+    } catch (e) {
+      photoStorage = null; // tables not created yet
+    }
+  }
+
   let changeRequestsWaiting = null;
   if (canApprove || canRequest) {
     const row = canApprove
@@ -168,6 +195,7 @@ export async function onRequestGet({ request, env }) {
     changeRequestsScope: canApprove ? "all" : canRequest ? "own" : null,
     checksWaiting: can(role, "view_checks") ? (checksRow ? checksRow.n : 0) : null,
     checksOldestAt: can(role, "view_checks") && checksRow ? checksRow.oldest || null : null,
+    photoStorage,
     note: noteRow
       ? { value: noteRow.value || "", updatedBy: noteRow.updated_by, updatedAt: noteRow.updated_at }
       : { value: "", updatedBy: null, updatedAt: null },
@@ -181,6 +209,7 @@ export async function onRequestGet({ request, env }) {
       cases: can(role, "view_cases"),
       changeRequests: canApprove || canRequest,
       checks: can(role, "view_checks"),
+      photos: can(role, "manage_photos"),
     },
     generatedAt: new Date().toISOString(),
   });
