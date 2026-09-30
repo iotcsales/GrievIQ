@@ -270,7 +270,8 @@
   .team-review p { font-size: 13.5px; margin: 0 0 10px; line-height: 1.5; }
   .team-review-line { margin-bottom: 16px; }
   .linkish { background: none; border: 0; padding: 0; color: var(--brand); text-decoration: underline; font: inherit; cursor: pointer; }
-  .role-form { margin-top: 8px; }
+  .role-form { margin: 12px 0 0; }
+  .team-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .badge.neutral { background: #eef1f4; color: #3c4650; }
   .my-job { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 6px; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; line-height: 1.55; }
   /* Item 8a: sign-in screen */
@@ -1370,8 +1371,11 @@ function renderTeamTab() {
       var rs = teamRowState[m.id] || {};
       var editing = jobEdit && jobEdit.id === m.id;
       var actions = '';
-      if (m.canEdit && !editing) actions += '<button type="button" class="resolve-btn tm-job" data-id="' + esc(m.id) + '">' + esc(T('rep.job_edit')) + '</button>';
-      if (manage) {
+      // One form at a time per person: while the job profile or the role is
+      // being changed, the other buttons wait.
+      var busyForm = editing || rs.roleOpen;
+      if (m.canEdit && !busyForm) actions += '<button type="button" class="resolve-btn tm-job" data-id="' + esc(m.id) + '">' + esc(T('rep.job_edit')) + '</button>';
+      if (manage && !busyForm) {
         if (m.paused) actions += '<button type="button" class="resolve-btn tm-confirm" data-id="' + esc(m.id) + '">' + esc(T('rep.team_confirm')) + '</button>';
         if (!rs.roleOpen) actions += '<button type="button" class="resolve-btn tm-role-open" data-id="' + esc(m.id) + '">' + esc(T('rep.team_change_role')) + '</button>';
         actions += rs.confirmRemove
@@ -1381,12 +1385,12 @@ function renderTeamTab() {
       var roleBox = '';
       if (manage && rs.roleOpen) {
         var rv = rs.role || m.role, rid = 'tm-rolesel-' + esc(m.id);
-        roleBox = '<div class="followup-form role-form"><div class="followup-field"><label for="' + rid + '">' + esc(T('rep.team_role_for', { name: m.name })) + '</label>' +
+        roleBox = '<div class="team-form role-form"><label for="' + rid + '">' + esc(T('rep.team_role_for', { name: m.name })) + '</label>' +
           '<select id="' + rid + '" class="tm-rolesel" data-id="' + esc(m.id) + '" aria-describedby="tm-rolewarn-' + esc(m.id) + '">' +
           ['FIELD_WORKER', 'OFFICE_MANAGER', 'OFFICE_ASSISTANT'].map(function(r) { return '<option value="' + r + '"' + (r === rv ? ' selected' : '') + '>' + esc(T(r === 'OFFICE_ASSISTANT' ? 'rep.role_oa' : ROLE_KEYS[r])) + '</option>'; }).join('') +
-          '</select><p class="hint warn-line" id="tm-rolewarn-' + esc(m.id) + '" role="status">' + esc(rv === 'OFFICE_ASSISTANT' && m.role === 'FIELD_WORKER' ? T('rep.team_role_oa_warn') : '') + '</p></div>' +
-          '<button type="button" class="resolve-btn tm-role-save" data-id="' + esc(m.id) + '"' + (rs.busy ? ' disabled' : '') + '>' + esc(T('rep.team_role_save')) + '</button>' +
-          '<button type="button" class="resolve-btn tm-role-cancel" data-id="' + esc(m.id) + '">' + esc(T('rep.r_cancel')) + '</button></div>';
+          '</select><p class="hint warn-line" id="tm-rolewarn-' + esc(m.id) + '" role="status">' + esc(rv === 'OFFICE_ASSISTANT' && m.role === 'FIELD_WORKER' ? T('rep.team_role_oa_warn') : '') + '</p>' +
+          '<div class="actions"><button type="button" class="resolve-btn tm-role-save" data-id="' + esc(m.id) + '"' + (rs.busy ? ' disabled' : '') + '>' + esc(T('rep.team_role_save')) + '</button>' +
+          '<button type="button" class="resolve-btn tm-role-cancel" data-id="' + esc(m.id) + '">' + esc(T('rep.r_cancel')) + '</button></div></div>';
       }
       var badgeCls = m.role === 'OFFICE_MANAGER' ? 'acknowledged' : m.role === 'OFFICE_ASSISTANT' ? 'neutral' : 'pending';
       return '<div class="team-member" role="listitem"><div><b>' + esc(m.name) + '</b> <span class="badge ' + badgeCls + '">' + esc(T(ROLE_KEYS[m.role])) + '</span>' +
@@ -1490,7 +1494,7 @@ function attachTeamHandlers() {
   document.querySelectorAll('.tm-remove-yes').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'remove'); }); });
   document.querySelectorAll('.tm-confirm').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'confirm'); }); });
   // Role: a list of the three roles, then Save.
-  document.querySelectorAll('.tm-role-open').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); teamRowState[id] = { roleOpen: true }; renderContent(); var s2 = document.getElementById('tm-rolesel-' + id); if (s2) s2.focus(); }); });
+  document.querySelectorAll('.tm-role-open').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); jobEdit = null; teamRowState = {}; teamRowState[id] = { roleOpen: true }; renderContent(); var s2 = document.getElementById('tm-rolesel-' + id); if (s2) s2.focus(); }); });
   document.querySelectorAll('.tm-role-cancel').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); delete teamRowState[id]; renderContent(); var o = document.querySelector('.tm-role-open[data-id="' + cssId(id) + '"]'); if (o) o.focus(); }); });
   document.querySelectorAll('.tm-rolesel').forEach(function(sel) { sel.addEventListener('change', function() {
     var id = sel.getAttribute('data-id'), m = findMember(id), rs = teamRowState[id] || (teamRowState[id] = { roleOpen: true });
@@ -1518,7 +1522,7 @@ function attachTeamHandlers() {
   // Job profile editor.
   document.querySelectorAll('.tm-job').forEach(function(b) { b.addEventListener('click', function() {
     var m = findMember(b.getAttribute('data-id')); if (!m) return;
-    openJobEditor(m); teamNotice = ''; renderContent();
+    teamRowState = {}; openJobEditor(m); teamNotice = ''; renderContent();
     var d = document.getElementById('je-designation'); if (d) d.focus();
   }); });
   var jf = document.getElementById('job-form');
