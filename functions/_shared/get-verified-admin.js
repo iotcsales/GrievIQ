@@ -25,7 +25,7 @@ export const PERMISSIONS = {
   // Data entry with maker-checker (separation of duties): operators can
   // see the jurisdiction data and REQUEST changes; only super_admin and
   // operations_admin can approve them, never their own.
-  view_jurisdiction: ["super_admin", "operations_admin", "data_entry_operator"],
+  view_jurisdiction: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
   request_changes: ["data_entry_operator"],
   approve_changes: ["super_admin", "operations_admin"],
   // Item 7b-2: GrievIQ staff check a fix when the citizen gave no email.
@@ -51,7 +51,40 @@ export const PERMISSIONS = {
   audit_observations: ["auditor"],
   view_all_observations: ["super_admin", "auditor"],
   accept_risk: ["super_admin"],
+  // The auditor reads every record (IIA Standards: unrestricted access to
+  // records), but never changes anything; these are read-only views.
+  view_staff: ["super_admin", "auditor"],
+  view_exceptions: ["super_admin", "operations_admin", "auditor"],
+  view_reviews: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  view_change_requests: ["super_admin", "operations_admin", "auditor"],
 };
+
+// Which admin pages each role may open (the menu shows only these). A page
+// is listed with the permission that lets a role use it at all.
+export const PAGES = {
+  "admin-dashboard": "view_dashboard",
+  "admin-cases": "view_cases",
+  "admin-checks": "view_checks",
+  "admin-import": "run_import",
+  "admin-import-wards": "run_import",
+  "admin-jurisdiction": "view_jurisdiction",
+  "admin-exceptions": "view_exceptions",
+  "admin-reviews": "view_reviews",
+  "admin-change-requests": ["view_change_requests", "request_changes"],
+  "admin-issue-types": "view_issue_types",
+  "admin-staff": "view_staff",
+  "admin-photos": "manage_photos",
+  "admin-audit": null,   // everyone: the observations they own
+};
+export function pagesFor(role) {
+  const out = {};
+  for (const [page, perm] of Object.entries(PAGES)) {
+    const perms = perm == null ? null : [].concat(perm);
+    out[page] = { allowed: !perms || perms.some((p) => (PERMISSIONS[p] || []).includes(role)),
+      roles: perms ? Array.from(new Set(perms.flatMap((p) => PERMISSIONS[p] || []))) : null };
+  }
+  return out;
+}
 
 /**
  * @param {Request} request

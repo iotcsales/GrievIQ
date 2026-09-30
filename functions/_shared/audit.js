@@ -108,7 +108,7 @@ export function readDraft(body, issuing) {
 export function shapeObservation(o, amendments, today) {
   const e = effective(o, amendments);
   return {
-    id: o.id, ref: o.ref, status: o.status, overdue: isOverdue(e, today),
+    id: o.id, ref: o.ref, status: o.status, overdue: isOverdue(e, today), engagementId: o.engagement_id || null,
     title: e.title, subjectType: o.subject_type, subjectCases: parseJson(o.subject_cases, []),
     subjectOffice: o.subject_office, subjectProcess: o.subject_process,
     criteria: e.criteria, condition: e.condition, cause: e.cause, effect: e.effect, recommendation: e.recommendation,

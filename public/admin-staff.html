@@ -124,7 +124,9 @@
   #status-msg.error { color: var(--admin-danger); }
   #status-msg.success { color: #7fce8f; }
   .muted { color: var(--admin-muted); font-size: 13px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 </style>
+<script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
@@ -141,12 +143,14 @@
 
 <main>
   <h1>Staff &amp; roles</h1>
-  <p class="subtitle">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
+  <p class="subtitle" id="page-sub">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
 
-  <div class="panel">
+  <div class="panel" id="add-panel">
     <h2>Add staff member</h2>
     <div class="add-form">
+      <label for="new-email" class="sr-only">Email address</label>
       <input type="email" id="new-email" placeholder="name@example.com" />
+      <label for="new-role" class="sr-only">Role</label>
       <select id="new-role">
         <option value="operations_admin">Operations Admin</option>
         <option value="data_moderator">Data Moderator</option>
@@ -167,7 +171,7 @@
           <th>Email</th>
           <th>Role</th>
           <th>Added</th>
-          <th></th>
+          <th id="actions-head"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody id="staff-rows">
@@ -186,6 +190,11 @@ const ROLE_LABELS = {
   data_entry_operator: "Data Entry Operator",
 };
 
+function esc(v) {
+  return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+let canManage = false;   // only the super admin adds, changes or removes staff
+
 function setStatus(msg, type) {
   const el = document.getElementById("status-msg");
   el.textContent = msg || "";
@@ -199,38 +208,49 @@ async function loadStaff() {
     const res = await fetch("/api/admin/staff");
     const data = await res.json();
     if (!res.ok) {
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">Error: ${data.error || "failed to load"}</td></tr>`;
+      let msg = "Could not load the staff list. Press refresh to try again.";
+      if (data.error === "NOT_ADMIN") msg = "Your account is not a GrievIQ staff account.";
+      if (data.error === "INSUFFICIENT_ROLE") msg = "Your role can't see the staff list. It is for super admins and auditors.";
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">${esc(msg)}</td></tr>`;
       return;
     }
+    canManage = data.canManage === true;
+    document.getElementById("add-panel").hidden = !canManage;
+    document.getElementById("add-panel").style.display = canManage ? "" : "none";
+    document.getElementById("actions-head").style.display = canManage ? "" : "none";
+    if (!canManage) document.getElementById("page-sub").textContent =
+      "Who has admin access to GrievIQ and their role. This is a read-only view: only a super admin can add, change or remove staff.";
+    const cols = canManage ? 4 : 3;
     if (!data.staff || data.staff.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="muted">No staff yet.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="muted">No staff yet.</td></tr>`;
       return;
     }
     tbody.innerHTML = "";
     data.staff.forEach((s) => {
       const tr = document.createElement("tr");
-      const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString() : "";
+      tr.dataset.email = s.email;
+      const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : "";
+      const label = ROLE_LABELS[s.role] || s.role;
       tr.innerHTML = `
-        <td>${s.email}</td>
-        <td><span class="role-badge role-${s.role}">${ROLE_LABELS[s.role] || s.role}</span></td>
-        <td class="muted">${addedDate}</td>
+        <td>${esc(s.email)}</td>
+        <td><span class="role-badge role-${esc(s.role)}">${esc(label)}</span></td>
+        <td class="muted">${esc(addedDate)}</td>` + (canManage ? `
         <td>
           <div class="row-actions">
-            <select data-email="${s.email}" class="role-select">
-              ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === s.role ? "selected" : ""}>${ROLE_LABELS[r]}</option>`).join("")}
+            <select class="role-select" aria-label="New role for ${esc(s.email)}">
+              ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === s.role ? "selected" : ""}>${esc(ROLE_LABELS[r])}</option>`).join("")}
             </select>
-            <button data-email="${s.email}" class="save-role-btn">Save</button>
-            <button data-email="${s.email}" class="danger remove-btn">Remove</button>
+            <button class="save-role-btn">Save</button>
+            <button class="danger remove-btn">Remove</button>
           </div>
-        </td>
-      `;
+        </td>` : "");
       tbody.appendChild(tr);
     });
 
     document.querySelectorAll(".save-role-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const email = btn.dataset.email;
-        const select = document.querySelector(`.role-select[data-email="${email}"]`);
+        const email = btn.closest("tr").dataset.email;
+        const select = btn.closest("tr").querySelector(".role-select");
         const role = select.value;
         setStatus("Saving...", "");
         try {
@@ -254,7 +274,7 @@ async function loadStaff() {
 
     document.querySelectorAll(".remove-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const email = btn.dataset.email;
+        const email = btn.closest("tr").dataset.email;
         if (!confirm(`Remove ${email} from staff? They will lose admin access immediately.`)) {
           return;
         }

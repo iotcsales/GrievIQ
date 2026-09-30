@@ -147,6 +147,7 @@
   .theme-toggle:hover { color: var(--admin-text); }
   html.light-theme .theme-toggle { background: none; }
 </style>
+<script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
@@ -164,7 +165,7 @@
 
 <main>
   <h1>Reviews</h1>
-  <p class="subtitle">Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. Nothing here is used until you approve it. Suggestions made by several citizens independently are listed first.</p>
+  <p class="subtitle" id="page-sub">Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. Nothing here is used until you approve it. Suggestions made by several citizens independently are listed first.</p>
 
   <div id="notice-area"></div>
 
@@ -195,6 +196,7 @@
 
 <script>
   let groups = [];
+  let canAct = false;   // false for read-only roles (the auditor): no Approve / Reject
   let active = null;
 
   function escapeHtml(s) {
@@ -248,10 +250,10 @@
           escapeHtml(g.suggestedName) + '<br>' + phones + '</div></div>' +
       '</div>' +
       '<div class="meta">From complaint' + (g.trackingRefs.length === 1 ? ' ' : 's ') + refs + ' · ' + when + '</div>' +
-      '<div class="actions">' +
+      (canAct ? '<div class="actions">' +
         '<button type="button" class="reject" data-reject="' + i + '">Reject</button>' +
         '<button type="button" class="primary" data-approve="' + i + '">Approve…</button>' +
-      '</div>' +
+      '</div>' : '') +
     '</div>';
   }
 
@@ -283,6 +285,9 @@
         return;
       }
       groups = data.groups || [];
+      canAct = data.canAct !== false;
+      if (!canAct) document.getElementById("page-sub").textContent =
+        "Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. This is a read-only view: approving or rejecting is done by super admins, operations admins and data moderators.";
       render();
     } catch (err) {
       document.getElementById("list").innerHTML = '<div class="error-msg">Could not load suggestions. Check your connection and press Refresh.</div>';

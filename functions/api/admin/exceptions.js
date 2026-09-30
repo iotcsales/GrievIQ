@@ -22,7 +22,7 @@
 // The GET logic (which cases count) lives in _shared/exception-cases.js,
 // shared with the admin dashboard so the two always agree.
 
-import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../../_shared/escalation.js";
@@ -49,7 +49,8 @@ async function logEvent(env, actorEmail, action, target, detail) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "exceptions_queue");
+  // Read-only for the auditor; only super and operations admins act.
+  const auth = await getVerifiedAdmin(request, env, "view_exceptions");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
@@ -59,6 +60,8 @@ export async function onRequestGet({ request, env }) {
   const exceptions = await findExceptionCases(env);
 
   return Response.json({
+    role: auth.role,
+    canAct: (PERMISSIONS.exceptions_queue || []).includes(auth.role),
     exceptions,
     generatedAt: new Date().toISOString(),
   });

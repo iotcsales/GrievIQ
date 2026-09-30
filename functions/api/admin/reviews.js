@@ -20,7 +20,7 @@
 //
 // Gated behind review_queue (super_admin, operations_admin, data_moderator).
 
-import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 
 const TARGETS = {
   LOCAL: { table: "local_units", nameCol: "rep_name", phoneCol: "rep_phone" },
@@ -46,7 +46,8 @@ async function logEvent(env, actorEmail, action, target, detail) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "review_queue");
+  // Read-only for the auditor; moderators and admins decide.
+  const auth = await getVerifiedAdmin(request, env, "view_reviews");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
@@ -136,7 +137,7 @@ export async function onRequestGet({ request, env }) {
   // Most-corroborated first, then oldest.
   list.sort((a, b) => b.count - a.count || String(a.firstAt).localeCompare(String(b.firstAt)));
 
-  return Response.json({ groups: list, generatedAt: new Date().toISOString() });
+  return Response.json({ role: auth.role, canAct: (PERMISSIONS.review_queue || []).includes(auth.role), groups: list, generatedAt: new Date().toISOString() });
 }
 
 export async function onRequestPost({ request, env }) {

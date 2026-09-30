@@ -22,7 +22,9 @@ async function logEvent(env, actorEmail, action, target, detail) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "manage_admins");
+  // The auditor may read the list (who holds which role is a core audit
+  // check); only the super admin changes it.
+  const auth = await getVerifiedAdmin(request, env, "view_staff");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
@@ -31,7 +33,7 @@ export async function onRequestGet({ request, env }) {
     "SELECT id, email, role, created_at FROM admin_users ORDER BY created_at ASC"
   ).all();
 
-  return Response.json({ staff: results });
+  return Response.json({ staff: results, role: auth.role, canManage: auth.role === "super_admin" });
 }
 
 export async function onRequestPost({ request, env }) {

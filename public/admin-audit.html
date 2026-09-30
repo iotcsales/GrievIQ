@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.au_page_title">Audit — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9a"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9a"></script><script src="/admin-nav.js?v=r1"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -287,6 +287,33 @@
   .al-details { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--admin-muted); line-height: 1.5; }
   .tl-btn { display: block; margin-top: 4px; }
   .al-timeline { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  /* Reports (item 9b) */
+  .date-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .small-label { font-size: 13px; font-weight: 600; }
+  .report { line-height: 1.55; }
+  .rp-head { border-bottom: 2px solid var(--admin-border); padding-bottom: 10px; margin-bottom: 14px; }
+  .rp-org { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--admin-muted); font-weight: 700; }
+  .report h3 { font-size: 15px; margin: 18px 0 6px; }
+  .rp-h { font-size: 12.5px; color: var(--admin-muted); margin: 10px 0 2px; font-weight: 600; }
+  .rp-obs { border: 1px solid var(--admin-border); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+  .rp-obs h3 { margin-top: 0; }
+  .rp-ratings { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0; font-size: 13.5px; }
+  .rp-conclusion { font-size: 17px; font-weight: 700; margin: 4px 0 6px; }
+  .rp-conclusion.c-satisfactory { color: var(--admin-success); } .rp-conclusion.c-needs_improvement { color: var(--admin-warn); } .rp-conclusion.c-unsatisfactory { color: var(--admin-danger); }
+  .fp { border-left: 4px solid var(--admin-success); }
+  .fp.fp-bad { border-left-color: var(--admin-danger); } .fp.fp-bad b { color: var(--admin-danger); }
+  .fp code { font-size: 12px; word-break: break-all; }
+  .preview-panel { border: 2px dashed var(--admin-accent); }
+  @media print {
+    header, .au-tabs, .no-print, #notice-area, .preview-panel .actions-row, .page-head, .fp .ward-sub:last-child { display: none !important; }
+    body, html.light-theme body { background: #fff !important; color: #000 !important; }
+    main { padding: 0; max-width: none; }
+    .panel { border: 0; padding: 0; background: #fff !important; }
+    .report, .report * { color: #000 !important; }
+    .rp-obs { break-inside: avoid; border-color: #999; }
+    .rating { border-color: #000; }
+    a { color: #000 !important; text-decoration: none; }
+  }
 </style>
 </head>
 <body>
@@ -370,6 +397,11 @@ function parseHash() {
   parts.slice(1).forEach((p) => { const i = p.indexOf("="); if (i > 0) kv[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1)); });
   const head = parts[0] || "";
   if (head === "log") return { tab: "log" };
+  if (head === "reports") return { tab: "reports" };
+  if (head === "neweng") return { tab: "reports", newEng: true };
+  if (head === "newreport") return { tab: "reports", newReport: true, prefill: kv };
+  if (head.indexOf("eng=") === 0) return { tab: "reports", engId: decodeURIComponent(head.slice(4)) };
+  if (head.indexOf("report=") === 0) return { tab: "reports", reportId: decodeURIComponent(head.slice(7)) };
   if (head === "new") return { tab: "obs", isNew: true, prefill: kv };
   if (head.indexOf("obs=") === 0) return { tab: "obs", id: decodeURIComponent(head.slice(4)) };
   return { tab: "obs" };
@@ -378,6 +410,15 @@ async function route() {
   view = parseHash(); act = {}; notice("", "");
   renderTabs();
   if (view.tab === "log") return loadLog();
+  if (view.tab === "reports") {
+    if (!reg) { try { await loadReg(true); } catch (e) { /* ignore */ } }
+    renderTabs();
+    if (view.newEng) { openEngForm(null); return; }
+    if (view.newReport) return openRepForm(view.prefill || {});
+    if (view.engId) return loadEng(view.engId);
+    if (view.reportId) return loadReport(view.reportId);
+    return loadReports();
+  }
   if (view.isNew) { if (!reg) await loadReg(true); openForm(null); return; }
   if (view.id) return loadDetail(view.id);
   return loadReg();
@@ -386,6 +427,7 @@ window.addEventListener("hashchange", route);
 
 function renderTabs() {
   const tabs = [["obs", T("adm.au_tab_obs")]];
+  tabs.push(["reports", T("adm.au_tab_reports")]);
   if (me.canSeeLog) tabs.push(["log", T("adm.au_tab_log")]);
   document.getElementById("au-tabs").innerHTML = tabs.map((t) => '<a href="#' + t[0] + '" class="au-tab' + (view.tab === t[0] ? " active" : "") + '"' + (view.tab === t[0] ? ' aria-current="page"' : "") + '>' + esc(t[1]) + '</a>').join("");
 }
@@ -536,7 +578,8 @@ async function loadDetail(id) {
   renderDetail();
 }
 const EV_KEYS = { CREATED: "adm.au_ev_created", EDITED: "adm.au_ev_edited", ISSUED: "adm.au_ev_issued", AMENDED: "adm.au_ev_amended", RESPONDED: "adm.au_ev_responded", COMMENT: "adm.au_ev_comment",
-  DONE_REPORTED: "adm.au_ev_done", CLOSED: "adm.au_ev_closed", SENT_BACK: "adm.au_ev_sent_back", RISK_ACCEPTED: "adm.au_ev_risk", WITHDRAWN: "adm.au_ev_withdrawn" };
+  DONE_REPORTED: "adm.au_ev_done", CLOSED: "adm.au_ev_closed", SENT_BACK: "adm.au_ev_sent_back", RISK_ACCEPTED: "adm.au_ev_risk", WITHDRAWN: "adm.au_ev_withdrawn",
+  ENGAGEMENT_LINKED: "adm.au_ev_eng_linked", ENGAGEMENT_UNLINKED: "adm.au_ev_eng_unlinked" };
 function fieldName(k) { return T("adm.au_fl_" + (k === "due_date" ? "due" : k)); }
 function renderDetail() {
   const d = detail, o = d.observation, c = d.can;
@@ -549,6 +592,7 @@ function renderDetail() {
       '<div><span>' + esc(T("adm.au_col_due")) + '</span><b class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</b>' + amended("due_date") + '</div>' +
       '<div><span>' + esc(T("adm.au_raised_by")) + '</span>' + esc(o.createdBy) + ' · ' + esc(dateTime(o.createdAt)) + '</div>' +
       (o.issuedAt ? '<div><span>' + esc(T("adm.au_issued")) + '</span>' + esc(dateTime(o.issuedAt)) + '</div>' : '') +
+      (o.engagementId ? '<div><span>' + esc(T("adm.au_engagement")) + '</span><a href="#eng=' + esc(encodeURIComponent(o.engagementId)) + '">' + esc(T("adm.au_open_engagement")) + '</a></div>' : '') +
       (o.source ? '<div><span>' + esc(T("adm.au_source")) + '</span>' + esc(o.source.label || (o.source.kind + " " + o.source.id)) + '</div>' : '') +
     '</div>';
   html += TEXT_FIELDS.map((k) => '<h3 class="obs-h">' + esc(T("adm.au_fl_" + k)) + amended(k) + '</h3><div class="obs-text">' + (o[k] ? esc(o[k]) : '<span class="na">—</span>') + '</div>').join("");
@@ -782,6 +826,297 @@ function renderLog() {
   }));
 }
 
+// ---------- engagements & reports (item 9b) ----------
+// Reports are previewed from live data, then issued: frozen, with a SHA-256
+// fingerprint. Everyone on the staff can read issued reports; only the
+// auditor prepares and issues them.
+let reps = null, engList = null, engDetail = null, engForm = null, repForm = null, repPreview = null, repView = null, repAct = {};
+const CONCL = ["SATISFACTORY", "NEEDS_IMPROVEMENT", "UNSATISFACTORY"];
+const STATE_KEYS = ["VERIFIED_CLOSED", "IN_PROGRESS", "OVERDUE", "WAITING_VERIFICATION", "RISK_ACCEPTED"];
+function canEngage() { return me.role === "auditor" || me.role === "super_admin"; }
+
+async function loadReports() {
+  if (!reg) { try { await loadReg(true); } catch (e) { /* tabs only */ } }
+  document.getElementById("content").innerHTML = '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  const calls = [api("/api/admin/audit-reports")];
+  if (canEngage()) calls.push(api("/api/admin/engagements"));
+  const [r1, r2] = await Promise.all(calls);
+  if (!r1.ok) return showError(r1);
+  reps = r1.body; engList = r2 && r2.ok ? r2.body : null;
+  renderReports();
+}
+function kindLabel(k) { return T("adm.rp_k_" + k); }
+function renderReports() {
+  const canIssue = reps.canIssue;
+  let html = '<div class="panel"><div class="page-head"><div><h2>' + esc(T("adm.rp_reports")) + '</h2><p class="section-sub">' + esc(T("adm.rp_reports_sub")) + '</p></div>' +
+    (canIssue ? '<a class="btn-link primary" href="#newreport">' + esc(T("adm.rp_new")) + '</a>' : '') + '</div>';
+  if (!reps.reports.length) html += '<p class="empty">' + esc(T("adm.rp_none")) + '</p>';
+  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rp_c_ref")) + '</th><th scope="col">' + esc(T("adm.rp_c_title")) + '</th><th scope="col">' + esc(T("adm.rp_c_kind")) + '</th><th scope="col">' + esc(T("adm.rp_c_issued")) + '</th></tr></thead><tbody>' +
+    reps.reports.map((r) => '<tr><td><a href="#report=' + esc(encodeURIComponent(r.id)) + '">' + esc(r.ref) + ' · v' + r.version + '</a>' + (r.supersededBy ? '<div><span class="st">' + esc(T("adm.rp_superseded")) + '</span></div>' : '') + '</td><td>' + esc(r.title) + '</td><td>' + esc(kindLabel(r.kind)) + '</td><td>' + esc(dateTime(r.issuedAt)) + '<div class="ward-sub">' + esc(r.issuedBy) + '</div></td></tr>').join("") + '</tbody></table></div>';
+  html += '</div>';
+  if (engList) {
+    html += '<div class="panel"><div class="page-head"><div><h2>' + esc(T("adm.en_title")) + '</h2><p class="section-sub">' + esc(T("adm.en_sub")) + '</p></div>' +
+      (engList.canEdit ? '<a class="btn-link primary" href="#neweng">' + esc(T("adm.en_new")) + '</a>' : '') + '</div>';
+    if (!engList.engagements.length) html += '<p class="empty">' + esc(T("adm.en_none")) + '</p>';
+    else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rp_c_ref")) + '</th><th scope="col">' + esc(T("adm.en_c_title")) + '</th><th scope="col">' + esc(T("adm.en_c_period")) + '</th><th scope="col">' + esc(T("adm.en_c_obs")) + '</th><th scope="col">' + esc(T("adm.en_c_status")) + '</th></tr></thead><tbody>' +
+      engList.engagements.map((e) => '<tr><td><a href="#eng=' + esc(encodeURIComponent(e.id)) + '">' + esc(e.ref) + '</a></td><td>' + esc(e.title) + '</td><td>' + esc(day(e.periodFrom)) + ' – ' + esc(day(e.periodTo)) + '</td><td class="num">' + e.observations + '</td><td>' + esc(T(e.reported ? "adm.en_reported" : "adm.en_open")) + '</td></tr>').join("") + '</tbody></table></div>';
+    html += '</div>';
+  }
+  document.getElementById("content").innerHTML = html;
+}
+
+// --- engagement form and detail ---
+function openEngForm(e) {
+  engForm = e ? { id: e.id, title: e.title, objectives: e.objectives || "", scope: e.scope || "", criteria: e.criteria || "", periodFrom: e.periodFrom, periodTo: e.periodTo, errors: {}, busy: false }
+    : { id: null, title: "", objectives: "", scope: "", criteria: "", periodFrom: "", periodTo: "", errors: {}, busy: false };
+  renderEngForm();
+}
+function renderEngForm() {
+  const f = engForm, e = f.errors;
+  const fe = (k) => '<div class="field-err" id="ef-' + k + '-err" role="alert">' + esc(e[k] || "") + '</div>';
+  const inv = (k) => e[k] ? ' aria-invalid="true"' : '';
+  const area = (k) => '<label for="ef-' + k + '">' + esc(T("adm.en_fl_" + k)) + '</label><p class="hint" id="ef-' + k + '-hint">' + esc(T("adm.en_fh_" + k)) + '</p><textarea id="ef-' + k + '" rows="3" maxlength="4000" aria-describedby="ef-' + k + '-hint ef-' + k + '-err"' + inv(k) + '>' + esc(f[k]) + '</textarea>' + fe(k);
+  document.getElementById("content").innerHTML = '<p><a href="' + (f.id ? '#eng=' + esc(encodeURIComponent(f.id)) : '#reports') + '">‹ ' + esc(T("adm.rp_back")) + '</a></p>' +
+    '<form class="panel obs-form" id="eng-form" novalidate><h2>' + esc(T(f.id ? "adm.en_edit_t" : "adm.en_new_t")) + '</h2>' +
+    '<label for="ef-title">' + esc(T("adm.en_fl_title")) + '</label><p class="hint" id="ef-title-hint">' + esc(T("adm.en_fh_title")) + '</p><input type="text" id="ef-title" maxlength="160" value="' + esc(f.title) + '" aria-describedby="ef-title-hint ef-title-err"' + inv("title") + '>' + fe("title") +
+    '<div class="date-row"><div><label for="ef-periodFrom">' + esc(T("adm.en_fl_from")) + '</label><input type="date" id="ef-periodFrom" value="' + esc(f.periodFrom) + '" aria-describedby="ef-periodFrom-err"' + inv("periodFrom") + '>' + fe("periodFrom") + '</div>' +
+    '<div><label for="ef-periodTo">' + esc(T("adm.en_fl_to")) + '</label><input type="date" id="ef-periodTo" value="' + esc(f.periodTo) + '" aria-describedby="ef-periodTo-err"' + inv("periodTo") + '>' + fe("periodTo") + '</div></div>' +
+    area("objectives") + area("scope") + area("criteria") +
+    '<div class="actions-row"><button type="submit" class="primary"' + (f.busy ? " disabled" : "") + '>' + esc(T("adm.en_save")) + '</button></div><div class="dialog-error" role="alert">' + esc(e.form || "") + '</div></form>';
+  document.getElementById("eng-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    ["title", "objectives", "scope", "criteria", "periodFrom", "periodTo"].forEach((k) => { f[k] = val("ef-" + k); });
+    f.errors = {};
+    if (f.title.trim().length < 5) f.errors.title = T("adm.au_e_title");
+    if (!f.periodFrom) f.errors.periodFrom = T("adm.au_e_date");
+    if (!f.periodTo) f.errors.periodTo = T("adm.au_e_date");
+    if (f.periodFrom && f.periodTo && f.periodFrom > f.periodTo) f.errors.periodTo = T("adm.au_e_before");
+    if (Object.keys(f.errors).length) { renderEngForm(); focusFirstError(); return; }
+    f.busy = true; renderEngForm();
+    const r = await api("/api/admin/engagements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: f.id ? "update" : "create", id: f.id, title: f.title, objectives: f.objectives, scope: f.scope, criteria: f.criteria, periodFrom: f.periodFrom, periodTo: f.periodTo }) });
+    f.busy = false;
+    if (!r.ok) { f.errors = mapErrors(r.body); if (r.body && r.body.fields && r.body.fields.periodTo === "BEFORE_FROM") f.errors.periodTo = T("adm.au_e_before"); renderEngForm(); focusFirstError(); return; }
+    const target = "#eng=" + encodeURIComponent(f.id || r.body.id); engForm = null;
+    if (location.hash === target) await route(); else location.hash = target;
+    setTimeout(() => { notice("ok", T("adm.en_saved")); focusNotice(); }, 300);
+  });
+}
+async function loadEng(id) {
+  if (!reg) { try { await loadReg(true); } catch (e) { /* ignore */ } }
+  document.getElementById("content").innerHTML = '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  const r = await api("/api/admin/engagements?id=" + encodeURIComponent(id));
+  if (!r.ok) return showError(r);
+  engDetail = r.body; renderEng();
+}
+function renderEng() {
+  const d = engDetail, e = d.engagement;
+  const text = (k) => '<h3 class="obs-h">' + esc(T("adm.en_fl_" + k)) + '</h3><div class="obs-text">' + (e[k] ? esc(e[k]) : '<span class="na">' + esc(T("adm.en_not_set")) + '</span>') + '</div>';
+  let html = '<p><a href="#reports">‹ ' + esc(T("adm.rp_back")) + '</a></p><div class="panel"><div class="obs-head"><div><div class="obs-ref">' + esc(e.ref) + '</div><h2>' + esc(e.title) + '</h2><div class="ward-sub">' + esc(T("adm.en_period_line", { from: day(e.periodFrom), to: day(e.periodTo) })) + '</div></div>' +
+    '<div class="obs-badges"><span class="st' + (e.reported ? " st-closed" : "") + '">' + esc(T(e.reported ? "adm.en_reported" : "adm.en_open")) + '</span></div></div>' +
+    text("objectives") + text("scope") + text("criteria") +
+    '<div class="actions-row">' + (d.canEdit ? '<button type="button" id="en-edit">' + esc(T("adm.en_edit_btn")) + '</button>' : '') +
+      (d.canReport && !e.reported ? '<a class="btn-link primary" href="#newreport&kind=PERIOD&engagement=' + esc(encodeURIComponent(e.id)) + '">' + esc(T("adm.en_prepare")) + '</a>' : '') +
+      (d.canReport ? '<a class="btn-link" href="#newreport&kind=FOLLOW_UP&engagement=' + esc(encodeURIComponent(e.id)) + '">' + esc(T("adm.en_followup")) + '</a>' : '') + '</div>' +
+    (e.reported ? '<p class="hint">' + esc(T("adm.en_locked")) + '</p>' : '') + '</div>';
+  html += '<div class="panel"><h2>' + esc(T("adm.en_obs_t", { n: d.observations.length })) + '</h2>';
+  if (!d.observations.length) html += '<p class="empty">' + esc(T("adm.en_obs_none")) + '</p>';
+  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.au_col_ref")) + '</th><th scope="col">' + esc(T("adm.au_col_title")) + '</th><th scope="col">' + esc(T("adm.au_col_rating")) + '</th><th scope="col">' + esc(T("adm.au_col_status")) + '</th>' + (d.canLink ? '<th scope="col"><span class="sr-only">' + esc(T("adm.en_unlink")) + '</span></th>' : '') + '</tr></thead><tbody>' +
+    d.observations.map((o) => '<tr><td><a href="#obs=' + esc(encodeURIComponent(o.id)) + '">' + esc(o.ref) + '</a></td><td>' + esc(o.title) + '</td><td>' + ratingBadge(o.rating) + '</td><td>' + statusBadge(o) + '</td>' + (d.canLink ? '<td><button type="button" class="linkish en-unlink" data-id="' + esc(o.id) + '">' + esc(T("adm.en_unlink")) + '</button></td>' : '') + '</tr>').join("") + '</tbody></table></div>';
+  if (d.canLink && d.unlinked.length) {
+    html += '<div class="actions-row"><label for="en-add" class="small-label">' + esc(T("adm.en_add_label")) + '</label><select id="en-add"><option value="">' + esc(T("adm.au_choose")) + '</option>' +
+      d.unlinked.map((o) => '<option value="' + esc(o.id) + '">' + esc(o.ref + " — " + o.title + " (" + T("adm.au_s_" + o.status) + ")") + '</option>').join("") + '</select><button type="button" id="en-add-btn">' + esc(T("adm.en_add_btn")) + '</button></div><div class="field-err" id="en-add-err" role="alert"></div>';
+  }
+  html += '</div>';
+  if (d.reports.length) html += '<div class="panel"><h2>' + esc(T("adm.rp_reports")) + '</h2><ul class="timeline">' + d.reports.map((r) => '<li><a href="#report=' + esc(encodeURIComponent(r.id)) + '">' + esc(r.ref) + ' · v' + r.version + '</a> — ' + esc(kindLabel(r.kind)) + '<div class="ward-sub">' + esc(dateTime(r.issuedAt)) + ' · ' + esc(r.issuedBy) + '</div></li>').join("") + '</ul></div>';
+  document.getElementById("content").innerHTML = html;
+  const ed = document.getElementById("en-edit"); if (ed) ed.addEventListener("click", () => openEngForm(e));
+  const link = async (action, oid) => {
+    const r = await api("/api/admin/engagements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id: e.id, observationId: oid }) });
+    if (!r.ok) { const x = document.getElementById("en-add-err"); if (x) x.textContent = r.body.error || T("common.generic_error"); else notice("err", r.body.error || T("common.generic_error")); return; }
+    await loadEng(e.id); notice("ok", T(action === "link" ? "adm.en_linked" : "adm.en_unlinked")); focusNotice();
+  };
+  document.querySelectorAll(".en-unlink").forEach((b) => b.addEventListener("click", () => link("unlink", b.getAttribute("data-id"))));
+  const ab = document.getElementById("en-add-btn");
+  if (ab) ab.addEventListener("click", () => { const v = val("en-add"); if (!v) { document.getElementById("en-add-err").textContent = T("adm.en_add_err"); document.getElementById("en-add").focus(); return; } link("link", v); });
+}
+
+// --- new report: choose, preview, issue ---
+async function openRepForm(p) {
+  { const r = await api("/api/admin/audit-reports"); if (!r.ok) return showError(r); reps = r.body; }
+  if (!reps.canIssue) { document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + esc(T("adm.au_err_role")) + '</div>'; return; }
+  repForm = { kind: (p.kind || "").toUpperCase(), engagement: p.engagement || "", from: "", to: todayIst(), conclusion: "", summary: "", errors: {}, busy: false };
+  repPreview = null; renderRepForm();
+}
+function renderRepForm() {
+  const f = repForm, e = f.errors;
+  const fe = (k) => '<div class="field-err" id="rf-' + k + '-err" role="alert">' + esc(e[k] || "") + '</div>';
+  const inv = (k) => e[k] ? ' aria-invalid="true"' : '';
+  const engs = reps.engagements || [];
+  let html = '<p><a href="#reports">‹ ' + esc(T("adm.rp_back")) + '</a></p><form class="panel obs-form" id="rep-form" novalidate><h2>' + esc(T("adm.rp_new")) + '</h2><p class="section-sub">' + esc(T("adm.rp_new_sub")) + '</p>' +
+    '<fieldset aria-describedby="rf-kind-err"><legend>' + esc(T("adm.rp_fl_kind")) + '</legend>' +
+      ["PERIOD", "FOLLOW_UP", "REGISTER", "ANALYTICS"].map((k) => '<label class="check"><input type="radio" name="rf-kind" value="' + k + '"' + (f.kind === k ? " checked" : "") + '> <span><b>' + esc(kindLabel(k)) + '</b> — ' + esc(T("adm.rp_kh_" + k)) + '</span></label>').join("") + '</fieldset>' + fe("kind");
+  if (f.kind === "PERIOD" || f.kind === "FOLLOW_UP") {
+    html += '<label for="rf-engagement">' + esc(T(f.kind === "PERIOD" ? "adm.rp_fl_eng" : "adm.rp_fl_eng_opt")) + '</label><select id="rf-engagement" aria-describedby="rf-engagement-err"' + inv("engagement") + '><option value="">' + esc(T(f.kind === "PERIOD" ? "adm.au_choose" : "adm.rp_all_obs")) + '</option>' +
+      engs.map((x) => '<option value="' + esc(x.id) + '"' + (f.engagement === x.id ? " selected" : "") + '>' + esc(x.ref + " — " + x.title) + '</option>').join("") + '</select>' + fe("engagement");
+  }
+  if (f.kind === "PERIOD") {
+    html += '<fieldset aria-describedby="rf-conclusion-err"><legend>' + esc(T("adm.rp_fl_conclusion")) + '</legend>' +
+      CONCL.map((c) => '<label class="check"><input type="radio" name="rf-conclusion" value="' + c + '"' + (f.conclusion === c ? " checked" : "") + '> <span><b>' + esc(T("adm.rp_c_" + c)) + '</b> — ' + esc(T("adm.rp_ch_" + c)) + '</span></label>').join("") + '</fieldset>' + fe("conclusion") +
+      '<label for="rf-summary">' + esc(T("adm.rp_fl_summary")) + '</label><p class="hint" id="rf-summary-hint">' + esc(T("adm.rp_fh_summary")) + '</p><textarea id="rf-summary" rows="4" maxlength="4000" aria-describedby="rf-summary-hint rf-summary-err"' + inv("summary") + '>' + esc(f.summary) + '</textarea>' + fe("summary");
+  }
+  if (f.kind === "ANALYTICS") {
+    html += '<div class="date-row"><div><label for="rf-from">' + esc(T("adm.al_f_from")) + '</label><input type="date" id="rf-from" value="' + esc(f.from) + '" max="' + todayIst() + '" aria-describedby="rf-from-err"' + inv("from") + '>' + fe("from") + '</div>' +
+      '<div><label for="rf-to">' + esc(T("adm.al_f_to")) + '</label><input type="date" id="rf-to" value="' + esc(f.to) + '" max="' + todayIst() + '" aria-describedby="rf-to-err"' + inv("to") + '>' + fe("to") + '</div></div>';
+  }
+  html += '<div class="actions-row"><button type="submit" class="primary"' + (f.busy ? " disabled" : "") + '>' + esc(T("adm.rp_preview_btn")) + '</button></div><div class="dialog-error" role="alert">' + esc(e.form || "") + '</div></form>';
+  if (repPreview) html += '<div class="panel preview-panel" id="rep-preview"><div class="notice ok" role="status" tabindex="-1" id="preview-note">' + esc(T("adm.rp_preview_note")) + '</div>' + renderReportBody(repPreview.title, repPreview.content, null) +
+    '<div class="actions-row"><button type="button" class="primary" id="rp-issue"' + (f.busy ? " disabled" : "") + '>' + esc(T("adm.rp_issue_btn")) + '</button><span class="hint">' + esc(T("adm.rp_issue_hint")) + '</span></div><div class="dialog-error" role="alert" id="rp-issue-err"></div></div>';
+  document.getElementById("content").innerHTML = html;
+  const read = () => {
+    const k = document.querySelector('input[name="rf-kind"]:checked'); f.kind = k ? k.value : "";
+    f.engagement = val("rf-engagement"); f.from = val("rf-from") || f.from; f.to = val("rf-to") || f.to; f.summary = document.getElementById("rf-summary") ? val("rf-summary") : f.summary;
+    const c = document.querySelector('input[name="rf-conclusion"]:checked'); if (c) f.conclusion = c.value;
+  };
+  document.querySelectorAll('input[name="rf-kind"]').forEach((r) => r.addEventListener("change", () => { read(); repPreview = null; f.errors = {}; renderRepForm(); const x = document.querySelector('input[name="rf-kind"]:checked'); if (x) x.focus(); }));
+  const params = () => {
+    const q = { kind: f.kind };
+    if (f.kind === "PERIOD" || f.kind === "FOLLOW_UP") q.engagement = f.engagement;
+    if (f.kind === "PERIOD") { q.conclusion = f.conclusion; q.summary = f.summary; }
+    if (f.kind === "ANALYTICS") { q.from = f.from; q.to = f.to; }
+    return q;
+  };
+  const mapRepErrors = (b) => {
+    const M = { REQUIRED: "adm.rp_e_required", INCOMPLETE: "adm.rp_e_incomplete", LENGTH: "adm.rp_e_summary", DATE: "adm.au_e_date", BEFORE_FROM: "adm.au_e_before", FUTURE: "adm.rp_e_future", TOO_LONG: "adm.rp_e_long", KIND: "adm.rp_e_kind", NOT_FOUND: "adm.rp_e_required" };
+    const out = {}; const fl = (b && b.fields) || {};
+    Object.keys(fl).forEach((k) => { out[k] = T(M[fl[k]] || "adm.rp_e_required"); });
+    if (!Object.keys(fl).length) out.form = (b && b.error) || T("common.generic_error");
+    return out;
+  };
+  document.getElementById("rep-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); read(); f.errors = {};
+    if (!f.kind) f.errors.kind = T("adm.rp_e_kind");
+    if (f.kind === "PERIOD") { if (!f.engagement) f.errors.engagement = T("adm.rp_e_required"); if (!f.conclusion) f.errors.conclusion = T("adm.rp_e_required"); if (f.summary.trim().length < 20) f.errors.summary = T("adm.rp_e_summary"); }
+    if (f.kind === "ANALYTICS") { if (!f.from) f.errors.from = T("adm.au_e_date"); if (!f.to) f.errors.to = T("adm.au_e_date"); if (f.from && f.to && f.from > f.to) f.errors.to = T("adm.au_e_before"); }
+    if (Object.keys(f.errors).length) { repPreview = null; renderRepForm(); focusFirstError(); return; }
+    f.busy = true; renderRepForm();
+    const q = params();
+    const r = await api("/api/admin/audit-reports?preview=1&" + Object.keys(q).map((k) => k + "=" + encodeURIComponent(q[k] || "")).join("&"));
+    f.busy = false;
+    if (!r.ok) { f.errors = mapRepErrors(r.body); repPreview = null; renderRepForm(); focusFirstError(); return; }
+    repPreview = { title: r.body.title, content: r.body.content, params: q };
+    renderRepForm(); const n = document.getElementById("preview-note"); if (n) n.focus();
+  });
+  const is = document.getElementById("rp-issue");
+  if (is) is.addEventListener("click", async () => {
+    f.busy = true; is.disabled = true;
+    const r = await api("/api/admin/audit-reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action: "issue" }, repPreview.params)) });
+    f.busy = false;
+    if (!r.ok) { is.disabled = false; const x = document.getElementById("rp-issue-err"); x.textContent = r.body.error || T("common.generic_error"); x.setAttribute("tabindex", "-1"); x.focus(); return; }
+    reps = null; repForm = null; repPreview = null;
+    location.hash = "#report=" + encodeURIComponent(r.body.id);
+    setTimeout(() => { notice("ok", T("adm.rp_issued_ok", { ref: r.body.ref, v: r.body.version })); focusNotice(); }, 400);
+  });
+}
+
+// --- showing a report (preview or issued) ---
+function para(label, text) { return '<h4 class="rp-h">' + esc(label) + '</h4><div class="obs-text">' + (text ? esc(text) : '<span class="na">—</span>') + '</div>'; }
+function ratingsLine(r) { return '<div class="rp-ratings">' + RATINGS.map((k) => '<span>' + ratingBadge(k) + ' <b>' + (r[k] || 0) + '</b></span>').join("") + '</div>'; }
+function aboutOf(o) { return aboutText({ subjectType: o.subjectType, subjectCases: o.subjectCases, subjectOffice: o.subjectOffice, subjectProcess: o.subjectProcess }); }
+function obsBlock(o) {
+  return '<section class="rp-obs"><h3>' + esc(o.ref) + ' — ' + esc(o.title) + ' ' + ratingBadge(o.rating) + '</h3><div class="ward-sub">' + esc(aboutOf(o)) + ' · ' + esc(T("adm.au_col_owner")) + ': ' + esc(o.owner || "—") + ' · ' + esc(T("adm.au_col_due")) + ': ' + esc(day(o.dueDate)) + ' · ' + esc(T("adm.rp_state_" + o.state)) + '</div>' +
+    para(T("adm.au_fl_criteria"), o.criteria) + para(T("adm.au_fl_condition"), o.condition) + para(T("adm.au_fl_cause"), o.cause) + para(T("adm.au_fl_effect"), o.effect) + para(T("adm.au_fl_recommendation"), o.recommendation) +
+    para(T("adm.rp_mgmt_reply"), o.response ? (T(o.response.agree ? "adm.au_agrees" : "adm.au_disagrees") + ". " + o.response.text) : T("adm.rp_no_reply")) +
+    (o.response && o.response.actionPlan ? para(T("adm.au_plan"), o.response.actionPlan + " (" + T("adm.au_target") + " " + day(o.response.targetDate) + ")") : "") +
+    (o.riskReason ? para(T("adm.au_risk_t"), o.riskReason) : "") +
+    (o.amendments && o.amendments.length ? '<h4 class="rp-h">' + esc(T("adm.au_amendments")) + '</h4><ul class="al-details">' + o.amendments.map((a) => '<li>' + esc(fieldName(a.field) + ": " + (a.from || "—") + " → " + a.to + " · " + day(String(a.at).slice(0, 10)) + " · " + T("adm.au_reason_line", { reason: a.reason })) + '</li>').join("") + '</ul>' : "") + '</section>';
+}
+function pctCell(p) { return p == null ? "—" : p + "%"; }
+// The heading in the reader's language (the stored title stays as issued).
+function displayTitle(c, fallback) {
+  const k = kindLabel(c.kind);
+  if (c.kind === "PERIOD" && c.engagement) return k + " — " + c.engagement.title;
+  if (c.kind === "FOLLOW_UP") return k + " — " + (c.engagement ? c.engagement.title : T("adm.rp_all_obs")) + " · " + T("adm.rp_as_of", { date: day(c.asOf) });
+  if (c.kind === "REGISTER") return k + " · " + T("adm.rp_as_of", { date: day(c.asOf) });
+  if (c.kind === "ANALYTICS") return k + " · " + T("adm.en_period_line", { from: day(c.periodFrom), to: day(c.periodTo) });
+  return fallback;
+}
+function renderReportBody(title, c, meta) {
+  let h = '<article class="report"><div class="rp-head"><div class="rp-org">GrievIQ · ' + esc(T("adm.rp_audit_report")) + '</div><h2>' + esc(displayTitle(c, title)) + '</h2>' +
+    (meta ? '<div class="ward-sub">' + esc(meta.ref + " · " + T("adm.rp_version", { v: meta.version }) + " · " + T("adm.rp_issued_by", { who: meta.issuedBy, when: dateTime(meta.issuedAt) })) + '</div>' + (meta.correctionReason ? '<div class="ward-sub">' + esc(T("adm.rp_correction_line", { reason: meta.correctionReason })) + '</div>' : '') : '') + '</div>';
+  if (c.kind === "PERIOD") {
+    h += '<section><h3>' + esc(T("adm.rp_s_engagement")) + '</h3><div class="ward-sub">' + esc(c.engagement.ref + " · " + T("adm.en_period_line", { from: day(c.engagement.periodFrom), to: day(c.engagement.periodTo) })) + '</div>' +
+      para(T("adm.en_fl_objectives"), c.engagement.objectives) + para(T("adm.en_fl_scope"), c.engagement.scope) + para(T("adm.en_fl_criteria"), c.engagement.criteria) + '</section>' +
+      '<section><h3>' + esc(T("adm.rp_s_conclusion")) + '</h3><p class="rp-conclusion c-' + esc(String(c.conclusion).toLowerCase()) + '">' + esc(T("adm.rp_c_" + c.conclusion)) + '</p><div class="obs-text">' + esc(c.summary) + '</div></section>' +
+      '<section><h3>' + esc(T("adm.rp_s_ratings", { n: c.observations.length })) + '</h3>' + ratingsLine(c.ratings) + '</section>' +
+      '<section><h3>' + esc(T("adm.rp_s_findings")) + '</h3>' + (c.observations.length ? c.observations.map(obsBlock).join("") : '<p class="empty">' + esc(T("adm.en_obs_none")) + '</p>') + '</section>';
+  } else if (c.kind === "FOLLOW_UP" || c.kind === "REGISTER") {
+    h += '<section><p class="ward-sub">' + esc(T("adm.rp_as_of", { date: day(c.asOf) })) + (c.engagement ? ' · ' + esc(c.engagement.ref + " — " + c.engagement.title) : '') + '</p>' + ratingsLine(c.ratings) +
+      (c.counts ? '<div class="rp-ratings">' + STATE_KEYS.map((k) => '<span>' + esc(T("adm.rp_state_" + k)) + ' <b>' + (c.counts[k] || 0) + '</b></span>').join("") + '</div>' : '') + '</section>';
+    if (c.kind === "FOLLOW_UP") h += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.au_col_ref")) + '</th><th scope="col">' + esc(T("adm.au_col_title")) + '</th><th scope="col">' + esc(T("adm.au_col_rating")) + '</th><th scope="col">' + esc(T("adm.rp_c_state")) + '</th><th scope="col">' + esc(T("adm.au_col_owner")) + '</th><th scope="col">' + esc(T("adm.au_col_due")) + '</th></tr></thead><tbody>' +
+      c.observations.map((o) => '<tr><td>' + esc(o.ref) + '</td><td>' + esc(o.title) + (o.actionPlan ? '<div class="ward-sub">' + esc(T("adm.au_plan") + " " + o.actionPlan) + '</div>' : '') + '</td><td>' + ratingBadge(o.rating) + '</td><td class="' + (o.state === "OVERDUE" ? "attn" : "") + '">' + esc(T("adm.rp_state_" + o.state)) + (o.closedAt ? '<div class="ward-sub">' + esc(dateTime(o.closedAt)) + '</div>' : '') + '</td><td>' + esc(o.owner || "—") + '</td><td>' + esc(day(o.dueDate)) + '</td></tr>').join("") + '</tbody></table></div>';
+    else h += c.observations.map(obsBlock).join("") || '<p class="empty">' + esc(T("adm.au_none")) + '</p>';
+  } else if (c.kind === "ANALYTICS") {
+    const t = c.total;
+    const cell = (v) => v == null ? "—" : String(v);
+    h += '<p class="ward-sub">' + esc(T("adm.en_period_line", { from: day(c.periodFrom), to: day(c.periodTo) })) + '</p>' +
+      '<div class="cards">' + [["filed", t.filed], ["resolved", t.resolved], ["within", pctCell(t.withinLimitPct)], ["avg", cell(t.avgDays)], ["escalated", t.escalated], ["disputed", t.disputed], ["reopened", c.reopenedInPeriod]].map((x) => '<div class="card"><div class="num">' + esc(x[1]) + '</div><div class="label">' + esc(T("adm.rp_a_" + x[0])) + '</div></div>').join("") + '</div>' +
+      '<section><h3>' + esc(T("adm.rp_s_by_ward")) + '</h3><div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rp_ward")) + '</th>' + ["filed", "resolved", "within", "avg", "escalated", "disputed", "reopened", "warnings"].map((k) => '<th scope="col" class="num">' + esc(T("adm.rp_a_" + k)) + '</th>').join("") + '</tr></thead><tbody>' +
+        c.wards.map((w) => '<tr><td>' + esc(w.name) + '</td><td class="num">' + w.filed + '</td><td class="num">' + w.resolved + '</td><td class="num">' + pctCell(w.withinLimitPct) + '</td><td class="num">' + cell(w.avgDays) + '</td><td class="num">' + w.escalated + '</td><td class="num">' + w.disputed + '</td><td class="num">' + w.reopened + '</td><td class="num">' + w.fixesWithWarnings + '</td></tr>').join("") + '</tbody></table></div></section>' +
+      '<section><h3>' + esc(T("adm.rp_s_by_level")) + '</h3><div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rp_level")) + '</th><th scope="col" class="num">' + esc(T("adm.rp_a_resolved_here")) + '</th><th scope="col" class="num">' + esc(T("adm.rp_a_avg")) + '</th><th scope="col" class="num">' + esc(T("adm.rp_a_open_now")) + '</th></tr></thead><tbody>' +
+        c.levels.map((l) => '<tr><td>' + esc(T("adm.al_tier_" + l.tier)) + '</td><td class="num">' + l.resolved + '</td><td class="num">' + cell(l.avgDays) + '</td><td class="num">' + l.openNow + '</td></tr>').join("") + '</tbody></table></div></section>' +
+      '<section><h3>' + esc(T("adm.rp_s_evidence")) + '</h3><ul class="al-details">' +
+        (Object.keys(c.fixEvidence.warningsByType).length ? Object.keys(c.fixEvidence.warningsByType).map((k) => '<li>' + esc(T("adm.rp_w_" + k) !== "adm.rp_w_" + k ? T("adm.rp_w_" + k) : k) + ': <b>' + c.fixEvidence.warningsByType[k] + '</b></li>').join("") : '<li>' + esc(T("adm.rp_no_warnings")) + '</li>') +
+        '<li>' + esc(T("adm.rp_checks_line", { v: c.fixEvidence.checks.VERIFIED || 0, n: c.fixEvidence.checks.NOT_FIXED || 0, c: c.fixEvidence.checks.CANT_TELL || 0, a: c.fixEvidence.checks.NO_ANSWER || 0 })) + '</li>' +
+        '<li>' + esc(T("adm.rp_not_verified_line", { n: c.fixEvidence.notVerifiedClosures })) + '</li></ul></section>' +
+      '<section><h3>' + esc(T("adm.rp_s_staff")) + '</h3>' + (c.staff.length ? '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.al_c_who")) + '</th><th scope="col" class="num">' + esc(T("adm.rp_case_views")) + '</th><th scope="col" class="num">' + esc(T("adm.rp_unmasked")) + '</th></tr></thead><tbody>' +
+        c.staff.map((s) => '<tr><td>' + esc(s.email) + '</td><td class="num">' + s.caseViews + '</td><td class="num">' + s.phoneUnmasked + '</td></tr>').join("") + '</tbody></table></div>' : '<p class="empty">' + esc(T("adm.rp_no_staff")) + '</p>') +
+        '<p>' + esc(T("adm.rp_refused_line", { n: c.refusedSignIns.total })) + (c.refusedSignIns.total ? ' ' + Object.keys(c.refusedSignIns.byReason).map((k) => esc((T("adm.al_code_" + k) !== "adm.al_code_" + k ? T("adm.al_code_" + k) : k) + ": " + c.refusedSignIns.byReason[k])).join("; ") : '') + '</p></section>' +
+      '<details class="rp-how"><summary>' + esc(T("adm.rp_how")) + '</summary><p class="obs-text">' + esc(T("adm.rp_a_how")) + '</p></details>';
+  }
+  return h + '</article>';
+}
+async function loadReport(id) {
+  if (!reg) { try { await loadReg(true); } catch (e) { /* ignore */ } }
+  document.getElementById("content").innerHTML = '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  const r = await api("/api/admin/audit-reports?id=" + encodeURIComponent(id));
+  if (!r.ok) return showError(r);
+  repView = r.body; repAct = {}; renderReportView();
+}
+function renderReportView() {
+  const d = repView, r = d.report, m = d.content.meta;
+  let html = '<p class="no-print"><a href="#reports">‹ ' + esc(T("adm.rp_back")) + '</a></p>';
+  if (r.supersededBy) html += '<div class="notice err" role="status">' + esc(T("adm.rp_superseded_note")) + ' <a href="#report=' + esc(encodeURIComponent(r.supersededBy)) + '">' + esc(T("adm.rp_see_latest")) + '</a></div>';
+  html += '<div class="panel fp ' + (d.fingerprintMatches ? "fp-ok" : "fp-bad") + '" role="status"><b>' + esc(T(d.fingerprintMatches ? "adm.rp_fp_ok" : "adm.rp_fp_bad")) + '</b><div class="ward-sub">' + esc(T("adm.rp_fp_label")) + ' <code>' + esc(r.fingerprint) + '</code></div><div class="ward-sub">' + esc(T("adm.rp_fp_help")) + '</div></div>';
+  html += '<div class="actions-row no-print"><button type="button" id="rp-print">' + esc(T("adm.rp_print")) + '</button>' +
+    (d.versions.length > 1 ? '<span class="ward-sub">' + esc(T("adm.rp_versions")) + ' ' + d.versions.map((v) => v.id === r.id ? '<b>v' + v.version + '</b>' : '<a href="#report=' + esc(encodeURIComponent(v.id)) + '">v' + v.version + '</a>').join(" · ") + '</span>' : '') + '</div>';
+  html += '<div class="panel">' + renderReportBody(m.title, d.content, m) + '</div>';
+  if (d.canCorrect) {
+    const e = repAct.errors || {};
+    html += '<form class="panel act no-print" id="rp-correct" novalidate><h2>' + esc(T("adm.rp_correct_t")) + '</h2><p class="section-sub">' + esc(T("adm.rp_correct_sub")) + '</p>' +
+      '<label for="rc-reason">' + esc(T("adm.rp_correct_reason")) + '</label><textarea id="rc-reason" rows="2" aria-describedby="rc-reason-err"' + (e.reason ? ' aria-invalid="true"' : '') + '>' + esc((repAct.values || {}).reason || "") + '</textarea><div class="field-err" id="rc-reason-err" role="alert">' + esc(e.reason || "") + '</div>' +
+      (r.kind === "PERIOD" ? '<label for="rc-conclusion">' + esc(T("adm.rp_fl_conclusion")) + '</label><select id="rc-conclusion">' + CONCL.map((c) => '<option value="' + c + '"' + (d.content.conclusion === c ? " selected" : "") + '>' + esc(T("adm.rp_c_" + c)) + '</option>').join("") + '</select>' +
+        '<label for="rc-summary">' + esc(T("adm.rp_fl_summary")) + '</label><textarea id="rc-summary" rows="4">' + esc(d.content.summary || "") + '</textarea>' : '') +
+      '<div class="actions-row"><button type="submit"' + (repAct.busy ? " disabled" : "") + '>' + esc(T("adm.rp_correct_btn")) + '</button></div><div class="dialog-error" role="alert">' + esc(e.form || "") + '</div></form>';
+  }
+  document.getElementById("content").innerHTML = html;
+  document.getElementById("rp-print").addEventListener("click", () => window.print());
+  const cf = document.getElementById("rp-correct");
+  if (cf) cf.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const reason = val("rc-reason").trim();
+    repAct = { values: { reason }, errors: {} };
+    if (reason.length < 10) { repAct.errors.reason = T("adm.rp_e_reason"); renderReportView(); focusFirstError(); return; }
+    repAct.busy = true;
+    const body = { action: "correct", id: r.id, reason };
+    if (r.kind === "PERIOD") { body.conclusion = val("rc-conclusion"); body.summary = val("rc-summary"); }
+    const res = await api("/api/admin/audit-reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    repAct.busy = false;
+    if (!res.ok) { repAct.errors = res.body.fields && res.body.fields.reason ? { reason: T("adm.rp_e_reason") } : { form: res.body.error || T("common.generic_error") }; renderReportView(); focusFirstError(); return; }
+    location.hash = "#report=" + encodeURIComponent(res.body.id);
+    setTimeout(() => { notice("ok", T("adm.rp_issued_ok", { ref: res.body.ref, v: res.body.version })); focusNotice(); }, 400);
+  });
+}
+
 // ---------- theme / language ----------
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
@@ -798,6 +1133,13 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
 document.addEventListener("giq:lang", () => {
   applyTheme(theme); renderTabs();
   if (view.tab === "log") { if (log) renderLog(); }
+  else if (view.tab === "reports") {
+    if (engForm && document.getElementById("eng-form")) renderEngForm();
+    else if (repForm && document.getElementById("rep-form")) renderRepForm();
+    else if (view.reportId && repView) renderReportView();
+    else if (view.engId && engDetail) renderEng();
+    else if (reps) renderReports();
+  }
   else if (form && document.getElementById("obs-form")) renderForm();
   else if (view.id && detail) renderDetail();
   else if (reg) renderReg();

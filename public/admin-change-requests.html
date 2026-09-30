@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.c_page_title">GrievIQ Admin — Change requests</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js"></script><script src="/admin-nav.js?v=r1"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -272,7 +272,7 @@ function isOutOfDate(r) {
   return Object.keys(r.newValues || {}).some(function (f) { return (r.liveValues[f] ?? null) !== (ov[f] ?? null); });
 }
 
-function renderCard(r, approver) {
+function renderCard(r, approver, viewer) {
   var own = approver && r.requestedBy === state.data.email;
   var pending = r.status === "PENDING";
   var ood = isOutOfDate(r);
@@ -280,7 +280,7 @@ function renderCard(r, approver) {
     '<div class="req-head">' +
       (approver && pending && !own && !ood ? '<input type="checkbox" class="pick" data-id="' + esc(r.id) + '" aria-label="' + esc(T("adm.c_select", { label: labelText(r) })) + '">' : "") +
       '<div class="req-title">' + esc(labelText(r)) + (r.kind === "add_unit" ? "" : "") +
-        '<div class="req-meta">' + esc(approver ? T("adm.c_requested_by", { who: r.requestedBy, date: fmtDate(r.requestedAt) }) : T("adm.c_sent_on", { date: fmtDate(r.requestedAt) })) +
+        '<div class="req-meta">' + esc(viewer ? T("adm.c_requested_by", { who: r.requestedBy, date: fmtDate(r.requestedAt) }) : T("adm.c_sent_on", { date: fmtDate(r.requestedAt) })) +
         (r.reviewedAt && !pending ? esc(r.status === "WITHDRAWN" ? T("adm.c_withdrawn", { date: fmtDate(r.reviewedAt) })
           : r.reviewedBy ? T("adm.c_decided_by", { date: fmtDate(r.reviewedAt), who: r.reviewedBy }) : T("adm.c_decided", { date: fmtDate(r.reviewedAt) })) : "") +
         "</div></div>" +
@@ -300,7 +300,7 @@ function renderCard(r, approver) {
     "</div>";
   } else if (pending && approver && own) {
     html += '<div class="req-meta">' + T("adm.c_own_note") + '</div>';
-  } else if (pending && !approver) {
+  } else if (pending && !approver && state.data.canRequest) {
     html += '<div class="req-actions"><button class="withdraw" data-id="' + esc(r.id) + '">' + T("adm.c_withdraw") + '</button></div>';
   }
   html += '<div class="row-msg" id="msg-' + esc(r.id) + '" role="status" aria-live="polite"></div></div>';
@@ -319,15 +319,17 @@ function setSummary(msg, type) {
 function render() {
   var d = state.data;
   var approver = d.canApprove;
-  document.getElementById("page-title").textContent = approver ? T("adm.c_title") : T("adm.c_title_own");
-  document.getElementById("page-sub").textContent = approver ? T("adm.c_sub") : T("adm.c_sub_own");
+  // The auditor sees every request and decision, read-only.
+  var viewer = approver || d.canView;
+  document.getElementById("page-title").textContent = viewer ? T("adm.c_title") : T("adm.c_title_own");
+  document.getElementById("page-sub").textContent = approver ? T("adm.c_sub") : viewer ? T("adm.c_sub_view") : T("adm.c_sub_own");
   var tb = document.getElementById("toolbar");
-  if (approver) {
+  if (viewer) {
     tb.hidden = false;
     tb.innerHTML = '<div class="tabs" role="group" aria-label="' + esc(T("adm.c_show")) + '">' +
         '<button id="tab-pending" aria-pressed="' + (state.view === "pending") + '">' + esc(T("adm.c_tab_waiting", { n: d.pendingCount })) + "</button>" +
         '<button id="tab-decided" aria-pressed="' + (state.view === "decided") + '">' + T("adm.c_tab_decided") + '</button></div>' +
-      (state.view === "pending" && d.requests.length ? '<label class="muted"><input type="checkbox" id="pick-all"> ' + T("adm.c_select_all") + '</label>' +
+      (approver && state.view === "pending" && d.requests.length ? '<label class="muted"><input type="checkbox" id="pick-all"> ' + T("adm.c_select_all") + '</label>' +
         '<button class="primary" id="approve-picked">' + T("adm.c_approve_selected") + '</button>' : "");
     document.getElementById("tab-pending").onclick = function () { state.view = "pending"; setSummary(""); load(); };
     document.getElementById("tab-decided").onclick = function () { state.view = "decided"; setSummary(""); load(); };
@@ -336,10 +338,10 @@ function render() {
   }
   var list = document.getElementById("list");
   if (!d.requests.length) {
-    list.innerHTML = '<p class="empty">' + (approver ? (state.view === "pending" ? T("adm.c_empty_pending") : T("adm.c_empty_decided")) : T("adm.c_empty_own")) + "</p>";
+    list.innerHTML = '<p class="empty">' + (viewer ? (state.view === "pending" ? T("adm.c_empty_pending") : T("adm.c_empty_decided")) : T("adm.c_empty_own")) + "</p>";
     return;
   }
-  list.innerHTML = d.requests.map(function (r) { return renderCard(r, approver); }).join("");
+  list.innerHTML = d.requests.map(function (r) { return renderCard(r, approver, viewer); }).join("");
   wire();
 }
 

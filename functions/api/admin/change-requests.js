@@ -79,11 +79,13 @@ export async function onRequestGet({ request, env }) {
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
   const canApprove = can(auth.role, "approve_changes");
   const canRequest = can(auth.role, "request_changes");
-  if (!canApprove && !canRequest) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
+  // The auditor sees every request and decision, read-only.
+  const canView = can(auth.role, "view_change_requests");
+  if (!canApprove && !canRequest && !canView) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
 
   const url = new URL(request.url);
   let rows;
-  if (canApprove) {
+  if (canApprove || canView) {
     const view = url.searchParams.get("view") === "decided" ? "decided" : "pending";
     const sql = view === "pending"
       ? "SELECT * FROM change_requests WHERE status = 'PENDING' ORDER BY requested_at ASC LIMIT 200"
@@ -115,6 +117,7 @@ export async function onRequestGet({ request, env }) {
     email: auth.email,
     canApprove,
     canRequest,
+    canView,
     pendingCount: countRows[0] ? countRows[0].n : 0,
     requests: out,
   });
