@@ -363,6 +363,9 @@ async function loadTree() {
     // send change requests that an admin must approve (maker-checker).
     MODE = data.canEdit ? "edit" : (data.canRequest ? "request" : "view");
     document.getElementById("request-banner").hidden = MODE !== "request";
+    const sub = document.querySelector("p.subtitle");
+    sub.setAttribute("data-i18n", MODE === "view" ? "adm.j_sub_view" : "adm.j_sub");
+    sub.textContent = T(MODE === "view" ? "adm.j_sub_view" : "adm.j_sub");
     renderTree();
   } catch (err) {
     treeEl.innerHTML = '<div class="node-row">' + T("adm.network") + '</div>';

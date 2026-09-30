@@ -23,7 +23,7 @@
 // "Needs attention" uses the same shared logic as the Exceptions page.
 // All queries are aggregate JOINs -- no long IN (?,?,...) lists.
 
-import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, PERMISSIONS, pagesFor } from "../../_shared/get-verified-admin.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 import { purgeDuePhotos, PURGE_BATCH } from "../../_shared/photo-store.js";
@@ -200,17 +200,17 @@ export async function onRequestGet(context) {
       ? { value: noteRow.value || "", updatedBy: noteRow.updated_by, updatedAt: noteRow.updated_at }
       : { value: "", updatedBy: null, updatedAt: null },
     canEditNote: can(role, "run_import"),
-    links: {
-      // Operators may open Jurisdiction too (to request changes).
-      jurisdiction: can(role, "view_jurisdiction"),
-      wardBoundaries: can(role, "run_import"),
-      exceptions: can(role, "exceptions_queue"),
-      reviews: can(role, "review_queue"),
-      cases: can(role, "view_cases"),
-      changeRequests: canApprove || canRequest,
-      checks: can(role, "view_checks"),
-      photos: can(role, "manage_photos"),
-    },
+    // Card links follow the same page list as the menu (pagesFor), so a
+    // card never leads to a page the role can't use.
+    links: (() => {
+      const pg = pagesFor(role);
+      const ok = (k) => !!(pg[k] && pg[k].allowed);
+      return {
+        jurisdiction: ok("admin-jurisdiction"), wardBoundaries: ok("admin-import-wards"),
+        exceptions: ok("admin-exceptions"), reviews: ok("admin-reviews"), cases: ok("admin-cases"),
+        changeRequests: ok("admin-change-requests"), checks: ok("admin-checks"), photos: ok("admin-photos"),
+      };
+    })(),
     generatedAt: new Date().toISOString(),
   });
 }

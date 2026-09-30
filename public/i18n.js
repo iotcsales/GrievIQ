@@ -1986,6 +1986,7 @@
 "adm.j_page_title": ["Jurisdiction — GrievIQ Admin", "क्षेत्राधिकार — GrievIQ प्रशासन"],
 "adm.j_title": ["Jurisdiction hierarchy", "क्षेत्राधिकार संरचना"],
 "adm.j_sub": ["MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.", "लोकसभा क्षेत्र, उनके विधायक, और हर विधायक के वार्ड। संपर्क विवरण ठीक करें या वार्ड/विधायक का क्षेत्र सुधारें।"],
+"adm.j_sub_view": ["MP constituencies, their MLAs, and each MLA's wards, with their contact details. This is a read-only view: changes are made by super admins and operations admins, or requested by data entry operators.", "लोकसभा क्षेत्र, उनके विधायक, और हर विधायक के वार्ड, संपर्क विवरण सहित। यह केवल देखने के लिए है: परिवर्तन सुपर एडमिन और संचालन एडमिन करते हैं, या डेटा एंट्री ऑपरेटर उनका अनुरोध करते हैं।"],
 "adm.j_banner": ["<b>You can request changes.</b> Nothing you send changes the live data straight away: each request is checked and approved by an administrator first. You can follow your requests on <a href=\"/admin-change-requests.html\">Change requests</a>.", "<b>आप परिवर्तन का अनुरोध कर सकते हैं।</b> आपके भेजे अनुरोध से सीधे कोई आँकड़ा नहीं बदलता: हर अनुरोध पहले प्रशासक द्वारा जाँचा और अनुमोदित किया जाता है। अपने अनुरोधों की स्थिति <a href=\"/admin-change-requests.html\">परिवर्तन अनुरोध</a> पर देखें।"],
 "adm.j_search_ph": ["Search by MP, MLA, ward/village, or representative name...", "सांसद, विधायक, वार्ड/गाँव या जनप्रतिनिधि के नाम से खोजें..."],
 "adm.j_unnamed_mp": ["unnamed MP", "सांसद का नाम दर्ज नहीं"],
