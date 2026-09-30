@@ -273,6 +273,59 @@
   .role-form { margin: 12px 0 0; }
   .team-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .badge.neutral { background: #eef1f4; color: #3c4650; }
+  /* Item 8c-2: Overview */
+  .ov-filters { display: flex; flex-wrap: wrap; gap: 0 16px; align-items: flex-start; }
+  .ov-filters select, #team-office { padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; background: #fff; min-width: 240px; max-width: 100%; }
+  .ov-filters .field-err { font-size: 12.5px; color: var(--red); margin-top: 4px; font-weight: 600; max-width: 220px; }
+  .ov-filters .field-err:empty { display: none; }
+  .ov-hint { font-size: 12.5px; color: var(--steel-2); margin: 2px 0 6px; line-height: 1.45; }
+  .ov-dates { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  .ov-dates input[type=date] { padding: 7px 8px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; }
+  .ov-dates input[aria-invalid="true"] { border-color: var(--red); }
+  .ov-dates .ov-show { margin-top: 36px; }
+  .ov-csv { text-decoration: none; display: inline-block; }
+  .ov-period-line { font-size: 13.5px; margin: 6px 0 4px; }
+  .ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 14px 0 18px; }
+  .ov-tile { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .ov-tile-v { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+  .ov-tile-l { font-size: 12.5px; color: var(--steel); margin-top: 4px; }
+  .ov-tile.late .ov-tile-v { color: var(--red); }
+  .ov-trail { font-size: 13.5px; margin: 0 0 8px; }
+  .ov-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--card); margin-bottom: 18px; }
+  .ov-scroll:focus { outline: 3px solid #ffbf47; outline-offset: 2px; }
+  .ov-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .ov-table th, .ov-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; white-space: nowrap; }
+  .ov-table thead th { background: var(--paper); font-weight: 600; font-size: 12px; color: var(--steel); vertical-align: bottom; white-space: normal; min-width: 70px; }
+  .ov-table th.ov-name { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; min-width: 140px; white-space: normal; }
+  .ov-table thead th.ov-name { background: var(--paper); }
+  .ov-table th.ov-group { text-align: center; border-bottom: 1px solid var(--line); }
+  .ov-table tfoot th, .ov-table tfoot td { font-weight: 700; border-top: 2px solid var(--ink); border-bottom: 0; }
+  .ov-table td.muted { color: var(--steel-2); }
+  .ov-table td.ov-late { color: var(--red); font-weight: 700; }
+  .ov-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: inherit; }
+  .ov-sort:hover { text-decoration: underline; }
+  .ov-nd { display: block; font-size: 11px; color: var(--steel-2); font-weight: 400; }
+  .ov-name .linkish { font-size: 12.5px; font-weight: 400; }
+  .ov-legend { display: flex; gap: 16px; font-size: 13px; color: var(--steel); margin: 0 0 6px; }
+  .sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .sw.s1, .ov-dot.s1 { background: #2a78d6; fill: #2a78d6; }
+  .sw.s2, .ov-dot.s2 { background: #eb6834; fill: #eb6834; }
+  .ov-chart-wrap { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+  .ov-chart { width: 100%; height: auto; display: block; }
+  .ov-grid { stroke: var(--line); stroke-width: 1; }
+  .ov-axis { font-size: 11px; fill: var(--steel-2); }
+  .ov-end { font-size: 11.5px; fill: var(--steel); }
+  .ov-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .ov-line.s1 { stroke: #2a78d6; } .ov-line.s2 { stroke: #eb6834; }
+  .ov-dot { stroke: #fff; stroke-width: 2; }
+  .ov-cross { stroke: var(--steel-2); stroke-width: 1; stroke-dasharray: 3 3; }
+  .ov-hit { fill: transparent; }
+  .ov-tip { position: absolute; top: 8px; width: 150px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none; }
+  .ov-how { margin: 8px 0 18px; font-size: 13.5px; }
+  .ov-how summary { cursor: pointer; color: var(--brand); }
+  .ov-how ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.55; color: var(--steel); }
+  .ov-trend-table { margin-top: 8px; max-width: 360px; }
+  .ov-work th, .ov-work td { white-space: normal; }
   .my-job { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 6px; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; line-height: 1.55; }
   /* Item 8a: sign-in screen */
   .signin-card { max-width: 420px; margin: 48px auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 28px 24px; text-align: center; }
@@ -1230,10 +1283,11 @@ async function loadTeamTab() {
 var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSIGNED: 'rep.act_assign', UNASSIGNED: 'rep.act_unassign',
   FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
   MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role',
-  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed' };
+  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', OVERVIEW_EXPORTED: 'rep.act_exported' };
 function activityText(a) {
   var d = a.detail || {};
   if (a.action === 'UNASSIGNED' && d.reason === 'OUT_OF_AREA') return T('rep.act_unassign_area', { ref: a.trackingRef || '' });
+  if (a.action === 'OVERVIEW_EXPORTED') return T('rep.act_exported', { from: ovDay(d.from), to: ovDay(d.to) });
   return T(ACT_KEYS[a.action] || 'rep.act_other', { ref: a.trackingRef || '', name: d.name || d.to || '', dept: d.department ? deptName(d.department) : '',
     role: d.role ? T(ROLE_KEYS[d.role]) : (d.to && ROLE_KEYS[d.to] ? T(ROLE_KEYS[d.to]) : ''), action: a.action });
 }
@@ -1610,6 +1664,277 @@ async function refreshTeamAndCases() {
   await loadTeamTab();
 }
 
+// ================= Overview (item 8c-2) =================
+// How the office's whole area is doing, as counts only (/api/overview).
+var ovOfficeKey = null, ovPeriod = 'this_month', ovFrom = '', ovTo = '', ovMla = null;
+var ovData = null, ovErrors = {}, ovSort = { col: null, dir: 'desc' };
+function ovOffices() { return myMandates().filter(function(m) { return m.role !== 'FIELD_WORKER'; }); }
+function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+function ymd(y, m, d) { var x = new Date(Date.UTC(y, m, d)); return x.toISOString().slice(0, 10); }
+function ovRange() {
+  var t = istToday(), y = +t.slice(0, 4), mo = +t.slice(5, 7) - 1;
+  if (ovPeriod === 'last_month') return { from: ymd(y, mo - 1, 1), to: ymd(y, mo, 0) };
+  if (ovPeriod === 'last_3') return { from: ymd(y, mo - 2, 1), to: t };
+  if (ovPeriod === 'fy') return { from: ymd(mo >= 3 ? y : y - 1, 3, 1), to: t };
+  if (ovPeriod === 'custom') return { from: ovFrom, to: ovTo };
+  return { from: ymd(y, mo, 1), to: t };
+}
+function ovDay(d) { return d ? new Date(d + 'T00:00:00+05:30').toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : ''; }
+function ovQuery(extra) {
+  var r = ovRange();
+  return 'office=' + encodeURIComponent(ovOfficeKey) + '&from=' + encodeURIComponent(r.from) + '&to=' + encodeURIComponent(r.to) +
+    (ovMla ? '&mla=' + encodeURIComponent(ovMla) : '') + (extra || '');
+}
+function renderOverviewFilter(slot) {
+  var offices = ovOffices();
+  if (!ovOfficeKey || !offices.some(function(m) { return officeKeyOf(m) === ovOfficeKey; })) {
+    var vm = activeMandateId === null ? null : offices.filter(function(m) { return m.id === activeMandateId; })[0];
+    ovOfficeKey = vm ? officeKeyOf(vm) : offices.length ? officeKeyOf(offices[0]) : null;
+  }
+  var periods = ['this_month', 'last_month', 'last_3', 'fy', 'custom'];
+  var pk = { this_month: 'rep.ov_p_this_month', last_month: 'rep.ov_p_last_month', last_3: 'rep.ov_p_last_3', fy: 'rep.ov_p_fy', custom: 'rep.ov_p_custom' };
+  var e = ovErrors;
+  var html = '<div class="ov-filters no-print">';
+  if (offices.length > 1) {
+    html += '<div class="control-box filter-box"><label class="control-label" for="ov-office">' + esc(T('rep.ov_office')) + '</label>' +
+      '<select id="ov-office">' + offices.map(function(m) { return '<option value="' + esc(officeKeyOf(m)) + '"' + (officeKeyOf(m) === ovOfficeKey ? ' selected' : '') + '>' + esc(mandateText(m)) + '</option>'; }).join('') + '</select></div>';
+  }
+  html += '<div class="control-box filter-box"><label class="control-label" for="ov-period">' + esc(T('rep.ov_period')) + '</label>' +
+    '<select id="ov-period">' + periods.map(function(p) { return '<option value="' + p + '"' + (p === ovPeriod ? ' selected' : '') + '>' + esc(T(pk[p])) + '</option>'; }).join('') + '</select></div>';
+  if (ovPeriod === 'custom') {
+    var r = ovRange();
+    html += '<form class="ov-dates" id="ov-dates" novalidate>' +
+      '<div class="control-box filter-box"><label class="control-label" for="ov-from">' + esc(T('rep.ov_from')) + '</label>' +
+        '<input type="date" id="ov-from" value="' + esc(r.from) + '" max="' + istToday() + '" aria-describedby="ov-from-err"' + (e.from ? ' aria-invalid="true"' : '') + '>' +
+        '<div class="field-err" id="ov-from-err" role="alert">' + esc(e.from || '') + '</div></div>' +
+      '<div class="control-box filter-box"><label class="control-label" for="ov-to">' + esc(T('rep.ov_to')) + '</label>' +
+        '<input type="date" id="ov-to" value="' + esc(r.to) + '" max="' + istToday() + '" aria-describedby="ov-to-err"' + (e.to ? ' aria-invalid="true"' : '') + '>' +
+        '<div class="field-err" id="ov-to-err" role="alert">' + esc(e.to || '') + '</div></div>' +
+      '<button type="submit" class="resolve-btn ov-show">' + esc(T('rep.ov_show')) + '</button></form>';
+  }
+  slot.innerHTML = html + '</div>';
+  var os = document.getElementById('ov-office');
+  if (os) os.addEventListener('change', function() { ovOfficeKey = os.value; ovMla = null; ovSort = { col: null, dir: 'desc' }; loadOverview(); });
+  document.getElementById('ov-period').addEventListener('change', function(ev) {
+    ovPeriod = ev.target.value; ovErrors = {};
+    if (ovPeriod === 'custom') {
+      if (!ovFrom || !ovTo) { var cur = ovData && !ovData.error ? ovData : null; ovFrom = cur ? cur.from : istToday().slice(0, 8) + '01'; ovTo = cur ? cur.to : istToday(); }
+      renderOverviewFilter(slot); var f = document.getElementById('ov-from'); if (f) f.focus();
+      return;
+    }
+    renderOverviewFilter(slot); loadOverview();
+  });
+  var df = document.getElementById('ov-dates');
+  if (df) df.addEventListener('submit', function(ev) {
+    ev.preventDefault();
+    ovFrom = document.getElementById('ov-from').value; ovTo = document.getElementById('ov-to').value;
+    ovErrors = {};
+    if (!ovFrom) ovErrors.from = T('rep.ov_err_date');
+    if (!ovTo) ovErrors.to = T('rep.ov_err_date');
+    if (!ovErrors.from && !ovErrors.to) {
+      if (ovFrom > ovTo) ovErrors.to = T('rep.ov_err_before');
+      else if (ovFrom > istToday()) ovErrors.from = T('rep.ov_err_future');
+    }
+    renderOverviewFilter(slot);
+    if (ovErrors.from || ovErrors.to) { document.getElementById(ovErrors.from ? 'ov-from' : 'ov-to').focus(); return; }
+    loadOverview();
+  });
+}
+async function loadOverview() {
+  var offices = ovOffices();
+  if (!ovOfficeKey) ovOfficeKey = offices.length ? officeKeyOf(offices[0]) : null;
+  ovData = null; renderContent();
+  if (!ovOfficeKey) return;
+  try {
+    var res = await fetch('/api/overview?' + ovQuery());
+    var data = await res.json().catch(function() { return {}; });
+    if (!res.ok && data.fields && (data.fields.from || data.fields.to)) {
+      var map = { DATE: 'rep.ov_err_date', BEFORE_FROM: 'rep.ov_err_before', FUTURE: 'rep.ov_err_future', TOO_LONG: 'rep.ov_err_long' };
+      ovErrors = {};
+      if (data.fields.from) ovErrors.from = T(map[data.fields.from] || 'rep.ov_err_date');
+      if (data.fields.to) ovErrors.to = T(map[data.fields.to] || 'rep.ov_err_date');
+      ovPeriod = 'custom'; var r = ovRange(); ovFrom = r.from; ovTo = r.to;
+      var slot = document.getElementById('filter-slot'); if (slot && activeTab === 'overview') renderOverviewFilter(slot);
+      ovData = { error: 'dates' };
+    } else {
+      ovData = res.ok ? data : { error: data.error || 'error' };
+    }
+  } catch (e) { ovData = { error: 'network' }; }
+  if (activeTab === 'overview') renderContent();
+}
+var OV_COLS = [
+  { k: 'received', t: 'rep.ov_col_received' }, { k: 'resolved', t: 'rep.ov_col_resolved' }, { k: 'pending', t: 'rep.ov_col_pending' },
+  { k: 'age0', age: 0 }, { k: 'age1', age: 1 }, { k: 'age2', age: 2 }, { k: 'age3', age: 3 },
+  { k: 'overdue', t: 'rep.ov_col_overdue' }, { k: 'medianDays', t: 'rep.ov_col_median' },
+  { k: 'ackOnTime', t: 'rep.ov_col_ack', rate: true }, { k: 'escalated', t: 'rep.ov_col_esc', rate: true },
+  { k: 'confirmed', t: 'rep.ov_col_conf', rate: true }, { k: 'reopened', t: 'rep.ov_col_reopen', rate: true }
+];
+function ovAgeLabel(i) {
+  var a = (ovData.ages || [])[i]; if (!a) return '';
+  return a.to == null ? T('rep.ov_col_age_over', { a: a.from - 1 }) : T('rep.ov_col_age_n', { a: a.from, b: a.to });
+}
+function ovColLabel(c) { return c.age != null ? ovAgeLabel(c.age) : T(c.t); }
+function ovVal(r, c) {
+  if (c.age != null) return r.ages[c.age];
+  if (c.rate) { var x = r[c.k]; return x && x.d ? x.n / x.d : null; }
+  return r[c.k];
+}
+function ovCell(r, c) {
+  if (c.rate) {
+    var x = r[c.k];
+    if (!x || !x.d) return '<td class="num muted">—</td>';
+    var p = Math.round((x.n / x.d) * 100);
+    return '<td class="num"><span title="' + esc(T('rep.ov_n_of', { n: x.n, d: x.d })) + '">' + p + '%</span><span class="ov-nd">' + esc(T('rep.ov_n_of', { n: x.n, d: x.d })) + '</span></td>';
+  }
+  var v = ovVal(r, c);
+  if (v == null) return '<td class="num muted">—</td>';
+  var cls = c.k === 'overdue' && v > 0 ? 'num ov-late' : 'num';
+  return '<td class="' + cls + '">' + esc(c.k === 'medianDays' ? String(v) : String(v)) + '</td>';
+}
+function ovSortedRows() {
+  var rows = (ovData.rows || []).slice();
+  if (!ovSort.col) return rows;
+  var c = OV_COLS.filter(function(x) { return x.k === ovSort.col; })[0];
+  if (!c && ovSort.col !== 'name') return rows;
+  rows.sort(function(a, b) {
+    var va = ovSort.col === 'name' ? String(a.name).toLowerCase() : ovVal(a, c), vb = ovSort.col === 'name' ? String(b.name).toLowerCase() : ovVal(b, c);
+    if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+    var r = va < vb ? -1 : va > vb ? 1 : 0;
+    return ovSort.dir === 'asc' ? r : -r;
+  });
+  return rows;
+}
+function ovTh(key, label, extraCls) {
+  var on = ovSort.col === key;
+  var aria = on ? (ovSort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+  return '<th scope="col" class="' + (extraCls || '') + '" aria-sort="' + aria + '"><button type="button" class="ov-sort" data-col="' + key + '" aria-label="' + esc(T('rep.ov_sort_by', { col: label })) + '">' +
+    esc(label) + '<span aria-hidden="true" class="ov-arrow">' + (on ? (ovSort.dir === 'asc' ? ' ▲' : ' ▼') : '') + '</span></button></th>';
+}
+function renderOverviewTab() {
+  if (!ovOfficeKey) return '<div class="empty-state"><p>' + esc(T('rep.team_none')) + '</p></div>';
+  if (!ovData) return '<div class="empty-state"><p>' + esc(T('rep.loading')) + '</p></div>';
+  if (ovData.error === 'dates') return '';
+  if (ovData.error) return '<div class="empty-state"><p>' + esc(T('rep.ov_err_load')) + '</p></div>';
+  var d = ovData, t = d.total;
+  var firstCol = d.groupBy === 'category' ? T('rep.ov_col_type') : d.groupBy === 'mla' ? T('rep.ov_col_mla') : T('rep.ov_col_ward');
+  var html = '<div class="register-header"><h2 class="register-title">' + esc(T('rep.ov_title', { office: d.office.name + ' — ' + lv(d.office.label) })) + '</h2>' +
+    '<a class="resolve-btn ov-csv no-print" href="/api/overview?' + esc(ovQuery('&format=csv')) + '" download aria-describedby="ov-csv-hint">' + esc(T('rep.ov_csv')) + '</a></div>' +
+    '<p class="ov-hint" id="ov-csv-hint">' + esc(T('rep.ov_csv_hint')) + '</p>' +
+    '<p class="ov-period-line">' + esc(T('rep.ov_period_line', { from: ovDay(d.from), to: ovDay(d.to) })) + '</p>' +
+    '<p class="ov-hint">' + esc(T('rep.ov_counts_only')) + '</p>';
+  // Headline numbers.
+  var tile = function(label, value, late) { return '<div class="ov-tile' + (late ? ' late' : '') + '"><div class="ov-tile-v">' + esc(value == null ? '—' : String(value)) + '</div><div class="ov-tile-l">' + esc(label) + '</div></div>'; };
+  html += '<div class="ov-tiles">' + tile(T('rep.ov_k_received'), t.received) + tile(T('rep.ov_k_resolved'), t.resolved) +
+    tile(T('rep.ov_k_pending'), t.pending) + tile(T('rep.ov_k_overdue'), t.overdue, t.overdue > 0) + tile(T('rep.ov_k_median'), t.medianDays) + '</div>';
+  // Drill-down trail (MP offices).
+  if (d.mla) {
+    html += '<nav class="ov-trail" aria-label="' + esc(T('rep.ov_col_mla')) + '"><button type="button" class="linkish" id="ov-up">' + esc(T('rep.ov_all_mla')) + '</button> › <span aria-current="page">' + esc(d.mlaName || '') + '</span></nav>';
+  }
+  // The table.
+  var rows = ovSortedRows();
+  if (!rows.length) html += '<div class="empty-state"><p>' + esc(T('rep.ov_no_rows')) + '</p></div>';
+  else {
+    html += '<div class="ov-scroll" role="region" tabindex="0" aria-label="' + esc(T('rep.ov_scroll')) + '"><table class="ov-table"><thead><tr>' +
+      '<th scope="col" rowspan="2" class="ov-name" aria-sort="' + (ovSort.col === 'name' ? (ovSort.dir === 'asc' ? 'ascending' : 'descending') : 'none') + '"><button type="button" class="ov-sort" data-col="name" aria-label="' + esc(T('rep.ov_sort_by', { col: firstCol })) + '">' + esc(firstCol) + '<span aria-hidden="true" class="ov-arrow">' + (ovSort.col === 'name' ? (ovSort.dir === 'asc' ? ' ▲' : ' ▼') : '') + '</span></button></th>';
+    OV_COLS.slice(0, 3).forEach(function(c) { html += ovTh(c.k, ovColLabel(c)).replace('<th scope="col"', '<th scope="col" rowspan="2"'); });
+    html += '<th scope="colgroup" colspan="4" class="ov-group">' + esc(T('rep.ov_col_age')) + '</th>';
+    OV_COLS.slice(7).forEach(function(c) { html += ovTh(c.k, ovColLabel(c)).replace('<th scope="col"', '<th scope="col" rowspan="2"'); });
+    html += '</tr><tr>';
+    OV_COLS.slice(3, 7).forEach(function(c) { html += ovTh(c.k, ovColLabel(c), 'ov-sub'); });
+    html += '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+      var action = '';
+      if (d.groupBy === 'mla') action = '<button type="button" class="linkish ov-drill" data-id="' + esc(r.id) + '" aria-label="' + esc(T('rep.ov_show_wards_for', { name: r.name })) + '">' + esc(T('rep.ov_show_wards')) + '</button>';
+      else if (d.groupBy === 'ward') action = '<button type="button" class="linkish ov-cases" data-id="' + esc(r.id) + '" aria-label="' + esc(T('rep.ov_view_cases_for', { ward: r.name })) + '">' + esc(T('rep.ov_view_cases')) + '</button>';
+      var name = d.groupBy === 'category' ? catName(r.id, r.name) : r.name;
+      html += '<tr><th scope="row" class="ov-name">' + esc(name) + (r.wards ? ' <span class="muted-inline">(' + esc(T('rep.ov_wards_n', { n: r.wards })) + ')</span>' : '') + (action ? '<div>' + action + '</div>' : '') + '</th>' +
+        OV_COLS.map(function(c) { return ovCell(r, c); }).join('') + '</tr>';
+    });
+    html += '</tbody><tfoot><tr><th scope="row" class="ov-name">' + esc(T('rep.ov_total')) + '</th>' + OV_COLS.map(function(c) { return ovCell(t, c); }).join('') + '</tr></tfoot></table></div>';
+  }
+  html += renderOvTrend(d.trend || []);
+  if (d.workload) {
+    html += '<h3 class="team-activity-t">' + esc(T('rep.ov_work_t')) + '</h3>';
+    if (!d.workload.length) html += '<p class="ov-hint">' + esc(T('rep.ov_work_none')) + '</p>';
+    else html += '<div class="ov-scroll" role="region" tabindex="0" aria-label="' + esc(T('rep.ov_work_t')) + '"><table class="ov-table ov-work"><thead><tr><th scope="col" class="ov-name">' + esc(T('rep.ov_work_name')) + '</th><th scope="col">' + esc(T('rep.ov_work_open')) + '</th><th scope="col">' + esc(T('rep.ov_work_overdue')) + '</th><th scope="col">' + esc(T('rep.ov_work_fixed')) + '</th><th scope="col">' + esc(T('rep.ov_work_median')) + '</th></tr></thead><tbody>' +
+      d.workload.map(function(w) {
+        return '<tr><th scope="row" class="ov-name">' + esc(w.name) + (w.available ? '' : ' <span class="muted-inline">(' + esc(T('rep.ov_on_leave')) + ')</span>') + '</th><td class="num' + (w.open >= workloadWarn ? ' ov-late' : '') + '">' + w.open + '</td><td class="num' + (w.overdue ? ' ov-late' : '') + '">' + w.overdue + '</td><td class="num">' + w.fixed + '</td><td class="num">' + (w.medianDays == null ? '—' : esc(String(w.medianDays))) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  html += '<details class="ov-how"><summary>' + esc(T('rep.ov_how_t')) + '</summary><ul>' +
+    ['received', 'resolved', 'pending', 'overdue', 'median', 'ack', 'esc', 'conf', 'reopen', 'view', 'live'].map(function(k) { return '<li>' + esc(T('rep.ov_how_' + k)) + '</li>'; }).join('') + '</ul></details>';
+  return html;
+}
+// 12-month trend: two lines (received, resolved), a legend, end labels,
+// and a hover readout per month; the same numbers as a table below.
+function renderOvTrend(trend) {
+  if (!trend.length) return '';
+  var W = 640, H = 220, L = 36, R = 64, Tp = 16, B = 28;
+  var max = Math.max(1, Math.max.apply(null, trend.map(function(m) { return Math.max(m.received, m.resolved); })));
+  var step = Math.pow(10, Math.floor(Math.log10(max))); var nice = Math.ceil(max / step) * step; if (nice / step > 5 && step >= 1) nice = Math.ceil(max / (step * 2)) * step * 2;
+  if (nice < 4) nice = 4;
+  var x = function(i) { return L + i * (W - L - R) / (trend.length - 1); };
+  var y = function(v) { return Tp + (H - Tp - B) * (1 - v / nice); };
+  var mon = function(mo) { return new Date(mo + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'short', timeZone: 'Asia/Kolkata' }); };
+  var monY = function(mo) { return new Date(mo + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }); };
+  var grid = '';
+  for (var g = 0; g <= 4; g++) { var gv = Math.round(nice * g / 4); grid += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(gv) + '" y2="' + y(gv) + '" class="ov-grid"/><text x="' + (L - 6) + '" y="' + (y(gv) + 4) + '" class="ov-axis" text-anchor="end">' + gv + '</text>'; }
+  var labels = trend.map(function(m, i) { return (i % 2 === (trend.length - 1) % 2) ? '<text x="' + x(i) + '" y="' + (H - 8) + '" class="ov-axis" text-anchor="middle">' + esc(mon(m.month)) + '</text>' : ''; }).join('');
+  var line = function(k) { return trend.map(function(m, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(m[k]).toFixed(1); }).join(' '); };
+  var last = trend[trend.length - 1];
+  var ly1 = y(last.received), ly2 = y(last.resolved); if (Math.abs(ly1 - ly2) < 14) { if (ly1 <= ly2) { ly1 -= 7; ly2 += 7; } else { ly1 += 7; ly2 -= 7; } }
+  var hits = trend.map(function(m, i) {
+    var w = (W - L - R) / (trend.length - 1);
+    return '<rect class="ov-hit" x="' + (x(i) - w / 2) + '" y="' + Tp + '" width="' + w + '" height="' + (H - Tp - B) + '" data-i="' + i + '"/>';
+  }).join('');
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="ov-chart" role="img" aria-label="' + esc(T('rep.ov_trend_t')) + '">' + grid + labels +
+    '<line class="ov-cross" id="ov-cross" x1="0" x2="0" y1="' + Tp + '" y2="' + (H - B) + '" visibility="hidden"/>' +
+    '<path d="' + line('received') + '" class="ov-line s1"/><path d="' + line('resolved') + '" class="ov-line s2"/>' +
+    trend.map(function(m, i) { return '<circle cx="' + x(i) + '" cy="' + y(m.received) + '" r="3.5" class="ov-dot s1"/><circle cx="' + x(i) + '" cy="' + y(m.resolved) + '" r="3.5" class="ov-dot s2"/>'; }).join('') +
+    '<text x="' + (W - R + 8) + '" y="' + (ly1 + 4) + '" class="ov-end">' + esc(T('rep.ov_col_received')) + '</text>' +
+    '<text x="' + (W - R + 8) + '" y="' + (ly2 + 4) + '" class="ov-end">' + esc(T('rep.ov_col_resolved')) + '</text>' +
+    hits + '</svg>';
+  var table = '<details class="ov-how"><summary>' + esc(T('rep.ov_trend_table')) + '</summary><table class="ov-table ov-trend-table"><thead><tr><th scope="col">' + esc(T('rep.ov_month')) + '</th><th scope="col">' + esc(T('rep.ov_col_received')) + '</th><th scope="col">' + esc(T('rep.ov_col_resolved')) + '</th></tr></thead><tbody>' +
+    trend.map(function(m) { return '<tr><th scope="row">' + esc(monY(m.month)) + '</th><td class="num">' + m.received + '</td><td class="num">' + m.resolved + '</td></tr>'; }).join('') + '</tbody></table></details>';
+  return '<h3 class="team-activity-t">' + esc(T('rep.ov_trend_t')) + '</h3>' +
+    '<div class="ov-legend" aria-hidden="true"><span><i class="sw s1"></i>' + esc(T('rep.ov_col_received')) + '</span><span><i class="sw s2"></i>' + esc(T('rep.ov_col_resolved')) + '</span></div>' +
+    '<div class="ov-chart-wrap" id="ov-chart-wrap">' + svg + '<div class="ov-tip" id="ov-tip" hidden></div></div>' + table;
+}
+function attachOverviewHandlers() {
+  document.querySelectorAll('.ov-sort').forEach(function(b) { b.addEventListener('click', function() {
+    var col = b.getAttribute('data-col');
+    if (ovSort.col === col) ovSort.dir = ovSort.dir === 'asc' ? 'desc' : 'asc';
+    else { ovSort.col = col; ovSort.dir = col === 'name' ? 'asc' : 'desc'; }
+    renderContent();
+    var again = document.querySelector('.ov-sort[data-col="' + col + '"]'); if (again) again.focus();
+  }); });
+  document.querySelectorAll('.ov-drill').forEach(function(b) { b.addEventListener('click', function() { ovMla = b.getAttribute('data-id'); ovSort = { col: null, dir: 'desc' }; loadOverview().then(function() { var u = document.getElementById('ov-up'); if (u) u.focus(); }); }); });
+  var up = document.getElementById('ov-up');
+  if (up) up.addEventListener('click', function() { var back = ovMla; ovMla = null; ovSort = { col: null, dir: 'desc' }; loadOverview().then(function() { var b = document.querySelector('.ov-drill[data-id="' + cssId(back) + '"]'); if (b) b.focus(); }); });
+  document.querySelectorAll('.ov-cases').forEach(function(b) { b.addEventListener('click', function() {
+    var o = ovOffices().filter(function(m) { return officeKeyOf(m) === ovOfficeKey; })[0];
+    activeMandateId = o ? o.id : null; activeWardId = b.getAttribute('data-id'); activeTab = 'cases'; filterKey = '';
+    renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
+    var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+  }); });
+  var wrap = document.getElementById('ov-chart-wrap'), tip = document.getElementById('ov-tip'), cross = document.getElementById('ov-cross');
+  if (wrap && tip && ovData && ovData.trend) {
+    var svgEl = wrap.querySelector('svg');
+    wrap.querySelectorAll('.ov-hit').forEach(function(h) {
+      h.addEventListener('mouseenter', function() {
+        var i = +h.getAttribute('data-i'), m = ovData.trend[i];
+        var cx = +h.getAttribute('x') + +h.getAttribute('width') / 2;
+        cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+        tip.innerHTML = '<b>' + esc(new Date(m.month + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })) + '</b><div><i class="sw s1"></i>' + esc(T('rep.ov_col_received')) + ': ' + m.received + '</div><div><i class="sw s2"></i>' + esc(T('rep.ov_col_resolved')) + ': ' + m.resolved + '</div>';
+        tip.hidden = false;
+        var box = svgEl.getBoundingClientRect(), scale = box.width / 640, px = cx * scale;
+        tip.style.left = Math.min(Math.max(0, px - 70), box.width - 150) + 'px';
+      });
+    });
+    svgEl.addEventListener('mouseleave', function() { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+  }
+}
+
 // ================= Viewing (which of my areas) =================
 function myMandates() { return (currentMe && currentMe.mandates) || []; }
 function findMandate(id) { return myMandates().filter(function(m) { return m.id === id; })[0] || null; }
@@ -1766,6 +2091,12 @@ function setView(id) {
   updateSummary();
   if (activeTab === 'report') { loadReportTab(); }
   else if (activeTab === 'team') { renderFilters(); renderContent(); }
+  else if (activeTab === 'overview') {
+    // Item 8c-2: choosing an area above also chooses the office shown.
+    var vm = id === null ? null : findMandate(id);
+    if (vm && vm.role !== 'FIELD_WORKER') { ovOfficeKey = officeKeyOf(vm); ovMla = null; ovSort = { col: null, dir: 'desc' }; }
+    renderFilters(); loadOverview();
+  }
   else { renderFilters(); renderContent(); }
 }
 
@@ -1789,6 +2120,7 @@ function renderFilters() {
   if (!slot) return;
   if (activeTab === 'report' && (!reportData || reportData.error)) return;   // built once data is in
   if (activeTab === 'team') { renderTeamFilter(slot); return; }
+  if (activeTab === 'overview') { renderOverviewFilter(slot); return; }
   var key = activeTab + '|' + mandateIdForApi() + '|' + reportFrom + '|' + reportTo;
   if (key === filterKey && slot.innerHTML) return;   // keep the box (and keyboard focus) as it is
   filterKey = key;
@@ -1970,6 +2302,7 @@ function renderShell() {
     '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
       '<button type="button" class="tab-btn" data-tab="cases">' + esc(T('rep.tab_cases')) + '</button>' +
+      (ovOffices().length ? '<button type="button" class="tab-btn" data-tab="overview">' + esc(T('rep.tab_overview')) + '</button>' : '') +
       (canSeeReport() ? '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' : '') +
       (teamOffices().length ? '<button type="button" class="tab-btn" data-tab="team">' + esc(T('rep.tab_team')) + '</button>' : '') +
     '</div>' +
@@ -1991,6 +2324,7 @@ function renderShell() {
       document.getElementById('filter-slot').innerHTML = '';
       if (activeTab === 'report') loadReportTab();
       else if (activeTab === 'team') { updateSummary(); renderFilters(); loadTeamTab(); }
+      else if (activeTab === 'overview') { updateSummary(); renderFilters(); loadOverview(); }
       else { updateSummary(); renderFilters(); renderContent(); }
     });
   });
@@ -2015,6 +2349,11 @@ function renderContent() {
   if (activeTab === 'team') {
     el.innerHTML = renderTeamTab();
     attachTeamHandlers();
+    return;
+  }
+  if (activeTab === 'overview') {
+    el.innerHTML = renderOverviewTab();
+    attachOverviewHandlers();
     return;
   }
   var inView = casesInView();
@@ -2545,11 +2884,12 @@ async function init() {
   teamsData = casesData.teams || {};
   if (casesData.workloadWarn) workloadWarn = casesData.workloadWarn;
   // Item 8b: tabs this person can't use fall back to Cases.
-  if ((activeTab === 'report' && !canSeeReport()) || (activeTab === 'team' && !teamOffices().length)) activeTab = 'cases';
+  if ((activeTab === 'report' && !canSeeReport()) || (activeTab === 'team' && !teamOffices().length) || (activeTab === 'overview' && !ovOffices().length)) activeTab = 'cases';
 
   renderShell();
   if (activeTab === 'report') loadReportTab();
   else if (activeTab === 'team') { renderFilters(); loadTeamTab(); }
+  else if (activeTab === 'overview') { renderFilters(); loadOverview(); }
   else { renderFilters(); renderContent(); }
 }
 
