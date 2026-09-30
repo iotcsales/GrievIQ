@@ -3,11 +3,12 @@
 // Assigns an open case to one field worker of the office (or clears the
 // assignment with { email: null }). Only one field worker at a time; every
 // change is kept (case_assignments rows are ended, not deleted) and logged
-// in the team activity log.
+// in the team activity log. Item 8c-1: the field worker must cover the
+// case's ward and not be on leave.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
-import { caseAccess, canManageCases, activeAssignment, logTeam, onBehalfOf, officeInfo, ROLE } from "../../../_shared/team.js";
+import { caseAccess, canManageCases, activeAssignment, logTeam, onBehalfOf, officeInfo, coversWard, ROLE } from "../../../_shared/team.js";
 
 export async function onRequestPost({ request, env, params }) {
   const auth = await getVerifiedRep(request, env);
@@ -35,11 +36,19 @@ export async function onRequestPost({ request, env, params }) {
     if (!member || !office || String(member.confirmed_by_rep_email || "").toLowerCase() !== office.repEmail) {
       return Response.json({ error: "Choose a field worker from this office's team.", fields: { email: "NOT_MEMBER" } }, { status: 400 });
     }
+    // Item 8c-1: only within the member's wards, and not while on leave
+    // (unless they already hold this case).
+    if (!coversWard(member, g.local_unit_id)) {
+      return Response.json({ error: "This field worker doesn't cover this case's ward. Change their wards in the Team tab first.", fields: { email: "OUT_OF_AREA" } }, { status: 400 });
+    }
   }
 
   const now = new Date().toISOString();
   const current = await activeAssignment(env, g.id);
   if (current && email && current.assignee_email === email) return Response.json({ ok: true, unchanged: true });
+  if (member && member.available != null && Number(member.available) === 0) {
+    return Response.json({ error: "This field worker is marked on leave. Choose someone else, or mark them available in the Team tab.", fields: { email: "ON_LEAVE" } }, { status: 400 });
+  }
   const stmts = [];
   if (current) {
     stmts.push(env.DB.prepare("UPDATE case_assignments SET ended_at = ?, ended_by = ?, end_reason = ? WHERE id = ? AND ended_at IS NULL")

@@ -21,7 +21,7 @@ import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
-import { ROLE, canManageCases, officeKey } from "../_shared/team.js";
+import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -237,17 +237,19 @@ export async function onRequestGet(context) {
 
     // The citizen's photos (item 7c): private, with a preview for the list,
     // plus any old public links not moved yet.
-    const photos = await complaintPhotoList(env, grievance, complaintPhotosByGrievance.get(grievance.id));
+    // Item 8c-1: an office assistant gets previews only, never full size.
+    const viewOnly = isViewOnly(myRole);
+    const photos = previewOnly(await complaintPhotoList(env, grievance, complaintPhotosByGrievance.get(grievance.id)), viewOnly);
 
     const report = reportByGrievance.get(grievance.id) || null;
     const resolution = report
-      ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
+      ? previewOnlyReport(await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson)), viewOnly)
       : null;
 
     // Item 8b: a fix report waiting for approval, or the last one sent back.
     const pendingRow = pendingByGrievance.get(grievance.id) || null;
     const pendingReport = pendingRow
-      ? await shapeResolution(grievance, pendingRow, photosByReport.get(pendingRow.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
+      ? previewOnlyReport(await shapeResolution(grievance, pendingRow, photosByReport.get(pendingRow.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson)), viewOnly)
       : null;
     const sentBackRow = sentBackByGrievance.get(grievance.id) || null;
     const sentBack = sentBackRow && !pendingRow && (!report || sentBackRow.created_at > report.created_at) && grievance.status !== "RESOLVED" && grievance.status !== "CLOSED"
@@ -258,6 +260,7 @@ export async function onRequestGet(context) {
       id: grievance.id,
       // Item 8b: this person's role for the case, and the team workflow.
       myRole,
+      viewOnly,
       officeKey: officeKey(myMandate.tier, myMandate.id),
       assignment: assignment ? { email: assignment.assignee_email, by: assignment.assigned_by, at: assignment.assigned_at } : null,
       pendingReport,
@@ -339,17 +342,37 @@ export async function onRequestGet(context) {
 }
 
   // Item 8b: the field workers of each office this person manages cases
-  // for (for the "Assign to" list).
+  // for (for the "Assign to" list). Item 8c-1: with their job profile and
+  // workload (open jobs; overdue = past the time limit at the office's level).
   const teams = {};
-  for (const m of auth.mandates) {
-    if (!canManageCases(m.role || ROLE.REP)) continue;
+  const managed = auth.mandates.filter((m) => canManageCases(m.role || ROLE.REP));
+  if (managed.length) {
     try {
-      const { results } = await env.DB.prepare(
-        "SELECT member_email, member_name, confirmed_by_rep_email FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND role = 'FIELD_WORKER' ORDER BY member_name"
-      ).bind(m.tier, m.id).all();
-      teams[officeKey(m.tier, m.id)] = (results || [])
-        .filter((r) => String(r.confirmed_by_rep_email || "").toLowerCase() === String(m.officeRepEmail || auth.email).toLowerCase())
-        .map((r) => ({ email: r.member_email, name: r.member_name }));
+      const res = await env.DB.batch(managed.flatMap((m) => [
+        env.DB.prepare(
+          "SELECT * FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND role = 'FIELD_WORKER' ORDER BY member_name"
+        ).bind(m.tier, m.id),
+        env.DB.prepare(
+          `SELECT ca.assignee_email AS email, COUNT(*) AS n FROM case_assignments ca JOIN grievances g ON g.id = ca.grievance_id
+           WHERE ca.office_tier = ? AND ca.office_id = ? AND ca.ended_at IS NULL
+             AND g.status NOT IN ('RESOLVED', 'CLOSED', 'PENDING_CONFIRMATION')
+           GROUP BY ca.assignee_email`
+        ).bind(m.tier, m.id),
+      ]));
+      managed.forEach((m, i) => {
+        const key = officeKey(m.tier, m.id);
+        const openBy = new Map((res[i * 2 + 1].results || []).map((r) => [String(r.email).toLowerCase(), Number(r.n)]));
+        teams[key] = (res[i * 2].results || [])
+          .filter((r) => String(r.confirmed_by_rep_email || "").toLowerCase() === String(m.officeRepEmail || auth.email).toLowerCase())
+          .map((r) => {
+            const email = String(r.member_email).toLowerCase();
+            const overdue = visible.filter((c) => c.officeKey === key && c.assignment && c.assignment.email === email &&
+              c.isLate && c.status !== "RESOLVED" && c.status !== "CLOSED" && c.status !== "PENDING_CONFIRMATION").length;
+            const job = jobProfile(r);
+            return { email: r.member_email, name: r.member_name, designation: job.designation, designationOther: job.designationOther,
+              wards: job.wards, issueTypes: job.issueTypes, available: job.available, open: openBy.get(email) || 0, overdue };
+          });
+      });
     } catch (e) { /* team tables not there yet */ }
   }
 
@@ -358,5 +381,21 @@ export async function onRequestGet(context) {
     mandates: auth.mandates.map(({ tier, id, name, label, role }) => ({ tier, id, name, label, role: role || ROLE.REP })),
     grievances: visible,
     teams,
+    workloadWarn: WORKLOAD_WARN,
   });
+}
+
+// Item 8c-1: for an office assistant, the preview stands in for the photo.
+function previewOnly(list, on) {
+  if (!on) return list;
+  return (list || []).map((p) => {
+    if (p.legacy) return Object.assign({}, p, { url: null, thumbUrl: null, previewOnly: true });
+    // No separate preview (older photos): nothing rather than the full size.
+    const preview = !p.removed && p.thumbUrl === p.url ? null : p.thumbUrl || null;
+    return Object.assign({}, p, { url: preview, thumbUrl: preview, previewOnly: true });
+  });
+}
+function previewOnlyReport(r, on) {
+  if (!on || !r) return r;
+  return Object.assign({}, r, { photos: previewOnly(r.photos, true) });
 }

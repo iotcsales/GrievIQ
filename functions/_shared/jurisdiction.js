@@ -77,6 +77,14 @@ export async function resolveChain(env, localUnitId) {
 // any claim to see. A LOCAL mandate covers exactly one local unit; every
 // tier above that covers however many local units sit beneath it.
 export async function getLocalUnitIdsForMandate(env, mandate) {
+  const all = await officeUnitIds(env, mandate);
+  // Item 8c-1: a team member limited to some of the office's wards.
+  if (Array.isArray(mandate.wards)) return all.filter((id) => mandate.wards.includes(String(id)));
+  return all;
+}
+
+// Every ward of the office itself, whoever is asking.
+export async function officeUnitIds(env, mandate) {
   if (mandate.tier === "LOCAL") {
     return [mandate.id];
   }
@@ -116,6 +124,16 @@ export async function getLocalUnitIdsForMandate(env, mandate) {
 //
 // Usage: `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where}` .bind(...s.binds)
 export function mandateScope(mandate) {
+  const s = officeScope(mandate);
+  // Item 8c-1: a team member limited to some of the office's wards (one
+  // bound parameter, a JSON list, whatever its length).
+  if (Array.isArray(mandate.wards)) {
+    return { join: s.join, where: "(" + s.where + ") AND g.local_unit_id IN (SELECT value FROM json_each(?))", binds: s.binds.concat([JSON.stringify(mandate.wards)]) };
+  }
+  return s;
+}
+
+function officeScope(mandate) {
   if (mandate.tier === "LOCAL") {
     return { join: "", where: "g.local_unit_id = ?", binds: [mandate.id] };
   }

@@ -26,11 +26,31 @@
 //     with the office's level; citizens see the representative.
 //   - Up to TEAM_LIMIT members per office. Removing someone takes effect on
 //     their next request (roles are looked up on every request).
+//
+// Item 8c-1 (approved Sept 2026): job profiles and a view-only role.
+// Roles stay fixed (NIST RBAC, INCITS 359: permissions belong to roles, not
+// people); each member's profile adds attributes on top (NIST SP 800-162):
+//       OFFICE_ASSISTANT  sees the office's cases, read only; photo
+//                         previews only (NIST AC-6 least privilege)
+//   - designation + duties: the member's written job description;
+//   - wards: ENFORCED. null = all the office's wards; otherwise only those
+//     wards' cases are visible to them and can be assigned to them;
+//   - issue_types: a SUGGESTION only (sorts the "Assign to" list);
+//   - available = 0 (on leave): no new assignments.
+// The representative is reminded to review the team every
+// TEAM_REVIEW_DAYS (NIST AC-6(7) / AC-2(j)).
 
-export const ROLE = { REP: "REPRESENTATIVE", OM: "OFFICE_MANAGER", FW: "FIELD_WORKER" };
-export const TEAM_ROLES = [ROLE.OM, ROLE.FW];
+export const ROLE = { REP: "REPRESENTATIVE", OM: "OFFICE_MANAGER", FW: "FIELD_WORKER", OA: "OFFICE_ASSISTANT" };
+export const TEAM_ROLES = [ROLE.OM, ROLE.FW, ROLE.OA];
 export const TEAM_LIMIT = 25;
-const RANK = { REPRESENTATIVE: 3, OFFICE_MANAGER: 2, FIELD_WORKER: 1 };
+export const TEAM_REVIEW_DAYS = 90;
+export const WORKLOAD_WARN = 10;
+export const DESIGNATIONS = ["PERSONAL_ASSISTANT", "WARD_SUPERVISOR", "SANITATION_SUPERVISOR", "FIELD_STAFF", "OTHER"];
+export const DUTIES_MAX = 300;
+export const DESIGNATION_OTHER_MAX = 60;
+// Field worker and office assistant rank the same: neither can do the
+// other's work, and nobody holds both in one office.
+const RANK = { REPRESENTATIVE: 3, OFFICE_MANAGER: 2, FIELD_WORKER: 1, OFFICE_ASSISTANT: 1 };
 
 export function officeKey(tier, id) { return String(tier) + ":" + String(id); }
 export function parseOfficeKey(key) {
@@ -39,6 +59,36 @@ export function parseOfficeKey(key) {
 }
 export function roleRank(role) { return RANK[role] || 0; }
 export function canManageCases(role) { return role === ROLE.REP || role === ROLE.OM; }
+// May change a case at all (upload after-photos, submit or mark a fix).
+export function canWorkCases(role) { return role === ROLE.REP || role === ROLE.OM || role === ROLE.FW; }
+export function isViewOnly(role) { return role === ROLE.OA; }
+
+// JSON list column -> array of strings, or null (= all / none set).
+export function parseList(text) {
+  if (text == null || text === "") return null;
+  try {
+    const v = JSON.parse(text);
+    return Array.isArray(v) ? v.map(String) : null;
+  } catch (e) { return null; }
+}
+
+// A member row's job profile, for pages.
+export function jobProfile(r) {
+  return {
+    designation: r.designation || null,
+    designationOther: r.designation_other || null,
+    duties: r.duties || null,
+    wards: parseList(r.wards),
+    issueTypes: parseList(r.issue_types) || [],
+    available: r.available == null ? true : Number(r.available) === 1,
+  };
+}
+
+// Does this member cover this ward? (null wards = all the office's wards)
+export function coversWard(row, wardId) {
+  const w = parseList(row.wards);
+  return !w || w.includes(String(wardId));
+}
 
 // The office's own row: its current representative's email, its name and
 // the label shown for it.
@@ -61,7 +111,9 @@ export async function teamMandates(env, email, rows) {
     const office = await officeInfo(env, t.office_tier, t.office_id);
     if (!office || !office.repEmail) continue;
     if (String(t.confirmed_by_rep_email || "").toLowerCase() !== office.repEmail) continue; // paused
-    out.push({ tier: office.tier, id: office.id, name: office.name, label: office.label, role: t.role, memberId: t.id, officeRepEmail: office.repEmail });
+    // Item 8c-1: the member's wards limit what they see (null = all).
+    out.push({ tier: office.tier, id: office.id, name: office.name, label: office.label, role: t.role, memberId: t.id,
+      officeRepEmail: office.repEmail, wards: parseList(t.wards), job: jobProfile(t) });
   }
   return out;
 }

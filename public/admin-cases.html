@@ -536,7 +536,7 @@
     return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos + reportWho(r);
   }
   // Item 8b: who wrote the report, in which role, and who approved it.
-  const ROLE_NAMES = { REPRESENTATIVE: "representative", OFFICE_MANAGER: "office manager", FIELD_WORKER: "field worker" };
+  const ROLE_NAMES = { REPRESENTATIVE: "representative", OFFICE_MANAGER: "office manager", FIELD_WORKER: "field worker", OFFICE_ASSISTANT: "office assistant" };
   function reportWho(r) {
     if (!r.submittedRole || r.submittedRole === "REPRESENTATIVE") return "";
     return '<div class="t-body" style="margin-top:4px;color:var(--admin-muted)">Written by ' + escapeHtml(r.by || "") + ' (' + escapeHtml(ROLE_NAMES[r.submittedRole] || r.submittedRole) + ')' +
@@ -567,7 +567,7 @@
     });
     (c.teamActivity || []).forEach((t) => {
       const d = t.detail || {};
-      items.push({ cls: "", title: t.action === "ASSIGNED" ? "Assigned to " + (d.name || d.to || "field worker") : "Assignment cleared",
+      items.push({ cls: "", title: t.action === "ASSIGNED" ? "Assigned to " + (d.name || d.to || "field worker") : (d.reason === "OUT_OF_AREA" ? "Assignment cleared (ward no longer covered by that field worker)" : "Assignment cleared"),
         meta: dateTime(t.at) + " · " + t.by + (t.onBehalfOf && t.onBehalfOf !== t.by ? " for " + t.onBehalfOf : ""), body: "", at: t.at });
     });
     // Reopenings (item 7d), kept in their own table.

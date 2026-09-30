@@ -34,7 +34,7 @@ import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisd
 import { computeEscalation } from "../../../_shared/escalation.js";
 import { NOTE_MIN, NOTE_MAX, REASON_MIN, REASON_MAX, MAX_PHOTOS } from "../../../_shared/resolution-evidence.js";
 import { finalizeResolution } from "../../../_shared/resolve-case.js";
-import { caseAccess, ROLE, logTeam, onBehalfOf } from "../../../_shared/team.js";
+import { caseAccess, canWorkCases, ROLE, logTeam, onBehalfOf } from "../../../_shared/team.js";
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -62,6 +62,10 @@ export async function onRequestPost(context) {
   const access = await caseAccess(env, auth, grievance, getLocalUnitIdsForMandate);
   if (!access) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
+  }
+  // Item 8c-1: an office assistant only looks.
+  if (!canWorkCases(access.role)) {
+    return Response.json({ error: "Your role is view only.", code: "ROLE" }, { status: 403 });
   }
   const isFieldWorker = access.role === ROLE.FW;
 

@@ -37,7 +37,7 @@
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { readExif } from "../../../_shared/exif.js";
-import { caseAccess } from "../../../_shared/team.js";
+import { caseAccess, canWorkCases } from "../../../_shared/team.js";
 import { photoMedia, legacyKey, legacyUrls, THUMB_MAX_BYTES } from "../../../_shared/photo-store.js";
 import {
   sniffImage, sha256Hex, validDhash, hamming, SIMILAR_BITS, MAX_PHOTO_BYTES, photoWarnings, parseWard,
@@ -77,6 +77,8 @@ export async function onRequestPost(context) {
   // Item 8b: a field worker only for a case assigned to them.
   const access = await caseAccess(env, auth, g, getLocalUnitIdsForMandate);
   if (!access) return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
+  // Item 8c-1: an office assistant only looks.
+  if (!canWorkCases(access.role)) return Response.json({ error: "Your role is view only.", code: "ROLE" }, { status: 403 });
 
   if (!env.PRIVATE_PHOTOS) {
     return Response.json({ error: "Photo storage isn't set up yet. Please tell GrievIQ support.", code: "STORAGE_NOT_SET" }, { status: 503 });

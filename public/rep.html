@@ -251,6 +251,28 @@
   .team-form .hint, .team-hint { font-size: 12.5px; color: var(--steel-2); margin: 0 0 4px; line-height: 1.45; }
   .team-member .muted-inline { display: block; font-size: 12.5px; color: var(--steel-2); margin-top: 2px; }
   .team-activity .muted-inline { font-size: 12.5px; color: var(--steel-2); }
+  /* Item 8c-1: job profiles, team check, view-only */
+  .team-member .designation { font-size: 13px; color: var(--steel); }
+  .team-member .job-lines { font-size: 13px; color: var(--steel); line-height: 1.5; margin-top: 4px; }
+  .team-form select, .job-form textarea, .job-form input[type=search] { width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; background: #fff; }
+  .team-form select[aria-invalid="true"], .job-form textarea[aria-invalid="true"] { border-color: var(--red); }
+  .job-form { margin: 12px 0 0; }
+  .job-form .small-label { font-weight: 400; }
+  .ward-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; max-width: 420px; background: #fff; }
+  .ward-list .check, .type-list .check { margin: 4px 0; font-size: 14px; }
+  .ward-group { font-size: 12.5px; font-weight: 600; color: var(--steel); margin: 8px 0 2px; }
+  .type-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
+  .warn-line { color: #8a5a00; }
+  .warn-line:empty, .assign-heavy:empty { display: none; }
+  .assign-heavy { color: #8a5a00; margin: 4px 0 0; }
+  .team-review { border: 1px solid var(--line); border-left: 4px solid var(--gold); background: var(--gold-tint); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; }
+  .team-review h3 { font-size: 15px; margin: 0 0 6px; }
+  .team-review p { font-size: 13.5px; margin: 0 0 10px; line-height: 1.5; }
+  .team-review-line { margin-bottom: 16px; }
+  .linkish { background: none; border: 0; padding: 0; color: var(--brand); text-decoration: underline; font: inherit; cursor: pointer; }
+  .role-form { margin-top: 8px; }
+  .badge.neutral { background: #eef1f4; color: #3c4650; }
+  .my-job { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 6px; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; line-height: 1.55; }
   /* Item 8a: sign-in screen */
   .signin-card { max-width: 420px; margin: 48px auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 28px 24px; text-align: center; }
   .signin-card .console-icon { margin: 0 auto 12px; }
@@ -725,7 +747,7 @@ function renderPhotoThumbs(photos) {
   return '<div class="photo-thumbs">' + photos.map(function(p, i) {
     if (!p.url) return '<span class="photo-removed">' + esc(p.removed ? T('rep.photo_removed', { date: formatDateOnly(p.removedAt) }) : T('rep.r_photo_unavailable')) + '</span>';
     return '<a class="photo-thumb" href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"' +
-      (p.removed ? ' title="' + esc(T('rep.photo_full_removed', { date: formatDateOnly(p.removedAt) })) + '"' : '') + '>' +
+      (p.removed ? ' title="' + esc(T('rep.photo_full_removed', { date: formatDateOnly(p.removedAt) })) + '"' : p.previewOnly ? ' title="' + esc(T('rep.photo_preview_only')) + '"' : '') + '>' +
       '<img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.photo_alt', { n: i + 1 })) + '" loading="lazy">' +
       '<span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>';
   }).join('') + '</div>';
@@ -796,6 +818,8 @@ function renderResolveControl(c) {
   // Item 8b: a field worker submits a fix report for approval; while one is
   // waiting, the representative or office manager decides it.
   var isFW = c.myRole === 'FIELD_WORKER';
+  // Item 8c-1: an office assistant only looks (the fix report, if any, still shows).
+  if (c.viewOnly) return c.pendingReport ? renderReviewBlock(c) : '';
   if (c.pendingReport) return isFW ? '<p class="team-note">' + esc(T('rep.fw_waiting')) + '</p>' : renderReviewBlock(c);
   if (!d || !d.open) {
     return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved')) + '</button>';
@@ -895,7 +919,7 @@ function renderFollowupControl(c) {
   // already marked it resolved); the department history stays visible.
   if (c.status === 'PENDING_CONFIRMATION') return deptLine + history;
   // Item 8b: forwarding is for the representative or office manager.
-  if (c.myRole === 'FIELD_WORKER') return deptLine + history;
+  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return deptLine + history;
   return deptLine + history +
     '<div class="followup-form">' +
       '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
@@ -913,7 +937,7 @@ function renderAcknowledgeControl(c) {
   if (c.acknowledgedAt) {
     return '<span class="badge acknowledged">' + esc(T('rep.badge_ack', { date: formatDate(c.acknowledgedAt) })) + '</span>';
   }
-  if (c.myRole === 'FIELD_WORKER') return '';
+  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return '';
   var overdueNote = c.ackOverdue ? ' <span class="badge escalated">' + esc(T('rep.badge_ack_overdue')) + '</span>' : '';
   // Item 7d: a reopened case is acknowledged by the level now responsible.
   if (c.reopen && c.hasEscalatedPastMyTier) {
@@ -1009,18 +1033,55 @@ function renderTeamNotes(c) {
   }
   return html;
 }
+// Item 8c-1: only field workers covering the case's ward; people who
+// usually handle this issue first, then the fewest open cases; on-leave
+// people can't be chosen; a gentle note when someone is already busy.
+var workloadWarn = 10;
+function desName(m) { return m.designation ? (m.designation === 'OTHER' && m.designationOther ? m.designationOther : T('rep.des_' + m.designation)) : ''; }
+function assignCandidates(c) {
+  var ward = c.localUnit.id, type = c.category.id;
+  return (teamsData[c.officeKey] || []).filter(function(m) { return !m.wards || m.wards.indexOf(ward) !== -1; })
+    .map(function(m) { return { m: m, match: (m.issueTypes || []).indexOf(type) !== -1 }; })
+    .sort(function(a, b) {
+      var av = a.m.available !== false, bv = b.m.available !== false;
+      if (av !== bv) return av ? -1 : 1;
+      if (a.match !== b.match) return a.match ? -1 : 1;
+      if (a.m.open !== b.m.open) return a.m.open - b.m.open;
+      return a.m.name < b.m.name ? -1 : a.m.name > b.m.name ? 1 : 0;
+    });
+}
+function assignOptionText(x) {
+  var m = x.m, bits = [];
+  var des = desName(m);
+  bits.push(T('rep.assign_opt_open', { n: m.open || 0 }));
+  if (m.overdue) bits.push(T('rep.assign_opt_overdue', { n: m.overdue }));
+  if (x.match) bits.push(T('rep.assign_opt_match'));
+  if (m.available === false) bits.push(T('rep.assign_opt_leave'));
+  return m.name + (des ? ' — ' + des : '') + ' · ' + bits.join(', ');
+}
+function heavyText(c, email) {
+  var m = (teamsData[c.officeKey] || []).filter(function(x) { return x.email === email; })[0];
+  if (!m || (c.assignment && c.assignment.email === email) || (m.open || 0) < workloadWarn) return '';
+  return T('rep.assign_heavy', { name: m.name, n: m.open });
+}
 function renderAssignControl(c) {
   if (!isManagerRole(c.myRole) || c.status === 'RESOLVED' || c.status === 'CLOSED' || c.status === 'PENDING_CONFIRMATION') return '';
-  var list = teamsData[c.officeKey] || [];
+  var all = teamsData[c.officeKey] || [];
   var id = esc(c.id), st = assignState[c.id] || {};
-  if (!list.length) return c.myRole === 'REPRESENTATIVE' ? '<p class="hint team-hint">' + esc(T('rep.assign_none')) + '</p>' : '';
+  if (!all.length) return c.myRole === 'REPRESENTATIVE' ? '<p class="hint team-hint">' + esc(T('rep.assign_none')) + '</p>' : '';
+  var list = assignCandidates(c);
   var current = c.assignment ? c.assignment.email : '';
-  var opts = '<option value="">' + esc(T('rep.assign_nobody')) + '</option>' + list.map(function(m) {
-    return '<option value="' + esc(m.email) + '"' + (m.email === current ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+  if (!list.length && !current) return '<p class="hint team-hint">' + esc(T('rep.assign_no_cover', { ward: c.localUnit.name })) + '</p>';
+  var opts = '<option value="">' + esc(T('rep.assign_nobody')) + '</option>' + list.map(function(x) {
+    var sel = x.m.email === current;
+    return '<option value="' + esc(x.m.email) + '"' + (sel ? ' selected' : '') + (x.m.available === false && !sel ? ' disabled' : '') + '>' + esc(assignOptionText(x)) + '</option>';
   }).join('');
+  var sel = st.value != null ? st.value : current;
   return '<div class="followup-form assign-form">' +
     '<div class="followup-field"><label for="assign-' + id + '">' + esc(T('rep.assign_label')) + '</label>' +
-      '<select class="assign-select" id="assign-' + id + '" aria-describedby="assign-err-' + id + '">' + opts + '</select></div>' +
+      '<p class="hint" id="assign-hint-' + id + '">' + esc(T('rep.assign_hint')) + '</p>' +
+      '<select class="assign-select" id="assign-' + id + '" data-id="' + id + '" aria-describedby="assign-hint-' + id + ' assign-heavy-' + id + ' assign-err-' + id + '"' + (st.error ? ' aria-invalid="true"' : '') + '>' + opts + '</select>' +
+      '<p class="hint assign-heavy" id="assign-heavy-' + id + '" role="status">' + esc(heavyText(c, sel)) + '</p></div>' +
     '<button type="button" class="resolve-btn assign-btn" data-id="' + id + '"' + (st.busy ? ' disabled' : '') + '>' + esc(T('rep.assign_btn')) + '</button>' +
     '</div><div class="resolve-error" id="assign-err-' + id + '" role="alert">' + esc(st.error || '') + '</div>';
 }
@@ -1031,11 +1092,11 @@ function renderReviewBlock(c) {
       ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '" loading="lazy"><span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>'
       : '<span>' + esc(T('rep.r_photo_unavailable')) + '</span>') + renderWarnings(p.warnings) + '</div>';
   }).join('');
-  var html = '<div class="res-block review-block"><div><b>' + esc(T('rep.review_t')) + '</b> <span class="muted-inline">' +
+  var html = '<div class="res-block review-block"><div><b>' + esc(T(c.viewOnly ? 'rep.review_t_viewonly' : 'rep.review_t')) + '</b> <span class="muted-inline">' +
       esc(T('rep.review_by', { name: memberName(c.officeKey, r.by), date: formatDate(r.createdAt) })) + '</span></div>' +
     '<div class="res-note">' + esc(r.note) + '</div>' +
     (photos ? '<div class="res-photos">' + photos + '</div>' : (r.noPhotoReason ? '<div><b>' + esc(T('rep.r_no_photo_given')) + '</b> ' + esc(r.noPhotoReason) + '</div>' : ''));
-  if (!c.canApprove) return html + '<p class="hint">' + esc(T('rep.review_own')) + '</p></div>';
+  if (!c.canApprove) return html + '<p class="hint">' + esc(T(c.viewOnly ? 'rep.review_viewonly' : 'rep.review_own')) + '</p></div>';
   if (st.open) {
     html += '<label for="sb-note-' + id + '">' + esc(T('rep.sb_label')) + '</label>' +
       '<p class="hint" id="sb-hint-' + id + '">' + esc(T('rep.sb_hint')) + '</p>' +
@@ -1049,18 +1110,48 @@ function renderReviewBlock(c) {
   }
   return html + '<div class="resolve-error" id="review-err-' + id + '" role="alert">' + esc(st.formError || '') + '</div></div>';
 }
+// Item 8c-1: a team member's own job, at the top of their cases.
+function renderMyJob() {
+  var ms = myMandates().filter(function(m) { return m.role && m.role !== 'REPRESENTATIVE' && (activeMandateId === null || m.id === activeMandateId); });
+  return ms.map(function(m) {
+    var j = m.job || {}, lines = [];
+    var des = desText(j);
+    lines.push(T(ROLE_KEYS[m.role] === 'rep.role_oa_short' ? 'rep.role_oa' : ROLE_KEYS[m.role]) + (des ? ' · ' + des : ''));
+    if (j.duties) lines.push(T('rep.job_duties_line', { text: j.duties }));
+    if (j.wards) lines.push(T('rep.job_wards_line', { list: j.wards.map(function(w) { return w.name; }).join(', ') }));
+    if ((j.issueTypes || []).length) lines.push(T('rep.job_types_line', { list: j.issueTypes.map(function(t) { return catName(t.id, t.name); }).join(', ') }));
+    if (m.role === 'OFFICE_ASSISTANT') lines.push(T('rep.myjob_viewonly'));
+    if (j.available === false) lines.push(T('rep.myjob_leave'));
+    return '<div class="my-job" role="region" aria-label="' + esc(T('rep.myjob_t', { office: m.name })) + '"><b>' + esc(T('rep.myjob_t', { office: m.name })) + '</b>' +
+      lines.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
+  }).join('');
+}
 function findCase(id) { return currentCases.filter(function(c) { return c.id === id; })[0]; }
 function attachTeamCaseHandlers() {
   function redraw(focusSel) { renderContent(); if (focusSel) { var el = document.querySelector(focusSel); if (el) el.focus(); } }
+  document.querySelectorAll('.assign-select').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+      var id = sel.getAttribute('data-id'), c = findCase(id); if (!c) return;
+      var st = assignState[id] || (assignState[id] = {});
+      st.value = sel.value;
+      if (st.error) { st.error = ''; sel.removeAttribute('aria-invalid'); var e = document.getElementById('assign-err-' + id); if (e) e.textContent = ''; }
+      var h = document.getElementById('assign-heavy-' + id); if (h) h.textContent = heavyText(c, sel.value);
+    });
+  });
   document.querySelectorAll('.assign-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var id = btn.getAttribute('data-id'), sel = document.getElementById('assign-' + id);
-      var st = assignState[id] = { busy: true };
+      var st = assignState[id] = { busy: true, value: sel ? sel.value : '' };
       redraw();
       try {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sel ? sel.value || null : null }) });
         var data = await res.json().catch(function() { return {}; });
-        if (!res.ok) { st.busy = false; st.error = errText(data.error); redraw('#assign-' + cssId(id)); return; }
+        if (!res.ok) {
+          st.busy = false;
+          var fe = (data.fields || {}).email;
+          st.error = fe === 'OUT_OF_AREA' ? T('rep.assign_err_area') : fe === 'ON_LEAVE' ? T('rep.assign_err_leave') : errText(data.error);
+          redraw('#assign-' + cssId(id)); return;
+        }
         delete assignState[id];
         await init();
         var s2 = document.getElementById('resolve-status'); if (s2) s2.textContent = T('rep.assign_saved');
@@ -1110,8 +1201,11 @@ function attachTeamCaseHandlers() {
 // representative only), and the team activity log.
 var teamOfficeKey = null;
 var teamData = null;       // GET /api/team result, or { error }
-var teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: '' };
-var teamRowState = {};     // member id -> { confirmRemove, busy, error }
+function blankTeamForm(notice) { return { name: '', email: '', role: '', designation: '', designationOther: '', errors: {}, busy: false, notice: notice || '' }; }
+var teamForm = blankTeamForm();
+var teamRowState = {};     // member id -> { confirmRemove, roleOpen, role, busy, error }
+var jobEdit = null;        // item 8c-1: the job profile being edited
+var teamNotice = '';       // after saving a profile or the team check
 function officeKeyOf(m) { return m.tier + ':' + m.id; }
 function renderTeamFilter(slot) {
   var offices = teamOffices();
@@ -1119,7 +1213,7 @@ function renderTeamFilter(slot) {
   if (offices.length <= 1) { slot.innerHTML = ''; return; }
   slot.innerHTML = '<div class="control-box filter-box no-print"><label class="control-label" for="team-office">' + esc(T('rep.team_office')) + '</label>' +
     '<select id="team-office">' + offices.map(function(m) { return '<option value="' + esc(officeKeyOf(m)) + '"' + (officeKeyOf(m) === teamOfficeKey ? ' selected' : '') + '>' + esc(mandateText(m)) + '</option>'; }).join('') + '</select></div>';
-  document.getElementById('team-office').addEventListener('change', function(e) { teamOfficeKey = e.target.value; teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: '' }; loadTeamTab(); });
+  document.getElementById('team-office').addEventListener('change', function(e) { teamOfficeKey = e.target.value; teamForm = blankTeamForm(); jobEdit = null; teamNotice = ''; teamRowState = {}; loadTeamTab(); });
 }
 async function loadTeamTab() {
   if (!teamOfficeKey) { var o = teamOffices(); teamOfficeKey = o.length ? officeKeyOf(o[0]) : null; }
@@ -1134,11 +1228,111 @@ async function loadTeamTab() {
 }
 var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSIGNED: 'rep.act_assign', UNASSIGNED: 'rep.act_unassign',
   FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
-  MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role' };
+  MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role',
+  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed' };
 function activityText(a) {
   var d = a.detail || {};
+  if (a.action === 'UNASSIGNED' && d.reason === 'OUT_OF_AREA') return T('rep.act_unassign_area', { ref: a.trackingRef || '' });
   return T(ACT_KEYS[a.action] || 'rep.act_other', { ref: a.trackingRef || '', name: d.name || d.to || '', dept: d.department ? deptName(d.department) : '',
     role: d.role ? T(ROLE_KEYS[d.role]) : (d.to && ROLE_KEYS[d.to] ? T(ROLE_KEYS[d.to]) : ''), action: a.action });
+}
+function desText(job) {
+  if (!job || !job.designation) return '';
+  return job.designation === 'OTHER' && job.designationOther ? job.designationOther : T('rep.des_' + job.designation);
+}
+function wardNamesText(ids, wards) {
+  if (!ids) return T('rep.job_all_wards');
+  return ids.map(function(id) { var w = (wards || []).filter(function(x) { return x.id === id; })[0]; return w ? w.name : id; }).join(', ');
+}
+function typeNamesText(ids, types) {
+  return (ids || []).map(function(id) { var t = (types || []).filter(function(x) { return x.id === id; })[0]; return t ? catName(t.id, t.name) : id; }).join(', ');
+}
+function designationSelect(idAttr, value, invalid, describedBy) {
+  return '<select id="' + idAttr + '"' + (describedBy ? ' aria-describedby="' + describedBy + '"' : '') + (invalid ? ' aria-invalid="true"' : '') + '>' +
+    '<option value="">' + esc(T('rep.des_none')) + '</option>' +
+    (teamData.designations || []).map(function(d) { return '<option value="' + esc(d) + '"' + (d === value ? ' selected' : '') + '>' + esc(T('rep.des_' + d)) + '</option>'; }).join('') +
+    '</select>';
+}
+function roleRadio(name, value, current, hintKey) {
+  return '<label class="check"><input type="radio" name="' + name + '" value="' + value + '"' + (current === value ? ' checked' : '') + '> <span><b>' + esc(T(ROLE_KEYS[value] === 'rep.role_oa_short' ? 'rep.role_oa' : ROLE_KEYS[value])) + '</b> — ' + esc(T(hintKey)) + '</span></label>';
+}
+// Cases of this member (visible here) that fall outside the chosen wards.
+function outsideCount(member, chosen) {
+  if (!chosen) return 0;
+  return currentCases.filter(function(c) {
+    return c.officeKey === teamOfficeKey && c.assignment && c.assignment.email === member.email &&
+      c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.status !== 'PENDING_CONFIRMATION' && chosen.indexOf(c.localUnit.id) === -1;
+  }).length;
+}
+function renderReviewBox(t) {
+  if (!t.canManage || !t.review || !t.members.length) return '';
+  var r = t.review;
+  if (r.due) {
+    return '<div class="team-review due" role="region" aria-labelledby="team-review-t"><h3 id="team-review-t">' + esc(T('rep.review_due_t')) + '</h3>' +
+      '<p>' + esc(T('rep.review_due', { days: r.days })) + '</p>' +
+      '<button type="button" class="resolve-btn" id="team-review-btn">' + esc(T('rep.review_btn')) + '</button></div>';
+  }
+  return '<p class="hint team-review-line">' + esc(r.lastAt
+    ? T('rep.review_last', { date: formatDateOnly(r.lastAt), by: r.lastBy, due: formatDateOnly(r.dueAt) })
+    : T('rep.review_never', { due: formatDateOnly(r.dueAt) })) +
+    ' <button type="button" class="linkish" id="team-review-btn">' + esc(T('rep.review_btn')) + '</button></p>';
+}
+function renderJobEditor(m) {
+  var t = teamData, e = jobEdit, err = e.errors || {};
+  var fe = function(k) { return '<div class="field-err" id="je-' + k + '-err" role="alert">' + esc(err[k] || '') + '</div>'; };
+  var html = '<form class="team-form job-form" id="job-form" novalidate><h3>' + esc(T('rep.job_edit_t', { name: m.name })) + '</h3>' +
+    '<label for="je-designation">' + esc(T('rep.des_label')) + '</label>' + designationSelect('je-designation', e.designation, err.designation, 'je-designation-err') + fe('designation') +
+    '<div id="je-other-wrap"' + (e.designation === 'OTHER' ? '' : ' hidden') + '><label for="je-designationOther">' + esc(T('rep.des_other_label')) + '</label>' +
+      '<input id="je-designationOther" type="text" maxlength="60" value="' + esc(e.designationOther) + '" aria-describedby="je-designationOther-err"' + (err.designationOther ? ' aria-invalid="true"' : '') + '>' + fe('designationOther') + '</div>' +
+    '<label for="je-duties">' + esc(T('rep.job_duties')) + '</label><p class="hint" id="je-duties-hint">' + esc(T('rep.job_duties_hint', { max: t.dutiesMax })) + '</p>' +
+    '<textarea id="je-duties" rows="2" maxlength="' + t.dutiesMax + '" aria-describedby="je-duties-hint je-duties-count je-duties-err"' + (err.duties ? ' aria-invalid="true"' : '') + '>' + esc(e.duties) + '</textarea>' +
+    '<p class="hint" id="je-duties-count">' + esc(T('rep.job_chars', { n: e.duties.length, max: t.dutiesMax })) + '</p>' + fe('duties');
+  // Wards: only when the office has more than one.
+  if ((t.wards || []).length > 1) {
+    var some = e.wardsMode === 'some';
+    var groups = [], lastGroup = null;
+    var boxes = t.wards.map(function(w) {
+      var head = '';
+      if (w.group && w.group !== lastGroup) { lastGroup = w.group; head = '<p class="ward-group">' + esc(w.group) + '</p>'; }
+      return head + '<label class="check ward-opt" data-name="' + esc(String(w.name).toLowerCase()) + '"><input type="checkbox" class="je-ward" value="' + esc(w.id) + '"' + (e.wards.indexOf(w.id) !== -1 ? ' checked' : '') + '> ' + esc(w.name) + '</label>';
+    }).join('');
+    html += '<fieldset class="team-roles" aria-describedby="je-wards-hint je-wards-err"><legend>' + esc(T('rep.job_wards')) + '</legend>' +
+      '<p class="hint" id="je-wards-hint">' + esc(T('rep.job_wards_hint')) + '</p>' +
+      '<label class="check"><input type="radio" name="je-wmode" value="all"' + (!some ? ' checked' : '') + '> ' + esc(T('rep.job_wards_all')) + '</label>' +
+      '<label class="check"><input type="radio" name="je-wmode" value="some"' + (some ? ' checked' : '') + '> ' + esc(T('rep.job_wards_some')) + '</label>' +
+      '<div id="je-wards-box"' + (some ? '' : ' hidden') + '>' +
+        (t.wards.length > 8 ? '<label for="je-wfilter" class="small-label">' + esc(T('rep.job_wards_filter')) + '</label><input id="je-wfilter" type="search" autocomplete="off">' : '') +
+        '<p class="hint" id="je-wards-n" role="status">' + esc(T('rep.job_wards_n', { n: e.wards.length, total: t.wards.length })) + '</p>' +
+        '<div class="ward-list">' + boxes + '</div></div>' +
+      '</fieldset>' + fe('wards') +
+      '<p class="hint warn-line" id="je-narrow" role="status">' + esc(some && outsideCount(m, e.wards) ? T('rep.job_narrow_warn', { n: outsideCount(m, e.wards) }) : '') + '</p>';
+  }
+  if (m.role === 'FIELD_WORKER' && (t.issueTypes || []).length) {
+    html += '<fieldset class="team-roles" aria-describedby="je-types-hint je-issueTypes-err"><legend>' + esc(T('rep.job_types')) + '</legend>' +
+      '<p class="hint" id="je-types-hint">' + esc(T('rep.job_types_hint')) + '</p><div class="type-list">' +
+      t.issueTypes.map(function(it) { return '<label class="check"><input type="checkbox" class="je-type" value="' + esc(it.id) + '"' + (e.issueTypes.indexOf(it.id) !== -1 ? ' checked' : '') + '> ' + esc(catName(it.id, it.name)) + '</label>'; }).join('') +
+      '</div></fieldset>' + fe('issueTypes');
+  }
+  if (m.role === 'FIELD_WORKER') {
+    html += '<fieldset class="team-roles"><legend>' + esc(T('rep.job_avail')) + '</legend>' +
+      '<label class="check"><input type="radio" name="je-avail" value="1"' + (e.available ? ' checked' : '') + '> ' + esc(T('rep.job_available')) + '</label>' +
+      '<label class="check"><input type="radio" name="je-avail" value="0"' + (!e.available ? ' checked' : '') + '> ' + esc(T('rep.job_on_leave')) + '</label></fieldset>';
+  }
+  html += '<div class="actions"><button type="submit" class="resolve-btn" id="je-save"' + (e.busy ? ' disabled' : '') + '>' + esc(T('rep.job_save')) + '</button>' +
+    '<button type="button" class="resolve-btn" id="je-cancel"' + (e.busy ? ' disabled' : '') + '>' + esc(T('rep.r_cancel')) + '</button></div>' +
+    '<div class="resolve-error" role="alert">' + esc(err.form || '') + '</div></form>';
+  return html;
+}
+function renderMemberJob(m) {
+  var j = m.job || {}, lines = [];
+  var des = desText(j);
+  if (j.duties) lines.push(T('rep.job_duties_line', { text: j.duties }));
+  if ((teamData.wards || []).length > 1) lines.push(T('rep.job_wards_line', { list: wardNamesText(j.wards, teamData.wards) }));
+  if ((j.issueTypes || []).length) lines.push(T('rep.job_types_line', { list: typeNamesText(j.issueTypes, teamData.issueTypes) }));
+  if (m.role === 'FIELD_WORKER') lines.push(m.open === 1 ? T('rep.job_open_one') : T('rep.job_open', { n: m.open || 0 }));
+  if (!des && !j.duties && !j.wards && !(j.issueTypes || []).length) lines.unshift(T('rep.job_not_set'));
+  return (des ? ' <span class="designation">' + esc(des) + '</span>' : '') +
+    '<div class="job-lines">' + lines.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
 }
 function renderTeamTab() {
   if (!teamOfficeKey) return '<div class="empty-state"><p>' + esc(T('rep.team_none')) + '</p></div>';
@@ -1147,7 +1341,9 @@ function renderTeamTab() {
   var t = teamData, f = teamForm, manage = t.canManage;
   var html = '<div class="register-header"><h2 class="register-title">' + esc(T('rep.team_title', { office: t.office.name + ' — ' + lv(t.office.label) })) + '</h2>' +
     '<span class="register-count">' + esc(T('rep.team_count', { n: t.members.length, max: t.limit })) + '</span></div>' +
-    '<p class="team-intro">' + esc(T('rep.team_intro')) + '</p>';
+    '<p class="team-intro">' + esc(T('rep.team_intro')) + '</p>' +
+    (teamNotice ? '<p class="team-notice" role="status" tabindex="-1" id="team-notice">' + esc(teamNotice) + '</p>' : '') +
+    renderReviewBox(t);
   if (manage) {
     var err = function(k) { return '<div class="field-err" id="tf-' + k + '-err" role="alert">' + esc(f.errors[k] || '') + '</div>'; };
     var inv = function(k) { return f.errors[k] ? ' aria-invalid="true"' : ''; };
@@ -1156,9 +1352,13 @@ function renderTeamTab() {
       '<label for="tf-email">' + esc(T('rep.team_email')) + '</label><p class="hint" id="tf-email-hint">' + esc(T('rep.team_email_hint')) + '</p>' +
       '<input id="tf-email" type="email" maxlength="120" autocomplete="off" value="' + esc(f.email) + '" aria-describedby="tf-email-hint tf-email-err"' + inv('email') + '>' + err('email') +
       '<fieldset class="team-roles" aria-describedby="tf-role-err"><legend>' + esc(T('rep.team_role')) + '</legend>' +
-        '<label class="check"><input type="radio" name="tf-role" value="FIELD_WORKER"' + (f.role === 'FIELD_WORKER' ? ' checked' : '') + '> <span><b>' + esc(T('rep.role_fw')) + '</b> — ' + esc(T('rep.role_fw_hint')) + '</span></label>' +
-        '<label class="check"><input type="radio" name="tf-role" value="OFFICE_MANAGER"' + (f.role === 'OFFICE_MANAGER' ? ' checked' : '') + '> <span><b>' + esc(T('rep.role_om')) + '</b> — ' + esc(T('rep.role_om_hint')) + '</span></label>' +
+        roleRadio('tf-role', 'FIELD_WORKER', f.role, 'rep.role_fw_hint') +
+        roleRadio('tf-role', 'OFFICE_MANAGER', f.role, 'rep.role_om_hint') +
+        roleRadio('tf-role', 'OFFICE_ASSISTANT', f.role, 'rep.role_oa_hint') +
       '</fieldset>' + err('role') +
+      '<label for="tf-designation">' + esc(T('rep.des_label')) + '</label>' + designationSelect('tf-designation', f.designation, f.errors.designation, 'tf-designation-err') + err('designation') +
+      '<div id="tf-other-wrap"' + (f.designation === 'OTHER' ? '' : ' hidden') + '><label for="tf-designationOther">' + esc(T('rep.des_other_label')) + '</label>' +
+        '<input id="tf-designationOther" type="text" maxlength="60" autocomplete="off" value="' + esc(f.designationOther) + '" aria-describedby="tf-designationOther-err"' + inv('designationOther') + '>' + err('designationOther') + '</div>' +
       '<div class="actions"><button type="submit" class="resolve-btn" id="tf-submit"' + (f.busy ? ' disabled' : '') + '>' + esc(T('rep.team_add_btn')) + '</button></div>' +
       '<div class="resolve-error" role="alert">' + esc(f.errors.form || '') + '</div>' +
       (f.notice ? '<p class="team-notice" role="status" tabindex="-1" id="tf-notice">' + esc(f.notice) + '</p>' : '') +
@@ -1168,17 +1368,33 @@ function renderTeamTab() {
   else {
     html += '<div class="team-list" role="list">' + t.members.map(function(m) {
       var rs = teamRowState[m.id] || {};
+      var editing = jobEdit && jobEdit.id === m.id;
       var actions = '';
+      if (m.canEdit && !editing) actions += '<button type="button" class="resolve-btn tm-job" data-id="' + esc(m.id) + '">' + esc(T('rep.job_edit')) + '</button>';
       if (manage) {
         if (m.paused) actions += '<button type="button" class="resolve-btn tm-confirm" data-id="' + esc(m.id) + '">' + esc(T('rep.team_confirm')) + '</button>';
-        actions += '<button type="button" class="resolve-btn tm-role" data-id="' + esc(m.id) + '" data-role="' + (m.role === 'FIELD_WORKER' ? 'OFFICE_MANAGER' : 'FIELD_WORKER') + '">' + esc(T(m.role === 'FIELD_WORKER' ? 'rep.team_make_om' : 'rep.team_make_fw')) + '</button>';
+        if (!rs.roleOpen) actions += '<button type="button" class="resolve-btn tm-role-open" data-id="' + esc(m.id) + '">' + esc(T('rep.team_change_role')) + '</button>';
         actions += rs.confirmRemove
           ? '<button type="button" class="resolve-btn danger tm-remove-yes" data-id="' + esc(m.id) + '">' + esc(T('rep.team_remove_yes', { name: m.name })) + '</button><button type="button" class="resolve-btn tm-remove-no" data-id="' + esc(m.id) + '">' + esc(T('rep.r_cancel')) + '</button>'
           : '<button type="button" class="resolve-btn tm-remove" data-id="' + esc(m.id) + '">' + esc(T('rep.team_remove')) + '</button>';
       }
-      return '<div class="team-member" role="listitem"><div><b>' + esc(m.name) + '</b> <span class="badge ' + (m.role === 'OFFICE_MANAGER' ? 'acknowledged' : 'pending') + '">' + esc(T(ROLE_KEYS[m.role])) + '</span>' +
+      var roleBox = '';
+      if (manage && rs.roleOpen) {
+        var rv = rs.role || m.role, rid = 'tm-rolesel-' + esc(m.id);
+        roleBox = '<div class="followup-form role-form"><div class="followup-field"><label for="' + rid + '">' + esc(T('rep.team_role_for', { name: m.name })) + '</label>' +
+          '<select id="' + rid + '" class="tm-rolesel" data-id="' + esc(m.id) + '" aria-describedby="tm-rolewarn-' + esc(m.id) + '">' +
+          ['FIELD_WORKER', 'OFFICE_MANAGER', 'OFFICE_ASSISTANT'].map(function(r) { return '<option value="' + r + '"' + (r === rv ? ' selected' : '') + '>' + esc(T(r === 'OFFICE_ASSISTANT' ? 'rep.role_oa' : ROLE_KEYS[r])) + '</option>'; }).join('') +
+          '</select><p class="hint warn-line" id="tm-rolewarn-' + esc(m.id) + '" role="status">' + esc(rv === 'OFFICE_ASSISTANT' && m.role === 'FIELD_WORKER' ? T('rep.team_role_oa_warn') : '') + '</p></div>' +
+          '<button type="button" class="resolve-btn tm-role-save" data-id="' + esc(m.id) + '"' + (rs.busy ? ' disabled' : '') + '>' + esc(T('rep.team_role_save')) + '</button>' +
+          '<button type="button" class="resolve-btn tm-role-cancel" data-id="' + esc(m.id) + '">' + esc(T('rep.r_cancel')) + '</button></div>';
+      }
+      var badgeCls = m.role === 'OFFICE_MANAGER' ? 'acknowledged' : m.role === 'OFFICE_ASSISTANT' ? 'neutral' : 'pending';
+      return '<div class="team-member" role="listitem"><div><b>' + esc(m.name) + '</b> <span class="badge ' + badgeCls + '">' + esc(T(ROLE_KEYS[m.role])) + '</span>' +
+        (m.job && m.job.available === false ? ' <span class="badge escalated">' + esc(T('rep.job_on_leave_badge')) + '</span>' : '') +
         (m.paused ? ' <span class="badge escalated">' + esc(T('rep.team_paused')) + '</span>' : '') +
+        renderMemberJob(m) +
         '<div class="muted-inline">' + esc(m.email) + ' &middot; ' + esc(T('rep.team_added', { date: formatDateOnly(m.addedAt) })) + '</div></div>' +
+        (editing ? renderJobEditor(m) : '') + roleBox +
         (actions ? '<div class="actions">' + actions + '</div>' : '') +
         '<div class="resolve-error" role="alert">' + esc(rs.error || '') + '</div></div>';
     }).join('') + '</div>';
@@ -1191,28 +1407,53 @@ function renderTeamTab() {
     : '<p class="hint">' + esc(T('rep.team_activity_none')) + '</p>';
   return html;
 }
+function findMember(id) { return ((teamData && teamData.members) || []).filter(function(m) { return m.id === id; })[0] || null; }
+function openJobEditor(m) {
+  var j = m.job || {};
+  jobEdit = { id: m.id, designation: j.designation || '', designationOther: j.designationOther || '', duties: j.duties || '',
+    wardsMode: j.wards ? 'some' : 'all', wards: (j.wards || []).slice(), issueTypes: (j.issueTypes || []).slice(),
+    available: j.available !== false, errors: {}, busy: false };
+}
+// Reads the job editor's fields into jobEdit (they are not all re-drawn on each change).
+function readJobEditor() {
+  var e = jobEdit; if (!e) return;
+  var g = function(id) { return document.getElementById(id); };
+  if (g('je-designation')) e.designation = g('je-designation').value;
+  if (g('je-designationOther')) e.designationOther = g('je-designationOther').value;
+  if (g('je-duties')) e.duties = g('je-duties').value;
+  var wm = document.querySelector('input[name="je-wmode"]:checked'); if (wm) e.wardsMode = wm.value;
+  if (document.querySelector('.je-ward')) e.wards = Array.prototype.map.call(document.querySelectorAll('.je-ward:checked'), function(x) { return x.value; });
+  if (document.querySelector('.je-type')) e.issueTypes = Array.prototype.map.call(document.querySelectorAll('.je-type:checked'), function(x) { return x.value; });
+  var av = document.querySelector('input[name="je-avail"]:checked'); if (av) e.available = av.value === '1';
+}
 function attachTeamHandlers() {
   var form = document.getElementById('team-form');
   if (form) {
-    ['name', 'email'].forEach(function(k) {
+    ['name', 'email', 'designationOther'].forEach(function(k) {
       var el = document.getElementById('tf-' + k);
       el.addEventListener('input', function() { teamForm[k] = el.value; if (teamForm.errors[k]) { teamForm.errors[k] = ''; el.removeAttribute('aria-invalid'); document.getElementById('tf-' + k + '-err').textContent = ''; } });
+    });
+    document.getElementById('tf-designation').addEventListener('change', function(e) {
+      teamForm.designation = e.target.value; document.getElementById('tf-other-wrap').hidden = e.target.value !== 'OTHER';
     });
     form.querySelectorAll('input[name="tf-role"]').forEach(function(r) { r.addEventListener('change', function() { teamForm.role = r.value; teamForm.errors.role = ''; document.getElementById('tf-role-err').textContent = ''; }); });
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
       var f = teamForm;
       f.name = document.getElementById('tf-name').value; f.email = document.getElementById('tf-email').value;
+      f.designation = document.getElementById('tf-designation').value; f.designationOther = document.getElementById('tf-designationOther').value;
       var chk = form.querySelector('input[name="tf-role"]:checked'); f.role = chk ? chk.value : '';
       f.errors = {}; f.notice = '';
       if (f.name.trim().length < 2) f.errors.name = T('rep.team_err_name');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) f.errors.email = T('rep.team_err_email');
       if (!f.role) f.errors.role = T('rep.team_err_role');
-      var first = f.errors.name ? '#tf-name' : f.errors.email ? '#tf-email' : f.errors.role ? 'input[name="tf-role"]' : null;
+      if (f.designation === 'OTHER' && (f.designationOther.trim().length < 2 || f.designationOther.trim().length > 60)) f.errors.designationOther = T('rep.des_other_err');
+      var first = f.errors.name ? '#tf-name' : f.errors.email ? '#tf-email' : f.errors.role ? 'input[name="tf-role"]' : f.errors.designationOther ? '#tf-designationOther' : null;
       if (first) { renderContent(); document.querySelector(first).focus(); return; }
       f.busy = true; renderContent();
       try {
-        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', office: teamOfficeKey, name: f.name.trim(), email: f.email.trim(), role: f.role }) });
+        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', office: teamOfficeKey, name: f.name.trim(), email: f.email.trim(), role: f.role,
+          designation: f.designation || null, designationOther: f.designation === 'OTHER' ? f.designationOther.trim() : '' }) });
         var data = await res.json().catch(function() { return {}; });
         f.busy = false;
         if (!res.ok) {
@@ -1220,12 +1461,14 @@ function attachTeamHandlers() {
           if (fe.email) f.errors.email = T(fe.email === 'DUPLICATE' ? 'rep.team_err_dup' : fe.email === 'SELF' ? 'rep.team_err_self' : 'rep.team_err_email');
           if (fe.name) f.errors.name = T('rep.team_err_name');
           if (fe.role) f.errors.role = T('rep.team_err_role');
-          if (!fe.email && !fe.name && !fe.role) f.errors.form = data.code === 'LIMIT' ? T('rep.team_err_limit', { max: teamData.limit }) : errText(data.error);
+          if (fe.designation) f.errors.designation = T('rep.des_err');
+          if (fe.designationOther) f.errors.designationOther = T('rep.des_other_err');
+          if (!Object.keys(fe).length) f.errors.form = data.code === 'LIMIT' ? T('rep.team_err_limit', { max: teamData.limit }) : errText(data.error);
           renderContent(); var inv = document.querySelector('#team-form [aria-invalid="true"]'); if (inv) inv.focus();
           return;
         }
         var added = f.name.trim(), addedEmail = f.email.trim();
-        teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: T(data.emailed ? 'rep.team_added_ok' : 'rep.team_added_noemail', { name: added, email: addedEmail }) };
+        teamForm = blankTeamForm(T(data.emailed ? 'rep.team_added_ok' : 'rep.team_added_noemail', { name: added, email: addedEmail }));
         await refreshTeamAndCases();
         var n = document.getElementById('tf-notice'); if (n) n.focus();
       } catch (err) { f.busy = false; f.errors.form = T('common.network_error'); renderContent(); }
@@ -1246,13 +1489,119 @@ function attachTeamHandlers() {
   document.querySelectorAll('.tm-remove-no').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); delete teamRowState[id]; renderContent(); }); });
   document.querySelectorAll('.tm-remove-yes').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'remove'); }); });
   document.querySelectorAll('.tm-confirm').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'confirm'); }); });
-  document.querySelectorAll('.tm-role').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'change_role', { role: b.getAttribute('data-role') }); }); });
+  // Role: a list of the three roles, then Save.
+  document.querySelectorAll('.tm-role-open').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); teamRowState[id] = { roleOpen: true }; renderContent(); var s2 = document.getElementById('tm-rolesel-' + id); if (s2) s2.focus(); }); });
+  document.querySelectorAll('.tm-role-cancel').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); delete teamRowState[id]; renderContent(); var o = document.querySelector('.tm-role-open[data-id="' + cssId(id) + '"]'); if (o) o.focus(); }); });
+  document.querySelectorAll('.tm-rolesel').forEach(function(sel) { sel.addEventListener('change', function() {
+    var id = sel.getAttribute('data-id'), m = findMember(id), rs = teamRowState[id] || (teamRowState[id] = { roleOpen: true });
+    rs.role = sel.value;
+    var w = document.getElementById('tm-rolewarn-' + id); if (w) w.textContent = sel.value === 'OFFICE_ASSISTANT' && m && m.role === 'FIELD_WORKER' ? T('rep.team_role_oa_warn') : '';
+  }); });
+  document.querySelectorAll('.tm-role-save').forEach(function(b) { b.addEventListener('click', function() {
+    var id = b.getAttribute('data-id'), m = findMember(id), sel = document.getElementById('tm-rolesel-' + id);
+    if (!sel || !m) return;
+    if (sel.value === m.role) { delete teamRowState[id]; renderContent(); return; }
+    rowAction(id, 'change_role', { role: sel.value });
+  }); });
+  // Team check (every 90 days).
+  var rb = document.getElementById('team-review-btn');
+  if (rb) rb.addEventListener('click', async function() {
+    rb.disabled = true;
+    try {
+      var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'review', office: teamOfficeKey }) });
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok) { teamNotice = errText(data.error); } else { teamNotice = T('rep.review_done'); }
+    } catch (e) { teamNotice = T('common.network_error'); }
+    await loadTeamTab();
+    var n = document.getElementById('team-notice'); if (n) n.focus();
+  });
+  // Job profile editor.
+  document.querySelectorAll('.tm-job').forEach(function(b) { b.addEventListener('click', function() {
+    var m = findMember(b.getAttribute('data-id')); if (!m) return;
+    openJobEditor(m); teamNotice = ''; renderContent();
+    var d = document.getElementById('je-designation'); if (d) d.focus();
+  }); });
+  var jf = document.getElementById('job-form');
+  if (jf && jobEdit) {
+    var m = findMember(jobEdit.id);
+    var clearErr = function(k) { if (jobEdit.errors[k]) { jobEdit.errors[k] = ''; var el = document.getElementById('je-' + k + '-err'); if (el) el.textContent = ''; } };
+    document.getElementById('je-designation').addEventListener('change', function(e) { readJobEditor(); document.getElementById('je-other-wrap').hidden = e.target.value !== 'OTHER'; clearErr('designation'); });
+    var dut = document.getElementById('je-duties');
+    dut.addEventListener('input', function() { readJobEditor(); document.getElementById('je-duties-count').textContent = T('rep.job_chars', { n: dut.value.length, max: teamData.dutiesMax }); clearErr('duties'); dut.removeAttribute('aria-invalid'); });
+    var other = document.getElementById('je-designationOther');
+    other.addEventListener('input', function() { readJobEditor(); clearErr('designationOther'); other.removeAttribute('aria-invalid'); });
+    var wardsChanged = function() {
+      readJobEditor();
+      var box = document.getElementById('je-wards-box'); if (box) box.hidden = jobEdit.wardsMode !== 'some';
+      var n = document.getElementById('je-wards-n'); if (n) n.textContent = T('rep.job_wards_n', { n: jobEdit.wards.length, total: teamData.wards.length });
+      var nw = document.getElementById('je-narrow');
+      var cnt = jobEdit.wardsMode === 'some' && m ? outsideCount(m, jobEdit.wards) : 0;
+      if (nw) nw.textContent = cnt ? T('rep.job_narrow_warn', { n: cnt }) : '';
+      clearErr('wards');
+    };
+    document.querySelectorAll('input[name="je-wmode"], .je-ward').forEach(function(x) { x.addEventListener('change', wardsChanged); });
+    document.querySelectorAll('.je-type, input[name="je-avail"]').forEach(function(x) { x.addEventListener('change', function() { readJobEditor(); }); });
+    var wf = document.getElementById('je-wfilter');
+    if (wf) wf.addEventListener('input', function() {
+      var q = wf.value.trim().toLowerCase();
+      document.querySelectorAll('.ward-opt').forEach(function(l) { l.hidden = q && l.getAttribute('data-name').indexOf(q) === -1; });
+    });
+    document.getElementById('je-cancel').addEventListener('click', function() {
+      var id = jobEdit.id; jobEdit = null; renderContent(); var b = document.querySelector('.tm-job[data-id="' + cssId(id) + '"]'); if (b) b.focus();
+    });
+    jf.addEventListener('submit', async function(ev) {
+      ev.preventDefault();
+      readJobEditor();
+      var e = jobEdit; e.errors = {};
+      if (e.designation === 'OTHER' && (e.designationOther.trim().length < 2 || e.designationOther.trim().length > 60)) e.errors.designationOther = T('rep.des_other_err');
+      if (e.duties.trim().length > teamData.dutiesMax) e.errors.duties = T('rep.job_duties_err', { max: teamData.dutiesMax });
+      if (e.wardsMode === 'some' && !e.wards.length) e.errors.wards = T('rep.job_wards_err');
+      var order = ['designationOther', 'duties', 'wards'];
+      var firstBad = order.filter(function(k) { return e.errors[k]; })[0];
+      if (firstBad) { renderContent(); focusJobError(firstBad); return; }
+      e.busy = true; renderContent();
+      var multi = (teamData.wards || []).length > 1;
+      try {
+        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          action: 'profile', office: teamOfficeKey, memberId: e.id,
+          designation: e.designation || null, designationOther: e.designation === 'OTHER' ? e.designationOther.trim() : '',
+          duties: e.duties.trim(), wards: multi && e.wardsMode === 'some' ? e.wards : null,
+          issueTypes: e.issueTypes, available: e.available }) });
+        var data = await res.json().catch(function() { return {}; });
+        e.busy = false;
+        if (!res.ok) {
+          var fe = data.fields || {};
+          if (fe.designation) e.errors.designation = T('rep.des_err');
+          if (fe.designationOther) e.errors.designationOther = T('rep.des_other_err');
+          if (fe.duties) e.errors.duties = T('rep.job_duties_err', { max: teamData.dutiesMax });
+          if (fe.wards) e.errors.wards = T(fe.wards === 'WARDS_NONE' ? 'rep.job_wards_err' : 'rep.job_wards_bad');
+          if (fe.issueTypes) e.errors.issueTypes = T('rep.job_types_err');
+          if (!Object.keys(fe).length) e.errors.form = errText(data.error);
+          renderContent();
+          var fb = ['designation', 'designationOther', 'duties', 'wards', 'issueTypes'].filter(function(k) { return e.errors[k]; })[0];
+          if (fb) focusJobError(fb);
+          return;
+        }
+        var name = m ? m.name : '';
+        jobEdit = null;
+        teamNotice = data.endedAssignments ? T('rep.job_saved_ended', { name: name, n: data.endedAssignments }) : T('rep.job_saved', { name: name });
+        await refreshTeamAndCases();
+        var n2 = document.getElementById('team-notice'); if (n2) n2.focus();
+      } catch (err2) { e.busy = false; e.errors.form = T('common.network_error'); renderContent(); }
+    });
+  }
+}
+function focusJobError(k) {
+  var target = k === 'wards' ? (document.querySelector('.je-ward') || document.querySelector('input[name="je-wmode"]'))
+    : k === 'issueTypes' ? document.querySelector('.je-type')
+    : document.getElementById('je-' + k);
+  if (target) target.focus();
 }
 // After a team change: the team list, and the "Assign to" lists on cases.
 async function refreshTeamAndCases() {
   try {
     var r = await fetch('/api/grievances');
-    if (r.ok) { var d = await r.json(); currentCases = d.grievances || []; teamsData = d.teams || {}; }
+    if (r.ok) { var d = await r.json(); currentCases = d.grievances || []; teamsData = d.teams || {}; if (d.workloadWarn) workloadWarn = d.workloadWarn; }
   } catch (e) { /* the team list below still refreshes */ }
   await loadTeamTab();
 }
@@ -1262,8 +1611,14 @@ function myMandates() { return (currentMe && currentMe.mandates) || []; }
 function findMandate(id) { return myMandates().filter(function(m) { return m.id === id; })[0] || null; }
 function mandateText(m) { return m.name + ' — ' + mLabel(m); }
 // Item 8b: the person's role in an office, when it isn't their own office.
-var ROLE_KEYS = { REPRESENTATIVE: 'rep.role_rep', OFFICE_MANAGER: 'rep.role_om', FIELD_WORKER: 'rep.role_fw' };
-function mLabel(m) { return lv(m.label) + (m.role && m.role !== 'REPRESENTATIVE' ? ' · ' + T(ROLE_KEYS[m.role]) : ''); }
+var ROLE_KEYS = { REPRESENTATIVE: 'rep.role_rep', OFFICE_MANAGER: 'rep.role_om', FIELD_WORKER: 'rep.role_fw', OFFICE_ASSISTANT: 'rep.role_oa_short' };
+// Item 8c-1: a team member's own role only ("Ward 12 — Field worker"), not
+// the representative's title; for offices above the ward, which office.
+function mLabel(m) {
+  if (!m.role || m.role === 'REPRESENTATIVE') return lv(m.label);
+  var role = T(ROLE_KEYS[m.role]);
+  return m.tier === 'LOCAL' ? role : role + ' (' + T('rep.office_of', { label: lv(m.label) }) + ')';
+}
 function isManagerRole(r) { return r === 'REPRESENTATIVE' || r === 'OFFICE_MANAGER' || !r; }
 function canSeeReport() { return myMandates().some(function(m) { return m.role !== 'FIELD_WORKER'; }); }
 function teamOffices() { return myMandates().filter(function(m) { return m.role === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER' || !m.role; }); }
@@ -1670,7 +2025,8 @@ function renderContent() {
       '<span class="register-count" aria-live="polite">' + esc(countText) +
         (attention > 0 ? ' &middot; <span class="attention">' + esc(T('rep.n_late', { n: attention })) + '</span>' : '') + '</span>' +
     '</div>' +
-    '<p class="resolve-error" id="resolve-status" role="status"></p>';
+    '<p class="resolve-error" id="resolve-status" role="status"></p>' +
+    renderMyJob();
   if (cases.length === 0) {
     html += '<div class="empty-state"><p>' + esc(T(activeWardId ? 'rep.none_ward' : 'rep.none')) + '</p></div>';
   } else {
@@ -2183,6 +2539,7 @@ async function init() {
   var casesData = await casesRes.json();
   currentCases = casesData.grievances || [];
   teamsData = casesData.teams || {};
+  if (casesData.workloadWarn) workloadWarn = casesData.workloadWarn;
   // Item 8b: tabs this person can't use fall back to Cases.
   if ((activeTab === 'report' && !canSeeReport()) || (activeTab === 'team' && !teamOffices().length)) activeTab = 'cases';
 
