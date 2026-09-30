@@ -273,6 +273,20 @@
   .timeline { list-style: none; margin: 0; padding: 0; }
   .timeline li { border-left: 2px solid var(--admin-border); padding: 4px 0 12px 14px; }
   .act-row { display: block; }
+  .al-help { font-size: 13.5px; margin: 0 0 12px; }
+  .al-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+  .al-quick-l { font-size: 13px; color: var(--admin-muted); margin-right: 4px; }
+  .qv { font-size: 13px; padding: 5px 10px; border-radius: 999px; }
+  .qv b { margin-left: 4px; }
+  .qv.on { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .linkish { background: none; border: 0; padding: 0; color: var(--admin-accent); text-decoration: underline; font: inherit; font-size: 12.5px; cursor: pointer; }
+  html.light-theme .linkish { background: none; }
+  .al-table td { vertical-align: top; }
+  .al-when { white-space: nowrap; }
+  .al-sentence { font-size: 14px; line-height: 1.45; }
+  .al-details { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--admin-muted); line-height: 1.5; }
+  .tl-btn { display: block; margin-top: 4px; }
+  .al-timeline { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -333,7 +347,7 @@ let me = { role: null, email: null, canSeeLog: false, canCreate: false };
 let view = { tab: "obs", id: null, isNew: false, prefill: {} };
 let reg = null, regFilter = { status: "OPEN", rating: "", overdue: false, owner: "", q: "" };
 let detail = null, form = null, act = {};
-let log = null, logFilter = { source: "", from: "", to: "", who: "", action: "", case: "", page: 1 }, logErrors = {};
+let log = null, logFilter = { view: "", source: "", from: "", to: "", who: "", action: "", case: "", timeline: false, page: 1 }, logErrors = {};
 
 function ratingBadge(r) { return '<span class="rating r-' + esc(String(r || "").toLowerCase()) + '">' + esc(T("adm.au_r_" + r)) + '</span>'; }
 function statusBadge(o) { return '<span class="st st-' + esc(String(o.status).toLowerCase()) + '">' + esc(T("adm.au_s_" + o.status)) + '</span>' + (o.overdue ? ' <span class="st st-overdue">' + esc(T("adm.au_overdue")) + '</span>' : ''); }
@@ -645,65 +659,127 @@ async function send(action, payload, key) {
 }
 
 // ---------- audit log ----------
-const ACT_HI = {};   // action labels come from adm.al_a_<code> when present
+// Written for the auditor: each record reads as a sentence, links to the
+// case it is about, and quick views bring risky activity to the top.
+const QUICK = ["phone", "refused", "reopen", "photos", "exports", "staff"];
 function actionLabel(code) { const k = "adm.al_a_" + String(code).toLowerCase(); const v = T(k); if (v !== k) return v; const s = String(code).replace(/_/g, " ").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
-function detailText(r) {
+function whoText(r) {
+  const role = r.role ? (roleLabel(r.role) !== r.role ? roleLabel(r.role) : T("adm.al_role_" + String(r.role).toLowerCase()) !== "adm.al_role_" + String(r.role).toLowerCase() ? T("adm.al_role_" + String(r.role).toLowerCase()) : r.role.replace(/_/g, " ").toLowerCase()) : "";
+  return (r.actor || T("adm.al_someone")) + (role ? " (" + role + ")" : "");
+}
+function sentence(r) {
+  const key = "adm.al_s_" + String(r.action).toLowerCase();
+  const vars = { who: whoText(r), case: r.caseRef || T("adm.al_a_case") };
+  const v = T(key, vars);
+  if (v !== key) return v;
+  return T(r.caseRef ? "adm.al_s_generic_case" : "adm.al_s_generic", { who: vars.who, action: actionLabel(r.action).toLowerCase(), case: vars.case });
+}
+const DETAIL_SKIP = ["trackingRef", "role"];
+function detailLabel(k) { const key = "adm.al_k_" + k; const v = T(key); if (v !== key) return v; const s = k.replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
+function detailValue(k, v) {
+  if (v == null) return "";
+  if ((k === "from" || k === "to" || k === "role") && typeof v === "string" && roleLabel(v) !== v) return roleLabel(v);
+  if ((k === "fromTier" || k === "toTier") && typeof v === "string") { const t = T("adm.al_tier_" + v); return t === "adm.al_tier_" + v ? v : t; }
+  if (typeof v === "boolean") return v ? T("adm.al_yes") : T("adm.al_no");
+  // Known codes in plain words (e.g. why a sign-in was refused).
+  if (typeof v === "string" && /^[A-Z][A-Z_]+$/.test(v)) { const ck = "adm.al_code_" + v; const cv = T(ck); if (cv !== ck) return cv; }
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+function detailLines(r) {
   const d = r.detail;
-  if (!d || typeof d !== "object") return d ? String(d) : "";
-  return Object.keys(d).filter((k) => k !== "trackingRef" && k !== "role" && d[k] != null && d[k] !== "").slice(0, 6).map((k) => k + ": " + (typeof d[k] === "object" ? JSON.stringify(d[k]) : d[k])).join(" · ");
+  if (!d) return [];
+  if (typeof d !== "object") return [String(d)];
+  const out = [];
+  if (d.from != null && d.to != null && typeof d.from !== "object") out.push(detailLabel("change") + ": " + detailValue("from", d.from) + " → " + detailValue("to", d.to));
+  Object.keys(d).forEach((k) => {
+    if (DETAIL_SKIP.indexOf(k) !== -1 || ((k === "from" || k === "to") && d.from != null && d.to != null)) return;
+    out.push(detailLabel(k) + ": " + detailValue(k, d[k]));
+  });
+  return out.slice(0, 6);
 }
 function logQuery(extra) {
   const f = logFilter;
-  return ["source", "from", "to", "who", "action", "case"].map((k) => k + "=" + encodeURIComponent(f[k] || "")).join("&") + "&page=" + f.page + (extra || "");
+  return ["view", "source", "from", "to", "who", "action", "case"].map((k) => k + "=" + encodeURIComponent(f[k] || "")).join("&") + (f.timeline ? "&timeline=1" : "") + "&page=" + f.page + (extra || "");
 }
 async function loadLog() {
   if (!reg) { try { await loadReg(true); } catch (e) { /* ignore */ } }
   if (!me.canSeeLog) { document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + esc(T("adm.au_err_role")) + '</div>'; return; }
-  document.getElementById("content").innerHTML = renderLogFilters() + '<p class="empty">' + esc(T("adm.loading")) + '</p>';
-  attachLogFilters();
+  if (!log) { document.getElementById("content").innerHTML = renderLogFilters() + '<p class="empty">' + esc(T("adm.loading")) + '</p>'; attachLogFilters(); }
   const r = await api("/api/admin/audit-log?" + logQuery());
   if (!r.ok) {
-    if (r.body && r.body.fields) { logErrors = {}; const M = { DATE: "adm.au_e_date", BEFORE_FROM: "adm.au_e_before" }; Object.keys(r.body.fields).forEach((k) => { logErrors[k] = T(M[r.body.fields[k]] || "adm.au_e_date"); }); log = null; renderLog(); focusFirstError(); return; }
+    if (r.body && r.body.fields) { logErrors = {}; const M = { DATE: "adm.au_e_date", BEFORE_FROM: "adm.au_e_before" }; Object.keys(r.body.fields).forEach((k) => { logErrors[k] = T(M[r.body.fields[k]] || "adm.au_e_date"); }); renderLog(); focusFirstError(); return; }
     return showError(r);
   }
   log = r.body; logErrors = {}; renderLog();
 }
 function renderLogFilters() {
-  const f = logFilter, e = logErrors;
+  const f = logFilter, e = logErrors, counts = (log && log.views) || {};
   const fe = (k) => '<div class="field-err" id="lf-' + k + '-err" role="alert">' + esc(e[k] || "") + '</div>';
-  return '<div class="panel"><p class="section-sub">' + esc(T("adm.al_sub")) + '</p><form class="filters" id="log-filters" novalidate>' +
-    '<div><label for="lf-source">' + esc(T("adm.al_f_source")) + '</label><select id="lf-source"><option value="">' + esc(T("adm.au_all")) + '</option>' + ["staff", "signin", "team"].map((s) => '<option value="' + s + '"' + (f.source === s ? " selected" : "") + '>' + esc(T("adm.al_src_" + s)) + '</option>').join("") + '</select></div>' +
+  return '<div class="panel"><p class="section-sub">' + esc(T("adm.al_sub")) + '</p>' +
+    '<p class="al-help">' + esc(T("adm.al_help")) + ' <a href="/admin-cases.html">' + esc(T("adm.al_help_cases")) + '</a></p>' +
+    '<div class="al-quick" role="group" aria-label="' + esc(T("adm.al_quick")) + '"><span class="al-quick-l">' + esc(T("adm.al_quick")) + '</span>' +
+      QUICK.map((q) => '<button type="button" class="qv' + (f.view === q ? " on" : "") + '" data-view="' + q + '" aria-pressed="' + (f.view === q) + '">' + esc(T("adm.al_v_" + q)) + (counts[q] != null ? ' <b>' + counts[q] + '</b>' : '') + '</button>').join("") +
+      (f.view ? '<button type="button" class="linkish" id="qv-clear">' + esc(T("adm.al_v_clear")) + '</button>' : '') + '</div>' +
+    (f.timeline ? '<div class="notice ok al-timeline" role="status">' + esc(T("adm.al_timeline_on", { case: f.case })) + ' <button type="button" class="linkish" id="tl-clear">' + esc(T("adm.al_timeline_off")) + '</button></div>' : '') +
+    '<form class="filters" id="log-filters" novalidate>' +
+    '<div><label for="lf-source">' + esc(T("adm.al_f_source")) + '</label><select id="lf-source"><option value="">' + esc(T("adm.au_all")) + '</option>' + ["staff", "case", "team", "signin"].map((s) => '<option value="' + s + '"' + (f.source === s ? " selected" : "") + '>' + esc(T("adm.al_src_" + s)) + '</option>').join("") + '</select></div>' +
     '<div><label for="lf-from">' + esc(T("adm.al_f_from")) + '</label><input type="date" id="lf-from" value="' + esc(f.from) + '" aria-describedby="lf-from-err"' + (e.from ? ' aria-invalid="true"' : '') + '>' + fe("from") + '</div>' +
     '<div><label for="lf-to">' + esc(T("adm.al_f_to")) + '</label><input type="date" id="lf-to" value="' + esc(f.to) + '" aria-describedby="lf-to-err"' + (e.to ? ' aria-invalid="true"' : '') + '>' + fe("to") + '</div>' +
     '<div><label for="lf-who">' + esc(T("adm.al_f_who")) + '</label><input type="search" id="lf-who" value="' + esc(f.who) + '"></div>' +
     '<div><label for="lf-action">' + esc(T("adm.al_f_action")) + '</label><input type="search" id="lf-action" value="' + esc(f.action) + '"></div>' +
-    '<div><label for="lf-case">' + esc(T("adm.al_f_case")) + '</label><input type="search" id="lf-case" value="' + esc(f.case) + '" placeholder="GRV-…"></div>' +
+    '<div><label for="lf-case">' + esc(T("adm.al_f_case")) + '</label><input type="search" id="lf-case" value="' + esc(f.case) + '" placeholder="' + esc(T("adm.al_f_case_ph")) + '"></div>' +
     '<div><button type="submit">' + esc(T("adm.au_apply")) + '</button></div></form><div id="log-body"></div></div>';
 }
 function attachLogFilters() {
   document.getElementById("log-filters").addEventListener("submit", (ev) => {
     ev.preventDefault();
-    logFilter = { source: val("lf-source"), from: val("lf-from"), to: val("lf-to"), who: val("lf-who").trim(), action: val("lf-action").trim(), case: val("lf-case").trim(), page: 1 };
+    logFilter = { view: logFilter.view, source: val("lf-source"), from: val("lf-from"), to: val("lf-to"), who: val("lf-who").trim(), action: val("lf-action").trim(), case: val("lf-case").trim(), timeline: false, page: 1 };
     logErrors = {};
     if (logFilter.from && logFilter.to && logFilter.from > logFilter.to) { logErrors.to = T("adm.au_e_before"); renderLog(); focusFirstError(); return; }
     loadLog();
   });
+  document.querySelectorAll(".qv").forEach((b) => b.addEventListener("click", () => {
+    const v = b.getAttribute("data-view");
+    logFilter.view = logFilter.view === v ? "" : v; logFilter.timeline = false; logFilter.page = 1;
+    loadLog().then(() => { const x = document.querySelector('.qv[data-view="' + v + '"]'); if (x) x.focus(); });
+  }));
+  const qc = document.getElementById("qv-clear");
+  if (qc) qc.addEventListener("click", () => { logFilter.view = ""; logFilter.page = 1; loadLog(); });
+  const tc = document.getElementById("tl-clear");
+  if (tc) tc.addEventListener("click", () => { logFilter.timeline = false; logFilter.case = ""; logFilter.page = 1; loadLog(); });
+}
+function caseCell(r) {
+  if (!r.caseRef) return '<span class="na">—</span>';
+  const link = r.caseId ? '<a href="/admin-cases.html?case=' + esc(encodeURIComponent(r.caseId)) + '" target="_blank" rel="noopener" aria-label="' + esc(T("adm.al_open_case", { case: r.caseRef })) + '">' + esc(r.caseRef) + '</a>' : esc(r.caseRef);
+  const about = [r.caseWard, r.caseType ? (window.GIQ && GIQ.cat ? GIQ.cat(r.caseType) : r.caseType) : null].filter(Boolean).join(" · ");
+  return link + (about ? '<div class="ward-sub">' + esc(about) + '</div>' : '') +
+    (!logFilter.timeline ? '<button type="button" class="linkish tl-btn" data-case="' + esc(r.caseRef) + '">' + esc(T("adm.al_timeline")) + '</button>' : '');
 }
 function renderLog() {
   document.getElementById("content").innerHTML = renderLogFilters();
   attachLogFilters();
   const body = document.getElementById("log-body");
   if (!log) { body.innerHTML = ""; return; }
-  let html = '<div class="result-bar"><span>' + esc(T("adm.al_n", { n: log.total })) + '</span><a class="btn-link" href="/api/admin/audit-log?' + esc(logQuery("&format=csv")) + '" download>' + esc(T("adm.au_csv")) + '</a></div>';
+  let html = '<div class="result-bar"><span>' + esc(T(logFilter.timeline ? "adm.al_n_tl" : "adm.al_n", { n: log.total })) + '</span><a class="btn-link" href="/api/admin/audit-log?' + esc(logQuery("&format=csv")) + '" download>' + esc(T("adm.au_csv")) + '</a></div>';
   if (!log.rows.length) html += '<p class="empty">' + esc(T("adm.al_none")) + '</p>';
-  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.al_c_when")) + '</th><th scope="col">' + esc(T("adm.al_c_log")) + '</th><th scope="col">' + esc(T("adm.al_c_who")) + '</th><th scope="col">' + esc(T("adm.al_c_action")) + '</th><th scope="col">' + esc(T("adm.al_c_case")) + '</th><th scope="col">' + esc(T("adm.al_c_details")) + '</th>' + (log.canObserve ? '<th scope="col"><span class="sr-only">' + esc(T("adm.al_raise")) + '</span></th>' : '') + '</tr></thead><tbody>' +
-    log.rows.map((r) => '<tr><td>' + esc(dateTime(r.at)) + '</td><td>' + esc(T("adm.al_src_" + r.source)) + '</td><td>' + esc(r.actor || "") + (r.role ? '<div class="ward-sub">' + esc(roleLabel(r.role) === r.role ? r.role.replace(/_/g, " ").toLowerCase() : roleLabel(r.role)) + '</div>' : '') + '</td><td>' + esc(actionLabel(r.action)) + '</td><td>' + esc(r.caseRef || "") + '</td><td class="ward-sub">' + esc(detailText(r)) + '</td>' +
-      (log.canObserve ? '<td><a class="small-link" href="#new&src=' + esc(encodeURIComponent("log:" + r.id)) + '&label=' + esc(encodeURIComponent(actionLabel(r.action) + " · " + (r.actor || "") + " · " + dateTime(r.at))) + (r.caseRef ? '&case=' + esc(encodeURIComponent(r.caseRef)) : '') + '">' + esc(T("adm.al_raise")) + '</a></td>' : '') + '</tr>').join("") + '</tbody></table></div>';
-  if (log.pages > 1) html += '<div class="actions-row"><button type="button" id="lg-prev"' + (log.page <= 1 ? " disabled" : "") + '>' + esc(T("adm.al_prev")) + '</button><span>' + esc(T("adm.al_page", { p: log.page, n: log.pages })) + '</span><button type="button" id="lg-next"' + (log.page >= log.pages ? " disabled" : "") + '>' + esc(T("adm.al_next")) + '</button></div>';
+  else html += '<div class="table-wrap"><table class="al-table"><thead><tr><th scope="col">' + esc(T("adm.al_c_when")) + '</th><th scope="col">' + esc(T("adm.al_c_what")) + '</th><th scope="col">' + esc(T("adm.al_c_case")) + '</th>' + (log.canObserve ? '<th scope="col"><span class="sr-only">' + esc(T("adm.al_raise")) + '</span></th>' : '') + '</tr></thead><tbody>' +
+    log.rows.map((r) => {
+      const lines = detailLines(r);
+      return '<tr><td class="al-when">' + esc(dateTime(r.at)) + '<div class="ward-sub">' + esc(T("adm.al_src_" + r.source)) + '</div></td>' +
+        '<td><div class="al-sentence">' + esc(sentence(r)) + '</div>' + (lines.length ? '<ul class="al-details">' + lines.map((l) => '<li>' + esc(l) + '</li>').join("") + '</ul>' : '') + '</td>' +
+        '<td>' + caseCell(r) + '</td>' +
+        (log.canObserve ? '<td><a class="small-link" href="#new&src=' + esc(encodeURIComponent("log:" + r.id)) + '&label=' + esc(encodeURIComponent(sentence(r) + " · " + dateTime(r.at))) + (r.caseRef ? '&case=' + esc(encodeURIComponent(r.caseRef)) : '') + '">' + esc(T("adm.al_raise")) + '</a></td>' : '') + '</tr>';
+    }).join("") + '</tbody></table></div>';
+  if (log.pages > 1) html += '<div class="actions-row"><button type="button" id="lg-prev"' + (log.page <= 1 ? " disabled" : "") + '>' + esc(T(logFilter.timeline ? "adm.al_prev_tl" : "adm.al_prev")) + '</button><span>' + esc(T("adm.al_page", { p: log.page, n: log.pages })) + '</span><button type="button" id="lg-next"' + (log.page >= log.pages ? " disabled" : "") + '>' + esc(T(logFilter.timeline ? "adm.al_next_tl" : "adm.al_next")) + '</button></div>';
   body.innerHTML = html;
   const pv = document.getElementById("lg-prev"), nx = document.getElementById("lg-next");
   if (pv) pv.addEventListener("click", () => { logFilter.page--; loadLog(); });
   if (nx) nx.addEventListener("click", () => { logFilter.page++; loadLog(); });
+  document.querySelectorAll(".tl-btn").forEach((b) => b.addEventListener("click", () => {
+    logFilter = { view: "", source: "", from: "", to: "", who: "", action: "", case: b.getAttribute("data-case"), timeline: true, page: 1 };
+    loadLog().then(() => { const t = document.querySelector(".al-timeline"); if (t) { t.setAttribute("tabindex", "-1"); t.focus(); } });
+  }));
 }
 
 // ---------- theme / language ----------
