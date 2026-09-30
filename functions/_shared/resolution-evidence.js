@@ -153,15 +153,24 @@ export async function shapeResolution(g, report, photos, audience, linkFor, refF
     noPhotoReason: report.no_photo_reason || null,
     createdAt: report.created_at,
     by: audience === "citizen" ? null : report.created_by,
+    // Item 8b: who wrote it, in which role, and who approved it.
+    submittedRole: audience === "citizen" ? null : report.submitted_role || null,
+    reviewStatus: audience === "citizen" ? null : report.review_status || null,
+    reviewedBy: audience === "citizen" ? null : report.reviewed_by || null,
+    reviewedAt: audience === "citizen" ? null : report.reviewed_at || null,
+    reviewNote: audience === "citizen" ? null : report.review_note || null,
+    id: audience === "citizen" ? null : report.id,
     photos: shaped,
     warningCount: shaped.reduce((n, p) => n + p.warnings.filter((w) => w.level === "warn").length, 0),
   };
 }
 
-// Latest report and its photos for one complaint.
+// Latest report that resolved the case, and its photos. Item 8b: fix
+// reports waiting for approval or sent back don't count.
 export async function loadResolution(env, grievanceId) {
   const report = await env.DB.prepare(
-    `SELECT * FROM resolution_reports WHERE grievance_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`
+    `SELECT * FROM resolution_reports WHERE grievance_id = ? AND (review_status IS NULL OR review_status = 'APPROVED')
+     ORDER BY created_at DESC, rowid DESC LIMIT 1`
   ).bind(grievanceId).first();
   if (!report) return { report: null, photos: [] };
   const { results } = await env.DB.prepare(

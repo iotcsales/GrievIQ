@@ -17,6 +17,7 @@
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
+import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -41,17 +42,14 @@ export async function onRequestPost(context) {
 
   // Confirm this rep actually has jurisdiction over this case's local unit --
   // same check grievances.js and mark-resolved.js use to decide visibility.
-  let hasAccess = false;
-  const myTiers = [];
-  for (const mandate of auth.mandates) {
-    const unitIds = await getLocalUnitIdsForMandate(env, mandate);
-    if (unitIds.includes(grievance.local_unit_id)) {
-      hasAccess = true;
-      myTiers.push(mandate.tier);
-    }
-  }
-  if (!hasAccess) {
+  // Jurisdiction and role (item 8b): acknowledging is for the
+  // representative or office manager, not a field worker.
+  const access = await caseAccess(env, auth, grievance, getLocalUnitIdsForMandate);
+  if (!access) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
+  }
+  if (!canManageCases(access.role)) {
+    return Response.json({ error: "Only the representative or office manager can acknowledge a case.", code: "ROLE" }, { status: 403 });
   }
 
   if (grievance.reopened_at) {
@@ -61,7 +59,7 @@ export async function onRequestPost(context) {
     ]);
     if (chain && category) {
       const current = computeEscalation(grievance, category, chain.tiers).currentTierIndex;
-      const mine = Math.max(...myTiers.map((t) => chain.tiers.findIndex((x) => x.tier === t)));
+      const mine = chain.tiers.findIndex((x) => x.tier === access.mandate.tier);
       if (mine < current) {
         return Response.json({ error: "This case was reopened and is now with a higher level, which needs to acknowledge it.", code: "HIGHER_LEVEL" }, { status: 403 });
       }
@@ -81,5 +79,7 @@ export async function onRequestPost(context) {
      VALUES (?, ?, 'ACKNOWLEDGED', ?, ?)`
   ).bind(crypto.randomUUID(), grievanceId, auth.email, now).run();
 
+  await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
+    onBehalf: onBehalfOf(access.mandate, auth), action: "ACKNOWLEDGED", grievanceId });
   return Response.json({ acknowledgedAt: now });
 }

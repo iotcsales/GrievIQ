@@ -18,26 +18,24 @@
 //     noPhotoReason: 10-300 characters, required when there are no photos }
 // Saved as a resolution report (resolution_reports), with the photos
 // joined to it (resolution_photos.report_id).
+//
+// Item 8b (Sept 2026): the representative's team.
+//   - Representative or office manager: marks it resolved, as before (the
+//     steps are in _shared/resolve-case.js). A fix report still waiting for
+//     approval is closed as "sent back" with a note saying so.
+//   - Field worker (only on a case assigned to them): the same form submits
+//     a fix report for approval instead (review_status PENDING); nothing
+//     changes for the citizen until the representative or office manager
+//     approves it (review-report.js).
+// Every action goes in the team activity log.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
-import { CONFIRM_DAYS, confirmDeadline } from "../../../_shared/confirmation.js";
 import { NOTE_MIN, NOTE_MAX, REASON_MIN, REASON_MAX, MAX_PHOTOS } from "../../../_shared/resolution-evidence.js";
+import { finalizeResolution } from "../../../_shared/resolve-case.js";
+import { caseAccess, ROLE, logTeam, onBehalfOf } from "../../../_shared/team.js";
 
-function escHtml(s) {
-  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-// "4 Oct 2026" / "4 अक्तू॰ 2026" in India time, for the email.
-function emailDate(iso, lang) {
-  try {
-    return new Date(iso).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN",
-      { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
-  } catch (e) {
-    return String(iso).slice(0, 10);
-  }
-}
 export async function onRequestPost(context) {
   const { request, env, params } = context;
   const grievanceId = params.id;
@@ -59,19 +57,13 @@ export async function onRequestPost(context) {
     return Response.json({ error: "This case is already resolved or awaiting confirmation" }, { status: 409 });
   }
 
-  // Confirm this rep actually has jurisdiction over this case's local unit —
-  // same check grievances.js uses to decide visibility.
-  let hasAccess = false;
-  for (const mandate of auth.mandates) {
-    const unitIds = await getLocalUnitIdsForMandate(env, mandate);
-    if (unitIds.includes(grievance.local_unit_id)) {
-      hasAccess = true;
-      break;
-    }
-  }
-  if (!hasAccess) {
+  // Jurisdiction and role for this case (item 8b): a field worker only for
+  // a case assigned to them.
+  const access = await caseAccess(env, auth, grievance, getLocalUnitIdsForMandate);
+  if (!access) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
   }
+  const isFieldWorker = access.role === ROLE.FW;
 
   // ---- What was done (item 7b) ----
   let body = {};
@@ -95,6 +87,13 @@ export async function onRequestPost(context) {
     }
   }
 
+  const pending = await env.DB.prepare(
+    "SELECT id, created_by FROM resolution_reports WHERE grievance_id = ? AND review_status = 'PENDING' LIMIT 1"
+  ).bind(grievanceId).first();
+  if (isFieldWorker && pending) {
+    return Response.json({ error: "A fix report for this case is already waiting for approval.", code: "REPORT_PENDING" }, { status: 409 });
+  }
+
   const chain = await resolveChain(env, grievance.local_unit_id);
   const category = await env.DB.prepare(
     "SELECT * FROM grievance_categories WHERE id = ?"
@@ -106,72 +105,33 @@ export async function onRequestPost(context) {
 
   const result = computeEscalation(grievance, category, chain.tiers);
   const now = new Date().toISOString();
-  const hasEmail = !!grievance.citizen_email;
-
   const reportId = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO resolution_reports (id, grievance_id, note, no_photo_reason, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(reportId, grievanceId, note, photoIds.length ? null : noPhotoReason, auth.email, now).run();
+    `INSERT INTO resolution_reports (id, grievance_id, note, no_photo_reason, created_by, created_at, review_status, submitted_role)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(reportId, grievanceId, note, photoIds.length ? null : noPhotoReason, auth.email, now,
+    isFieldWorker ? "PENDING" : null, access.role).run();
   for (const pid of photoIds) {
     await env.DB.prepare(
       "UPDATE resolution_photos SET report_id = ? WHERE id = ? AND grievance_id = ? AND report_id IS NULL"
     ).bind(reportId, pid, grievanceId).run();
   }
-  // Both wait: the citizen confirms by email, or GrievIQ staff check (item 7b-2).
-  const newStatus = "PENDING_CONFIRMATION";
 
-  await env.DB.prepare(
-    `UPDATE grievances
-     SET status = ?, current_tier = ?, resolved_at = ?, updated_at = ?
-     WHERE id = ?`
-  ).bind(newStatus, result.currentTier.tier, now, now, grievanceId).run();
+  const teamBase = { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
+    onBehalf: onBehalfOf(access.mandate, auth), grievanceId };
 
-  await env.DB.prepare(
-    `INSERT INTO grievance_events (id, grievance_id, event_type, actor, created_at)
-     VALUES (?, ?, 'MARKED_RESOLVED', ?, ?)`
-  ).bind(crypto.randomUUID(), grievanceId, auth.email, now).run();
-
-  if (hasEmail) {
-    const statusUrl = new URL(request.url).origin + "/status?ref=" + encodeURIComponent(grievance.tracking_ref);
-    const byDate = emailDate(confirmDeadline(now), grievance.lang);
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.OTP_FROM_EMAIL || "onboarding@resend.dev",
-        to: [grievance.citizen_email],
-        subject: grievance.lang === "hi"
-          ? `आपकी GrievIQ शिकायत ${grievance.tracking_ref} को निस्तारित बताया गया है`
-          : `Your GrievIQ case ${grievance.tracking_ref} has been marked resolved`,
-        html: grievance.lang === "hi"
-          ? `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
-             <p>जनप्रतिनिधि के अनुसार की गई कार्यवाही: <em>${escHtml(note)}</em></p>
-             <p>कृपया "मेरी शिकायतों की स्थिति" पृष्ठ पर जाकर अपना ईमेल दर्ज करें और बताएँ कि क्या समस्या वास्तव में हल हुई है:</p>
-             <p><a href="${statusUrl}">${statusUrl}</a></p>
-             <p>यदि ${byDate} तक (${CONFIRM_DAYS} दिन में) आपका उत्तर नहीं मिलता, तो शिकायत "निस्तारित (नागरिक द्वारा पुष्टि नहीं)" के रूप में बंद कर दी जाएगी।</p>`
-          : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
-             <p>What the representative says was done: <em>${escHtml(note)}</em></p>
-             <p>Please visit our status page and enter your email to confirm whether this actually fixed the problem:</p>
-             <p><a href="${statusUrl}">${statusUrl}</a></p>
-             <p>If we don't hear from you by ${byDate} (${CONFIRM_DAYS} days), the case will be closed as "Resolved (not confirmed by citizen)".</p>`,
-      }),
-    });
-
-    if (!resendResponse.ok) {
-      // The DB update already succeeded; email failure shouldn't roll that
-      // back, but the rep should know the notification didn't go out.
-      const errText = await resendResponse.text();
-      return Response.json({
-        status: newStatus,
-        warning: "Case marked resolved, but the citizen notification email failed to send",
-        detail: errText,
-      }, { status: 200 });
-    }
+  if (isFieldWorker) {
+    await logTeam(env, { ...teamBase, action: "FIX_REPORT_SUBMITTED", detail: { reportId, photos: photoIds.length } });
+    return Response.json({ status: "SUBMITTED_FOR_APPROVAL", reportId });
   }
 
-  return Response.json({ status: newStatus });
+  // Marked resolved directly: a report still waiting for approval is closed.
+  if (pending) {
+    await env.DB.prepare(
+      "UPDATE resolution_reports SET review_status = 'SENT_BACK', reviewed_by = ?, reviewed_at = ?, review_note = ? WHERE id = ? AND review_status = 'PENDING'"
+    ).bind(auth.email, now, "Case marked resolved directly with a new report.", pending.id).run();
+  }
+  const out = await finalizeResolution(env, request, grievance, result.currentTier.tier, note, auth.email);
+  await logTeam(env, { ...teamBase, action: "MARKED_RESOLVED", detail: { reportId } });
+  return Response.json(out);
 }

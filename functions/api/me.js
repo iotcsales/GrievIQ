@@ -19,7 +19,8 @@ export async function onRequestGet(context) {
 
   return Response.json({
     email: result.email,
-    mandates: result.mandates,
+    // Item 8b: each office with this person's role there.
+    mandates: result.mandates.map(({ tier, id, name, label, role }) => ({ tier, id, name, label, role: role || "REPRESENTATIVE" })),
     // Item 8a: "google" (our own sign-in, can sign out) or "access".
     via: result.via || "access",
   }, { headers: { "Cache-Control": "no-store" } });

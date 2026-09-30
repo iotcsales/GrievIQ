@@ -40,6 +40,10 @@ export async function onRequestGet(context) {
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
+  // Item 8b: the report covers whole offices, so it is for representatives
+  // and office managers, not field workers.
+  auth.mandates = auth.mandates.filter((m) => m.role !== "FIELD_WORKER");
+  if (!auth.mandates.length) return Response.json({ error: "Only the representative or office manager can see reports.", code: "ROLE" }, { status: 403 });
 
   // Close any case whose confirmation time has run out (item 7a).
   await settleOverdueConfirmations(env);

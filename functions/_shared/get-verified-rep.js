@@ -16,6 +16,7 @@
 
 import { verifyAccessJwt } from "./verify-access-jwt.js";
 import { sessionEmail } from "./rep-session.js";
+import { teamMandates, ROLE } from "./team.js";
 
 // Item 8a (Sept 2026): who is signed in comes first from our own "Sign in
 // with Google" session (_shared/rep-session.js). During the switch-over a
@@ -69,30 +70,47 @@ export async function lookupMandates(env, emailIn) {
   const email = String(emailIn || "").toLowerCase();
   const mandates = [];
 
-  // One round trip for all four lookups (Sept 2026 speed-up).
-  const [localUnits, municipalBodies, mlaConstituencies, mpConstituencies] = await env.DB.batch([
+  // One round trip for all the lookups (Sept 2026 speed-up). Item 8b: also
+  // the offices where this person is on the representative's team.
+  let teamRes = { results: [] };
+  let localUnits, municipalBodies, mlaConstituencies, mpConstituencies;
+  const own = [
     env.DB.prepare("SELECT id, name, unit_type FROM local_units WHERE rep_email = ?").bind(email),
     env.DB.prepare("SELECT id, name FROM municipal_bodies WHERE mayor_email = ?").bind(email),
     env.DB.prepare("SELECT id, name FROM mla_constituencies WHERE mla_email = ?").bind(email),
     env.DB.prepare("SELECT id, name FROM mp_constituencies WHERE mp_email = ?").bind(email),
-  ]);
+  ];
+  try {
+    [localUnits, municipalBodies, mlaConstituencies, mpConstituencies, teamRes] = await env.DB.batch(own.concat([
+      env.DB.prepare("SELECT * FROM office_team WHERE LOWER(member_email) = ? AND status = 'ACTIVE'").bind(email),
+    ]));
+  } catch (e) {
+    // Team table not created yet: representatives only.
+    [localUnits, municipalBodies, mlaConstituencies, mpConstituencies] = await env.DB.batch(own);
+  }
   for (const row of localUnits.results || []) {
     mandates.push({
       tier: "LOCAL",
       id: row.id,
       name: row.name,
       label: row.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan",
+      role: ROLE.REP, officeRepEmail: email,
     });
   }
   for (const row of municipalBodies.results || []) {
-    mandates.push({ tier: "MAYOR", id: row.id, name: row.name, label: "Mayor" });
+    mandates.push({ tier: "MAYOR", id: row.id, name: row.name, label: "Mayor", role: ROLE.REP, officeRepEmail: email });
   }
   for (const row of mlaConstituencies.results || []) {
-    mandates.push({ tier: "MLA", id: row.id, name: row.name, label: "MLA" });
+    mandates.push({ tier: "MLA", id: row.id, name: row.name, label: "MLA", role: ROLE.REP, officeRepEmail: email });
   }
   for (const row of mpConstituencies.results || []) {
-    mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP" });
+    mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP", role: ROLE.REP, officeRepEmail: email });
   }
 
+  // Team memberships come after the person's own offices (so their own
+  // role wins where both apply), and never duplicate an office.
+  for (const m of await teamMandates(env, email, teamRes.results || [])) {
+    if (!mandates.some((x) => x.tier === m.tier && x.id === m.id)) mandates.push(m);
+  }
   return mandates;
 }

@@ -244,6 +244,12 @@ async function caseDetail(env, auth, id) {
     // Item 7d: the reopening (if any), and whether staff may reopen for a
     // citizen with no email (once, within 30 days of closing).
     reopen: shapeReopen(await loadReopen(env, g.id), "staff"),
+    // Item 8b: assignments made by the representative's team for this case.
+    teamActivity: ((await env.DB.prepare("SELECT actor_email, actor_role, on_behalf_of, action, detail, created_at FROM team_activity WHERE grievance_id = ? AND action IN ('ASSIGNED', 'UNASSIGNED') ORDER BY created_at ASC").bind(g.id).all().catch(() => ({ results: [] }))).results || []).map((t) => {
+      let detail = null;
+      try { detail = t.detail ? JSON.parse(t.detail) : null; } catch (e) { detail = null; }
+      return { at: t.created_at, by: t.actor_email, role: t.actor_role, onBehalfOf: t.on_behalf_of, action: t.action, detail };
+    }),
     reopens: ((await env.DB.prepare("SELECT * FROM grievance_reopens WHERE grievance_id = ? ORDER BY reopened_at ASC, rowid ASC").bind(g.id).all()).results || []).map((r) => shapeReopen(r, "staff")),
     reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(g)),
     canStaffReopen: (PERMISSIONS.reopen_cases || []).includes(auth.role) && !String(g.citizen_email || "").trim() && reopenStatus(g).can,

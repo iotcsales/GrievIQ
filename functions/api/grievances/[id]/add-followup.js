@@ -16,6 +16,7 @@
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { DEPARTMENTS } from "../../../_shared/departments.js";
+import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
 
 // The list lives in _shared/departments.js (shared with the admin Issue types page).
 const VALID_DEPARTMENTS = DEPARTMENTS;
@@ -54,18 +55,14 @@ export async function onRequestPost(context) {
     return Response.json({ error: "Grievance not found" }, { status: 404 });
   }
 
-  // Confirm this rep actually has jurisdiction over this case's local unit --
-  // same check used by grievances.js, mark-resolved.js, and acknowledge.js.
-  let hasAccess = false;
-  for (const mandate of auth.mandates) {
-    const unitIds = await getLocalUnitIdsForMandate(env, mandate);
-    if (unitIds.includes(grievance.local_unit_id)) {
-      hasAccess = true;
-      break;
-    }
-  }
-  if (!hasAccess) {
+  // Jurisdiction and role (item 8b): forwarding is for the representative
+  // or office manager, not a field worker.
+  const access = await caseAccess(env, auth, grievance, getLocalUnitIdsForMandate);
+  if (!access) {
     return Response.json({ error: "You do not have jurisdiction over this case" }, { status: 403 });
+  }
+  if (!canManageCases(access.role)) {
+    return Response.json({ error: "Only the representative or office manager can forward a case.", code: "ROLE" }, { status: 403 });
   }
 
   const now = new Date().toISOString();
@@ -75,5 +72,7 @@ export async function onRequestPost(context) {
      VALUES (?, ?, 'FOLLOW_UP', ?, ?, ?, ?)`
   ).bind(crypto.randomUUID(), grievanceId, auth.email, department, note, now).run();
 
+  await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
+    onBehalf: onBehalfOf(access.mandate, auth), action: "FORWARDED", grievanceId, detail: { department } });
   return Response.json({ department, note, createdAt: now });
 }

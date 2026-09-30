@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=8a"></script>
+<script src="/i18n.js?v=8b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -227,6 +227,30 @@
     gap: 6px;
     margin-top: 10px;
   }
+  /* Item 8b: team */
+  .team-note { font-size: 13px; color: var(--steel); margin: 8px 0 0; }
+  .team-hint { margin: 8px 0 0; }
+  .review-block { border-left-color: var(--gold); }
+  .team-intro { font-size: 13.5px; color: var(--steel); line-height: 1.5; margin: 0 0 16px; }
+  .team-form { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin-bottom: 20px; }
+  .team-form h3, .team-activity-t { font-size: 15px; margin: 0 0 10px; }
+  .team-activity-t { margin-top: 24px; }
+  .team-form label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .team-form input[type=text], .team-form input[type=email] { width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; }
+  .team-form input[aria-invalid="true"] { border-color: var(--red); }
+  .team-roles { border: 0; padding: 0; margin: 10px 0 0; }
+  .team-roles legend { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .team-roles label.check { font-weight: 400; display: flex; gap: 8px; align-items: flex-start; }
+  .team-notice { background: var(--green-tint); color: var(--green); padding: 8px 10px; border-radius: 4px; font-size: 13.5px; }
+  .team-list { display: grid; gap: 10px; }
+  .team-member { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+  .team-member .actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .resolve-btn.danger { border-color: var(--red); color: var(--red); }
+  .team-activity { list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.6; }
+  .team-activity li { border-bottom: 1px solid var(--line); padding: 6px 0; }
+  .team-form .hint, .team-hint { font-size: 12.5px; color: var(--steel-2); margin: 0 0 4px; line-height: 1.45; }
+  .team-member .muted-inline { display: block; font-size: 12.5px; color: var(--steel-2); margin-top: 2px; }
+  .team-activity .muted-inline { font-size: 12.5px; color: var(--steel-2); }
   /* Item 8a: sign-in screen */
   .signin-card { max-width: 420px; margin: 48px auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 28px 24px; text-align: center; }
   .signin-card .console-icon { margin: 0 auto 12px; }
@@ -769,8 +793,12 @@ function renderResolveControl(c) {
   // (Acknowledge, Log follow-up) also triggered Mark resolved.
   var id = esc(c.id);
   var d = drafts[c.id];
+  // Item 8b: a field worker submits a fix report for approval; while one is
+  // waiting, the representative or office manager decides it.
+  var isFW = c.myRole === 'FIELD_WORKER';
+  if (c.pendingReport) return isFW ? '<p class="team-note">' + esc(T('rep.fw_waiting')) + '</p>' : renderReviewBlock(c);
   if (!d || !d.open) {
-    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T('rep.mark_resolved')) + '</button>';
+    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved')) + '</button>';
   }
   // Item 7b: say what was done, and add "after" photos or the reason there
   // are none. Photos upload as soon as they are chosen, so any warnings show
@@ -802,7 +830,7 @@ function renderResolveControl(c) {
         '<div class="field-err" id="rreason-err-' + id + '" role="alert">' + esc(d.errors.reason || '') + '</div>'
       : '') +
     '<div class="actions">' +
-      '<button type="button" class="resolve-btn r-submit" data-id="' + id + '"' + (d.busy || d.uploading ? ' disabled' : '') + '>' + esc(T(d.busy ? 'rep.marking' : 'rep.r_submit')) + '</button>' +
+      '<button type="button" class="resolve-btn r-submit" data-id="' + id + '"' + (d.busy || d.uploading ? ' disabled' : '') + '>' + esc(T(d.busy ? 'rep.marking' : (isFW ? 'rep.fw_submit' : 'rep.r_submit'))) + '</button>' +
       '<button type="button" class="resolve-btn r-cancel" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.r_cancel')) + '</button>' +
     '</div>' +
     '<div class="resolve-error" id="resolve-error-' + id + '" role="alert">' + esc(d.errors.form || '') + '</div>' +
@@ -866,6 +894,8 @@ function renderFollowupControl(c) {
   // Item 7b: the form is hidden while waiting for the citizen (the rep has
   // already marked it resolved); the department history stays visible.
   if (c.status === 'PENDING_CONFIRMATION') return deptLine + history;
+  // Item 8b: forwarding is for the representative or office manager.
+  if (c.myRole === 'FIELD_WORKER') return deptLine + history;
   return deptLine + history +
     '<div class="followup-form">' +
       '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
@@ -883,6 +913,7 @@ function renderAcknowledgeControl(c) {
   if (c.acknowledgedAt) {
     return '<span class="badge acknowledged">' + esc(T('rep.badge_ack', { date: formatDate(c.acknowledgedAt) })) + '</span>';
   }
+  if (c.myRole === 'FIELD_WORKER') return '';
   var overdueNote = c.ackOverdue ? ' <span class="badge escalated">' + esc(T('rep.badge_ack_overdue')) + '</span>' : '';
   // Item 7d: a reopened case is acknowledged by the level now responsible.
   if (c.reopen && c.hasEscalatedPastMyTier) {
@@ -941,6 +972,7 @@ function renderCase(c) {
       badge +
       renderResolution(c) +
       renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
+      renderTeamNotes(c) + renderAssignControl(c) +
       renderFollowupControl(c) +
       renderAcknowledgeControl(c) +
       renderResolveControl(c) +
@@ -954,10 +986,287 @@ function renderCase(c) {
   '</div>';
 }
 
+// ================= Team (item 8b) =================
+// Case-level: who a case is assigned to, a fix report sent back, the
+// "Assign to" control, and deciding a field worker's fix report.
+var teamsData = {};        // office key -> [{ email, name }] field workers
+var reviewState = {};      // case id -> { open, note, error, busy }
+var assignState = {};      // case id -> { error, busy }
+function memberName(officeKeyVal, email) {
+  var list = teamsData[officeKeyVal] || [];
+  var m = list.filter(function(x) { return x.email === email; })[0];
+  return m ? m.name : email;
+}
+function renderTeamNotes(c) {
+  var html = '';
+  if (c.assignment && c.status !== 'RESOLVED' && c.status !== 'CLOSED') {
+    html += '<p class="team-note">' + esc(c.myRole === 'FIELD_WORKER'
+      ? T('rep.assigned_you', { by: c.assignment.by, date: formatDate(c.assignment.at) })
+      : T('rep.assigned_to', { name: memberName(c.officeKey, c.assignment.email), date: formatDate(c.assignment.at) })) + '</p>';
+  }
+  if (c.sentBack) {
+    html += '<div class="dispute-note"><b>' + esc(T('rep.sent_back_t', { by: c.sentBack.by })) + '</b> <span class="muted-inline">(' + formatDate(c.sentBack.at) + ')</span><br>' + esc(c.sentBack.note) + '</div>';
+  }
+  return html;
+}
+function renderAssignControl(c) {
+  if (!isManagerRole(c.myRole) || c.status === 'RESOLVED' || c.status === 'CLOSED' || c.status === 'PENDING_CONFIRMATION') return '';
+  var list = teamsData[c.officeKey] || [];
+  var id = esc(c.id), st = assignState[c.id] || {};
+  if (!list.length) return c.myRole === 'REPRESENTATIVE' ? '<p class="hint team-hint">' + esc(T('rep.assign_none')) + '</p>' : '';
+  var current = c.assignment ? c.assignment.email : '';
+  var opts = '<option value="">' + esc(T('rep.assign_nobody')) + '</option>' + list.map(function(m) {
+    return '<option value="' + esc(m.email) + '"' + (m.email === current ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+  }).join('');
+  return '<div class="followup-form assign-form">' +
+    '<div class="followup-field"><label for="assign-' + id + '">' + esc(T('rep.assign_label')) + '</label>' +
+      '<select class="assign-select" id="assign-' + id + '" aria-describedby="assign-err-' + id + '">' + opts + '</select></div>' +
+    '<button type="button" class="resolve-btn assign-btn" data-id="' + id + '"' + (st.busy ? ' disabled' : '') + '>' + esc(T('rep.assign_btn')) + '</button>' +
+    '</div><div class="resolve-error" id="assign-err-' + id + '" role="alert">' + esc(st.error || '') + '</div>';
+}
+function renderReviewBlock(c) {
+  var r = c.pendingReport, id = esc(c.id), st = reviewState[c.id] || {};
+  var photos = (r.photos || []).map(function(p, i) {
+    return '<div class="res-photo">' + (p.url
+      ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.r_photo_alt', { n: i + 1 })) + '" loading="lazy"><span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>'
+      : '<span>' + esc(T('rep.r_photo_unavailable')) + '</span>') + renderWarnings(p.warnings) + '</div>';
+  }).join('');
+  var html = '<div class="res-block review-block"><div><b>' + esc(T('rep.review_t')) + '</b> <span class="muted-inline">' +
+      esc(T('rep.review_by', { name: memberName(c.officeKey, r.by), date: formatDate(r.createdAt) })) + '</span></div>' +
+    '<div class="res-note">' + esc(r.note) + '</div>' +
+    (photos ? '<div class="res-photos">' + photos + '</div>' : (r.noPhotoReason ? '<div><b>' + esc(T('rep.r_no_photo_given')) + '</b> ' + esc(r.noPhotoReason) + '</div>' : ''));
+  if (!c.canApprove) return html + '<p class="hint">' + esc(T('rep.review_own')) + '</p></div>';
+  if (st.open) {
+    html += '<label for="sb-note-' + id + '">' + esc(T('rep.sb_label')) + '</label>' +
+      '<p class="hint" id="sb-hint-' + id + '">' + esc(T('rep.sb_hint')) + '</p>' +
+      '<textarea id="sb-note-' + id + '" class="sb-note" data-id="' + id + '" maxlength="500" aria-describedby="sb-hint-' + id + ' sb-err-' + id + '"' + (st.error ? ' aria-invalid="true"' : '') + '>' + esc(st.note || '') + '</textarea>' +
+      '<div class="field-err" id="sb-err-' + id + '" role="alert">' + esc(st.error || '') + '</div>' +
+      '<div class="actions"><button type="button" class="resolve-btn sb-send" data-id="' + id + '"' + (st.busy ? ' disabled' : '') + '>' + esc(T('rep.sb_send')) + '</button>' +
+      '<button type="button" class="resolve-btn sb-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>';
+  } else {
+    html += '<div class="actions"><button type="button" class="resolve-btn approve-btn" data-id="' + id + '"' + (st.busy ? ' disabled' : '') + '>' + esc(T(st.busy ? 'rep.marking' : 'rep.approve_btn')) + '</button>' +
+      '<button type="button" class="resolve-btn sb-open" data-id="' + id + '">' + esc(T('rep.sb_open')) + '</button></div>';
+  }
+  return html + '<div class="resolve-error" id="review-err-' + id + '" role="alert">' + esc(st.formError || '') + '</div></div>';
+}
+function findCase(id) { return currentCases.filter(function(c) { return c.id === id; })[0]; }
+function attachTeamCaseHandlers() {
+  function redraw(focusSel) { renderContent(); if (focusSel) { var el = document.querySelector(focusSel); if (el) el.focus(); } }
+  document.querySelectorAll('.assign-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id'), sel = document.getElementById('assign-' + id);
+      var st = assignState[id] = { busy: true };
+      redraw();
+      try {
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sel ? sel.value || null : null }) });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) { st.busy = false; st.error = errText(data.error); redraw('#assign-' + cssId(id)); return; }
+        delete assignState[id];
+        await init();
+        var s2 = document.getElementById('resolve-status'); if (s2) s2.textContent = T('rep.assign_saved');
+      } catch (e) { st.busy = false; st.error = T('common.network_error'); redraw(); }
+    });
+  });
+  document.querySelectorAll('.sb-open').forEach(function(btn) {
+    btn.addEventListener('click', function() { var id = btn.getAttribute('data-id'); reviewState[id] = { open: true, note: '' }; redraw('#sb-note-' + cssId(id)); });
+  });
+  document.querySelectorAll('.sb-cancel').forEach(function(btn) {
+    btn.addEventListener('click', function() { var id = btn.getAttribute('data-id'); delete reviewState[id]; redraw('.sb-open[data-id="' + cssId(id) + '"]'); });
+  });
+  document.querySelectorAll('.sb-note').forEach(function(el) {
+    el.addEventListener('input', function() {
+      var st = reviewState[el.getAttribute('data-id')]; if (!st) return;
+      st.note = el.value;
+      if (st.error && el.value.trim().length >= 10) { st.error = ''; el.removeAttribute('aria-invalid'); var e = document.getElementById('sb-err-' + el.getAttribute('data-id')); if (e) e.textContent = ''; }
+    });
+  });
+  async function decide(id, decision) {
+    var c = findCase(id); if (!c || !c.pendingReport) return;
+    var st = reviewState[id] || (reviewState[id] = {});
+    if (decision === 'send_back') {
+      var noteEl = document.getElementById('sb-note-' + id); if (noteEl) st.note = noteEl.value;
+      if ((st.note || '').trim().length < 10) { st.error = T('rep.sb_err'); redraw('#sb-note-' + cssId(id)); return; }
+    }
+    st.busy = true; st.formError = ''; redraw();
+    try {
+      var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/review-report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: c.pendingReport.id, decision: decision, note: decision === 'send_back' ? st.note.trim() : '' }) });
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok) {
+        st.busy = false;
+        if (data.fields && data.fields.note) { st.error = T('rep.sb_err'); redraw('#sb-note-' + cssId(id)); return; }
+        st.formError = errText(data.error); redraw(); return;
+      }
+      delete reviewState[id];
+      await init();
+      var s2 = document.getElementById('resolve-status'); if (s2) s2.textContent = T(decision === 'approve' ? 'rep.approved_done' : 'rep.sent_back_done');
+    } catch (e) { st.busy = false; st.formError = T('common.network_error'); redraw(); }
+  }
+  document.querySelectorAll('.approve-btn').forEach(function(btn) { btn.addEventListener('click', function() { decide(btn.getAttribute('data-id'), 'approve'); }); });
+  document.querySelectorAll('.sb-send').forEach(function(btn) { btn.addEventListener('click', function() { decide(btn.getAttribute('data-id'), 'send_back'); }); });
+}
+
+// Team tab: members of one office, adding and removing them (the
+// representative only), and the team activity log.
+var teamOfficeKey = null;
+var teamData = null;       // GET /api/team result, or { error }
+var teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: '' };
+var teamRowState = {};     // member id -> { confirmRemove, busy, error }
+function officeKeyOf(m) { return m.tier + ':' + m.id; }
+function renderTeamFilter(slot) {
+  var offices = teamOffices();
+  if (!teamOfficeKey || !offices.some(function(m) { return officeKeyOf(m) === teamOfficeKey; })) teamOfficeKey = offices.length ? officeKeyOf(offices[0]) : null;
+  if (offices.length <= 1) { slot.innerHTML = ''; return; }
+  slot.innerHTML = '<div class="control-box filter-box no-print"><label class="control-label" for="team-office">' + esc(T('rep.team_office')) + '</label>' +
+    '<select id="team-office">' + offices.map(function(m) { return '<option value="' + esc(officeKeyOf(m)) + '"' + (officeKeyOf(m) === teamOfficeKey ? ' selected' : '') + '>' + esc(mandateText(m)) + '</option>'; }).join('') + '</select></div>';
+  document.getElementById('team-office').addEventListener('change', function(e) { teamOfficeKey = e.target.value; teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: '' }; loadTeamTab(); });
+}
+async function loadTeamTab() {
+  if (!teamOfficeKey) { var o = teamOffices(); teamOfficeKey = o.length ? officeKeyOf(o[0]) : null; }
+  teamData = null; renderContent();
+  if (!teamOfficeKey) return;
+  try {
+    var res = await fetch('/api/team?office=' + encodeURIComponent(teamOfficeKey));
+    var data = await res.json().catch(function() { return {}; });
+    teamData = res.ok ? data : { error: data.error || 'error' };
+  } catch (e) { teamData = { error: 'network' }; }
+  if (activeTab === 'team') renderContent();
+}
+var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSIGNED: 'rep.act_assign', UNASSIGNED: 'rep.act_unassign',
+  FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
+  MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role' };
+function activityText(a) {
+  var d = a.detail || {};
+  return T(ACT_KEYS[a.action] || 'rep.act_other', { ref: a.trackingRef || '', name: d.name || d.to || '', dept: d.department ? deptName(d.department) : '',
+    role: d.role ? T(ROLE_KEYS[d.role]) : (d.to && ROLE_KEYS[d.to] ? T(ROLE_KEYS[d.to]) : ''), action: a.action });
+}
+function renderTeamTab() {
+  if (!teamOfficeKey) return '<div class="empty-state"><p>' + esc(T('rep.team_none')) + '</p></div>';
+  if (!teamData) return '<div class="empty-state"><p>' + esc(T('rep.loading')) + '</p></div>';
+  if (teamData.error) return '<div class="empty-state"><p>' + esc(T('rep.team_error')) + '</p></div>';
+  var t = teamData, f = teamForm, manage = t.canManage;
+  var html = '<div class="register-header"><h2 class="register-title">' + esc(T('rep.team_title', { office: t.office.name + ' — ' + lv(t.office.label) })) + '</h2>' +
+    '<span class="register-count">' + esc(T('rep.team_count', { n: t.members.length, max: t.limit })) + '</span></div>' +
+    '<p class="team-intro">' + esc(T('rep.team_intro')) + '</p>';
+  if (manage) {
+    var err = function(k) { return '<div class="field-err" id="tf-' + k + '-err" role="alert">' + esc(f.errors[k] || '') + '</div>'; };
+    var inv = function(k) { return f.errors[k] ? ' aria-invalid="true"' : ''; };
+    html += '<form class="team-form" id="team-form" novalidate><h3>' + esc(T('rep.team_add_t')) + '</h3>' +
+      '<label for="tf-name">' + esc(T('rep.team_name')) + '</label><input id="tf-name" type="text" maxlength="80" autocomplete="off" value="' + esc(f.name) + '" aria-describedby="tf-name-err"' + inv('name') + '>' + err('name') +
+      '<label for="tf-email">' + esc(T('rep.team_email')) + '</label><p class="hint" id="tf-email-hint">' + esc(T('rep.team_email_hint')) + '</p>' +
+      '<input id="tf-email" type="email" maxlength="120" autocomplete="off" value="' + esc(f.email) + '" aria-describedby="tf-email-hint tf-email-err"' + inv('email') + '>' + err('email') +
+      '<fieldset class="team-roles" aria-describedby="tf-role-err"><legend>' + esc(T('rep.team_role')) + '</legend>' +
+        '<label class="check"><input type="radio" name="tf-role" value="FIELD_WORKER"' + (f.role === 'FIELD_WORKER' ? ' checked' : '') + '> <span><b>' + esc(T('rep.role_fw')) + '</b> — ' + esc(T('rep.role_fw_hint')) + '</span></label>' +
+        '<label class="check"><input type="radio" name="tf-role" value="OFFICE_MANAGER"' + (f.role === 'OFFICE_MANAGER' ? ' checked' : '') + '> <span><b>' + esc(T('rep.role_om')) + '</b> — ' + esc(T('rep.role_om_hint')) + '</span></label>' +
+      '</fieldset>' + err('role') +
+      '<div class="actions"><button type="submit" class="resolve-btn" id="tf-submit"' + (f.busy ? ' disabled' : '') + '>' + esc(T('rep.team_add_btn')) + '</button></div>' +
+      '<div class="resolve-error" role="alert">' + esc(f.errors.form || '') + '</div>' +
+      (f.notice ? '<p class="team-notice" role="status" tabindex="-1" id="tf-notice">' + esc(f.notice) + '</p>' : '') +
+      '</form>';
+  }
+  if (!t.members.length) html += '<div class="empty-state"><p>' + esc(T('rep.team_empty')) + '</p></div>';
+  else {
+    html += '<div class="team-list" role="list">' + t.members.map(function(m) {
+      var rs = teamRowState[m.id] || {};
+      var actions = '';
+      if (manage) {
+        if (m.paused) actions += '<button type="button" class="resolve-btn tm-confirm" data-id="' + esc(m.id) + '">' + esc(T('rep.team_confirm')) + '</button>';
+        actions += '<button type="button" class="resolve-btn tm-role" data-id="' + esc(m.id) + '" data-role="' + (m.role === 'FIELD_WORKER' ? 'OFFICE_MANAGER' : 'FIELD_WORKER') + '">' + esc(T(m.role === 'FIELD_WORKER' ? 'rep.team_make_om' : 'rep.team_make_fw')) + '</button>';
+        actions += rs.confirmRemove
+          ? '<button type="button" class="resolve-btn danger tm-remove-yes" data-id="' + esc(m.id) + '">' + esc(T('rep.team_remove_yes', { name: m.name })) + '</button><button type="button" class="resolve-btn tm-remove-no" data-id="' + esc(m.id) + '">' + esc(T('rep.r_cancel')) + '</button>'
+          : '<button type="button" class="resolve-btn tm-remove" data-id="' + esc(m.id) + '">' + esc(T('rep.team_remove')) + '</button>';
+      }
+      return '<div class="team-member" role="listitem"><div><b>' + esc(m.name) + '</b> <span class="badge ' + (m.role === 'OFFICE_MANAGER' ? 'acknowledged' : 'pending') + '">' + esc(T(ROLE_KEYS[m.role])) + '</span>' +
+        (m.paused ? ' <span class="badge escalated">' + esc(T('rep.team_paused')) + '</span>' : '') +
+        '<div class="muted-inline">' + esc(m.email) + ' &middot; ' + esc(T('rep.team_added', { date: formatDateOnly(m.addedAt) })) + '</div></div>' +
+        (actions ? '<div class="actions">' + actions + '</div>' : '') +
+        '<div class="resolve-error" role="alert">' + esc(rs.error || '') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  html += '<h3 class="team-activity-t">' + esc(T('rep.team_activity')) + '</h3>';
+  html += t.activity.length
+    ? '<ul class="team-activity">' + t.activity.map(function(a) {
+        return '<li><span class="muted-inline">' + formatDate(a.at) + '</span> &middot; <b>' + esc(a.actor) + '</b>' + (a.role ? ' (' + esc(T(ROLE_KEYS[a.role] || 'rep.role_rep')) + ')' : '') + ': ' + esc(activityText(a)) + '</li>';
+      }).join('') + '</ul>'
+    : '<p class="hint">' + esc(T('rep.team_activity_none')) + '</p>';
+  return html;
+}
+function attachTeamHandlers() {
+  var form = document.getElementById('team-form');
+  if (form) {
+    ['name', 'email'].forEach(function(k) {
+      var el = document.getElementById('tf-' + k);
+      el.addEventListener('input', function() { teamForm[k] = el.value; if (teamForm.errors[k]) { teamForm.errors[k] = ''; el.removeAttribute('aria-invalid'); document.getElementById('tf-' + k + '-err').textContent = ''; } });
+    });
+    form.querySelectorAll('input[name="tf-role"]').forEach(function(r) { r.addEventListener('change', function() { teamForm.role = r.value; teamForm.errors.role = ''; document.getElementById('tf-role-err').textContent = ''; }); });
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var f = teamForm;
+      f.name = document.getElementById('tf-name').value; f.email = document.getElementById('tf-email').value;
+      var chk = form.querySelector('input[name="tf-role"]:checked'); f.role = chk ? chk.value : '';
+      f.errors = {}; f.notice = '';
+      if (f.name.trim().length < 2) f.errors.name = T('rep.team_err_name');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) f.errors.email = T('rep.team_err_email');
+      if (!f.role) f.errors.role = T('rep.team_err_role');
+      var first = f.errors.name ? '#tf-name' : f.errors.email ? '#tf-email' : f.errors.role ? 'input[name="tf-role"]' : null;
+      if (first) { renderContent(); document.querySelector(first).focus(); return; }
+      f.busy = true; renderContent();
+      try {
+        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', office: teamOfficeKey, name: f.name.trim(), email: f.email.trim(), role: f.role }) });
+        var data = await res.json().catch(function() { return {}; });
+        f.busy = false;
+        if (!res.ok) {
+          var fe = data.fields || {};
+          if (fe.email) f.errors.email = T(fe.email === 'DUPLICATE' ? 'rep.team_err_dup' : fe.email === 'SELF' ? 'rep.team_err_self' : 'rep.team_err_email');
+          if (fe.name) f.errors.name = T('rep.team_err_name');
+          if (fe.role) f.errors.role = T('rep.team_err_role');
+          if (!fe.email && !fe.name && !fe.role) f.errors.form = data.code === 'LIMIT' ? T('rep.team_err_limit', { max: teamData.limit }) : errText(data.error);
+          renderContent(); var inv = document.querySelector('#team-form [aria-invalid="true"]'); if (inv) inv.focus();
+          return;
+        }
+        var added = f.name.trim(), addedEmail = f.email.trim();
+        teamForm = { name: '', email: '', role: '', errors: {}, busy: false, notice: T(data.emailed ? 'rep.team_added_ok' : 'rep.team_added_noemail', { name: added, email: addedEmail }) };
+        await refreshTeamAndCases();
+        var n = document.getElementById('tf-notice'); if (n) n.focus();
+      } catch (err) { f.busy = false; f.errors.form = T('common.network_error'); renderContent(); }
+    });
+  }
+  async function rowAction(id, action, extra) {
+    var rs = teamRowState[id] || (teamRowState[id] = {});
+    rs.busy = true; rs.error = '';
+    try {
+      var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action, office: teamOfficeKey, memberId: id }, extra || {})) });
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok) { rs.busy = false; rs.error = errText(data.error); renderContent(); return; }
+      delete teamRowState[id];
+      await refreshTeamAndCases();
+    } catch (e) { rs.busy = false; rs.error = T('common.network_error'); renderContent(); }
+  }
+  document.querySelectorAll('.tm-remove').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); teamRowState[id] = { confirmRemove: true }; renderContent(); var y = document.querySelector('.tm-remove-yes[data-id="' + cssId(id) + '"]'); if (y) y.focus(); }); });
+  document.querySelectorAll('.tm-remove-no').forEach(function(b) { b.addEventListener('click', function() { var id = b.getAttribute('data-id'); delete teamRowState[id]; renderContent(); }); });
+  document.querySelectorAll('.tm-remove-yes').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'remove'); }); });
+  document.querySelectorAll('.tm-confirm').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'confirm'); }); });
+  document.querySelectorAll('.tm-role').forEach(function(b) { b.addEventListener('click', function() { rowAction(b.getAttribute('data-id'), 'change_role', { role: b.getAttribute('data-role') }); }); });
+}
+// After a team change: the team list, and the "Assign to" lists on cases.
+async function refreshTeamAndCases() {
+  try {
+    var r = await fetch('/api/grievances');
+    if (r.ok) { var d = await r.json(); currentCases = d.grievances || []; teamsData = d.teams || {}; }
+  } catch (e) { /* the team list below still refreshes */ }
+  await loadTeamTab();
+}
+
 // ================= Viewing (which of my areas) =================
 function myMandates() { return (currentMe && currentMe.mandates) || []; }
 function findMandate(id) { return myMandates().filter(function(m) { return m.id === id; })[0] || null; }
-function mandateText(m) { return m.name + ' — ' + lv(m.label); }
+function mandateText(m) { return m.name + ' — ' + mLabel(m); }
+// Item 8b: the person's role in an office, when it isn't their own office.
+var ROLE_KEYS = { REPRESENTATIVE: 'rep.role_rep', OFFICE_MANAGER: 'rep.role_om', FIELD_WORKER: 'rep.role_fw' };
+function mLabel(m) { return lv(m.label) + (m.role && m.role !== 'REPRESENTATIVE' ? ' · ' + T(ROLE_KEYS[m.role]) : ''); }
+function isManagerRole(r) { return r === 'REPRESENTATIVE' || r === 'OFFICE_MANAGER' || !r; }
+function canSeeReport() { return myMandates().some(function(m) { return m.role !== 'FIELD_WORKER'; }); }
+function teamOffices() { return myMandates().filter(function(m) { return m.role === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER' || !m.role; }); }
 
 function casesInView() {
   return activeMandateId === null
@@ -977,9 +1286,9 @@ function updateSummary() {
   if (!el) return;
   var ms = myMandates();
   var title, sub;
-  if (ms.length === 1) { title = ms[0].name; sub = lv(ms[0].label); }
+  if (ms.length === 1) { title = ms[0].name; sub = mLabel(ms[0]); }
   else if (activeMandateId === null) { title = T('rep.all_areas'); sub = T('rep.n_areas', { n: ms.length }); }
-  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? lv(m.label) : ''; }
+  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? mLabel(m) : ''; }
   var wardList = activeTab === 'report' && reportData && reportData.wards ? reportData.wards : null;
   var wardLine = activeWardId ? '<p class="console-role">' + esc(T('rep.ward_line', { name: wardNameFor(activeWardId, wardList) })) + '</p>' : '';
   el.innerHTML = (ms.length > 1 ? '<p class="viewing-kicker">' + esc(T('rep.viewing')) + '</p>' : '') +
@@ -1001,7 +1310,7 @@ function renderViewingControl() {
     };
     bar.innerHTML = '<div class="mandate-strip-inner" role="group" aria-label="' + esc(T('rep.viewing')) + '">' +
       chip(null, esc(T('rep.all_areas'))) +
-      ms.map(function(m) { return chip(m.id, esc(m.name) + ' &mdash; <b>' + esc(lv(m.label)) + '</b>'); }).join('') +
+      ms.map(function(m) { return chip(m.id, esc(m.name) + ' &mdash; <b>' + esc(mLabel(m)) + '</b>'); }).join('') +
       '</div>';
     bar.querySelectorAll('.mandate-chip').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -1097,6 +1406,7 @@ function setView(id) {
   if (myMandates().length <= 4) renderViewingControl();   // chips: refresh pressed state
   updateSummary();
   if (activeTab === 'report') { loadReportTab(); }
+  else if (activeTab === 'team') { renderFilters(); renderContent(); }
   else { renderFilters(); renderContent(); }
 }
 
@@ -1119,6 +1429,7 @@ function renderFilters() {
   var slot = document.getElementById('filter-slot');
   if (!slot) return;
   if (activeTab === 'report' && (!reportData || reportData.error)) return;   // built once data is in
+  if (activeTab === 'team') { renderTeamFilter(slot); return; }
   var key = activeTab + '|' + mandateIdForApi() + '|' + reportFrom + '|' + reportTo;
   if (key === filterKey && slot.innerHTML) return;   // keep the box (and keyboard focus) as it is
   filterKey = key;
@@ -1300,7 +1611,8 @@ function renderShell() {
     '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
       '<button type="button" class="tab-btn" data-tab="cases">' + esc(T('rep.tab_cases')) + '</button>' +
-      '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' +
+      (canSeeReport() ? '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' : '') +
+      (teamOffices().length ? '<button type="button" class="tab-btn" data-tab="team">' + esc(T('rep.tab_team')) + '</button>' : '') +
     '</div>' +
     '<main><div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
@@ -1319,6 +1631,7 @@ function renderShell() {
       updateTabs();
       document.getElementById('filter-slot').innerHTML = '';
       if (activeTab === 'report') loadReportTab();
+      else if (activeTab === 'team') { updateSummary(); renderFilters(); loadTeamTab(); }
       else { updateSummary(); renderFilters(); renderContent(); }
     });
   });
@@ -1338,6 +1651,11 @@ function renderContent() {
   if (activeTab === 'report') {
     el.innerHTML = renderReportTab();
     attachReportHandlers();
+    return;
+  }
+  if (activeTab === 'team') {
+    el.innerHTML = renderTeamTab();
+    attachTeamHandlers();
     return;
   }
   var inView = casesInView();
@@ -1362,6 +1680,7 @@ function renderContent() {
   attachResolveHandlers();
   attachAcknowledgeHandlers();
   attachFollowupHandlers();
+  attachTeamCaseHandlers();
 }
 
 async function loadReportTab() {
@@ -1731,6 +2050,10 @@ function attachResolveHandlers() {
         }
         delete drafts[id];
         await init();
+        if (data.status === 'SUBMITTED_FOR_APPROVAL') {
+          var st2 = document.getElementById('resolve-status');
+          if (st2) st2.textContent = T('rep.fw_submitted');
+        }
         if (data.warning) {
           var st = document.getElementById('resolve-status');
           if (st) st.textContent = T('rep.r_email_failed');
@@ -1859,9 +2182,13 @@ async function init() {
   var casesRes = await fetch('/api/grievances');
   var casesData = await casesRes.json();
   currentCases = casesData.grievances || [];
+  teamsData = casesData.teams || {};
+  // Item 8b: tabs this person can't use fall back to Cases.
+  if ((activeTab === 'report' && !canSeeReport()) || (activeTab === 'team' && !teamOffices().length)) activeTab = 'cases';
 
   renderShell();
   if (activeTab === 'report') loadReportTab();
+  else if (activeTab === 'team') { renderFilters(); loadTeamTab(); }
   else { renderFilters(); renderContent(); }
 }
 

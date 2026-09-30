@@ -21,6 +21,7 @@ import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
+import { ROLE, canManageCases, officeKey } from "../_shared/team.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -73,6 +74,11 @@ export async function onRequestGet(context) {
   const complaintPhotosByGrievance = new Map();
   // Latest reopening per case (item 7d).
   const reopenByGrievance = new Map();
+  // Item 8b: fix reports waiting for approval (or sent back), and who each
+  // case is assigned to.
+  const pendingByGrievance = new Map();
+  const sentBackByGrievance = new Map();
+  const assignmentByGrievance = new Map();
   const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
@@ -110,12 +116,17 @@ export async function onRequestGet(context) {
         `SELECT ro.*, ro.rowid AS reopen_rowid FROM grievance_reopens ro
          JOIN grievances g ON g.id = ro.grievance_id ${s.join}
          WHERE ${s.where}`
+      ).bind(...s.binds),
+      env.DB.prepare(
+        `SELECT ca.* FROM case_assignments ca
+         JOIN grievances g ON g.id = ca.grievance_id ${s.join}
+         WHERE ca.ended_at IS NULL AND ${s.where}`
       ).bind(...s.binds)
     );
   }
   const batch = await env.DB.batch(stmts);
   const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
-  for (let i = 1; i < batch.length; i += 7) {
+  for (let i = 1; i < batch.length; i += 8) {
     for (const g of batch[i].results || []) {
       if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
     }
@@ -123,6 +134,12 @@ export async function onRequestGet(context) {
       if (!eventById.has(e.id)) eventById.set(e.id, e);
     }
     for (const r of batch[i + 2].results || []) {
+      if (r.review_status === "PENDING") { pendingByGrievance.set(r.grievance_id, r); continue; }
+      if (r.review_status === "SENT_BACK") {
+        const sb = sentBackByGrievance.get(r.grievance_id);
+        if (!sb || r.created_at > sb.created_at) sentBackByGrievance.set(r.grievance_id, r);
+        continue;
+      }
       const prev = reportByGrievance.get(r.grievance_id);
       if (!prev || r.created_at > prev.created_at || (r.created_at === prev.created_at && r.report_rowid > prev.report_rowid)) {
         reportByGrievance.set(r.grievance_id, r);
@@ -149,6 +166,10 @@ export async function onRequestGet(context) {
       if (!prev || ro.reopened_at > prev.reopened_at || (ro.reopened_at === prev.reopened_at && ro.reopen_rowid > prev.reopen_rowid)) {
         reopenByGrievance.set(ro.grievance_id, ro);
       }
+    }
+    for (const ca of batch[i + 7].results || []) {
+      const prev = assignmentByGrievance.get(ca.grievance_id);
+      if (!prev || ca.assigned_at > prev.assigned_at) assignmentByGrievance.set(ca.grievance_id, ca);
     }
   }
 
@@ -183,6 +204,11 @@ export async function onRequestGet(context) {
   for (const grievance of grievanceRows) {
     const myMandate = unitToMandate.get(grievance.local_unit_id);
     const myTier = myMandate.tier;
+    // Item 8b: a field worker sees only the cases assigned to them in that office.
+    const myRole = myMandate.role || ROLE.REP;
+    const assignment = assignmentByGrievance.get(grievance.id) || null;
+    if (myRole === ROLE.FW && !(assignment && assignment.assignee_email === auth.email &&
+        assignment.office_tier === myMandate.tier && assignment.office_id === myMandate.id)) continue;
 
     const chain = chainCache.get(grievance.local_unit_id);
     if (!chain) continue;
@@ -218,8 +244,25 @@ export async function onRequestGet(context) {
       ? await shapeResolution(grievance, report, photosByReport.get(report.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
       : null;
 
+    // Item 8b: a fix report waiting for approval, or the last one sent back.
+    const pendingRow = pendingByGrievance.get(grievance.id) || null;
+    const pendingReport = pendingRow
+      ? await shapeResolution(grievance, pendingRow, photosByReport.get(pendingRow.id) || [], "rep", (p) => photoMedia(env, p, "r"), null, parseWard(chain.localUnit.ward_boundary_geojson))
+      : null;
+    const sentBackRow = sentBackByGrievance.get(grievance.id) || null;
+    const sentBack = sentBackRow && !pendingRow && (!report || sentBackRow.created_at > report.created_at) && grievance.status !== "RESOLVED" && grievance.status !== "CLOSED"
+      ? { note: sentBackRow.review_note || "", by: sentBackRow.reviewed_by, at: sentBackRow.reviewed_at, submittedBy: sentBackRow.created_by }
+      : null;
+
     visible.push({
       id: grievance.id,
+      // Item 8b: this person's role for the case, and the team workflow.
+      myRole,
+      officeKey: officeKey(myMandate.tier, myMandate.id),
+      assignment: assignment ? { email: assignment.assignee_email, by: assignment.assigned_by, at: assignment.assigned_at } : null,
+      pendingReport,
+      sentBack,
+      canApprove: Boolean(pendingRow && canManageCases(myRole) && pendingRow.created_by !== auth.email),
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
       locationDetail: grievance.location_detail || null,
@@ -295,9 +338,25 @@ export async function onRequestGet(context) {
     });
 }
 
+  // Item 8b: the field workers of each office this person manages cases
+  // for (for the "Assign to" list).
+  const teams = {};
+  for (const m of auth.mandates) {
+    if (!canManageCases(m.role || ROLE.REP)) continue;
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT member_email, member_name, confirmed_by_rep_email FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND role = 'FIELD_WORKER' ORDER BY member_name"
+      ).bind(m.tier, m.id).all();
+      teams[officeKey(m.tier, m.id)] = (results || [])
+        .filter((r) => String(r.confirmed_by_rep_email || "").toLowerCase() === String(m.officeRepEmail || auth.email).toLowerCase())
+        .map((r) => ({ email: r.member_email, name: r.member_name }));
+    } catch (e) { /* team tables not there yet */ }
+  }
+
   return Response.json({
     email: auth.email,
-    mandates: auth.mandates,
+    mandates: auth.mandates.map(({ tier, id, name, label, role }) => ({ tier, id, name, label, role: role || ROLE.REP })),
     grievances: visible,
+    teams,
   });
 }

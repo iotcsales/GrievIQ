@@ -520,7 +520,9 @@
     const t = (toDate(eventAt) || new Date(0)).getTime();
     let best = null, bestGap = 120000;
     (c.reports || []).forEach((r) => {
-      const gap = Math.abs((toDate(r.createdAt) || new Date(0)).getTime() - t);
+      // Item 8b: a field worker's report counts from when it was approved.
+      if (r.reviewStatus === "PENDING" || r.reviewStatus === "SENT_BACK") return;
+      const gap = Math.abs((toDate(r.reviewStatus === "APPROVED" ? r.reviewedAt : r.createdAt) || new Date(0)).getTime() - t);
       if (gap <= bestGap) { best = r; bestGap = gap; }
     });
     return best;
@@ -531,7 +533,14 @@
           (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="After-photo ' + (i + 1) + '" loading="lazy" /></a>' : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
           (p.warnings.some((w) => w.level === "warn") ? '<div class="attn" style="font-size:12px;margin-top:3px">⚠ ' + p.warnings.filter((w) => w.level === "warn").length + ' warning(s)</div>' : '') + '</div>').join("") + '</div>'
       : (r.noPhotoReason ? '<div class="t-body" style="margin-top:4px"><b>No photo — reason:</b> ' + escapeHtml(r.noPhotoReason) + '</div>' : '');
-    return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos;
+    return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos + reportWho(r);
+  }
+  // Item 8b: who wrote the report, in which role, and who approved it.
+  const ROLE_NAMES = { REPRESENTATIVE: "representative", OFFICE_MANAGER: "office manager", FIELD_WORKER: "field worker" };
+  function reportWho(r) {
+    if (!r.submittedRole || r.submittedRole === "REPRESENTATIVE") return "";
+    return '<div class="t-body" style="margin-top:4px;color:var(--admin-muted)">Written by ' + escapeHtml(r.by || "") + ' (' + escapeHtml(ROLE_NAMES[r.submittedRole] || r.submittedRole) + ')' +
+      (r.reviewStatus === "APPROVED" ? ' · approved by ' + escapeHtml(r.reviewedBy || "") : '') + '</div>';
   }
 
   function timelineItems(c) {
@@ -548,6 +557,18 @@
         at: e.at,
         html: e.type === "MARKED_RESOLVED" && reportFor(c, e.at) ? reportHtml(reportFor(c, e.at)) : "",
       });
+    });
+    // Item 8b: fix reports from field workers (waiting or sent back), and assignments.
+    (c.reports || []).forEach((r) => {
+      if (r.reviewStatus !== "PENDING" && r.reviewStatus !== "SENT_BACK" && r.reviewStatus !== "APPROVED") return;
+      items.push({ cls: "", title: "Fix report submitted by field worker", meta: dateTime(r.createdAt) + " · " + (r.by || ""), body: "", at: r.createdAt,
+        html: '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' });
+      if (r.reviewStatus === "SENT_BACK") items.push({ cls: "warn", title: "Fix report sent back", meta: dateTime(r.reviewedAt) + " · " + (r.reviewedBy || ""), body: r.reviewNote || "", at: r.reviewedAt });
+    });
+    (c.teamActivity || []).forEach((t) => {
+      const d = t.detail || {};
+      items.push({ cls: "", title: t.action === "ASSIGNED" ? "Assigned to " + (d.name || d.to || "field worker") : "Assignment cleared",
+        meta: dateTime(t.at) + " · " + t.by + (t.onBehalfOf && t.onBehalfOf !== t.by ? " for " + t.onBehalfOf : ""), body: "", at: t.at });
     });
     // Reopenings (item 7d), kept in their own table.
     (c.reopens || []).forEach((r) => {
@@ -626,13 +647,14 @@
       '<h2 style="margin-bottom:6px">What the representative says was done</h2>' +
       '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(dateTime(r.createdAt)) + (r.by ? ' · ' + escapeHtml(r.by) : '') +
         (r.warningCount ? ' · <b style="color:var(--admin-danger)">' + r.warningCount + (r.warningCount === 1 ? ' warning' : ' warnings') + '</b>' : '') + '</p>' +
-      '<div class="res-note">' + escapeHtml(r.note) + '</div>' + photos +
+      '<div class="res-note">' + escapeHtml(r.note) + '</div>' + reportWho(r) + photos +
     '</div>';
   }
 
   function renderDetail(body) {
     const c = body.case;
     c.reopens = body.reopens || [];
+    c.teamActivity = body.teamActivity || [];
     const view = document.getElementById("detail-view");
     const wardType = c.ward.type === "URBAN" ? "Urban ward" : c.ward.type === "RURAL" ? "Rural village" : "";
 
