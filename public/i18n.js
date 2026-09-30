@@ -1871,6 +1871,9 @@
 "rep.office_of": ["{label} office", "{label} कार्यालय"],
 // ---- Item 8c-2: Overview tab ----
 "rep.act_exported": ["downloaded the overview ({from} to {to})", "सारांश डाउनलोड किया ({from} से {to})"],
+"rep.ov_back": ["Back to Overview", "सारांश पर वापस जाएँ"],
+"rep.ov_none_at_level": ["None of {ward}'s complaints has reached your level ({level}) yet, so there is nothing for you to act on here.", "{ward} की कोई भी शिकायत अभी आपके स्तर ({level}) तक नहीं पहुँची है, इसलिए यहाँ आपके लिए कोई कार्रवाई नहीं है।"],
+"rep.ov_none_counts": ["The Overview counts every complaint in the ward ({received} received in the period, {pending} pending now). They are being handled at a lower level and will appear here if they escalate to you.", "सारांश में वार्ड की हर शिकायत गिनी जाती है (अवधि में {received} प्राप्त, अभी {pending} लंबित)। इन पर निचले स्तर पर काम हो रहा है और आप तक एस्केलेट होने पर ये यहाँ दिखेंगी।"],
 "rep.tab_overview": ["Overview", "सारांश"],
 "rep.ov_title": ["Overview — {office}", "सारांश — {office}"],
 "rep.ov_office": ["Office", "कार्यालय"],

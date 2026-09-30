@@ -322,6 +322,7 @@
   .ov-hit { fill: transparent; }
   .ov-tip { position: absolute; top: 8px; width: 150px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none; }
   .ov-how { margin: 8px 0 18px; font-size: 13.5px; }
+  .ov-back { margin: 0 0 8px; font-size: 13.5px; }
   .ov-how summary { cursor: pointer; color: var(--brand); }
   .ov-how ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.55; color: var(--steel); }
   .ov-trend-table { margin-top: 8px; max-width: 360px; }
@@ -1668,6 +1669,8 @@ async function refreshTeamAndCases() {
 // How the office's whole area is doing, as counts only (/api/overview).
 var ovOfficeKey = null, ovPeriod = 'this_month', ovFrom = '', ovTo = '', ovMla = null;
 var ovData = null, ovErrors = {}, ovSort = { col: null, dir: 'desc' };
+var ovWardNames = {};      // ward id -> name, from the Overview (for the Cases tab)
+var ovJump = null;         // { wardId, name, received, pending, level } after "View cases"
 function ovOffices() { return myMandates().filter(function(m) { return m.role !== 'FIELD_WORKER'; }); }
 function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
 function ymd(y, m, d) { var x = new Date(Date.UTC(y, m, d)); return x.toISOString().slice(0, 10); }
@@ -1913,7 +1916,10 @@ function attachOverviewHandlers() {
   if (up) up.addEventListener('click', function() { var back = ovMla; ovMla = null; ovSort = { col: null, dir: 'desc' }; loadOverview().then(function() { var b = document.querySelector('.ov-drill[data-id="' + cssId(back) + '"]'); if (b) b.focus(); }); });
   document.querySelectorAll('.ov-cases').forEach(function(b) { b.addEventListener('click', function() {
     var o = ovOffices().filter(function(m) { return officeKeyOf(m) === ovOfficeKey; })[0];
-    activeMandateId = o ? o.id : null; activeWardId = b.getAttribute('data-id'); activeTab = 'cases'; filterKey = '';
+    var wid = b.getAttribute('data-id');
+    var row = (ovData.rows || []).filter(function(r) { return r.id === wid; })[0];
+    if (row) { ovWardNames[wid] = row.name; ovJump = { wardId: wid, name: row.name, received: row.received, pending: row.pending, level: o ? lv(o.label) : '' }; }
+    activeMandateId = o ? o.id : null; activeWardId = wid; activeTab = 'cases'; filterKey = '';
     renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
     var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
   }); });
@@ -1962,7 +1968,7 @@ function wardNameFor(id, list) {
   var w = (list || []).filter(function(x) { return x.id === id; })[0];
   if (w) return w.name;
   var c = currentCases.filter(function(x) { return x.localUnit.id === id; })[0];
-  return c ? c.localUnit.name : id;
+  return c ? c.localUnit.name : (ovWardNames[id] || id);
 }
 
 function updateSummary() {
@@ -2143,6 +2149,7 @@ function renderFilters() {
 
 function setWard(id) {
   if (id === activeWardId) return;
+  ovJump = null;
   activeWardId = id;
   updateSummary();
   if (activeTab === 'report') loadReportTab();
@@ -2319,6 +2326,7 @@ function renderShell() {
       var tab = btn.getAttribute('data-tab');
       if (tab === activeTab) return;
       activeTab = tab;
+      ovJump = null;
       filterKey = '';
       updateTabs();
       document.getElementById('filter-slot').innerHTML = '';
@@ -2369,13 +2377,24 @@ function renderContent() {
         (attention > 0 ? ' &middot; <span class="attention">' + esc(T('rep.n_late', { n: attention })) + '</span>' : '') + '</span>' +
     '</div>' +
     '<p class="resolve-error" id="resolve-status" role="status"></p>' +
+    (ovJump && activeWardId === ovJump.wardId ? '<p class="ov-back no-print"><button type="button" class="linkish" id="ov-back">‹ ' + esc(T('rep.ov_back')) + '</button></p>' : '') +
     renderMyJob();
-  if (cases.length === 0) {
+  // Item 8c-2: arrived from the Overview's "View cases".
+  var jump = ovJump && activeWardId === ovJump.wardId ? ovJump : null;
+  if (cases.length === 0 && jump) {
+    html += '<div class="empty-state"><p>' + esc(T('rep.ov_none_at_level', { ward: jump.name, level: jump.level })) + '</p>' +
+      '<p>' + esc(T('rep.ov_none_counts', { received: jump.received, pending: jump.pending })) + '</p></div>';
+  } else if (cases.length === 0) {
     html += '<div class="empty-state"><p>' + esc(T(activeWardId ? 'rep.none_ward' : 'rep.none')) + '</p></div>';
   } else {
     html += cases.map(renderCase).join('');
   }
   el.innerHTML = html;
+  var back = document.getElementById('ov-back');
+  if (back) back.addEventListener('click', function() {
+    ovJump = null; activeWardId = null; activeTab = 'overview'; filterKey = '';
+    updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); loadOverview();
+  });
   attachResolveHandlers();
   attachAcknowledgeHandlers();
   attachFollowupHandlers();
