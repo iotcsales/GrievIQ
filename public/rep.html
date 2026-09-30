@@ -85,6 +85,19 @@
   .console-header-right {
     text-align: right;
   }
+  /* Authority bar: who you are acting as */
+  .authority-bar { background: var(--brand-tint); border-bottom: 1px solid #c9d9ee; border-top: 3px solid var(--brand); }
+  .authority-inner { max-width: 780px; margin: 0 auto; padding: 10px 24px 12px; }
+  .auth-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--steel); margin: 0 0 4px; }
+  html[lang='hi'] .auth-kicker { text-transform: none; letter-spacing: 0; font-size: 12px; }
+  .auth-main { margin: 0; font-size: 19px; line-height: 1.35; color: var(--ink); }
+  .auth-role { display: inline-block; background: var(--brand); color: #fff; font-weight: 700; border-radius: 4px; padding: 2px 10px; font-size: 16px; }
+  .auth-role.team { background: #fff; color: var(--brand); border: 2px solid var(--brand); }
+  .auth-role.small { font-size: 12.5px; padding: 1px 8px; margin-right: 6px; }
+  .auth-place { font-weight: 700; }
+  .auth-sep { color: var(--steel-2); }
+  .auth-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--ink); }
+  .auth-ward { margin: 6px 0 0; font-size: 13px; color: var(--steel); }
   .console-ward {
     font-weight: 700;
     font-size: 14px;
@@ -323,6 +336,7 @@
   .ov-tip { position: absolute; top: 8px; width: 150px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none; }
   .ov-how { margin: 8px 0 18px; font-size: 13.5px; }
   .ov-back { margin: 0 0 8px; font-size: 13.5px; }
+  .ov-typechip { margin: 0 0 10px; font-size: 13.5px; background: var(--brand-tint); display: inline-block; padding: 4px 10px; border-radius: 4px; }
   .ov-how summary { cursor: pointer; color: var(--brand); }
   .ov-how ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.55; color: var(--steel); }
   .ov-trend-table { margin-top: 8px; max-width: 360px; }
@@ -708,6 +722,7 @@ const LAYERS_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 var activeTab = 'cases';
 var activeMandateId = null;   // null = "All my areas"
 var activeWardId = null;      // null = all wards in the current view
+var activeCatId = null;       // item 8c-2: one issue type, from the Overview's "View cases"
 var currentMe = null;
 var currentCases = [];
 
@@ -1849,6 +1864,7 @@ function renderOverviewTab() {
       var action = '';
       if (d.groupBy === 'mla') action = '<button type="button" class="linkish ov-drill" data-id="' + esc(r.id) + '" aria-label="' + esc(T('rep.ov_show_wards_for', { name: r.name })) + '">' + esc(T('rep.ov_show_wards')) + '</button>';
       else if (d.groupBy === 'ward') action = '<button type="button" class="linkish ov-cases" data-id="' + esc(r.id) + '" aria-label="' + esc(T('rep.ov_view_cases_for', { ward: r.name })) + '">' + esc(T('rep.ov_view_cases')) + '</button>';
+      else if (d.groupBy === 'category') action = '<button type="button" class="linkish ov-cases-type" data-id="' + esc(r.id) + '" aria-label="' + esc(T('rep.ov_view_cases_for', { ward: catName(r.id, r.name) })) + '">' + esc(T('rep.ov_view_cases')) + '</button>';
       var name = d.groupBy === 'category' ? catName(r.id, r.name) : r.name;
       html += '<tr><th scope="row" class="ov-name">' + esc(name) + (r.wards ? ' <span class="muted-inline">(' + esc(T('rep.ov_wards_n', { n: r.wards })) + ')</span>' : '') + (action ? '<div>' + action + '</div>' : '') + '</th>' +
         OV_COLS.map(function(c) { return ovCell(r, c); }).join('') + '</tr>';
@@ -1914,12 +1930,21 @@ function attachOverviewHandlers() {
   document.querySelectorAll('.ov-drill').forEach(function(b) { b.addEventListener('click', function() { ovMla = b.getAttribute('data-id'); ovSort = { col: null, dir: 'desc' }; loadOverview().then(function() { var u = document.getElementById('ov-up'); if (u) u.focus(); }); }); });
   var up = document.getElementById('ov-up');
   if (up) up.addEventListener('click', function() { var back = ovMla; ovMla = null; ovSort = { col: null, dir: 'desc' }; loadOverview().then(function() { var b = document.querySelector('.ov-drill[data-id="' + cssId(back) + '"]'); if (b) b.focus(); }); });
+  document.querySelectorAll('.ov-cases-type').forEach(function(b) { b.addEventListener('click', function() {
+    var o = ovOffices().filter(function(m) { return officeKeyOf(m) === ovOfficeKey; })[0];
+    var cid = b.getAttribute('data-id');
+    var row = (ovData.rows || []).filter(function(r) { return r.id === cid; })[0];
+    ovJump = { catId: cid, catName: row ? row.name : cid };
+    activeMandateId = o ? o.id : null; activeWardId = null; activeCatId = cid; activeTab = 'cases'; filterKey = '';
+    renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
+    var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+  }); });
   document.querySelectorAll('.ov-cases').forEach(function(b) { b.addEventListener('click', function() {
     var o = ovOffices().filter(function(m) { return officeKeyOf(m) === ovOfficeKey; })[0];
     var wid = b.getAttribute('data-id');
     var row = (ovData.rows || []).filter(function(r) { return r.id === wid; })[0];
     if (row) { ovWardNames[wid] = row.name; ovJump = { wardId: wid, name: row.name, received: row.received, pending: row.pending, level: o ? lv(o.label) : '' }; }
-    activeMandateId = o ? o.id : null; activeWardId = wid; activeTab = 'cases'; filterKey = '';
+    activeMandateId = o ? o.id : null; activeWardId = wid; activeCatId = null; activeTab = 'cases'; filterKey = '';
     renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
     var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
   }); });
@@ -1971,19 +1996,38 @@ function wardNameFor(id, list) {
   return c ? c.localUnit.name : (ovWardNames[id] || id);
 }
 
+// Authority bar (Sept 2026): who you are acting as, always visible, in a
+// band under the header. Representatives' titles are shown in English and
+// Hindi together (as on official letterheads); a team member's role is
+// shown with the office they work for.
+var LEVEL_TITLES = { 'Corporator': 'Corporator · पार्षद', 'Gram Pradhan': 'Gram Pradhan · ग्राम प्रधान', 'Mayor': 'Mayor · महापौर', 'MLA': 'MLA · विधायक', 'MP': 'MP · सांसद' };
+function levelTitle(label) { return LEVEL_TITLES[label] || lv(label); }
+function authorityLine(m) {
+  if (!m.role || m.role === 'REPRESENTATIVE') return { role: levelTitle(m.label), place: m.name, team: false };
+  return { role: T(ROLE_KEYS[m.role] === 'rep.role_oa_short' ? 'rep.role_oa' : ROLE_KEYS[m.role]), place: T('rep.auth_for', { level: levelTitle(m.label), name: m.name }), team: true };
+}
 function updateSummary() {
   var el = document.getElementById('viewing-summary');
   if (!el) return;
   var ms = myMandates();
-  var title, sub;
-  if (ms.length === 1) { title = ms[0].name; sub = mLabel(ms[0]); }
-  else if (activeMandateId === null) { title = T('rep.all_areas'); sub = T('rep.n_areas', { n: ms.length }); }
-  else { var m = findMandate(activeMandateId); title = m ? m.name : ''; sub = m ? mLabel(m) : ''; }
   var wardList = activeTab === 'report' && reportData && reportData.wards ? reportData.wards : null;
-  var wardLine = activeWardId ? '<p class="console-role">' + esc(T('rep.ward_line', { name: wardNameFor(activeWardId, wardList) })) + '</p>' : '';
-  el.innerHTML = (ms.length > 1 ? '<p class="viewing-kicker">' + esc(T('rep.viewing')) + '</p>' : '') +
-    '<p class="console-ward">' + esc(title) + '</p>' +
-    '<p class="console-role">' + esc(sub) + '</p>' + wardLine;
+  var wardLine = activeWardId ? '<p class="auth-ward">' + esc(T('rep.ward_line', { name: wardNameFor(activeWardId, wardList) })) + '</p>' : '';
+  var one = ms.length === 1 ? ms[0] : (activeMandateId !== null ? findMandate(activeMandateId) : null);
+  var titleText;
+  if (one) {
+    var a = authorityLine(one);
+    el.innerHTML = '<p class="auth-kicker">' + esc(T('rep.auth_acting')) + '</p>' +
+      '<p class="auth-main"><span class="auth-role' + (a.team ? ' team' : '') + '">' + esc(a.role) + '</span> <span class="auth-sep" aria-hidden="true">—</span> <span class="auth-place">' + esc(a.place) + '</span></p>' + wardLine;
+    titleText = a.role + ' — ' + (a.team ? a.place : one.name);
+  } else {
+    el.innerHTML = '<p class="auth-kicker">' + esc(T('rep.auth_roles', { n: ms.length })) + '</p>' +
+      '<ul class="auth-list">' + ms.map(function(m) {
+        var a = authorityLine(m);
+        return '<li><span class="auth-role small' + (a.team ? ' team' : '') + '">' + esc(a.role) + '</span> ' + esc(a.place) + '</li>';
+      }).join('') + '</ul>' + wardLine;
+    titleText = T('rep.auth_roles', { n: ms.length });
+  }
+  document.title = titleText + ' · GrievIQ';
 }
 
 // Control sized to how many areas the rep holds:
@@ -2092,6 +2136,7 @@ function setView(id) {
   if (id === activeMandateId) return;
   activeMandateId = id;
   activeWardId = null;
+  activeCatId = null;
   filterKey = '';
   if (myMandates().length <= 4) renderViewingControl();   // chips: refresh pressed state
   updateSummary();
@@ -2302,10 +2347,11 @@ function renderShell() {
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
         '<div><p class="console-title">' + esc(T('rep.title')) + '</p><p class="console-subtitle">' + esc(T('rep.subtitle')) + '</p></div>' +
       '</div>' +
-      '<div class="console-header-right"><div id="viewing-summary" aria-live="polite"></div>' +
+      '<div class="console-header-right">' +
         (currentMe && currentMe.via === 'google' ? '<div class="who-signed">' + esc(currentMe.email) + ' &middot; <button type="button" class="signout-btn" id="signout-btn">' + esc(T('rep.signout')) + '</button></div>' : '') +
       '</div>' +
     '</div></div>' +
+    '<div class="authority-bar" role="region" aria-label="' + esc(T('rep.auth_label')) + '"><div class="authority-inner" id="viewing-summary" aria-live="polite"></div></div>' +
     '<div class="mandate-strip no-print" id="viewing-bar"></div>' +
     '<div class="tab-bar">' +
       '<button type="button" class="tab-btn" data-tab="cases">' + esc(T('rep.tab_cases')) + '</button>' +
@@ -2326,7 +2372,7 @@ function renderShell() {
       var tab = btn.getAttribute('data-tab');
       if (tab === activeTab) return;
       activeTab = tab;
-      ovJump = null;
+      ovJump = null; activeCatId = null;
       filterKey = '';
       updateTabs();
       document.getElementById('filter-slot').innerHTML = '';
@@ -2366,8 +2412,9 @@ function renderContent() {
   }
   var inView = casesInView();
   var cases = activeWardId ? inView.filter(function(c) { return c.localUnit.id === activeWardId; }) : inView;
+  if (activeCatId) cases = cases.filter(function(c) { return c.category.id === activeCatId; });
   var attention = cases.filter(isAttention).length;
-  var countText = activeWardId
+  var countText = activeWardId || activeCatId
     ? T('rep.showing', { x: cases.length, y: inView.length })
     : (cases.length === 1 ? T('rep.one_case') : T('rep.n_cases', { n: cases.length }));
   var html =
@@ -2377,10 +2424,11 @@ function renderContent() {
         (attention > 0 ? ' &middot; <span class="attention">' + esc(T('rep.n_late', { n: attention })) + '</span>' : '') + '</span>' +
     '</div>' +
     '<p class="resolve-error" id="resolve-status" role="status"></p>' +
-    (ovJump && activeWardId === ovJump.wardId ? '<p class="ov-back no-print"><button type="button" class="linkish" id="ov-back">‹ ' + esc(T('rep.ov_back')) + '</button></p>' : '') +
+    (ovJump && (ovJump.wardId ? activeWardId === ovJump.wardId : activeCatId === ovJump.catId) ? '<p class="ov-back no-print"><button type="button" class="linkish" id="ov-back">‹ ' + esc(T('rep.ov_back')) + '</button></p>' : '') +
+    (activeCatId ? '<p class="ov-typechip">' + esc(T('rep.ov_type_line', { type: catName(activeCatId, ovJump && ovJump.catName || activeCatId) })) + ' <button type="button" class="linkish" id="ov-type-clear">' + esc(T('rep.ov_type_clear')) + '</button></p>' : '') +
     renderMyJob();
   // Item 8c-2: arrived from the Overview's "View cases".
-  var jump = ovJump && activeWardId === ovJump.wardId ? ovJump : null;
+  var jump = ovJump && ovJump.wardId && activeWardId === ovJump.wardId ? ovJump : null;
   if (cases.length === 0 && jump) {
     html += '<div class="empty-state"><p>' + esc(T('rep.ov_none_at_level', { ward: jump.name, level: jump.level })) + '</p>' +
       '<p>' + esc(T('rep.ov_none_counts', { received: jump.received, pending: jump.pending })) + '</p></div>';
@@ -2390,9 +2438,11 @@ function renderContent() {
     html += cases.map(renderCase).join('');
   }
   el.innerHTML = html;
+  var tc = document.getElementById('ov-type-clear');
+  if (tc) tc.addEventListener('click', function() { activeCatId = null; ovJump = null; renderContent(); var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); } });
   var back = document.getElementById('ov-back');
   if (back) back.addEventListener('click', function() {
-    ovJump = null; activeWardId = null; activeTab = 'overview'; filterKey = '';
+    ovJump = null; activeWardId = null; activeCatId = null; activeTab = 'overview'; filterKey = '';
     updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); loadOverview();
   });
   attachResolveHandlers();
