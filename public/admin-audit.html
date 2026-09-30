@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title data-i18n="adm.au_page_title">Audit — GrievIQ Admin</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9a"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+    --admin-success: #7fce8f;
+    --admin-success-bg: #233a2b;
+    --admin-warn: #d8c26f;
+    --admin-input: #11151c;
+    --admin-track: #2a313d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  header .service-tag { font-size: 12px; color: var(--admin-muted); font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .who-line { font-size: 12px; color: var(--admin-muted); text-align: right; line-height: 1.4; }
+  .who-line b { color: var(--admin-text); font-weight: 600; }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 1150px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  p.section-sub { color: var(--admin-muted); margin: 0 0 18px; font-size: 13px; line-height: 1.5; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  button {
+    background: #232a36;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--admin-accent); outline-offset: 2px;
+  }
+  select, input[type="text"], input[type="search"], textarea {
+    background: var(--admin-input);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select { min-width: 170px; }
+  .result-bar {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 14px; color: var(--admin-muted); margin: 0 0 12px;
+  }
+  .result-bar b { color: var(--admin-text); }
+  .notice { border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+  .notice.ok { background: var(--admin-success-bg); border: 1px solid #3a5a44; }
+  .notice.err { background: var(--admin-danger-bg); border: 1px solid #5a2e2b; color: var(--admin-danger); }
+
+  /* Summary banner */
+  .banner { border-left: 4px solid var(--admin-warn); }
+  .banner.all-good { border-left-color: var(--admin-success); }
+  .banner .headline { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .banner .note { font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+  .banner .note-empty { color: var(--admin-muted); font-style: italic; }
+  .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Headline cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
+    padding: 16px 18px; display: block; color: var(--admin-text); text-decoration: none;
+  }
+  a.card:hover { border-color: var(--admin-accent); }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
+  .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
+  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+
+  /* Coverage bars */
+  .bar-group { margin-bottom: 22px; }
+  .bar-group:last-child { margin-bottom: 0; }
+  .bar-group h3 { font-size: 13px; font-weight: 600; color: var(--admin-muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-group .group-note { font-size: 13px; color: var(--admin-muted); }
+  .bar-row { margin-bottom: 12px; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .bar-top .name { font-weight: 600; }
+  .bar-top .frac { color: var(--admin-muted); white-space: nowrap; }
+  .bar-top .frac b { color: var(--admin-text); }
+  .bar-track { height: 10px; background: var(--admin-track); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--admin-accent); border-radius: 6px; }
+  .bar-fill.low { background: var(--admin-warn); }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor;
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .tag.complete { color: var(--admin-success); }
+  .tag.partial { color: var(--admin-accent); }
+  .tag.low { color: var(--admin-warn); }
+
+  /* Ward table */
+  .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+  .filters label { display: block; font-size: 13px; color: var(--admin-muted); margin-bottom: 6px; }
+  .filters .check label { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: var(--admin-text); font-size: 14px; cursor: pointer; }
+  .filters input[type="search"] { min-width: 220px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--admin-muted); font-weight: 600; padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border); white-space: nowrap;
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--admin-border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .ward-name { font-weight: 600; }
+  .ward-sub { font-size: 12px; color: var(--admin-muted); margin-top: 3px; line-height: 1.4; }
+  .ok-mark { color: var(--admin-success); font-weight: 700; }
+  .missing { color: var(--admin-warn); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .na { color: var(--admin-muted); }
+  .attn { color: var(--admin-danger); font-weight: 700; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  .empty, .error-msg { padding: 28px; text-align: center; font-size: 14px; color: var(--admin-muted); }
+  .error-msg { color: var(--admin-danger); }
+
+  dialog {
+    background: var(--admin-panel);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+  dialog h2 { font-size: 16px; margin: 0 0 6px; }
+  dialog .ctx { font-size: 13px; color: var(--admin-muted); margin: 0 0 12px; line-height: 1.5; }
+  dialog textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.5; }
+  dialog .hint { font-size: 12px; color: var(--admin-muted); margin-top: 5px; }
+  dialog .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  dialog .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+    --admin-success: #2e7d45;
+    --admin-success-bg: #e6f4ea;
+    --admin-warn: #9a6700;
+    --admin-input: #ffffff;
+    --admin-track: #e6e9ee;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary:hover { background: #2f5bd0; }
+  html.light-theme .bar-fill.low { background: #c98a00; }
+  html.light-theme .notice.ok { border-color: #b7dcc2; }
+  html.light-theme .notice.err { border-color: #e8c3bf; }
+  html.light-theme dialog::backdrop { background: rgba(20, 24, 31, 0.35); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; font-size: 14px; }
+  .kv div span { display: block; font-size: 12px; color: var(--admin-muted); }
+  .steps { margin: 8px 0 0 18px; padding: 0; font-size: 14px; line-height: 1.7; }
+  .progress { font-size: 14px; margin-top: 10px; min-height: 20px; }
+  .actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+  .panel p { line-height: 1.6; }
+  .policy li { margin-bottom: 4px; }
+
+  /* Audit (item 9a) */
+  input[type="date"] { background: var(--admin-input); border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font-size: 14px; font-family: inherit; color-scheme: dark; }
+  html.light-theme input[type="date"] { color-scheme: light; }
+  .filters > div { min-width: 0; }
+  .au-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--admin-border); margin: 0 0 18px; }
+  .au-tab { padding: 8px 14px; color: var(--admin-muted); text-decoration: none; font-size: 14px; border-bottom: 2px solid transparent; }
+  .au-tab.active { color: var(--admin-text); border-bottom-color: var(--admin-accent); font-weight: 600; }
+  .card.late .num { color: var(--admin-danger); }
+  .rating { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 4px; padding: 2px 8px; border: 1px solid currentColor; white-space: nowrap; }
+  .rating.r-critical { color: #ff6b6b; } .rating.r-high { color: #f0a04b; } .rating.r-medium { color: #d8c26f; } .rating.r-low { color: #8fb3ff; }
+  html.light-theme .rating.r-critical { color: #b42318; } html.light-theme .rating.r-high { color: #b54708; } html.light-theme .rating.r-medium { color: #8a6d00; } html.light-theme .rating.r-low { color: #1d4ed8; }
+  .st { display: inline-block; font-size: 12px; border-radius: 4px; padding: 2px 8px; background: var(--admin-track); white-space: nowrap; }
+  .st-overdue { background: var(--admin-danger-bg); color: var(--admin-danger); font-weight: 700; }
+  .st-closed { background: var(--admin-success-bg); color: var(--admin-success); }
+  .st-done_reported { color: var(--admin-accent); font-weight: 600; }
+  .btn-link { display: inline-block; border: 1px solid var(--admin-border); border-radius: 6px; padding: 7px 12px; color: var(--admin-text); text-decoration: none; font-size: 14px; }
+  .btn-link.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .small-link { font-size: 12.5px; color: var(--admin-accent); white-space: nowrap; }
+  .bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  main a { color: var(--admin-accent); }
+  main a.btn-link { color: var(--admin-text); } main a.btn-link.primary { color: #fff; }
+  .obs-form label, form.act label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 5px; }
+  .obs-form label.check, form.act label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; margin: 6px 0; font-size: 14px; }
+  .obs-form fieldset, form.act fieldset { border: 0; padding: 0; margin: 14px 0 0; }
+  .obs-form legend, form.act legend { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .obs-form input[type=text], .obs-form textarea, .obs-form select, form.act textarea, form.act input[type=text], form.act select { width: 100%; max-width: 720px; }
+  .obs-form input[type=date], form.act input[type=date] { background: var(--admin-input); border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .obs-form .hint, form.act .hint, .act-row .hint { font-size: 12.5px; color: var(--admin-muted); margin: 0 0 5px; line-height: 1.45; font-weight: 400; }
+  [aria-invalid="true"] { border-color: var(--admin-danger) !important; }
+  .field-err { color: var(--admin-danger); font-size: 12.5px; font-weight: 600; margin-top: 4px; }
+  .field-err:empty { display: none; }
+  .dialog-error { color: var(--admin-danger); font-size: 13px; margin-top: 10px; }
+  .dialog-error:empty { display: none; }
+  .obs-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .obs-ref { font-size: 12.5px; color: var(--admin-muted); font-weight: 600; letter-spacing: 0.03em; }
+  .obs-head h2 { font-size: 18px; margin: 4px 0; }
+  .obs-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--admin-muted); margin: 18px 0 6px; }
+  html[lang='hi'] .obs-h { text-transform: none; letter-spacing: 0; font-size: 13px; }
+  .obs-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .timeline li { border-left: 2px solid var(--admin-border); padding: 4px 0 12px 14px; }
+  .act-row { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.au_service_tag">Audit</div></div>
+  <div class="header-right">
+    <nav>
+      <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a>
+      <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a>
+      <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+      <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+      <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+      <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a>
+      <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit" class="active">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    </nav>
+    <div class="who-line" id="who-line"></div>
+  </div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1 data-i18n="adm.au_title">Audit</h1>
+      <p class="subtitle" data-i18n="adm.au_sub">Audit findings (observations) and the records GrievIQ keeps. Records here can't be changed or deleted.</p>
+    </div>
+  </div>
+  <div class="au-tabs" role="tablist" id="au-tabs"></div>
+  <div id="notice-area" aria-live="polite"></div>
+  <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" }; }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function toDate(s) { if (!s) return null; return s.indexOf("T") !== -1 ? new Date(s) : new Date(s.replace(" ", "T") + "Z"); }
+function dateTime(s) { const d = toDate(s); if (!d || isNaN(d)) return ""; return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) + ", " + d.toLocaleTimeString(loc(), timeOpts()); }
+function day(s) { if (!s) return "—"; return new Date(s + "T00:00:00+05:30").toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
+function roleLabel(role) { if (!role) return ""; const k = "adm.role_" + role; const v = T(k); return v === k ? role : v; }
+function todayIst() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+function addDays(d, n) { return new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
+function notice(kind, text) { document.getElementById("notice-area").innerHTML = text ? '<div class="notice ' + kind + '" role="' + (kind === "err" ? "alert" : "status") + '" tabindex="-1" id="notice-msg">' + esc(text) + '</div>' : ""; }
+function focusNotice() { const n = document.getElementById("notice-msg"); if (n) n.focus(); }
+async function api(url, opts) {
+  const res = await fetch(url, opts);
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+const RATINGS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+const STATUSES = ["DRAFT", "ISSUED", "RESPONDED", "DONE_REPORTED", "CLOSED", "RISK_ACCEPTED", "WITHDRAWN"];
+const TEXT_FIELDS = ["criteria", "condition", "cause", "effect", "recommendation"];
+let me = { role: null, email: null, canSeeLog: false, canCreate: false };
+let view = { tab: "obs", id: null, isNew: false, prefill: {} };
+let reg = null, regFilter = { status: "OPEN", rating: "", overdue: false, owner: "", q: "" };
+let detail = null, form = null, act = {};
+let log = null, logFilter = { source: "", from: "", to: "", who: "", action: "", case: "", page: 1 }, logErrors = {};
+
+function ratingBadge(r) { return '<span class="rating r-' + esc(String(r || "").toLowerCase()) + '">' + esc(T("adm.au_r_" + r)) + '</span>'; }
+function statusBadge(o) { return '<span class="st st-' + esc(String(o.status).toLowerCase()) + '">' + esc(T("adm.au_s_" + o.status)) + '</span>' + (o.overdue ? ' <span class="st st-overdue">' + esc(T("adm.au_overdue")) + '</span>' : ''); }
+function aboutText(o) {
+  if (o.subjectType === "CASE") return T("adm.au_about_cases", { list: (o.subjectCases || []).join(", ") || "—" });
+  if (o.subjectType === "OFFICE") return T("adm.au_about_office", { name: o.subjectOffice || "—" });
+  return T("adm.au_about_process", { name: o.subjectProcess || "—" });
+}
+function staffName(email) {
+  const list = (reg && reg.staff) || (detail && detail.staff) || [];
+  const s = list.filter((x) => x.email === email)[0];
+  return s && s.name ? s.name + " (" + email + ")" : (email || "—");
+}
+
+// ---------- routing (#obs, #obs=<id>, #new&case=..&src=kind:id&label=.., #log) ----------
+function parseHash() {
+  const h = location.hash.replace(/^#/, "");
+  const parts = h.split("&");
+  const kv = {};
+  parts.slice(1).forEach((p) => { const i = p.indexOf("="); if (i > 0) kv[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1)); });
+  const head = parts[0] || "";
+  if (head === "log") return { tab: "log" };
+  if (head === "new") return { tab: "obs", isNew: true, prefill: kv };
+  if (head.indexOf("obs=") === 0) return { tab: "obs", id: decodeURIComponent(head.slice(4)) };
+  return { tab: "obs" };
+}
+async function route() {
+  view = parseHash(); act = {}; notice("", "");
+  renderTabs();
+  if (view.tab === "log") return loadLog();
+  if (view.isNew) { if (!reg) await loadReg(true); openForm(null); return; }
+  if (view.id) return loadDetail(view.id);
+  return loadReg();
+}
+window.addEventListener("hashchange", route);
+
+function renderTabs() {
+  const tabs = [["obs", T("adm.au_tab_obs")]];
+  if (me.canSeeLog) tabs.push(["log", T("adm.au_tab_log")]);
+  document.getElementById("au-tabs").innerHTML = tabs.map((t) => '<a href="#' + t[0] + '" class="au-tab' + (view.tab === t[0] ? " active" : "") + '"' + (view.tab === t[0] ? ' aria-current="page"' : "") + '>' + esc(t[1]) + '</a>').join("");
+}
+
+// ---------- register ----------
+async function loadReg(quiet) {
+  if (!quiet) document.getElementById("content").innerHTML = '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  const r = await api("/api/admin/observations?" + regQuery());
+  if (!r.ok) return showError(r);
+  reg = r.body; me.role = reg.role; me.email = reg.me; me.canSeeLog = reg.canSeeLog; me.canCreate = reg.canCreate;
+  document.getElementById("who-line").innerHTML = '<b>' + esc(roleLabel(me.role)) + '</b>';
+  renderTabs();
+  if (!quiet) renderReg();
+}
+function regQuery(extra) {
+  const f = regFilter;
+  return "status=" + encodeURIComponent(f.status) + "&rating=" + encodeURIComponent(f.rating) + (f.overdue ? "&overdue=1" : "") +
+    "&owner=" + encodeURIComponent(f.owner) + "&q=" + encodeURIComponent(f.q) + (extra || "");
+}
+function showError(r) {
+  const msg = r.body && r.body.error === "NOT_ADMIN" ? T("adm.au_err_admin") : r.body && r.body.error === "INSUFFICIENT_ROLE" ? T("adm.au_err_role") : (r.body && r.body.error) || T("common.generic_error");
+  document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + esc(msg) + '</div>';
+}
+function renderReg() {
+  const t = reg.totals, f = regFilter;
+  const card = (n, label, cls) => '<div class="card' + (cls ? " " + cls : "") + '"><div class="num">' + n + '</div><div class="label">' + esc(label) + '</div></div>';
+  let html = '<div class="cards">' + card(t.open, T("adm.au_c_open")) + card(t.overdue, T("adm.au_c_overdue"), t.overdue ? "late" : "") +
+    card(t.waitingVerification, T("adm.au_c_waiting")) + RATINGS.map((r) => card(t.byRating[r] || 0, T("adm.au_c_rating", { r: T("adm.au_r_" + r) }))).join("") +
+    (me.canCreate ? card(t.drafts, T("adm.au_c_drafts")) : "") + '</div>';
+  html += '<div class="panel"><form class="filters" id="reg-filters">' +
+    '<div><label for="f-status">' + esc(T("adm.au_f_status")) + '</label><select id="f-status"><option value="">' + esc(T("adm.au_all")) + '</option><option value="OPEN"' + (f.status === "OPEN" ? " selected" : "") + '>' + esc(T("adm.au_f_open")) + '</option>' +
+      STATUSES.filter((s) => me.canCreate || (s !== "DRAFT" && s !== "WITHDRAWN")).map((s) => '<option value="' + s + '"' + (f.status === s ? " selected" : "") + '>' + esc(T("adm.au_s_" + s)) + '</option>').join("") + '</select></div>' +
+    '<div><label for="f-rating">' + esc(T("adm.au_f_rating")) + '</label><select id="f-rating"><option value="">' + esc(T("adm.au_all")) + '</option>' + RATINGS.map((r) => '<option value="' + r + '"' + (f.rating === r ? " selected" : "") + '>' + esc(T("adm.au_r_" + r)) + '</option>').join("") + '</select></div>' +
+    (reg.staff ? '<div><label for="f-owner">' + esc(T("adm.au_f_owner")) + '</label><select id="f-owner"><option value="">' + esc(T("adm.au_all")) + '</option>' + reg.staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.owner === s.email ? " selected" : "") + '>' + esc(s.name || s.email) + '</option>').join("") + '</select></div>' : '') +
+    '<div><label for="f-q">' + esc(T("adm.au_f_search")) + '</label><input type="search" id="f-q" value="' + esc(f.q) + '" placeholder="' + esc(T("adm.au_f_search_ph")) + '"></div>' +
+    '<div class="check"><label><input type="checkbox" id="f-overdue"' + (f.overdue ? " checked" : "") + '> ' + esc(T("adm.au_f_overdue")) + '</label></div>' +
+    '<div><button type="submit">' + esc(T("adm.au_apply")) + '</button></div></form>' +
+    '<div class="result-bar"><span>' + esc(T("adm.au_n_obs", { n: reg.observations.length })) + '</span><span class="bar-actions">' +
+      '<a class="btn-link" href="/api/admin/observations?' + esc(regQuery("&format=csv")) + '" download>' + esc(T("adm.au_csv")) + '</a>' +
+      (me.canCreate ? ' <a class="btn-link primary" href="#new">' + esc(T("adm.au_new")) + '</a>' : '') + '</span></div>';
+  if (!reg.observations.length) html += '<p class="empty">' + esc(T(me.canCreate || reg.staff ? "adm.au_none" : "adm.au_none_mine")) + '</p>';
+  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.au_col_ref")) + '</th><th scope="col">' + esc(T("adm.au_col_title")) + '</th><th scope="col">' + esc(T("adm.au_col_rating")) + '</th><th scope="col">' + esc(T("adm.au_col_status")) + '</th><th scope="col">' + esc(T("adm.au_col_owner")) + '</th><th scope="col">' + esc(T("adm.au_col_due")) + '</th></tr></thead><tbody>' +
+    reg.observations.map((o) => '<tr><td><a href="#obs=' + esc(encodeURIComponent(o.id)) + '">' + esc(o.ref) + '</a></td><td>' + esc(o.title) + '<div class="ward-sub">' + esc(aboutText(o)) + '</div></td><td>' + ratingBadge(o.rating) + '</td><td>' + statusBadge(o) + '</td><td>' + esc(o.ownerEmail || "—") + '</td><td class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</td></tr>').join("") + '</tbody></table></div>';
+  html += '</div>';
+  document.getElementById("content").innerHTML = html;
+  document.getElementById("reg-filters").addEventListener("submit", (e) => {
+    e.preventDefault();
+    regFilter = { status: val("f-status"), rating: val("f-rating"), owner: val("f-owner"), q: val("f-q").trim(), overdue: document.getElementById("f-overdue").checked };
+    loadReg();
+  });
+}
+function val(id) { const el = document.getElementById(id); return el ? el.value : ""; }
+
+// ---------- new / edit draft ----------
+function openForm(o) {
+  const p = view.prefill || {};
+  form = o ? {
+    id: o.id, title: o.title, subjectType: o.subjectType, subjectCases: (o.subjectCases || []).join(", "), subjectOffice: o.subjectOffice || "", subjectProcess: o.subjectProcess || "",
+    criteria: o.criteria || "", condition: o.condition || "", cause: o.cause || "", effect: o.effect || "", recommendation: o.recommendation || "",
+    rating: o.rating, ownerEmail: o.ownerEmail || "", dueDate: o.originalDueDate || "", dueReason: o.dueReason || "", errors: {}, busy: false,
+  } : {
+    id: null, title: "", subjectType: p.case ? "CASE" : "", subjectCases: p.case || "", subjectOffice: "", subjectProcess: "",
+    criteria: "", condition: "", cause: "", effect: "", recommendation: "", rating: "", ownerEmail: "", dueDate: "", dueReason: "",
+    source: p.src ? { kind: p.src.split(":")[0], id: p.src.split(":").slice(1).join(":"), label: p.label || "" } : null, errors: {}, busy: false,
+  };
+  renderForm();
+}
+function renderForm() {
+  const f = form, e = f.errors, staff = (reg && reg.staff) || (detail && detail.staff) || [];
+  const defaults = (reg && reg.defaults) || (detail && detail.defaults) || { CRITICAL: 15, HIGH: 30, MEDIUM: 60, LOW: 90 };
+  const fe = (k) => '<div class="field-err" id="fm-' + k + '-err" role="alert">' + esc(e[k] || "") + '</div>';
+  const inv = (k) => e[k] ? ' aria-invalid="true"' : '';
+  const area = (k) => '<label for="fm-' + k + '">' + esc(T("adm.au_fl_" + k)) + '</label><p class="hint" id="fm-' + k + '-hint">' + esc(T("adm.au_fh_" + k)) + '</p>' +
+    '<textarea id="fm-' + k + '" rows="3" maxlength="4000" aria-describedby="fm-' + k + '-hint fm-' + k + '-err"' + inv(k) + '>' + esc(f[k]) + '</textarea>' + fe(k);
+  const defDue = f.rating ? addDays(todayIst(), defaults[f.rating]) : "";
+  let html = '<p><a href="' + (f.id ? '#obs=' + esc(encodeURIComponent(f.id)) : '#obs') + '">‹ ' + esc(T("adm.au_back")) + '</a></p>' +
+    '<form class="panel obs-form" id="obs-form" novalidate><h2>' + esc(T(f.id ? "adm.au_edit_t" : "adm.au_new_t")) + '</h2>' +
+    '<p class="section-sub">' + esc(T("adm.au_form_sub")) + '</p>' +
+    (f.source ? '<p class="hint">' + esc(T("adm.au_from_source", { label: f.source.label || f.source.kind + " " + f.source.id })) + '</p>' : '') +
+    '<label for="fm-title">' + esc(T("adm.au_fl_title")) + '</label><input type="text" id="fm-title" maxlength="160" value="' + esc(f.title) + '" aria-describedby="fm-title-err"' + inv("title") + '>' + fe("title") +
+    '<fieldset aria-describedby="fm-subjectType-err"><legend>' + esc(T("adm.au_fl_about")) + '</legend>' +
+      ["CASE", "OFFICE", "PROCESS"].map((s) => '<label class="check"><input type="radio" name="fm-st" value="' + s + '"' + (f.subjectType === s ? " checked" : "") + '> ' + esc(T("adm.au_st_" + s)) + '</label>').join("") + '</fieldset>' + fe("subjectType") +
+    '<div id="fm-st-CASE"' + (f.subjectType === "CASE" ? "" : " hidden") + '><label for="fm-subjectCases">' + esc(T("adm.au_fl_cases")) + '</label><p class="hint" id="fm-cases-hint">' + esc(T("adm.au_fh_cases")) + '</p><input type="text" id="fm-subjectCases" value="' + esc(f.subjectCases) + '" aria-describedby="fm-cases-hint fm-subjectCases-err"' + inv("subjectCases") + '>' + fe("subjectCases") + '</div>' +
+    '<div id="fm-st-OFFICE"' + (f.subjectType === "OFFICE" ? "" : " hidden") + '><label for="fm-subjectOffice">' + esc(T("adm.au_fl_office")) + '</label><input type="text" id="fm-subjectOffice" maxlength="200" value="' + esc(f.subjectOffice) + '" aria-describedby="fm-subjectOffice-err"' + inv("subjectOffice") + '>' + fe("subjectOffice") + '</div>' +
+    '<div id="fm-st-PROCESS"' + (f.subjectType === "PROCESS" ? "" : " hidden") + '><label for="fm-subjectProcess">' + esc(T("adm.au_fl_process")) + '</label><input type="text" id="fm-subjectProcess" maxlength="200" value="' + esc(f.subjectProcess) + '" aria-describedby="fm-subjectProcess-err"' + inv("subjectProcess") + '>' + fe("subjectProcess") + '</div>' +
+    TEXT_FIELDS.map(area).join("") +
+    '<fieldset aria-describedby="fm-rating-err"><legend>' + esc(T("adm.au_fl_rating")) + '</legend>' +
+      RATINGS.map((r) => '<label class="check"><input type="radio" name="fm-rating" value="' + r + '"' + (f.rating === r ? " checked" : "") + '> ' + ratingBadge(r) + ' <span class="hint">' + esc(T("adm.au_rating_hint_" + r, { n: defaults[r] })) + '</span></label>').join("") + '</fieldset>' + fe("rating") +
+    '<label for="fm-ownerEmail">' + esc(T("adm.au_fl_owner")) + '</label><p class="hint" id="fm-owner-hint">' + esc(T("adm.au_fh_owner")) + '</p><select id="fm-ownerEmail" aria-describedby="fm-owner-hint fm-ownerEmail-err"' + inv("ownerEmail") + '><option value="">' + esc(T("adm.au_choose")) + '</option>' +
+      staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.ownerEmail === s.email ? " selected" : "") + '>' + esc((s.name ? s.name + " — " : "") + s.email + " (" + roleLabel(s.role) + ")") + '</option>').join("") + '</select>' + fe("ownerEmail") +
+    '<label for="fm-dueDate">' + esc(T("adm.au_fl_due")) + '</label><p class="hint" id="fm-due-hint">' + esc(defDue ? T("adm.au_fh_due", { date: day(defDue) }) : T("adm.au_fh_due_none")) + '</p><input type="date" id="fm-dueDate" value="' + esc(f.dueDate) + '" min="' + todayIst() + '" aria-describedby="fm-due-hint fm-dueDate-err"' + inv("dueDate") + '>' + fe("dueDate") +
+    '<div id="fm-reason-wrap"' + (f.dueDate && f.dueDate !== defDue ? "" : " hidden") + '><label for="fm-dueReason">' + esc(T("adm.au_fl_due_reason")) + '</label><input type="text" id="fm-dueReason" maxlength="300" value="' + esc(f.dueReason) + '" aria-describedby="fm-dueReason-err"' + inv("dueReason") + '>' + fe("dueReason") + '</div>' +
+    '<div class="actions-row"><button type="submit" class="primary"' + (f.busy ? " disabled" : "") + '>' + esc(T("adm.au_save_draft")) + '</button> <a href="' + (f.id ? '#obs=' + esc(encodeURIComponent(f.id)) : '#obs') + '">' + esc(T("adm.au_cancel")) + '</a></div>' +
+    '<div class="dialog-error" role="alert">' + esc(e.form || "") + '</div></form>';
+  document.getElementById("content").innerHTML = html;
+  const read = () => {
+    ["title", "subjectCases", "subjectOffice", "subjectProcess", "ownerEmail", "dueDate", "dueReason"].concat(TEXT_FIELDS).forEach((k) => { const el = document.getElementById("fm-" + k); if (el) f[k] = el.value; });
+    const st = document.querySelector('input[name="fm-st"]:checked'); f.subjectType = st ? st.value : "";
+    const rt = document.querySelector('input[name="fm-rating"]:checked'); f.rating = rt ? rt.value : "";
+  };
+  const refreshDue = () => {
+    read();
+    const d = f.rating ? addDays(todayIst(), defaults[f.rating]) : "";
+    document.getElementById("fm-due-hint").textContent = d ? T("adm.au_fh_due", { date: day(d) }) : T("adm.au_fh_due_none");
+    document.getElementById("fm-reason-wrap").hidden = !(f.dueDate && f.dueDate !== d);
+  };
+  document.querySelectorAll('input[name="fm-st"]').forEach((r) => r.addEventListener("change", () => { read(); ["CASE", "OFFICE", "PROCESS"].forEach((s) => { document.getElementById("fm-st-" + s).hidden = f.subjectType !== s; }); }));
+  document.querySelectorAll('input[name="fm-rating"]').forEach((r) => r.addEventListener("change", refreshDue));
+  document.getElementById("fm-dueDate").addEventListener("change", refreshDue);
+  document.getElementById("obs-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); read();
+    f.errors = {};
+    if (f.title.trim().length < 5) f.errors.title = T("adm.au_e_title");
+    if (!f.subjectType) f.errors.subjectType = T("adm.au_e_about");
+    if (!f.rating) f.errors.rating = T("adm.au_e_rating");
+    if (Object.keys(f.errors).length) { renderForm(); focusFirstError(); return; }
+    f.busy = true; renderForm();
+    const payload = { action: f.id ? "update" : "create", id: f.id, title: f.title, subjectType: f.subjectType,
+      subjectCases: f.subjectCases.split(/[\s,]+/).filter(Boolean), subjectOffice: f.subjectOffice, subjectProcess: f.subjectProcess,
+      criteria: f.criteria, condition: f.condition, cause: f.cause, effect: f.effect, recommendation: f.recommendation,
+      rating: f.rating, ownerEmail: f.ownerEmail, dueDate: f.dueDate || null, dueReason: f.dueReason, source: f.source || null };
+    const r = await api("/api/admin/observations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    f.busy = false;
+    if (!r.ok) { f.errors = mapErrors(r.body); renderForm(); focusFirstError(); return; }
+    const target = "#obs=" + encodeURIComponent(f.id || r.body.id);
+    form = null;
+    if (location.hash === target) await route(); else { location.hash = target; await new Promise((ok) => setTimeout(ok, 50)); }
+    setTimeout(() => { notice("ok", T("adm.au_saved")); focusNotice(); }, 300);
+  });
+}
+function mapErrors(body) {
+  const e = {}, fl = (body && body.fields) || {};
+  const M = { REQUIRED: "adm.au_e_required", LENGTH: "adm.au_e_length", DATE: "adm.au_e_date", PAST: "adm.au_e_past", AUDITOR: "adm.au_e_owner_auditor", NOT_STAFF: "adm.au_e_owner_staff", SAME: "adm.au_e_same", RATING: "adm.au_e_rating" };
+  Object.keys(fl).forEach((k) => { e[k] = T(M[fl[k]] || "adm.au_e_required"); });
+  if (!Object.keys(fl).length) e.form = (body && body.error) || T("common.generic_error");
+  return e;
+}
+function focusFirstError() { const el = document.querySelector('[aria-invalid="true"]') || document.querySelector(".field-err:not(:empty)"); if (el) el.focus(); }
+
+// ---------- detail ----------
+async function loadDetail(id) {
+  document.getElementById("content").innerHTML = '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  const r = await api("/api/admin/observations?id=" + encodeURIComponent(id));
+  if (!r.ok) return showError(r);
+  detail = r.body; me.role = detail.role; me.email = detail.me;
+  if (!reg) { try { await loadReg(true); } catch (e) { /* tabs only */ } }
+  document.getElementById("who-line").innerHTML = '<b>' + esc(roleLabel(me.role)) + '</b>';
+  renderDetail();
+}
+const EV_KEYS = { CREATED: "adm.au_ev_created", EDITED: "adm.au_ev_edited", ISSUED: "adm.au_ev_issued", AMENDED: "adm.au_ev_amended", RESPONDED: "adm.au_ev_responded", COMMENT: "adm.au_ev_comment",
+  DONE_REPORTED: "adm.au_ev_done", CLOSED: "adm.au_ev_closed", SENT_BACK: "adm.au_ev_sent_back", RISK_ACCEPTED: "adm.au_ev_risk", WITHDRAWN: "adm.au_ev_withdrawn" };
+function fieldName(k) { return T("adm.au_fl_" + (k === "due_date" ? "due" : k)); }
+function renderDetail() {
+  const d = detail, o = d.observation, c = d.can;
+  const amended = (k) => o.amendments.some((a) => a.field === k) ? ' <span class="tag partial">' + esc(T("adm.au_amended")) + '</span>' : '';
+  let html = '<p><a href="#obs">‹ ' + esc(T("adm.au_back")) + '</a></p><div class="panel">' +
+    '<div class="obs-head"><div><div class="obs-ref">' + esc(o.ref) + '</div><h2>' + esc(o.title) + amended("title") + '</h2><div class="ward-sub">' + esc(aboutText(o)) + '</div></div>' +
+    '<div class="obs-badges">' + ratingBadge(o.rating) + amended("rating") + ' ' + statusBadge(o) + '</div></div>' +
+    '<div class="kv">' +
+      '<div><span>' + esc(T("adm.au_col_owner")) + '</span>' + esc(staffName(o.ownerEmail)) + '</div>' +
+      '<div><span>' + esc(T("adm.au_col_due")) + '</span><b class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</b>' + amended("due_date") + '</div>' +
+      '<div><span>' + esc(T("adm.au_raised_by")) + '</span>' + esc(o.createdBy) + ' · ' + esc(dateTime(o.createdAt)) + '</div>' +
+      (o.issuedAt ? '<div><span>' + esc(T("adm.au_issued")) + '</span>' + esc(dateTime(o.issuedAt)) + '</div>' : '') +
+      (o.source ? '<div><span>' + esc(T("adm.au_source")) + '</span>' + esc(o.source.label || (o.source.kind + " " + o.source.id)) + '</div>' : '') +
+    '</div>';
+  html += TEXT_FIELDS.map((k) => '<h3 class="obs-h">' + esc(T("adm.au_fl_" + k)) + amended(k) + '</h3><div class="obs-text">' + (o[k] ? esc(o[k]) : '<span class="na">—</span>') + '</div>').join("");
+  if (o.response) {
+    html += '<h3 class="obs-h">' + esc(T("adm.au_owner_reply")) + '</h3><div class="obs-text"><b>' + esc(T(o.response.agree ? "adm.au_agrees" : "adm.au_disagrees")) + '</b><br>' + esc(o.response.text) +
+      (o.response.actionPlan ? '<br><br><b>' + esc(T("adm.au_plan")) + '</b> ' + esc(o.response.actionPlan) + '<br><b>' + esc(T("adm.au_target")) + '</b> ' + esc(day(o.response.targetDate)) : '') + '</div>';
+  }
+  if (o.doneEvidence) html += '<h3 class="obs-h">' + esc(T("adm.au_evidence")) + '</h3><div class="obs-text">' + esc(o.doneEvidence) + '</div>';
+  if (o.status === "RISK_ACCEPTED") html += '<h3 class="obs-h">' + esc(T("adm.au_risk_t")) + '</h3><div class="obs-text">' + esc(o.riskReason) + '<br><b>' + esc(T("adm.au_review_by")) + '</b> ' + esc(day(o.riskReviewDate)) + ' · ' + esc(o.closedBy || "") + '</div>';
+  html += '</div>';
+  html += renderActions(o, c);
+  if (o.amendments.length) {
+    html += '<div class="panel"><h2>' + esc(T("adm.au_amendments")) + '</h2><ul class="timeline">' + o.amendments.map((a) => '<li><span class="ward-sub">' + esc(dateTime(a.at)) + ' · ' + esc(a.by) + '</span><div><b>' + esc(fieldName(a.field)) + ':</b> ' +
+      esc(a.field === "rating" ? T("adm.au_r_" + a.oldValue) : a.field === "due_date" ? day(a.oldValue) : a.oldValue) + ' → ' + esc(a.field === "rating" ? T("adm.au_r_" + a.newValue) : a.field === "due_date" ? day(a.newValue) : a.newValue) +
+      '</div><div class="ward-sub">' + esc(T("adm.au_reason_line", { reason: a.reason })) + '</div></li>').join("") + '</ul></div>';
+  }
+  html += '<div class="panel"><h2>' + esc(T("adm.au_history")) + '</h2><p class="section-sub">' + esc(T("adm.au_history_sub")) + '</p><ul class="timeline">' +
+    d.events.map((e) => '<li><span class="ward-sub">' + esc(dateTime(e.at)) + ' · ' + esc(e.by) + (e.role ? ' (' + esc(roleLabel(e.role)) + ')' : '') + '</span><div><b>' + esc(T(EV_KEYS[e.kind] || "adm.au_ev_other", { kind: e.kind })) + '</b></div>' + (e.text ? '<div class="obs-text">' + esc(e.text) + '</div>' : '') + '</li>').join("") + '</ul></div>';
+  document.getElementById("content").innerHTML = html;
+  attachActions(o);
+}
+function actField(id, label, kind, extra) {
+  const e = act.errors || {};
+  const inv = e[id] ? ' aria-invalid="true"' : '';
+  const err = '<div class="field-err" id="ac-' + id + '-err" role="alert">' + esc(e[id] || "") + '</div>';
+  if (kind === "textarea") return '<label for="ac-' + id + '">' + esc(label) + '</label><textarea id="ac-' + id + '" rows="3" maxlength="4000" aria-describedby="ac-' + id + '-err"' + inv + '>' + esc((act.values || {})[id] || "") + '</textarea>' + err;
+  if (kind === "date") return '<label for="ac-' + id + '">' + esc(label) + '</label><input type="date" id="ac-' + id + '" min="' + (extra || todayIst()) + '" value="' + esc((act.values || {})[id] || "") + '" aria-describedby="ac-' + id + '-err"' + inv + '>' + err;
+  return '<label for="ac-' + id + '">' + esc(label) + '</label><input type="text" id="ac-' + id + '" value="' + esc((act.values || {})[id] || "") + '" aria-describedby="ac-' + id + '-err"' + inv + '>' + err;
+}
+function renderActions(o, c) {
+  const blocks = [];
+  const box = (key, title, inner, btn, cls) => '<form class="panel act" data-act="' + key + '" novalidate><h2>' + esc(title) + '</h2>' + inner +
+    '<div class="actions-row"><button type="submit" class="' + (cls || "primary") + '"' + (act.busy === key ? " disabled" : "") + '>' + esc(btn) + '</button></div><div class="dialog-error" role="alert">' + esc(act.key === key && act.errors && act.errors.form || "") + '</div></form>';
+  if (c.edit) blocks.push('<div class="panel act-row"><button type="button" id="ac-edit">' + esc(T("adm.au_edit_btn")) + '</button> <button type="button" class="primary" id="ac-issue"' + (act.busy === "issue" ? " disabled" : "") + '>' + esc(T("adm.au_issue_btn")) + '</button>' +
+    '<p class="hint">' + esc(T("adm.au_issue_hint")) + '</p><div class="dialog-error" role="alert" id="ac-issue-err">' + esc(act.key === "issue" && act.errors && act.errors.form || "") + '</div></div>');
+  if (c.respond) blocks.push(box("respond", T("adm.au_respond_t"), '<p class="section-sub">' + esc(T("adm.au_respond_sub")) + '</p>' +
+    '<fieldset aria-describedby="ac-agree-err"><legend>' + esc(T("adm.au_agree_q")) + '</legend><label class="check"><input type="radio" name="ac-agree" value="1"' + ((act.values || {}).agree === "1" ? " checked" : "") + '> ' + esc(T("adm.au_agrees")) + '</label><label class="check"><input type="radio" name="ac-agree" value="0"' + ((act.values || {}).agree === "0" ? " checked" : "") + '> ' + esc(T("adm.au_disagrees")) + '</label></fieldset><div class="field-err" id="ac-agree-err" role="alert">' + esc((act.errors || {}).agree || "") + '</div>' +
+    actField("text", T("adm.au_reply"), "textarea") + actField("actionPlan", T("adm.au_plan_label"), "textarea") + actField("targetDate", T("adm.au_target_label"), "date"), T("adm.au_respond_btn")));
+  if (c.reportDone) blocks.push(box("report_done", T("adm.au_done_t"), actField("evidence", T("adm.au_evidence_label"), "textarea"), T("adm.au_done_btn")));
+  if (c.close) blocks.push(box("close", T("adm.au_close_t"), '<p class="section-sub">' + esc(T("adm.au_close_sub")) + '</p>' + actField("note", T("adm.au_close_note"), "textarea"), T("adm.au_close_btn")));
+  if (c.sendBack) blocks.push(box("send_back", T("adm.au_sendback_t"), actField("note2", T("adm.au_sendback_note"), "textarea"), T("adm.au_sendback_btn"), "normal"));
+  if (c.amend) blocks.push(box("amend", T("adm.au_amend_t"), '<p class="section-sub">' + esc(T("adm.au_amend_sub")) + '</p>' +
+    '<label for="ac-field">' + esc(T("adm.au_amend_field")) + '</label><select id="ac-field">' + ["title", "criteria", "condition", "cause", "effect", "recommendation", "rating", "due_date"].map((k) => '<option value="' + k + '"' + ((act.values || {}).field === k ? " selected" : "") + '>' + esc(fieldName(k)) + '</option>').join("") + '</select>' +
+    '<div id="ac-value-wrap">' + amendValueInput(o) + '</div>' + actField("reason", T("adm.au_amend_reason"), "text"), T("adm.au_amend_btn"), "normal"));
+  if (c.acceptRisk) blocks.push(box("accept_risk", T("adm.au_risk_form_t"), '<p class="section-sub">' + esc(T("adm.au_risk_sub")) + '</p>' + actField("riskReason", T("adm.au_risk_reason"), "textarea") + actField("reviewDate", T("adm.au_review_date"), "date", addDays(todayIst(), 1)), T("adm.au_risk_btn"), "normal"));
+  if (c.withdraw) blocks.push(box("withdraw", T("adm.au_withdraw_t"), actField("wreason", T("adm.au_withdraw_reason"), "text"), T("adm.au_withdraw_btn"), "normal"));
+  if (c.comment) blocks.push(box("comment", T("adm.au_comment_t"), actField("comment", T("adm.au_comment_label"), "textarea"), T("adm.au_comment_btn"), "normal"));
+  return blocks.join("");
+}
+function amendValueInput(o) {
+  const f = (act.values || {}).field || "title";
+  const e = act.errors || {};
+  const inv = e.value ? ' aria-invalid="true"' : '';
+  const err = '<div class="field-err" id="ac-value-err" role="alert">' + esc(e.value || "") + '</div>';
+  const v = (act.values || {}).value != null ? act.values.value : (f === "due_date" ? o.dueDate : f === "rating" ? o.rating : o[f]) || "";
+  const label = '<label for="ac-value">' + esc(T("adm.au_amend_value")) + '</label>';
+  if (f === "rating") return label + '<select id="ac-value" aria-describedby="ac-value-err"' + inv + '>' + RATINGS.map((r) => '<option value="' + r + '"' + (v === r ? " selected" : "") + '>' + esc(T("adm.au_r_" + r)) + '</option>').join("") + '</select>' + err;
+  if (f === "due_date") return label + '<input type="date" id="ac-value" min="' + todayIst() + '" value="' + esc(v) + '" aria-describedby="ac-value-err"' + inv + '>' + err;
+  if (f === "title") return label + '<input type="text" id="ac-value" maxlength="160" value="' + esc(v) + '" aria-describedby="ac-value-err"' + inv + '>' + err;
+  return label + '<textarea id="ac-value" rows="3" maxlength="4000" aria-describedby="ac-value-err"' + inv + '>' + esc(v) + '</textarea>' + err;
+}
+function attachActions(o) {
+  const ed = document.getElementById("ac-edit");
+  if (ed) ed.addEventListener("click", () => openForm(o));
+  const is = document.getElementById("ac-issue");
+  if (is) is.addEventListener("click", () => send("issue", {}, "issue"));
+  const fsel = document.getElementById("ac-field");
+  if (fsel) fsel.addEventListener("change", () => { act.values = Object.assign({}, act.values, { field: fsel.value, value: null }); document.getElementById("ac-value-wrap").innerHTML = amendValueInput(o); });
+  document.querySelectorAll("form.act").forEach((fm) => fm.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const key = fm.getAttribute("data-act");
+    const g = (id) => { const el = document.getElementById("ac-" + id); return el ? el.value : ""; };
+    const agree = document.querySelector('input[name="ac-agree"]:checked');
+    const P = {
+      respond: { agree: agree ? agree.value === "1" : null, text: g("text"), actionPlan: g("actionPlan"), targetDate: g("targetDate") },
+      report_done: { evidence: g("evidence") },
+      close: { note: g("note") },
+      send_back: { note: g("note2") },
+      amend: { field: g("field"), value: g("value"), reason: g("reason") },
+      accept_risk: { reason: g("riskReason"), reviewDate: g("reviewDate") },
+      withdraw: { reason: g("wreason") },
+      comment: { text: g("comment") },
+    }[key];
+    act.values = { agree: agree ? agree.value : "", text: g("text"), actionPlan: g("actionPlan"), targetDate: g("targetDate"), evidence: g("evidence"), note: g("note"), note2: g("note2"),
+      field: g("field"), value: g("value"), reason: g("reason"), riskReason: g("riskReason"), reviewDate: g("reviewDate"), wreason: g("wreason"), comment: g("comment") };
+    send(key, P, key);
+  }));
+}
+// Server field names -> the ids of the inputs for each action.
+const FIELD_IDS = { send_back: { note: "note2" }, accept_risk: { reason: "riskReason" }, withdraw: { reason: "wreason" }, comment: { text: "comment" } };
+async function send(action, payload, key) {
+  act.busy = key; act.key = key; act.errors = {};
+  renderDetail();
+  const r = await api("/api/admin/observations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, id: detail.observation.id }, payload)) });
+  act.busy = null;
+  if (!r.ok) {
+    const e = mapErrors(r.body), m = FIELD_IDS[action] || {};
+    act.errors = {};
+    Object.keys(e).forEach((k) => { act.errors[m[k] || k] = e[k]; });
+    if (action === "issue" && r.body && r.body.fields) act.errors.form = T("adm.au_e_issue", { list: Object.keys(r.body.fields).map((k) => T("adm.au_fl_" + ({ dueDate: "due", dueReason: "due_reason", ownerEmail: "owner", subjectType: "about", subjectCases: "cases", subjectOffice: "office", subjectProcess: "process" }[k] || k))).join(", ") });
+    renderDetail(); focusFirstError();
+    if (action === "issue") { const x = document.getElementById("ac-issue-err"); if (x) x.focus(); }
+    return;
+  }
+  act = {};
+  await loadDetail(detail.observation.id);
+  notice("ok", T("adm.au_done_" + action)); focusNotice();
+}
+
+// ---------- audit log ----------
+const ACT_HI = {};   // action labels come from adm.al_a_<code> when present
+function actionLabel(code) { const k = "adm.al_a_" + String(code).toLowerCase(); const v = T(k); if (v !== k) return v; const s = String(code).replace(/_/g, " ").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
+function detailText(r) {
+  const d = r.detail;
+  if (!d || typeof d !== "object") return d ? String(d) : "";
+  return Object.keys(d).filter((k) => k !== "trackingRef" && k !== "role" && d[k] != null && d[k] !== "").slice(0, 6).map((k) => k + ": " + (typeof d[k] === "object" ? JSON.stringify(d[k]) : d[k])).join(" · ");
+}
+function logQuery(extra) {
+  const f = logFilter;
+  return ["source", "from", "to", "who", "action", "case"].map((k) => k + "=" + encodeURIComponent(f[k] || "")).join("&") + "&page=" + f.page + (extra || "");
+}
+async function loadLog() {
+  if (!reg) { try { await loadReg(true); } catch (e) { /* ignore */ } }
+  if (!me.canSeeLog) { document.getElementById("content").innerHTML = '<div class="notice err" role="alert">' + esc(T("adm.au_err_role")) + '</div>'; return; }
+  document.getElementById("content").innerHTML = renderLogFilters() + '<p class="empty">' + esc(T("adm.loading")) + '</p>';
+  attachLogFilters();
+  const r = await api("/api/admin/audit-log?" + logQuery());
+  if (!r.ok) {
+    if (r.body && r.body.fields) { logErrors = {}; const M = { DATE: "adm.au_e_date", BEFORE_FROM: "adm.au_e_before" }; Object.keys(r.body.fields).forEach((k) => { logErrors[k] = T(M[r.body.fields[k]] || "adm.au_e_date"); }); log = null; renderLog(); focusFirstError(); return; }
+    return showError(r);
+  }
+  log = r.body; logErrors = {}; renderLog();
+}
+function renderLogFilters() {
+  const f = logFilter, e = logErrors;
+  const fe = (k) => '<div class="field-err" id="lf-' + k + '-err" role="alert">' + esc(e[k] || "") + '</div>';
+  return '<div class="panel"><p class="section-sub">' + esc(T("adm.al_sub")) + '</p><form class="filters" id="log-filters" novalidate>' +
+    '<div><label for="lf-source">' + esc(T("adm.al_f_source")) + '</label><select id="lf-source"><option value="">' + esc(T("adm.au_all")) + '</option>' + ["staff", "signin", "team"].map((s) => '<option value="' + s + '"' + (f.source === s ? " selected" : "") + '>' + esc(T("adm.al_src_" + s)) + '</option>').join("") + '</select></div>' +
+    '<div><label for="lf-from">' + esc(T("adm.al_f_from")) + '</label><input type="date" id="lf-from" value="' + esc(f.from) + '" aria-describedby="lf-from-err"' + (e.from ? ' aria-invalid="true"' : '') + '>' + fe("from") + '</div>' +
+    '<div><label for="lf-to">' + esc(T("adm.al_f_to")) + '</label><input type="date" id="lf-to" value="' + esc(f.to) + '" aria-describedby="lf-to-err"' + (e.to ? ' aria-invalid="true"' : '') + '>' + fe("to") + '</div>' +
+    '<div><label for="lf-who">' + esc(T("adm.al_f_who")) + '</label><input type="search" id="lf-who" value="' + esc(f.who) + '"></div>' +
+    '<div><label for="lf-action">' + esc(T("adm.al_f_action")) + '</label><input type="search" id="lf-action" value="' + esc(f.action) + '"></div>' +
+    '<div><label for="lf-case">' + esc(T("adm.al_f_case")) + '</label><input type="search" id="lf-case" value="' + esc(f.case) + '" placeholder="GRV-…"></div>' +
+    '<div><button type="submit">' + esc(T("adm.au_apply")) + '</button></div></form><div id="log-body"></div></div>';
+}
+function attachLogFilters() {
+  document.getElementById("log-filters").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    logFilter = { source: val("lf-source"), from: val("lf-from"), to: val("lf-to"), who: val("lf-who").trim(), action: val("lf-action").trim(), case: val("lf-case").trim(), page: 1 };
+    logErrors = {};
+    if (logFilter.from && logFilter.to && logFilter.from > logFilter.to) { logErrors.to = T("adm.au_e_before"); renderLog(); focusFirstError(); return; }
+    loadLog();
+  });
+}
+function renderLog() {
+  document.getElementById("content").innerHTML = renderLogFilters();
+  attachLogFilters();
+  const body = document.getElementById("log-body");
+  if (!log) { body.innerHTML = ""; return; }
+  let html = '<div class="result-bar"><span>' + esc(T("adm.al_n", { n: log.total })) + '</span><a class="btn-link" href="/api/admin/audit-log?' + esc(logQuery("&format=csv")) + '" download>' + esc(T("adm.au_csv")) + '</a></div>';
+  if (!log.rows.length) html += '<p class="empty">' + esc(T("adm.al_none")) + '</p>';
+  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.al_c_when")) + '</th><th scope="col">' + esc(T("adm.al_c_log")) + '</th><th scope="col">' + esc(T("adm.al_c_who")) + '</th><th scope="col">' + esc(T("adm.al_c_action")) + '</th><th scope="col">' + esc(T("adm.al_c_case")) + '</th><th scope="col">' + esc(T("adm.al_c_details")) + '</th>' + (log.canObserve ? '<th scope="col"><span class="sr-only">' + esc(T("adm.al_raise")) + '</span></th>' : '') + '</tr></thead><tbody>' +
+    log.rows.map((r) => '<tr><td>' + esc(dateTime(r.at)) + '</td><td>' + esc(T("adm.al_src_" + r.source)) + '</td><td>' + esc(r.actor || "") + (r.role ? '<div class="ward-sub">' + esc(roleLabel(r.role) === r.role ? r.role.replace(/_/g, " ").toLowerCase() : roleLabel(r.role)) + '</div>' : '') + '</td><td>' + esc(actionLabel(r.action)) + '</td><td>' + esc(r.caseRef || "") + '</td><td class="ward-sub">' + esc(detailText(r)) + '</td>' +
+      (log.canObserve ? '<td><a class="small-link" href="#new&src=' + esc(encodeURIComponent("log:" + r.id)) + '&label=' + esc(encodeURIComponent(actionLabel(r.action) + " · " + (r.actor || "") + " · " + dateTime(r.at))) + (r.caseRef ? '&case=' + esc(encodeURIComponent(r.caseRef)) : '') + '">' + esc(T("adm.al_raise")) + '</a></td>' : '') + '</tr>').join("") + '</tbody></table></div>';
+  if (log.pages > 1) html += '<div class="actions-row"><button type="button" id="lg-prev"' + (log.page <= 1 ? " disabled" : "") + '>' + esc(T("adm.al_prev")) + '</button><span>' + esc(T("adm.al_page", { p: log.page, n: log.pages })) + '</span><button type="button" id="lg-next"' + (log.page >= log.pages ? " disabled" : "") + '>' + esc(T("adm.al_next")) + '</button></div>';
+  body.innerHTML = html;
+  const pv = document.getElementById("lg-prev"), nx = document.getElementById("lg-next");
+  if (pv) pv.addEventListener("click", () => { logFilter.page--; loadLog(); });
+  if (nx) nx.addEventListener("click", () => { logFilter.page++; loadLog(); });
+}
+
+// ---------- theme / language ----------
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+}
+let theme = "dark";
+try { theme = localStorage.getItem("griq-admin-theme") === "light" ? "light" : "dark"; } catch (e) { /* ignore */ }
+applyTheme(theme);
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  theme = theme === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", theme); } catch (e) { /* ignore */ }
+  applyTheme(theme);
+});
+document.addEventListener("giq:lang", () => {
+  applyTheme(theme); renderTabs();
+  if (view.tab === "log") { if (log) renderLog(); }
+  else if (form && document.getElementById("obs-form")) renderForm();
+  else if (view.id && detail) renderDetail();
+  else if (reg) renderReg();
+});
+route();
+</script>
+</body>
+</html>

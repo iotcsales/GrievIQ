@@ -313,7 +313,7 @@
       <a href="/admin-jurisdiction.html">Jurisdiction</a>
       <a href="/admin-exceptions.html">Exceptions</a>
       <a href="/admin-reviews.html">Reviews</a>
-      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
     </nav>
     <div class="who-line" id="who-line"></div>
   </div>
@@ -691,6 +691,8 @@
           ' · ' + escapeHtml(c.category) + ' · Filed ' + escapeHtml(dateOnly(c.createdAt)) +
           ' · ' + (c.status === "RESOLVED" || c.status === "CLOSED" ? 'Took ' : 'Open for ') + escapeHtml(days(c.daysOpen).toLowerCase()) + '</div>' +
         (c.flags.length ? '<div class="badges">' + badges(c.flags) + '</div>' : '') +
+        // Item 9a: the auditor can raise an observation straight from a case.
+        (body.role === "auditor" ? '<div class="facts"><a style="color:var(--admin-accent)" href="/admin-audit.html#new&case=' + encodeURIComponent(c.trackingRef) + '&src=' + encodeURIComponent("case:" + c.id) + '&label=' + encodeURIComponent("Case " + c.trackingRef) + '">Raise an audit observation about this case</a></div>' : '') +
       '</div>' +
       '<div class="detail-grid">' +
         '<div class="panel">' +

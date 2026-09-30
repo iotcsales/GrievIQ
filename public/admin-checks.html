@@ -337,7 +337,7 @@
       <a href="/admin-jurisdiction.html">Jurisdiction</a>
       <a href="/admin-exceptions.html">Exceptions</a>
       <a href="/admin-reviews.html">Reviews</a>
-      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
     </nav>
     <div class="who-line" id="who-line"></div>
   </div>
@@ -478,8 +478,10 @@
     document.getElementById("queue").innerHTML = n ? data.cases.map(caseHtml).join("") : '<div class="panel"><div class="empty">No fixes are waiting for a check.</div></div>';
     const rp = document.getElementById("recent-panel");
     rp.hidden = !data.recent.length;
-    document.getElementById("recent").innerHTML = data.recent.length ? '<table><thead><tr><th>Case</th><th>Found</th><th>How</th><th>When</th><th>By</th><th>Note</th></tr></thead><tbody>' +
-      data.recent.map((x) => '<tr><td><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(x.grievanceId) + '">' + escapeHtml(x.trackingRef) + '</a></td><td>' + escapeHtml(OUTCOME_LABELS[x.outcome] || x.outcome) + '</td><td>' + (x.method === "PHONE" ? "Phone call" : "Photos") + '</td><td style="white-space:nowrap">' + escapeHtml(dateTime(x.at)) + '</td><td>' + escapeHtml(x.by) + '</td><td>' + escapeHtml(x.note || "") + '</td></tr>').join("") + '</tbody></table>' : '';
+    document.getElementById("recent").innerHTML = data.recent.length ? '<table><thead><tr><th>Case</th><th>Found</th><th>How</th><th>When</th><th>By</th><th>Note</th>' + (data.role === "auditor" ? '<th><span style="position:absolute;left:-9999px">Audit</span></th>' : '') + '</tr></thead><tbody>' +
+      data.recent.map((x) => '<tr><td><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(x.grievanceId) + '">' + escapeHtml(x.trackingRef) + '</a></td><td>' + escapeHtml(OUTCOME_LABELS[x.outcome] || x.outcome) + '</td><td>' + (x.method === "PHONE" ? "Phone call" : "Photos") + '</td><td style="white-space:nowrap">' + escapeHtml(dateTime(x.at)) + '</td><td>' + escapeHtml(x.by) + '</td><td>' + escapeHtml(x.note || "") + '</td>' +
+        // Item 9a: the auditor can raise an observation straight from a check decision.
+        (data.role === "auditor" ? '<td><a style="color:var(--admin-accent);white-space:nowrap" href="/admin-audit.html#new&case=' + encodeURIComponent(x.trackingRef) + '&src=' + encodeURIComponent("check:" + (x.id || x.grievanceId)) + '&label=' + encodeURIComponent("Check on " + x.trackingRef + " by " + x.by) + '">Raise observation</a></td>' : '') + '</tr>').join("") + '</tbody></table>' : '';
     attach();
   }
 

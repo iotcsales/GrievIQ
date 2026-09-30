@@ -41,6 +41,16 @@ export const PERMISSIONS = {
   // Item 7d: reopen a resolved case for a citizen who gave no email (and so
   // can't use the status page), e.g. after they phone support. Logged.
   reopen_cases: ["super_admin", "operations_admin"],
+  // Item 9a: audit (IIA Global Internal Audit Standards 2024). The auditor
+  // stays independent (Standard 7): only the auditor raises, issues,
+  // verifies and closes findings; the super admin sees everything and
+  // formally accepts risk (a management decision) but never edits a
+  // finding; the logs are read by the auditor and the super admin only.
+  // Any staff member replies to the findings they own.
+  view_audit_log: ["super_admin", "auditor"],
+  audit_observations: ["auditor"],
+  view_all_observations: ["super_admin", "auditor"],
+  accept_risk: ["super_admin"],
 };
 
 /**
