@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.au_page_title">Audit — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9a"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9c"></script><script src="/admin-nav.js?v=r1"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -258,6 +258,8 @@
   .obs-form legend, form.act legend { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
   .obs-form input[type=text], .obs-form textarea, .obs-form select, form.act textarea, form.act input[type=text], form.act select { width: 100%; max-width: 720px; }
   .obs-form input[type=date], form.act input[type=date] { background: var(--admin-input); border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .hint.warn { color: var(--admin-danger); font-weight: 600; }
+  #fm-ownerOffice { width: 100%; }
   .obs-form .hint, form.act .hint, .act-row .hint { font-size: 12.5px; color: var(--admin-muted); margin: 0 0 5px; line-height: 1.45; font-weight: 400; }
   [aria-invalid="true"] { border-color: var(--admin-danger) !important; }
   .field-err { color: var(--admin-danger); font-size: 12.5px; font-weight: 600; margin-top: 4px; }
@@ -383,6 +385,18 @@ function aboutText(o) {
   if (o.subjectType === "OFFICE") return T("adm.au_about_office", { name: o.subjectOffice || "—" });
   return T("adm.au_about_process", { name: o.subjectProcess || "—" });
 }
+// Item 9c: an owner can be a representative's office.
+function officeLabel(info) {
+  if (!info) return "—";
+  const tk = "adm.au_ot_" + String(info.title || "").replace(/\s+/g, "_");
+  const title = T(tk) === tk ? info.title : T(tk);
+  return title + " – " + info.name + (info.person ? " (" + info.person + ")" : "");
+}
+function allOffices() { return (detail && detail.offices) || (reg && reg.offices) || []; }
+function ownerText(o) {
+  if (o.ownerType === "OFFICE") return o.ownerOfficeInfo ? officeLabel(o.ownerOfficeInfo) : (o.ownerLabel || o.ownerOffice || "—");
+  return staffName(o.ownerEmail);
+}
 function staffName(email) {
   const list = (reg && reg.staff) || (detail && detail.staff) || [];
   const s = list.filter((x) => x.email === email)[0];
@@ -404,6 +418,8 @@ function parseHash() {
   if (head.indexOf("report=") === 0) return { tab: "reports", reportId: decodeURIComponent(head.slice(7)) };
   if (head === "new") return { tab: "obs", isNew: true, prefill: kv };
   if (head.indexOf("obs=") === 0) return { tab: "obs", id: decodeURIComponent(head.slice(4)) };
+  // Item 9c: the dashboard cards open the register already filtered.
+  if (head === "obs" && (kv.status != null || kv.overdue != null)) return { tab: "obs", filter: { status: kv.status || "", overdue: kv.overdue === "1" } };
   return { tab: "obs" };
 }
 async function route() {
@@ -421,6 +437,7 @@ async function route() {
   }
   if (view.isNew) { if (!reg) await loadReg(true); openForm(null); return; }
   if (view.id) return loadDetail(view.id);
+  if (view.filter) regFilter = { status: view.filter.status, rating: "", overdue: view.filter.overdue, owner: "", q: "" };
   return loadReg();
 }
 window.addEventListener("hashchange", route);
@@ -461,7 +478,10 @@ function renderReg() {
     '<div><label for="f-status">' + esc(T("adm.au_f_status")) + '</label><select id="f-status"><option value="">' + esc(T("adm.au_all")) + '</option><option value="OPEN"' + (f.status === "OPEN" ? " selected" : "") + '>' + esc(T("adm.au_f_open")) + '</option>' +
       STATUSES.filter((s) => me.canCreate || (s !== "DRAFT" && s !== "WITHDRAWN")).map((s) => '<option value="' + s + '"' + (f.status === s ? " selected" : "") + '>' + esc(T("adm.au_s_" + s)) + '</option>').join("") + '</select></div>' +
     '<div><label for="f-rating">' + esc(T("adm.au_f_rating")) + '</label><select id="f-rating"><option value="">' + esc(T("adm.au_all")) + '</option>' + RATINGS.map((r) => '<option value="' + r + '"' + (f.rating === r ? " selected" : "") + '>' + esc(T("adm.au_r_" + r)) + '</option>').join("") + '</select></div>' +
-    (reg.staff ? '<div><label for="f-owner">' + esc(T("adm.au_f_owner")) + '</label><select id="f-owner"><option value="">' + esc(T("adm.au_all")) + '</option>' + reg.staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.owner === s.email ? " selected" : "") + '>' + esc(s.name || s.email) + '</option>').join("") + '</select></div>' : '') +
+    (reg.staff ? '<div><label for="f-owner">' + esc(T("adm.au_f_owner")) + '</label><select id="f-owner"><option value="">' + esc(T("adm.au_all")) + '</option>' +
+      '<optgroup label="' + esc(T("adm.au_owner_staff")) + '">' + reg.staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.owner === s.email ? " selected" : "") + '>' + esc(s.name || s.email) + '</option>').join("") + '</optgroup>' +
+      (ownerOfficesInUse().length ? '<optgroup label="' + esc(T("adm.au_owner_office")) + '">' + ownerOfficesInUse().map((x) => '<option value="' + esc(x.key.toLowerCase()) + '"' + (f.owner === x.key.toLowerCase() ? " selected" : "") + '>' + esc(officeLabel(x)) + '</option>').join("") + '</optgroup>' : '') +
+      '</select></div>' : '') +
     '<div><label for="f-q">' + esc(T("adm.au_f_search")) + '</label><input type="search" id="f-q" value="' + esc(f.q) + '" placeholder="' + esc(T("adm.au_f_search_ph")) + '"></div>' +
     '<div class="check"><label><input type="checkbox" id="f-overdue"' + (f.overdue ? " checked" : "") + '> ' + esc(T("adm.au_f_overdue")) + '</label></div>' +
     '<div><button type="submit">' + esc(T("adm.au_apply")) + '</button></div></form>' +
@@ -470,7 +490,7 @@ function renderReg() {
       (me.canCreate ? ' <a class="btn-link primary" href="#new">' + esc(T("adm.au_new")) + '</a>' : '') + '</span></div>';
   if (!reg.observations.length) html += '<p class="empty">' + esc(T(me.canCreate || reg.staff ? "adm.au_none" : "adm.au_none_mine")) + '</p>';
   else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.au_col_ref")) + '</th><th scope="col">' + esc(T("adm.au_col_title")) + '</th><th scope="col">' + esc(T("adm.au_col_rating")) + '</th><th scope="col">' + esc(T("adm.au_col_status")) + '</th><th scope="col">' + esc(T("adm.au_col_owner")) + '</th><th scope="col">' + esc(T("adm.au_col_due")) + '</th></tr></thead><tbody>' +
-    reg.observations.map((o) => '<tr><td><a href="#obs=' + esc(encodeURIComponent(o.id)) + '">' + esc(o.ref) + '</a></td><td>' + esc(o.title) + '<div class="ward-sub">' + esc(aboutText(o)) + '</div></td><td>' + ratingBadge(o.rating) + '</td><td>' + statusBadge(o) + '</td><td>' + esc(o.ownerEmail || "—") + '</td><td class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</td></tr>').join("") + '</tbody></table></div>';
+    reg.observations.map((o) => '<tr><td><a href="#obs=' + esc(encodeURIComponent(o.id)) + '">' + esc(o.ref) + '</a></td><td>' + esc(o.title) + '<div class="ward-sub">' + esc(aboutText(o)) + '</div></td><td>' + ratingBadge(o.rating) + '</td><td>' + statusBadge(o) + '</td><td>' + esc(ownerText(o)) + '</td><td class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</td></tr>').join("") + '</tbody></table></div>';
   html += '</div>';
   document.getElementById("content").innerHTML = html;
   document.getElementById("reg-filters").addEventListener("submit", (e) => {
@@ -478,6 +498,15 @@ function renderReg() {
     regFilter = { status: val("f-status"), rating: val("f-rating"), owner: val("f-owner"), q: val("f-q").trim(), overdue: document.getElementById("f-overdue").checked };
     loadReg();
   });
+}
+// Offices that own at least one observation (for the register's filter).
+function ownerOfficesInUse() {
+  const seen = new Map();
+  ((reg && reg.observations) || []).forEach((o) => { if (o.ownerType === "OFFICE" && o.ownerOfficeInfo) seen.set(o.ownerOfficeInfo.key, o.ownerOfficeInfo); });
+  if (regFilter.owner && regFilter.owner.indexOf(":") > 0 && !Array.from(seen.keys()).some((k) => k.toLowerCase() === regFilter.owner)) {
+    const x = allOffices().filter((o) => o.key.toLowerCase() === regFilter.owner)[0]; if (x) seen.set(x.key, x);
+  }
+  return Array.from(seen.values());
 }
 function val(id) { const el = document.getElementById(id); return el ? el.value : ""; }
 
@@ -487,10 +516,11 @@ function openForm(o) {
   form = o ? {
     id: o.id, title: o.title, subjectType: o.subjectType, subjectCases: (o.subjectCases || []).join(", "), subjectOffice: o.subjectOffice || "", subjectProcess: o.subjectProcess || "",
     criteria: o.criteria || "", condition: o.condition || "", cause: o.cause || "", effect: o.effect || "", recommendation: o.recommendation || "",
-    rating: o.rating, ownerEmail: o.ownerEmail || "", dueDate: o.originalDueDate || "", dueReason: o.dueReason || "", errors: {}, busy: false,
+    rating: o.rating, ownerType: o.ownerType === "OFFICE" ? "OFFICE" : "STAFF", ownerEmail: o.ownerEmail || "", ownerOffice: o.ownerOffice || "", officeSearch: "",
+    dueDate: o.originalDueDate || "", dueReason: o.dueReason || "", errors: {}, busy: false,
   } : {
     id: null, title: "", subjectType: p.case ? "CASE" : "", subjectCases: p.case || "", subjectOffice: "", subjectProcess: "",
-    criteria: "", condition: "", cause: "", effect: "", recommendation: "", rating: "", ownerEmail: "", dueDate: "", dueReason: "",
+    criteria: "", condition: "", cause: "", effect: "", recommendation: "", rating: "", ownerType: "STAFF", ownerEmail: "", ownerOffice: "", officeSearch: "", dueDate: "", dueReason: "",
     source: p.src ? { kind: p.src.split(":")[0], id: p.src.split(":").slice(1).join(":"), label: p.label || "" } : null, errors: {}, busy: false,
   };
   renderForm();
@@ -516,15 +546,24 @@ function renderForm() {
     TEXT_FIELDS.map(area).join("") +
     '<fieldset aria-describedby="fm-rating-err"><legend>' + esc(T("adm.au_fl_rating")) + '</legend>' +
       RATINGS.map((r) => '<label class="check"><input type="radio" name="fm-rating" value="' + r + '"' + (f.rating === r ? " checked" : "") + '> ' + ratingBadge(r) + ' <span class="hint">' + esc(T("adm.au_rating_hint_" + r, { n: defaults[r] })) + '</span></label>').join("") + '</fieldset>' + fe("rating") +
-    '<label for="fm-ownerEmail">' + esc(T("adm.au_fl_owner")) + '</label><p class="hint" id="fm-owner-hint">' + esc(T("adm.au_fh_owner")) + '</p><select id="fm-ownerEmail" aria-describedby="fm-owner-hint fm-ownerEmail-err"' + inv("ownerEmail") + '><option value="">' + esc(T("adm.au_choose")) + '</option>' +
-      staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.ownerEmail === s.email ? " selected" : "") + '>' + esc((s.name ? s.name + " — " : "") + s.email + " (" + roleLabel(s.role) + ")") + '</option>').join("") + '</select>' + fe("ownerEmail") +
+    '<fieldset aria-describedby="fm-owner-hint"><legend>' + esc(T("adm.au_fl_owner")) + '</legend><p class="hint" id="fm-owner-hint">' + esc(T("adm.au_fh_owner2")) + '</p>' +
+      ["STAFF", "OFFICE"].map((t) => '<label class="check"><input type="radio" name="fm-ot" value="' + t + '"' + (f.ownerType === t ? " checked" : "") + '> ' + esc(T(t === "STAFF" ? "adm.au_owner_staff" : "adm.au_owner_office")) + '</label>').join("") + '</fieldset>' +
+    '<div id="fm-ot-STAFF"' + (f.ownerType === "STAFF" ? "" : " hidden") + '><label for="fm-ownerEmail">' + esc(T("adm.au_fl_owner_staff")) + '</label><select id="fm-ownerEmail" aria-describedby="fm-ownerEmail-err"' + inv("ownerEmail") + '><option value="">' + esc(T("adm.au_choose")) + '</option>' +
+      staff.map((s) => '<option value="' + esc(s.email) + '"' + (f.ownerEmail === s.email ? " selected" : "") + '>' + esc((s.name ? s.name + " — " : "") + s.email + " (" + roleLabel(s.role) + ")") + '</option>').join("") + '</select>' + fe("ownerEmail") + '</div>' +
+    '<div id="fm-ot-OFFICE"' + (f.ownerType === "OFFICE" ? "" : " hidden") + '>' +
+      '<label for="fm-officeSearch">' + esc(T("adm.au_fl_office_search")) + '</label><input type="search" id="fm-officeSearch" value="' + esc(f.officeSearch) + '" placeholder="' + esc(T("adm.au_office_search_ph")) + '" aria-controls="fm-ownerOffice">' +
+      '<label for="fm-ownerOffice">' + esc(T("adm.au_fl_owner_office")) + '</label><p class="hint" id="fm-office-hint">' + esc(T("adm.au_fh_owner_office")) + '</p>' +
+      '<select id="fm-ownerOffice" size="6" aria-describedby="fm-office-hint fm-ownerOffice-err"' + inv("ownerOffice") + '>' + officeOptionsHtml(f) + '</select>' + fe("ownerOffice") +
+      '<p class="hint warn" id="fm-office-noemail" role="status">' + esc(officeNoEmail(f.ownerOffice) ? T("adm.au_office_noemail") : "") + '</p>' +
+    '</div>' +
     '<label for="fm-dueDate">' + esc(T("adm.au_fl_due")) + '</label><p class="hint" id="fm-due-hint">' + esc(defDue ? T("adm.au_fh_due", { date: day(defDue) }) : T("adm.au_fh_due_none")) + '</p><input type="date" id="fm-dueDate" value="' + esc(f.dueDate) + '" min="' + todayIst() + '" aria-describedby="fm-due-hint fm-dueDate-err"' + inv("dueDate") + '>' + fe("dueDate") +
     '<div id="fm-reason-wrap"' + (f.dueDate && f.dueDate !== defDue ? "" : " hidden") + '><label for="fm-dueReason">' + esc(T("adm.au_fl_due_reason")) + '</label><input type="text" id="fm-dueReason" maxlength="300" value="' + esc(f.dueReason) + '" aria-describedby="fm-dueReason-err"' + inv("dueReason") + '>' + fe("dueReason") + '</div>' +
     '<div class="actions-row"><button type="submit" class="primary"' + (f.busy ? " disabled" : "") + '>' + esc(T("adm.au_save_draft")) + '</button> <a href="' + (f.id ? '#obs=' + esc(encodeURIComponent(f.id)) : '#obs') + '">' + esc(T("adm.au_cancel")) + '</a></div>' +
     '<div class="dialog-error" role="alert">' + esc(e.form || "") + '</div></form>';
   document.getElementById("content").innerHTML = html;
   const read = () => {
-    ["title", "subjectCases", "subjectOffice", "subjectProcess", "ownerEmail", "dueDate", "dueReason"].concat(TEXT_FIELDS).forEach((k) => { const el = document.getElementById("fm-" + k); if (el) f[k] = el.value; });
+    ["title", "subjectCases", "subjectOffice", "subjectProcess", "ownerEmail", "ownerOffice", "officeSearch", "dueDate", "dueReason"].concat(TEXT_FIELDS).forEach((k) => { const el = document.getElementById("fm-" + k); if (el) f[k] = el.value; });
+    const ot = document.querySelector('input[name="fm-ot"]:checked'); f.ownerType = ot ? ot.value : "STAFF";
     const st = document.querySelector('input[name="fm-st"]:checked'); f.subjectType = st ? st.value : "";
     const rt = document.querySelector('input[name="fm-rating"]:checked'); f.rating = rt ? rt.value : "";
   };
@@ -536,6 +575,10 @@ function renderForm() {
   };
   document.querySelectorAll('input[name="fm-st"]').forEach((r) => r.addEventListener("change", () => { read(); ["CASE", "OFFICE", "PROCESS"].forEach((s) => { document.getElementById("fm-st-" + s).hidden = f.subjectType !== s; }); }));
   document.querySelectorAll('input[name="fm-rating"]').forEach((r) => r.addEventListener("change", refreshDue));
+  document.querySelectorAll('input[name="fm-ot"]').forEach((r) => r.addEventListener("change", () => { read(); ["STAFF", "OFFICE"].forEach((t) => { document.getElementById("fm-ot-" + t).hidden = f.ownerType !== t; }); }));
+  const os = document.getElementById("fm-officeSearch");
+  os.addEventListener("input", () => { read(); document.getElementById("fm-ownerOffice").innerHTML = officeOptionsHtml(f); });
+  document.getElementById("fm-ownerOffice").addEventListener("change", () => { read(); document.getElementById("fm-office-noemail").textContent = officeNoEmail(f.ownerOffice) ? T("adm.au_office_noemail") : ""; });
   document.getElementById("fm-dueDate").addEventListener("change", refreshDue);
   document.getElementById("obs-form").addEventListener("submit", async (ev) => {
     ev.preventDefault(); read();
@@ -548,7 +591,8 @@ function renderForm() {
     const payload = { action: f.id ? "update" : "create", id: f.id, title: f.title, subjectType: f.subjectType,
       subjectCases: f.subjectCases.split(/[\s,]+/).filter(Boolean), subjectOffice: f.subjectOffice, subjectProcess: f.subjectProcess,
       criteria: f.criteria, condition: f.condition, cause: f.cause, effect: f.effect, recommendation: f.recommendation,
-      rating: f.rating, ownerEmail: f.ownerEmail, dueDate: f.dueDate || null, dueReason: f.dueReason, source: f.source || null };
+      rating: f.rating, ownerType: f.ownerType, ownerEmail: f.ownerType === "STAFF" ? f.ownerEmail : "", ownerOffice: f.ownerType === "OFFICE" ? f.ownerOffice : "",
+      dueDate: f.dueDate || null, dueReason: f.dueReason, source: f.source || null };
     const r = await api("/api/admin/observations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     f.busy = false;
     if (!r.ok) { f.errors = mapErrors(r.body); renderForm(); focusFirstError(); return; }
@@ -558,9 +602,18 @@ function renderForm() {
     setTimeout(() => { notice("ok", T("adm.au_saved")); focusNotice(); }, 300);
   });
 }
+// The office list, filtered by what the auditor typed; the chosen office
+// always stays in the list.
+function officeOptionsHtml(f) {
+  const q = String(f.officeSearch || "").trim().toLowerCase();
+  const list = allOffices().filter((o) => !q || o.key === f.ownerOffice || officeLabel(o).toLowerCase().includes(q));
+  if (!list.length) return '<option value="" disabled>' + esc(T("adm.au_office_none")) + '</option>';
+  return list.map((o) => '<option value="' + esc(o.key) + '"' + (o.key === f.ownerOffice ? " selected" : "") + '>' + esc(officeLabel(o) + (o.hasEmail ? "" : " — " + T("adm.au_office_noemail_short"))) + '</option>').join("");
+}
+function officeNoEmail(key) { const o = allOffices().filter((x) => x.key === key)[0]; return !!(o && !o.hasEmail); }
 function mapErrors(body) {
   const e = {}, fl = (body && body.fields) || {};
-  const M = { REQUIRED: "adm.au_e_required", LENGTH: "adm.au_e_length", DATE: "adm.au_e_date", PAST: "adm.au_e_past", AUDITOR: "adm.au_e_owner_auditor", NOT_STAFF: "adm.au_e_owner_staff", SAME: "adm.au_e_same", RATING: "adm.au_e_rating" };
+  const M = { REQUIRED: "adm.au_e_required", LENGTH: "adm.au_e_length", DATE: "adm.au_e_date", PAST: "adm.au_e_past", AUDITOR: "adm.au_e_owner_auditor", NOT_STAFF: "adm.au_e_owner_staff", NOT_FOUND: "adm.au_e_office", INVALID: "adm.au_e_office", SAME: "adm.au_e_same", RATING: "adm.au_e_rating" };
   Object.keys(fl).forEach((k) => { e[k] = T(M[fl[k]] || "adm.au_e_required"); });
   if (!Object.keys(fl).length) e.form = (body && body.error) || T("common.generic_error");
   return e;
@@ -588,7 +641,7 @@ function renderDetail() {
     '<div class="obs-head"><div><div class="obs-ref">' + esc(o.ref) + '</div><h2>' + esc(o.title) + amended("title") + '</h2><div class="ward-sub">' + esc(aboutText(o)) + '</div></div>' +
     '<div class="obs-badges">' + ratingBadge(o.rating) + amended("rating") + ' ' + statusBadge(o) + '</div></div>' +
     '<div class="kv">' +
-      '<div><span>' + esc(T("adm.au_col_owner")) + '</span>' + esc(staffName(o.ownerEmail)) + '</div>' +
+      '<div><span>' + esc(T("adm.au_col_owner")) + '</span>' + esc(ownerText(o)) + (o.ownerType === "OFFICE" ? '<div class="ward-sub">' + esc(T("adm.au_owner_office_note")) + '</div>' : '') + '</div>' +
       '<div><span>' + esc(T("adm.au_col_due")) + '</span><b class="' + (o.overdue ? "attn" : "") + '">' + esc(day(o.dueDate)) + '</b>' + amended("due_date") + '</div>' +
       '<div><span>' + esc(T("adm.au_raised_by")) + '</span>' + esc(o.createdBy) + ' · ' + esc(dateTime(o.createdAt)) + '</div>' +
       (o.issuedAt ? '<div><span>' + esc(T("adm.au_issued")) + '</span>' + esc(dateTime(o.issuedAt)) + '</div>' : '') +
@@ -610,7 +663,7 @@ function renderDetail() {
       '</div><div class="ward-sub">' + esc(T("adm.au_reason_line", { reason: a.reason })) + '</div></li>').join("") + '</ul></div>';
   }
   html += '<div class="panel"><h2>' + esc(T("adm.au_history")) + '</h2><p class="section-sub">' + esc(T("adm.au_history_sub")) + '</p><ul class="timeline">' +
-    d.events.map((e) => '<li><span class="ward-sub">' + esc(dateTime(e.at)) + ' · ' + esc(e.by) + (e.role ? ' (' + esc(roleLabel(e.role)) + ')' : '') + '</span><div><b>' + esc(T(EV_KEYS[e.kind] || "adm.au_ev_other", { kind: e.kind })) + '</b></div>' + (e.text ? '<div class="obs-text">' + esc(e.text) + '</div>' : '') + '</li>').join("") + '</ul></div>';
+    d.events.map((e) => '<li><span class="ward-sub">' + esc(dateTime(e.at)) + ' · ' + esc(e.by) + (e.role ? ' (' + esc(roleLabel(e.role)) + (e.detail && e.detail.officeName ? ', ' + esc(e.detail.officeName) : '') + ')' : '') + '</span><div><b>' + esc(T(EV_KEYS[e.kind] || "adm.au_ev_other", { kind: e.kind })) + '</b></div>' + (e.text ? '<div class="obs-text">' + esc(e.text) + '</div>' : '') + '</li>').join("") + '</ul></div>';
   document.getElementById("content").innerHTML = html;
   attachActions(o);
 }
@@ -627,7 +680,8 @@ function renderActions(o, c) {
   const box = (key, title, inner, btn, cls) => '<form class="panel act" data-act="' + key + '" novalidate><h2>' + esc(title) + '</h2>' + inner +
     '<div class="actions-row"><button type="submit" class="' + (cls || "primary") + '"' + (act.busy === key ? " disabled" : "") + '>' + esc(btn) + '</button></div><div class="dialog-error" role="alert">' + esc(act.key === key && act.errors && act.errors.form || "") + '</div></form>';
   if (c.edit) blocks.push('<div class="panel act-row"><button type="button" id="ac-edit">' + esc(T("adm.au_edit_btn")) + '</button> <button type="button" class="primary" id="ac-issue"' + (act.busy === "issue" ? " disabled" : "") + '>' + esc(T("adm.au_issue_btn")) + '</button>' +
-    '<p class="hint">' + esc(T("adm.au_issue_hint")) + '</p><div class="dialog-error" role="alert" id="ac-issue-err">' + esc(act.key === "issue" && act.errors && act.errors.form || "") + '</div></div>');
+    '<p class="hint">' + esc(T(o.ownerType === "OFFICE" ? "adm.au_issue_hint_office" : "adm.au_issue_hint")) + '</p>' +
+    (o.ownerType === "OFFICE" && o.ownerOfficeInfo && !o.ownerOfficeInfo.hasEmail ? '<p class="hint warn" role="status">' + esc(T("adm.au_office_noemail")) + '</p>' : '') + '<div class="dialog-error" role="alert" id="ac-issue-err">' + esc(act.key === "issue" && act.errors && act.errors.form || "") + '</div></div>');
   if (c.respond) blocks.push(box("respond", T("adm.au_respond_t"), '<p class="section-sub">' + esc(T("adm.au_respond_sub")) + '</p>' +
     '<fieldset aria-describedby="ac-agree-err"><legend>' + esc(T("adm.au_agree_q")) + '</legend><label class="check"><input type="radio" name="ac-agree" value="1"' + ((act.values || {}).agree === "1" ? " checked" : "") + '> ' + esc(T("adm.au_agrees")) + '</label><label class="check"><input type="radio" name="ac-agree" value="0"' + ((act.values || {}).agree === "0" ? " checked" : "") + '> ' + esc(T("adm.au_disagrees")) + '</label></fieldset><div class="field-err" id="ac-agree-err" role="alert">' + esc((act.errors || {}).agree || "") + '</div>' +
     actField("text", T("adm.au_reply"), "textarea") + actField("actionPlan", T("adm.au_plan_label"), "textarea") + actField("targetDate", T("adm.au_target_label"), "date"), T("adm.au_respond_btn")));
@@ -692,14 +746,16 @@ async function send(action, payload, key) {
     const e = mapErrors(r.body), m = FIELD_IDS[action] || {};
     act.errors = {};
     Object.keys(e).forEach((k) => { act.errors[m[k] || k] = e[k]; });
-    if (action === "issue" && r.body && r.body.fields) act.errors.form = T("adm.au_e_issue", { list: Object.keys(r.body.fields).map((k) => T("adm.au_fl_" + ({ dueDate: "due", dueReason: "due_reason", ownerEmail: "owner", subjectType: "about", subjectCases: "cases", subjectOffice: "office", subjectProcess: "process" }[k] || k))).join(", ") });
+    if (action === "issue" && r.body && r.body.fields) act.errors.form = T("adm.au_e_issue", { list: Object.keys(r.body.fields).map((k) => T("adm.au_fl_" + ({ dueDate: "due", dueReason: "due_reason", ownerEmail: "owner", ownerOffice: "owner", subjectType: "about", subjectCases: "cases", subjectOffice: "office", subjectProcess: "process" }[k] || k))).join(", ") });
     renderDetail(); focusFirstError();
     if (action === "issue") { const x = document.getElementById("ac-issue-err"); if (x) x.focus(); }
     return;
   }
   act = {};
+  const wasOffice = detail.observation.ownerType === "OFFICE";
   await loadDetail(detail.observation.id);
-  notice("ok", T("adm.au_done_" + action)); focusNotice();
+  const doneKey = action === "issue" ? (r.body && r.body.emailed === false ? "adm.au_done_issue_noemail" : wasOffice ? "adm.au_done_issue_office" : "adm.au_done_issue") : "adm.au_done_" + action;
+  notice("ok", T(doneKey)); focusNotice();
 }
 
 // ---------- audit log ----------

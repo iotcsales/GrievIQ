@@ -77,7 +77,11 @@ export function readDraft(body, issuing) {
     criteria: s("criteria"), condition: s("condition"), cause: s("cause"), effect: s("effect"),
     recommendation: s("recommendation"),
     rating: s("rating").toUpperCase(),
+    // Item 9c: the owner is a staff member (ownerEmail) or a representative's
+    // office (ownerOffice = "TIER:id"), never both.
+    owner_type: s("ownerType").toUpperCase() === "OFFICE" ? "OFFICE" : "STAFF",
     owner_email: s("ownerEmail").toLowerCase() || null,
+    owner_office: s("ownerOffice") || null,
     due_date: s("dueDate") || null,
     due_reason: s("dueReason") || null,
   };
@@ -95,7 +99,14 @@ export function readDraft(body, issuing) {
   if (!RATINGS.includes(v.rating)) f.rating = "REQUIRED";
   if (v.due_date && !isDay(v.due_date)) f.dueDate = "DATE";
   if (v.due_reason && v.due_reason.length > 300) f.dueReason = "LENGTH";
-  if (issuing && !v.owner_email) f.ownerEmail = "REQUIRED";
+  if (v.owner_type === "OFFICE") {
+    v.owner_email = null;
+    if (v.owner_office && !/^(LOCAL|MAYOR|MLA|MP):.+$/.test(v.owner_office)) f.ownerOffice = "INVALID";
+    else if (issuing && !v.owner_office) f.ownerOffice = "REQUIRED";
+  } else {
+    v.owner_office = null;
+    if (issuing && !v.owner_email) f.ownerEmail = "REQUIRED";
+  }
   // Map internal names to the form's names for errors.
   const map = { subject_type: "subjectType" };
   const fields = {};

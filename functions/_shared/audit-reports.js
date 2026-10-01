@@ -31,6 +31,7 @@
 //               unmaskings and case views per staff member; refused sign-ins
 
 import { shapeObservation, todayIst, OPEN_STATUSES } from "./audit.js";
+import { addOwnerLabels } from "./audit-office.js";
 import { computeEscalation } from "./escalation.js";
 import { toUtcMs } from "./time-limits.js";
 import { resolveChain } from "./jurisdiction.js";
@@ -63,7 +64,7 @@ async function issuedObservations(env, engagementId) {
     for (const a of am || []) { if (!amendBy.has(a.observation_id)) amendBy.set(a.observation_id, []); amendBy.get(a.observation_id).push(a); }
   }
   const today = todayIst();
-  return rows.map((r) => shapeObservation(r, amendBy.get(r.id) || [], today));
+  return addOwnerLabels(env, rows.map((r) => shapeObservation(r, amendBy.get(r.id) || [], today)));
 }
 
 function ratingSummary(list) {
@@ -84,7 +85,7 @@ function obsForReport(o) {
     ref: o.ref, title: o.title, rating: o.rating, status: o.status, state: followUpState(o),
     subjectType: o.subjectType, subjectCases: o.subjectCases, subjectOffice: o.subjectOffice, subjectProcess: o.subjectProcess,
     criteria: o.criteria, condition: o.condition, cause: o.cause, effect: o.effect, recommendation: o.recommendation,
-    owner: o.ownerEmail, dueDate: o.dueDate, issuedAt: o.issuedAt, closedAt: o.closedAt,
+    owner: o.ownerLabel || o.ownerEmail, dueDate: o.dueDate, issuedAt: o.issuedAt, closedAt: o.closedAt,
     response: o.response, doneEvidence: o.doneEvidence, riskReason: o.riskReason, riskReviewDate: o.riskReviewDate,
     amendments: o.amendments.map((a) => ({ field: a.field, from: a.oldValue, to: a.newValue, reason: a.reason, at: a.at })),
   };
@@ -109,7 +110,7 @@ export async function buildFollowUp(env, eng) {
     kind: "FOLLOW_UP",
     engagement: eng ? { ref: eng.ref, title: eng.title, periodFrom: eng.period_from, periodTo: eng.period_to } : null,
     asOf: todayIst(), counts, ratings: ratingSummary(list),
-    observations: list.map((o) => ({ ref: o.ref, title: o.title, rating: o.rating, state: followUpState(o), owner: o.ownerEmail, dueDate: o.dueDate,
+    observations: list.map((o) => ({ ref: o.ref, title: o.title, rating: o.rating, state: followUpState(o), owner: o.ownerLabel || o.ownerEmail, dueDate: o.dueDate,
       issuedAt: o.issuedAt, closedAt: o.closedAt, actionPlan: o.response && o.response.actionPlan, targetDate: o.response && o.response.targetDate, riskReason: o.riskReason })),
   };
 }

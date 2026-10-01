@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=8b"></script>
+<script src="/i18n.js?v=9c"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -286,6 +286,34 @@
   .role-form { margin: 12px 0 0; }
   .team-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .badge.neutral { background: #eef1f4; color: #3c4650; }
+  /* Item 9c: Audit tab */
+  .tab-count { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 6px; border-radius: 10px; background: var(--gold-tint); color: #6b5210; font-size: 12px; font-weight: 700; text-align: center; }
+  .tab-count.late { background: var(--red); color: #fff; }
+  .au-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .au-item.needs { border-left: 4px solid var(--gold); }
+  .au-item-title { margin: 6px 0 2px; font-size: 15px; font-weight: 600; }
+  .au-item-title .linkish { text-align: left; font-weight: 600; }
+  .au-item .muted-inline { display: block; font-size: 12.5px; margin-top: 2px; }
+  .au-late { color: var(--red) !important; font-weight: 700; }
+  .au-rating { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; }
+  .au-r-critical { background: var(--red); color: #fff; }
+  .au-r-high { background: var(--red-tint); color: var(--red); }
+  .au-r-medium { background: var(--gold-tint); color: #6b5210; }
+  .au-r-low { background: #eef1f4; color: #3c4650; }
+  .au-detail { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; margin-bottom: 20px; }
+  .au-d-title { margin: 8px 0 10px; }
+  .au-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 16px; margin: 0 0 8px; }
+  .au-kv dt { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--steel-2); }
+  .au-kv dd { margin: 2px 0 0; font-size: 14px; }
+  .au-h { font-size: 13px; font-weight: 700; color: var(--steel); margin: 16px 0 4px; }
+  .au-text { font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .au-cases { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+  .au-cases li { padding: 3px 0; }
+  .au-form textarea, .au-form input[type=date] { width: 100%; max-width: 560px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; background: #fff; }
+  .au-form textarea[aria-invalid="true"], .au-form input[aria-invalid="true"] { border-color: var(--red); }
+  .team-form .field-err { font-size: 12.5px; color: var(--red); margin-top: 4px; font-weight: 600; }
+  .team-form .field-err:empty { display: none; }
+  .au-flash { outline: 3px solid var(--gold); outline-offset: 2px; }
   /* Item 8c-2: Overview */
   .ov-filters { display: flex; flex-wrap: wrap; gap: 0 16px; align-items: flex-start; }
   .ov-filters select, #team-office { padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 16px; background: #fff; min-width: 240px; max-width: 100%; }
@@ -1054,7 +1082,7 @@ function renderCase(c) {
   var locationLine = c.locationDetail
     ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
     : '';
-  return '<div class="case-row">' +
+  return '<div class="case-row" id="case-' + esc(c.id) + '">' +
     '<div class="signal-dot ' + st.key + '" aria-hidden="true"></div>' +
     '<div class="case-main">' +
       '<div class="tracking-ref">' + esc(c.trackingRef) + '</div>' +
@@ -1299,11 +1327,13 @@ async function loadTeamTab() {
 var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSIGNED: 'rep.act_assign', UNASSIGNED: 'rep.act_unassign',
   FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
   MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role',
-  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', OVERVIEW_EXPORTED: 'rep.act_exported' };
+  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', OVERVIEW_EXPORTED: 'rep.act_exported',
+  OBSERVATION_REPLIED: 'rep.act_obs_replied', OBSERVATION_DONE: 'rep.act_obs_done', OBSERVATION_COMMENTED: 'rep.act_obs_comment' };
 function activityText(a) {
   var d = a.detail || {};
   if (a.action === 'UNASSIGNED' && d.reason === 'OUT_OF_AREA') return T('rep.act_unassign_area', { ref: a.trackingRef || '' });
   if (a.action === 'OVERVIEW_EXPORTED') return T('rep.act_exported', { from: ovDay(d.from), to: ovDay(d.to) });
+  if (/^OBSERVATION_/.test(a.action)) return T(ACT_KEYS[a.action], { ref: d.ref || '' });
   return T(ACT_KEYS[a.action] || 'rep.act_other', { ref: a.trackingRef || '', name: d.name || d.to || '', dept: d.department ? deptName(d.department) : '',
     role: d.role ? T(ROLE_KEYS[d.role]) : (d.to && ROLE_KEYS[d.to] ? T(ROLE_KEYS[d.to]) : ''), action: a.action });
 }
@@ -2172,6 +2202,7 @@ function renderFilters() {
   if (activeTab === 'report' && (!reportData || reportData.error)) return;   // built once data is in
   if (activeTab === 'team') { renderTeamFilter(slot); return; }
   if (activeTab === 'overview') { renderOverviewFilter(slot); return; }
+  if (activeTab === 'audit') { slot.innerHTML = ''; return; }
   var key = activeTab + '|' + mandateIdForApi() + '|' + reportFrom + '|' + reportTo;
   if (key === filterKey && slot.innerHTML) return;   // keep the box (and keyboard focus) as it is
   filterKey = key;
@@ -2338,6 +2369,292 @@ async function signOut() {
   };
 })();
 
+// ================= Item 9c: Audit tab =================
+// Observations GrievIQ's independent auditor has addressed to this office.
+// The representative and the office managers reply, report the agreed
+// action done and comment; they can't change the finding, close it or
+// accept the risk (the auditor and the super admin do). The auditor's own
+// text is shown as written.
+var auditData = null;        // { offices, observations, counts }
+var auditId = null;          // the observation open (null = the list)
+var auditDetail = null;      // { observation, events, can }
+var auditForms = {};         // per action: { values, errors, busy }
+var auditNotice = '';
+var AU_RATING_KEYS = { CRITICAL: 'rep.au_r_CRITICAL', HIGH: 'rep.au_r_HIGH', MEDIUM: 'rep.au_r_MEDIUM', LOW: 'rep.au_r_LOW' };
+
+function auditOffices() { return myMandates().filter(function(m) { return !m.role || m.role === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER'; }); }
+function hasAuditTab() { return !!(auditData && auditData.observations && auditData.observations.length); }
+async function fetchAuditList() {
+  if (!auditOffices().length) { auditData = null; return; }
+  try {
+    var res = await fetch('/api/observations');
+    auditData = res.ok ? await res.json() : null;
+  } catch (e) { auditData = null; }
+}
+// The words shown for where an observation stands, from the office's side.
+function auStatus(o) {
+  if (o.status === 'ISSUED') return { key: 'rep.au_st_reply', cls: 'pending' };
+  if (o.status === 'RESPONDED' && o.sentBack) return { key: 'rep.au_st_sentback', cls: 'escalated' };
+  if (o.status === 'RESPONDED' && o.response && o.response.agree) return { key: 'rep.au_st_done', cls: 'pending' };
+  if (o.status === 'RESPONDED') return { key: 'rep.au_st_disagreed', cls: 'neutral' };
+  if (o.status === 'DONE_REPORTED') return { key: 'rep.au_st_checking', cls: 'neutral' };
+  if (o.status === 'CLOSED') return { key: 'rep.au_st_closed', cls: 'resolved' };
+  if (o.status === 'RISK_ACCEPTED') return { key: 'rep.au_st_risk', cls: 'neutral' };
+  return { key: 'rep.au_st_other', cls: 'neutral' };
+}
+function auBadges(o) {
+  var s = auStatus(o);
+  return '<span class="badge ' + s.cls + '">' + esc(T(s.key)) + '</span>' +
+    (o.overdue ? ' <span class="badge escalated">' + esc(T('rep.au_overdue')) + '</span>' : '');
+}
+function auRating(r) { return '<span class="au-rating au-r-' + esc(String(r || '').toLowerCase()) + '">' + esc(T(AU_RATING_KEYS[r] || 'rep.au_r_LOW')) + '</span>'; }
+function auOfficeText(o) {
+  var i = o.ownerOfficeInfo;
+  if (!i) return o.ownerLabel || '';
+  var title = { MP: 'level.mp', MLA: 'level.mla', Mayor: 'level.mayor', Corporator: 'rep.au_t_corporator', 'Gram Pradhan': 'rep.au_t_pradhan' }[i.title];
+  return i.name + ' — ' + (title ? T(title) : i.title);
+}
+function auDay(d) { return d ? formatDateOnly(d + (String(d).length === 10 ? 'T00:00:00+05:30' : '')) : '—'; }
+function auAbout(o) {
+  if (o.subjectType === 'CASE') return T('rep.au_about_cases', { list: (o.subjectCases || []).join(', ') });
+  if (o.subjectType === 'OFFICE') return T('rep.au_about_office', { name: o.subjectOffice || '' });
+  return T('rep.au_about_process', { name: o.subjectProcess || '' });
+}
+function auditInView() {
+  var list = (auditData && auditData.observations) || [];
+  var m = activeMandateId !== null ? findMandate(activeMandateId) : null;
+  if (m) list = list.filter(function(o) { return o.ownerOffice === m.tier + ':' + m.id; });
+  return list.slice().sort(function(a, b) {
+    return (b.needsAction - a.needsAction) || (b.overdue - a.overdue) || String(a.dueDate || '').localeCompare(String(b.dueDate || ''));
+  });
+}
+function auditTabLabel() {
+  var n = auditData && auditData.counts ? auditData.counts.needAction : 0;
+  var late = auditData && auditData.counts ? auditData.counts.overdue : 0;
+  return esc(T('rep.tab_audit')) + (n ? ' <span class="tab-count' + (late ? ' late' : '') + '" aria-hidden="true">' + n + '</span><span class="visually-hidden">' + esc(T('rep.au_tab_count', { n: n })) + '</span>' : '');
+}
+
+function renderAuditTab() {
+  if (auditId) return renderAuditDetail();
+  var list = auditInView();
+  var html = '<div class="register-header"><h2 class="register-title" id="au-title" tabindex="-1">' + esc(T('rep.au_title')) + '</h2>' +
+    '<span class="register-count">' + esc(T('rep.au_count', { n: list.length, a: list.filter(function(o) { return o.needsAction; }).length })) + '</span></div>' +
+    '<p class="team-intro">' + esc(T('rep.au_intro')) + '</p>' +
+    (auditNotice ? '<p class="team-notice" role="status" tabindex="-1" id="au-notice">' + esc(auditNotice) + '</p>' : '');
+  if (!list.length) return html + '<div class="empty-state"><p>' + esc(T('rep.au_none_here')) + '</p></div>';
+  var many = auditOffices().length > 1;
+  html += '<div class="team-list" role="list">' + list.map(function(o) {
+    return '<div class="team-member au-item' + (o.needsAction ? ' needs' : '') + '" role="listitem">' +
+      '<div class="au-line"><span class="tracking-ref">' + esc(o.ref) + '</span> ' + auRating(o.rating) + ' ' + auBadges(o) + '</div>' +
+      '<p class="au-item-title"><button type="button" class="linkish au-open" data-id="' + esc(o.id) + '">' + esc(o.title) + '</button></p>' +
+      '<span class="muted-inline">' + esc(auAbout(o)) + (many ? ' · ' + esc(auOfficeText(o)) : '') + '</span>' +
+      '<span class="muted-inline' + (o.overdue ? ' au-late' : '') + '">' + esc(T('rep.au_due', { date: auDay(o.dueDate) })) + '</span>' +
+    '</div>';
+  }).join('') + '</div>';
+  return html;
+}
+
+function auField(form, id, label, kind, hint) {
+  var f = auditForms[form] || {}, e = f.errors || {}, v = (f.values || {})[id] || '';
+  var fid = 'au-' + form + '-' + id;
+  var inv = e[id] ? ' aria-invalid="true"' : '';
+  var desc = (hint ? fid + '-hint ' : '') + fid + '-err';
+  var h = '<label for="' + fid + '">' + esc(label) + '</label>' + (hint ? '<p class="hint" id="' + fid + '-hint">' + esc(hint) + '</p>' : '');
+  if (kind === 'date') h += '<input type="date" id="' + fid + '" min="' + todayIstDay() + '" value="' + esc(v) + '" aria-describedby="' + desc + '"' + inv + '>';
+  else h += '<textarea id="' + fid + '" rows="3" maxlength="' + (form === 'comment' ? 2000 : 4000) + '" aria-describedby="' + desc + '"' + inv + '>' + esc(v) + '</textarea>';
+  return h + '<div class="field-err" id="' + fid + '-err" role="alert">' + esc(e[id] || '') + '</div>';
+}
+function todayIstDay() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+
+function renderAuditDetail() {
+  var back = '<p class="ov-back no-print"><button type="button" class="linkish" id="au-back">‹ ' + esc(T('rep.au_back')) + '</button></p>';
+  if (!auditDetail) return back + '<div class="empty-state"><p>' + esc(T('rep.loading')) + '</p></div>';
+  if (auditDetail.error) return back + '<div class="empty-state"><p>' + esc(T(auditDetail.error === 'NOT_FOUND' ? 'rep.au_not_found' : 'rep.au_error')) + '</p></div>';
+  var d = auditDetail, o = d.observation, c = d.can;
+  var amended = function(k) { return o.amendments.some(function(a) { return a.field === k; }) ? ' <span class="badge neutral">' + esc(T('rep.au_amended')) + '</span>' : ''; };
+  var sec = function(key, text, field) { return '<h3 class="au-h">' + esc(T(key)) + (field ? amended(field) : '') + '</h3><div class="au-text">' + (text ? esc(text) : '—') + '</div>'; };
+  var html = back + '<article class="au-detail" aria-labelledby="au-d-title">' +
+    '<div class="au-line"><span class="tracking-ref">' + esc(o.ref) + '</span> ' + auRating(o.rating) + amended('rating') + ' ' + auBadges(o) + '</div>' +
+    '<h2 class="register-title au-d-title" id="au-d-title" tabindex="-1">' + esc(o.title) + amended('title') + '</h2>' +
+    (auditNotice ? '<p class="team-notice" role="status" tabindex="-1" id="au-notice">' + esc(auditNotice) + '</p>' : '') +
+    '<dl class="au-kv">' +
+      '<div><dt>' + esc(T('rep.au_k_office')) + '</dt><dd>' + esc(auOfficeText(o)) + '</dd></div>' +
+      '<div><dt>' + esc(T('rep.au_k_due')) + '</dt><dd' + (o.overdue ? ' class="au-late"' : '') + '>' + esc(auDay(o.dueDate)) + amended('due_date') + '</dd></div>' +
+      '<div><dt>' + esc(T('rep.au_k_issued')) + '</dt><dd>' + esc(o.issuedAt ? formatDate(o.issuedAt) : '—') + '</dd></div>' +
+      (o.subjectType === 'CASE' ? '' : '<div><dt>' + esc(T('rep.au_k_about')) + '</dt><dd>' + esc(o.subjectType === 'OFFICE' ? o.subjectOffice : o.subjectProcess) + '</dd></div>') +
+    '</dl>';
+  if (o.subjectType === 'CASE' && (o.subjectCases || []).length) {
+    html += '<h3 class="au-h">' + esc(T('rep.au_cases')) + '</h3><ul class="au-cases">' + o.subjectCases.map(function(ref) {
+      var cs = currentCases.filter(function(x) { return x.trackingRef === ref; })[0];
+      return '<li><span class="tracking-ref">' + esc(ref) + '</span> ' + (cs
+        ? '<button type="button" class="linkish au-case" data-id="' + esc(cs.id) + '">' + esc(T('rep.au_show_case')) + '</button>'
+        : '<span class="muted-inline">' + esc(T('rep.au_case_elsewhere')) + '</span>') + '</li>';
+    }).join('') + '</ul>';
+  }
+  html += sec('rep.au_h_criteria', o.criteria, 'criteria') + sec('rep.au_h_condition', o.condition, 'condition') + sec('rep.au_h_cause', o.cause, 'cause') +
+    sec('rep.au_h_effect', o.effect, 'effect') + sec('rep.au_h_recommendation', o.recommendation, 'recommendation');
+  if (o.response) {
+    html += '<h3 class="au-h">' + esc(T('rep.au_h_reply')) + '</h3><div class="au-text"><b>' + esc(T(o.response.agree ? 'rep.au_agree' : 'rep.au_disagree')) + '</b><br>' + esc(o.response.text) +
+      (o.response.actionPlan ? '<br><br><b>' + esc(T('rep.au_plan')) + '</b> ' + esc(o.response.actionPlan) + '<br><b>' + esc(T('rep.au_target')) + '</b> ' + esc(auDay(o.response.targetDate)) : '') + '</div>';
+  }
+  if (o.doneEvidence) html += sec('rep.au_h_evidence', o.doneEvidence);
+  if (o.status === 'RISK_ACCEPTED') html += '<h3 class="au-h">' + esc(T('rep.au_h_risk')) + '</h3><div class="au-text">' + esc(o.riskReason || '') + '</div>';
+  html += '</article>';
+
+  // What the office can do now.
+  if (!c.reportDone && (o.status !== 'ISSUED')) html += '<p class="team-intro">' + esc(T(o.status === 'DONE_REPORTED' ? 'rep.au_wait_auditor' : o.status === 'CLOSED' ? 'rep.au_closed_line' : o.status === 'RISK_ACCEPTED' ? 'rep.au_risk_line' : (o.response && o.response.agree ? '' : 'rep.au_disagreed_line'))) + '</p>';
+  if (c.respond) {
+    var rf = auditForms.respond || {}, rv = rf.values || {}, re = rf.errors || {};
+    html += '<form class="team-form au-form" data-form="respond" novalidate><h3>' + esc(T(o.response ? 'rep.au_respond_again_t' : 'rep.au_respond_t')) + '</h3>' +
+      '<p class="hint">' + esc(T('rep.au_respond_sub')) + '</p>' +
+      '<fieldset class="team-roles" aria-describedby="au-respond-agree-err"><legend>' + esc(T('rep.au_agree_q')) + '</legend>' +
+        '<label class="check"><input type="radio" name="au-agree" value="1"' + (rv.agree === '1' ? ' checked' : '') + '> ' + esc(T('rep.au_agree')) + '</label>' +
+        '<label class="check"><input type="radio" name="au-agree" value="0"' + (rv.agree === '0' ? ' checked' : '') + '> ' + esc(T('rep.au_disagree')) + '</label></fieldset>' +
+      '<div class="field-err" id="au-respond-agree-err" role="alert">' + esc(re.agree || '') + '</div>' +
+      auField('respond', 'text', T('rep.au_f_text'), 'textarea', T('rep.au_f_text_hint')) +
+      '<div id="au-plan-wrap"' + (rv.agree === '0' ? ' hidden' : '') + '>' +
+        auField('respond', 'actionPlan', T('rep.au_f_plan'), 'textarea', T('rep.au_f_plan_hint')) +
+        auField('respond', 'targetDate', T('rep.au_f_target'), 'date', T('rep.au_f_target_hint', { date: auDay(o.dueDate) })) +
+      '</div>' +
+      '<div class="actions"><button type="submit" class="resolve-btn"' + (rf.busy ? ' disabled' : '') + '>' + esc(T('rep.au_respond_btn')) + '</button></div>' +
+      '<div class="resolve-error" role="alert">' + esc(re.form || '') + '</div></form>';
+  }
+  if (c.reportDone) {
+    var df = auditForms.report_done || {};
+    html += '<form class="team-form au-form" data-form="report_done" novalidate><h3>' + esc(T(o.sentBack ? 'rep.au_done_again_t' : 'rep.au_done_t')) + '</h3>' +
+      '<p class="hint">' + esc(T('rep.au_done_sub')) + '</p>' +
+      auField('report_done', 'evidence', T('rep.au_f_evidence'), 'textarea', T('rep.au_f_evidence_hint')) +
+      '<div class="actions"><button type="submit" class="resolve-btn"' + (df.busy ? ' disabled' : '') + '>' + esc(T('rep.au_done_btn')) + '</button></div>' +
+      '<div class="resolve-error" role="alert">' + esc((df.errors || {}).form || '') + '</div></form>';
+  }
+  if (c.comment) {
+    var cf = auditForms.comment || {};
+    html += '<form class="team-form au-form" data-form="comment" novalidate><h3>' + esc(T('rep.au_comment_t')) + '</h3>' +
+      auField('comment', 'text', T('rep.au_f_comment'), 'textarea') +
+      '<div class="actions"><button type="submit" class="resolve-btn secondary"' + (cf.busy ? ' disabled' : '') + '>' + esc(T('rep.au_comment_btn')) + '</button></div>' +
+      '<div class="resolve-error" role="alert">' + esc((cf.errors || {}).form || '') + '</div></form>';
+  }
+
+  if (o.amendments.length) {
+    html += '<h3 class="team-activity-t">' + esc(T('rep.au_amendments')) + '</h3><ul class="team-activity">' + o.amendments.map(function(a) {
+      var fmt = function(v) { return a.field === 'rating' ? T(AU_RATING_KEYS[v] || 'rep.au_r_LOW') : a.field === 'due_date' ? auDay(v) : v; };
+      return '<li><span class="muted-inline">' + esc(formatDate(a.at)) + '</span><br><b>' + esc(T('rep.au_fieldname_' + a.field)) + ':</b> ' + esc(fmt(a.oldValue)) + ' → ' + esc(fmt(a.newValue)) +
+        '<br><span class="muted-inline">' + esc(T('rep.au_reason', { reason: a.reason })) + '</span></li>';
+    }).join('') + '</ul>';
+  }
+  html += '<h3 class="team-activity-t">' + esc(T('rep.au_history')) + '</h3><p class="hint team-hint">' + esc(T('rep.au_history_sub')) + '</p><ul class="team-activity">' +
+    d.events.map(function(e) {
+      return '<li><span class="muted-inline">' + esc(formatDate(e.at)) + ' · ' + esc(e.by) + ' (' + esc(auRoleText(e.role)) + ')</span><br><b>' + esc(T('rep.au_ev_' + e.kind) === 'rep.au_ev_' + e.kind ? e.kind : T('rep.au_ev_' + e.kind)) + '</b>' +
+        (e.text ? '<div class="au-text">' + esc(e.text) + '</div>' : '') + '</li>';
+    }).join('') + '</ul>';
+  return html;
+}
+function auRoleText(r) {
+  if (!r) return '';
+  if (ROLE_KEYS[r]) return T(ROLE_KEYS[r]);
+  var k = 'rep.au_role_' + r;
+  return T(k) === k ? String(r).replace(/_/g, ' ') : T(k);
+}
+
+function attachAuditHandlers() {
+  document.querySelectorAll('.au-open').forEach(function(b) { b.addEventListener('click', function() { openAudit(b.getAttribute('data-id')); }); });
+  var back = document.getElementById('au-back');
+  if (back) back.addEventListener('click', function() {
+    var was = auditId; auditId = null; auditDetail = null; auditForms = {}; auditNotice = '';
+    if (location.hash.indexOf('#audit=') === 0) history.replaceState(null, '', location.pathname + location.search);
+    renderContent();
+    var btn = was ? document.querySelector('.au-open[data-id="' + (window.CSS && CSS.escape ? CSS.escape(was) : was) + '"]') : null;
+    if (btn) btn.focus(); else { var h = document.getElementById('au-title'); if (h) h.focus(); }
+  });
+  document.querySelectorAll('.au-case').forEach(function(b) { b.addEventListener('click', function() { showCaseFromAudit(b.getAttribute('data-id')); }); });
+  document.querySelectorAll('input[name="au-agree"]').forEach(function(r) { r.addEventListener('change', function() {
+    var w = document.getElementById('au-plan-wrap'); if (w) w.hidden = r.value === '0' && r.checked;
+  }); });
+  document.querySelectorAll('form.au-form').forEach(function(fm) { fm.addEventListener('submit', function(ev) { ev.preventDefault(); submitAudit(fm.getAttribute('data-form')); }); });
+}
+
+async function openAudit(id) {
+  auditId = id; auditDetail = null; auditForms = {}; auditNotice = '';
+  if (location.hash !== '#audit=' + encodeURIComponent(id)) history.replaceState(null, '', location.pathname + location.search + '#audit=' + encodeURIComponent(id));
+  renderContent();
+  await loadAuditDetail();
+  var h = document.getElementById('au-d-title'); if (h) h.focus();
+}
+async function loadAuditDetail() {
+  try {
+    var res = await fetch('/api/observations?id=' + encodeURIComponent(auditId));
+    var data = await res.json().catch(function() { return {}; });
+    auditDetail = res.ok ? data : { error: data.code || 'error' };
+  } catch (e) { auditDetail = { error: 'network' }; }
+  if (activeTab === 'audit') renderContent();
+}
+
+var AU_ERR = { REQUIRED: 'rep.au_e_required', LENGTH: 'rep.au_e_length', DATE: 'rep.au_e_date', PAST: 'rep.au_e_past' };
+async function submitAudit(form) {
+  var g = function(id) { var el = document.getElementById('au-' + form + '-' + id); return el ? el.value : ''; };
+  var agreeEl = document.querySelector('input[name="au-agree"]:checked');
+  var values = form === 'respond' ? { agree: agreeEl ? agreeEl.value : '', text: g('text'), actionPlan: g('actionPlan'), targetDate: g('targetDate') }
+    : form === 'report_done' ? { evidence: g('evidence') } : { text: g('text') };
+  var errors = {};
+  // Checked here first, so mistakes show next to the field at once.
+  if (form === 'respond') {
+    if (!values.agree) errors.agree = T('rep.au_e_agree');
+    if (values.text.trim().length < 10) errors.text = T('rep.au_e_text');
+    if (values.agree === '1') {
+      if (values.actionPlan.trim().length < 10) errors.actionPlan = T('rep.au_e_plan');
+      if (!values.targetDate) errors.targetDate = T('rep.au_e_target');
+      else if (values.targetDate < todayIstDay()) errors.targetDate = T('rep.au_e_past');
+    }
+  } else if (form === 'report_done') {
+    if (values.evidence.trim().length < 10) errors.evidence = T('rep.au_e_evidence');
+  } else if (values.text.trim().length < 2) errors.text = T('rep.au_e_comment');
+  auditForms[form] = { values: values, errors: errors, busy: !Object.keys(errors).length };
+  auditNotice = '';
+  renderContent();
+  if (Object.keys(errors).length) { auFocusError(); return; }
+  var payload = { action: form, id: auditId };
+  if (form === 'respond') { payload.agree = values.agree === '1'; payload.text = values.text; payload.actionPlan = values.agree === '1' ? values.actionPlan : ''; payload.targetDate = values.agree === '1' ? values.targetDate : ''; }
+  else if (form === 'report_done') payload.evidence = values.evidence;
+  else payload.text = values.text;
+  var res, data;
+  try {
+    res = await fetch('/api/observations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    data = await res.json().catch(function() { return {}; });
+  } catch (e) { res = null; data = {}; }
+  if (!res || !res.ok) {
+    var fe = {};
+    Object.keys((data && data.fields) || {}).forEach(function(k) { fe[k] = T(AU_ERR[data.fields[k]] || 'rep.au_e_required'); });
+    if (!Object.keys(fe).length) fe.form = !res ? T('rep.au_e_network') : data.code === 'STALE' || data.code === 'STAGE' ? T('rep.au_e_stale') : errText(data.error);
+    auditForms[form] = { values: values, errors: fe, busy: false };
+    renderContent(); auFocusError(); return;
+  }
+  auditForms = {};
+  auditNotice = T('rep.au_ok_' + form);
+  await fetchAuditList();
+  updateAuditTabLabel();
+  await loadAuditDetail();
+  var n = document.getElementById('au-notice'); if (n) n.focus();
+}
+function auFocusError() {
+  var el = document.querySelector('#content [aria-invalid="true"]') || document.querySelector('#content .field-err:not(:empty)') || document.querySelector('#content .resolve-error:not(:empty)');
+  if (el) { if (!el.hasAttribute('tabindex') && !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) el.setAttribute('tabindex', '-1'); el.focus(); }
+}
+function updateAuditTabLabel() {
+  var b = document.querySelector('.tab-btn[data-tab="audit"]');
+  if (b) b.innerHTML = auditTabLabel();
+}
+// "Show in Cases": opens the case in the Cases tab, in its ward.
+function showCaseFromAudit(caseId) {
+  var cs = currentCases.filter(function(x) { return x.id === caseId; })[0];
+  if (!cs) return;
+  activeTab = 'cases'; activeMandateId = null; activeWardId = cs.localUnit.id; activeCatId = null; ovJump = null; filterKey = '';
+  renderViewingControl(); updateTabs(); updateSummary();
+  document.getElementById('filter-slot').innerHTML = '';
+  renderFilters(); renderContent();
+  var row = document.getElementById('case-' + caseId);
+  if (row) { row.setAttribute('tabindex', '-1'); row.scrollIntoView({ block: 'center' }); row.focus(); row.classList.add('au-flash'); }
+}
+
 function renderShell() {
   document.getElementById('app').innerHTML =
     '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
@@ -2358,6 +2675,7 @@ function renderShell() {
       (ovOffices().length ? '<button type="button" class="tab-btn" data-tab="overview">' + esc(T('rep.tab_overview')) + '</button>' : '') +
       (canSeeReport() ? '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' : '') +
       (teamOffices().length ? '<button type="button" class="tab-btn" data-tab="team">' + esc(T('rep.tab_team')) + '</button>' : '') +
+      (hasAuditTab() ? '<button type="button" class="tab-btn" data-tab="audit">' + auditTabLabel() + '</button>' : '') +
     '</div>' +
     '<main><div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
@@ -2379,6 +2697,7 @@ function renderShell() {
       if (activeTab === 'report') loadReportTab();
       else if (activeTab === 'team') { updateSummary(); renderFilters(); loadTeamTab(); }
       else if (activeTab === 'overview') { updateSummary(); renderFilters(); loadOverview(); }
+      else if (activeTab === 'audit') { updateSummary(); auditNotice = ''; renderContent(); var ah = document.getElementById(auditId ? 'au-d-title' : 'au-title'); if (ah) ah.focus(); }
       else { updateSummary(); renderFilters(); renderContent(); }
     });
   });
@@ -2408,6 +2727,11 @@ function renderContent() {
   if (activeTab === 'overview') {
     el.innerHTML = renderOverviewTab();
     attachOverviewHandlers();
+    return;
+  }
+  if (activeTab === 'audit') {
+    el.innerHTML = renderAuditTab();
+    attachAuditHandlers();
     return;
   }
   var inView = casesInView();
@@ -2952,6 +3276,12 @@ async function init() {
   currentCases = casesData.grievances || [];
   teamsData = casesData.teams || {};
   if (casesData.workloadWarn) workloadWarn = casesData.workloadWarn;
+  // Item 9c: the Audit tab appears once the office has an observation; a
+  // link from an audit email (#audit=<id>) opens it directly.
+  await fetchAuditList();
+  var auHash = /^#audit=(.+)$/.exec(location.hash);
+  if (auHash && hasAuditTab()) { activeTab = 'audit'; auditId = decodeURIComponent(auHash[1]); }
+  if (activeTab === 'audit' && !hasAuditTab()) activeTab = 'cases';
   // Item 8b: tabs this person can't use fall back to Cases.
   if ((activeTab === 'report' && !canSeeReport()) || (activeTab === 'team' && !teamOffices().length) || (activeTab === 'overview' && !ovOffices().length)) activeTab = 'cases';
 
@@ -2959,6 +3289,7 @@ async function init() {
   if (activeTab === 'report') loadReportTab();
   else if (activeTab === 'team') { renderFilters(); loadTeamTab(); }
   else if (activeTab === 'overview') { renderFilters(); loadOverview(); }
+  else if (activeTab === 'audit') { renderContent(); if (auditId) loadAuditDetail(); }
   else { renderFilters(); renderContent(); }
 }
 

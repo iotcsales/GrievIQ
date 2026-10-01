@@ -24,6 +24,7 @@
 // All queries are aggregate JOINs -- no long IN (?,?,...) lists.
 
 import { getVerifiedAdmin, PERMISSIONS, pagesFor } from "../../_shared/get-verified-admin.js";
+import { shapeObservation, todayIst } from "../../_shared/audit.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 import { purgeDuePhotos, PURGE_BATCH } from "../../_shared/photo-store.js";
@@ -186,9 +187,36 @@ export async function onRequestGet(context) {
     changeRequestsWaiting = row ? row.n : 0;
   }
 
+  // Item 9c: audit observations. The auditor and the super admin see the
+  // whole picture; other staff see the observations they own (if any).
+  let audit = null;
+  try {
+    const all = can(role, "view_all_observations");
+    const { results: obs } = all
+      ? await env.DB.prepare("SELECT * FROM observations WHERE status IN ('ISSUED', 'RESPONDED', 'DONE_REPORTED')").all()
+      : await env.DB.prepare("SELECT * FROM observations WHERE owner_type = 'STAFF' AND LOWER(owner_email) = ? AND status NOT IN ('DRAFT', 'WITHDRAWN')").bind(auth.email).all();
+    const rows = obs || [];
+    const ids = rows.map((r) => r.id);
+    const amendBy = new Map();
+    if (ids.length) {
+      const { results: am } = await env.DB.prepare("SELECT * FROM observation_amendments WHERE observation_id IN (SELECT value FROM json_each(?)) ORDER BY amended_at ASC").bind(JSON.stringify(ids)).all();
+      for (const a of am || []) { if (!amendBy.has(a.observation_id)) amendBy.set(a.observation_id, []); amendBy.get(a.observation_id).push(a); }
+    }
+    const today = todayIst();
+    const shaped = rows.map((r) => shapeObservation(r, amendBy.get(r.id) || [], today));
+    if (all) {
+      audit = { scope: "all", overdue: shaped.filter((o) => o.overdue).length, waitingVerification: shaped.filter((o) => o.status === "DONE_REPORTED").length };
+    } else if (shaped.length) {
+      audit = { scope: "own", needReply: shaped.filter((o) => o.status === "ISSUED" || o.status === "RESPONDED").length, overdue: shaped.filter((o) => o.overdue).length };
+    }
+  } catch (e) {
+    audit = null; // audit tables not created yet
+  }
+
   return Response.json({
     role,
     wards,
+    audit,
     needsAttentionTotal: exceptionCases.length,
     pendingReviews: reviewsRes ? reviewsRes.n : 0,
     changeRequestsWaiting,

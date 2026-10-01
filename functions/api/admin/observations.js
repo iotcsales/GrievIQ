@@ -19,6 +19,7 @@ import {
   RATINGS, STATUSES, OPEN_STATUSES, AMENDABLE, LIMITS, DEFAULT_DUE_DAYS,
   todayIst, isDay, defaultDue, readDraft, shapeObservation, effective, isOverdue, nextRef, logObservation,
 } from "../../_shared/audit.js";
+import { officeOptions, officeByKey, officeRecipients, addOwnerLabels, notifyAudit, ownerAction, officeText } from "../../_shared/audit-office.js";
 
 const can = (role, perm) => (PERMISSIONS[perm] || []).includes(role);
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
@@ -40,7 +41,7 @@ function canSee(auth, o) {
 
 function permissionsFor(auth, o) {
   const auditor = can(auth.role, "audit_observations");
-  const owner = String(o.owner_email || "").toLowerCase() === auth.email;
+  const owner = o.owner_type !== "OFFICE" && String(o.owner_email || "").toLowerCase() === auth.email;
   const open = OPEN_STATUSES.includes(o.status);
   return {
     edit: auditor && o.status === "DRAFT",
@@ -61,21 +62,10 @@ async function staffList(env) {
   return (results || []).map((r) => ({ email: String(r.email).toLowerCase(), name: r.name || null, role: r.role }));
 }
 
-function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-async function notify(env, request, to, subject, lines, obsId) {
-  if (!env.RESEND_API_KEY || !to) return false;
-  const url = new URL(request.url).origin + "/admin-audit.html#obs=" + encodeURIComponent(obsId);
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: env.OTP_FROM_EMAIL || "onboarding@resend.dev", to: [to], subject: "GrievIQ audit: " + subject,
-        html: lines.map((l) => "<p>" + escHtml(l) + "</p>").join("") + `<p><a href="${url}">${url}</a></p>`,
-      }),
-    });
-    return res.ok;
-  } catch (e) { return false; }
+// Who hears about an observation: a staff owner, or the office's
+// representative and office managers (item 9c).
+async function ownerRecipients(env, o) {
+  return o.owner_type === "OFFICE" ? { to: await officeRecipients(env, o.owner_office), link: "office" } : { to: o.owner_email ? [o.owner_email] : [], link: "staff" };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -90,12 +80,14 @@ export async function onRequestGet({ request, env }) {
     const got = await load(env, id);
     if (!got || !canSee(auth, got.o)) return json({ error: "Observation not found." }, 404);
     const { results: events } = await env.DB.prepare("SELECT * FROM observation_events WHERE observation_id = ? ORDER BY created_at ASC, rowid ASC").bind(id).all();
+    const shaped = (await addOwnerLabels(env, [shapeObservation(got.o, got.amendments, today)]))[0];
     return json({
       role: auth.role, me: auth.email, today,
-      observation: shapeObservation(got.o, got.amendments, today),
+      observation: shaped,
       events: (events || []).map((e) => ({ kind: e.kind, by: e.actor_email, role: e.actor_role, text: e.text, detail: e.detail ? JSON.parse(e.detail) : null, at: e.created_at })),
       can: permissionsFor(auth, got.o),
       staff: auditor ? await staffList(env) : null,
+      offices: auditor && got.o.status === "DRAFT" ? await officeOptions(env) : null,
       defaults: DEFAULT_DUE_DAYS,
     });
   }
@@ -113,7 +105,7 @@ export async function onRequestGet({ request, env }) {
     const { results: am } = await env.DB.prepare("SELECT * FROM observation_amendments WHERE observation_id IN (SELECT value FROM json_each(?)) ORDER BY amended_at ASC").bind(JSON.stringify(ids)).all();
     for (const a of am || []) { if (!amendBy.has(a.observation_id)) amendBy.set(a.observation_id, []); amendBy.get(a.observation_id).push(a); }
   }
-  let list = (rows || []).map((r) => shapeObservation(r, amendBy.get(r.id) || [], today));
+  let list = await addOwnerLabels(env, (rows || []).map((r) => shapeObservation(r, amendBy.get(r.id) || [], today)));
 
   // Totals (before filters): open observations by rating, overdue, waiting for verification.
   const totals = { byRating: Object.fromEntries(RATINGS.map((r) => [r, 0])), open: 0, overdue: 0, waitingVerification: 0, drafts: 0 };
@@ -132,8 +124,8 @@ export async function onRequestGet({ request, env }) {
   else if (STATUSES.includes(status)) list = list.filter((o) => o.status === status);
   if (RATINGS.includes(rating)) list = list.filter((o) => o.rating === rating);
   if (u.searchParams.get("overdue") === "1") list = list.filter((o) => o.overdue);
-  if (owner) list = list.filter((o) => String(o.ownerEmail || "").toLowerCase() === owner);
-  if (q) list = list.filter((o) => [o.ref, o.title, (o.subjectCases || []).join(" "), o.subjectProcess, o.ownerEmail].join(" ").toLowerCase().includes(q));
+  if (owner) list = list.filter((o) => String(o.ownerEmail || "").toLowerCase() === owner || String(o.ownerOffice || "").toLowerCase() === owner);
+  if (q) list = list.filter((o) => [o.ref, o.title, (o.subjectCases || []).join(" "), o.subjectProcess, o.ownerEmail, o.ownerLabel].join(" ").toLowerCase().includes(q));
 
   if (u.searchParams.get("format") === "csv") {
     await env.DB.prepare("INSERT INTO admin_events (id, actor_email, action, target, detail) VALUES (?, ?, ?, ?, ?)")
@@ -142,7 +134,7 @@ export async function onRequestGet({ request, env }) {
   }
   return json({
     role: auth.role, me: auth.email, today, canCreate: auditor, canSeeLog: can(auth.role, "view_audit_log"),
-    totals, observations: list, staff: auditor ? await staffList(env) : null, defaults: DEFAULT_DUE_DAYS,
+    totals, observations: list, staff: auditor ? await staffList(env) : null, offices: auditor ? await officeOptions(env) : null, defaults: DEFAULT_DUE_DAYS,
   });
 }
 
@@ -154,7 +146,7 @@ function cell(v) {
 function csvResponse(list) {
   const head = ["Ref", "Title", "Rating", "Status", "Overdue", "About", "Owner", "Due date", "Issued", "Criteria", "Condition", "Cause", "Effect", "Recommendation", "Owner agrees", "Owner reply", "Action plan", "Target date", "Closed"];
   const about = (o) => o.subjectType === "CASE" ? "Cases: " + (o.subjectCases || []).join(" ") : o.subjectType === "OFFICE" ? "Office: " + (o.subjectOffice || "") : "Process: " + (o.subjectProcess || "");
-  const lines = [head].concat(list.map((o) => [o.ref, o.title, o.rating, o.status, o.overdue ? "Yes" : "", about(o), o.ownerEmail, o.dueDate, o.issuedAt,
+  const lines = [head].concat(list.map((o) => [o.ref, o.title, o.rating, o.status, o.overdue ? "Yes" : "", about(o), o.ownerLabel || o.ownerEmail, o.dueDate, o.issuedAt,
     o.criteria, o.condition, o.cause, o.effect, o.recommendation, o.response ? (o.response.agree ? "Agrees" : "Disagrees") : "", o.response && o.response.text, o.response && o.response.actionPlan, o.response && o.response.targetDate, o.closedAt]));
   const body = "﻿" + lines.map((l) => l.map(cell).join(",")).join("\r\n") + "\r\n";
   return new Response(body, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="grieviq-observations-${todayIst()}.csv"`, "Cache-Control": "no-store" } });
@@ -173,12 +165,18 @@ export async function onRequestPost({ request, env }) {
   const need = (ok) => ok ? null : json({ error: "Your role can't do this.", code: "ROLE" }, 403);
   const note = (k, lo, hi) => { const t = String(body[k] || "").trim(); return t.length >= lo && t.length <= hi ? t : null; };
 
-  // Owners must be staff who aren't auditors (IIA Standard 7: independence).
-  async function checkOwner(email) {
-    if (!email) return null;
-    const s = await env.DB.prepare("SELECT email, role FROM admin_users WHERE LOWER(email) = ?").bind(email).first();
-    if (!s) return "NOT_STAFF";
-    if (s.role === "auditor") return "AUDITOR";
+  // Owners must be staff who aren't auditors (IIA Standard 7: independence),
+  // or a representative's office that exists (item 9c).
+  // Returns null, or a Response with the field error.
+  async function checkOwner(v) {
+    if (v.owner_type === "OFFICE") {
+      if (!v.owner_office) return null;
+      if (!(await officeByKey(env, v.owner_office))) return json({ error: "Choose an office from the list.", fields: { ownerOffice: "NOT_FOUND" } }, 400);
+      return null;
+    }
+    if (!v.owner_email) return null;
+    const s = await env.DB.prepare("SELECT email, role FROM admin_users WHERE LOWER(email) = ?").bind(v.owner_email).first();
+    if (!s || s.role === "auditor") return json({ error: "Choose a staff member who isn't an auditor.", fields: { ownerEmail: !s ? "NOT_STAFF" : "AUDITOR" } }, 400);
     return null;
   }
 
@@ -186,8 +184,8 @@ export async function onRequestPost({ request, env }) {
     const denied = need(auditor); if (denied) return denied;
     const d = readDraft(body, false);
     if (d.fields) return json({ error: "Please correct the highlighted fields.", fields: d.fields }, 400);
-    const ownerErr = await checkOwner(d.value.owner_email);
-    if (ownerErr) return json({ error: "Choose a staff member who isn't an auditor.", fields: { ownerEmail: ownerErr } }, 400);
+    const ownerErr = await checkOwner(d.value);
+    if (ownerErr) return ownerErr;
     const id = crypto.randomUUID();
     let src = null;
     if (body.source && typeof body.source === "object") src = JSON.stringify({ kind: String(body.source.kind || "").slice(0, 20), id: String(body.source.id || "").slice(0, 80), label: String(body.source.label || "").slice(0, 160) });
@@ -197,10 +195,10 @@ export async function onRequestPost({ request, env }) {
         const v = d.value;
         await env.DB.prepare(
           `INSERT INTO observations (id, ref, title, subject_type, subject_cases, subject_office, subject_process, criteria, condition, cause, effect, recommendation,
-             rating, owner_type, owner_email, due_date, due_reason, source, status, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'STAFF', ?, ?, ?, ?, 'DRAFT', ?, ?, ?)`
+             rating, owner_type, owner_email, owner_office, due_date, due_reason, source, status, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?)`
         ).bind(id, ref, v.title, v.subject_type, JSON.stringify(v.subject_cases), v.subject_office, v.subject_process, v.criteria || null, v.condition || null, v.cause || null, v.effect || null, v.recommendation || null,
-          v.rating, v.owner_email, v.due_date, v.due_reason, src, auth.email, now, now).run();
+          v.rating, v.owner_type, v.owner_email, v.owner_office, v.due_date, v.due_reason, src, auth.email, now, now).run();
         await log(id, "CREATED", null, { ref });
         return json({ ok: true, id, ref });
       } catch (e) {
@@ -226,14 +224,14 @@ export async function onRequestPost({ request, env }) {
     const denied = need(p.edit); if (denied) return denied;
     const d = readDraft(body, false);
     if (d.fields) return json({ error: "Please correct the highlighted fields.", fields: d.fields }, 400);
-    const ownerErr = await checkOwner(d.value.owner_email);
-    if (ownerErr) return json({ error: "Choose a staff member who isn't an auditor.", fields: { ownerEmail: ownerErr } }, 400);
+    const ownerErr = await checkOwner(d.value);
+    if (ownerErr) return ownerErr;
     const v = d.value;
     const ok = await setStatus(
       `UPDATE observations SET title = ?, subject_type = ?, subject_cases = ?, subject_office = ?, subject_process = ?, criteria = ?, condition = ?, cause = ?, effect = ?,
-         recommendation = ?, rating = ?, owner_email = ?, due_date = ?, due_reason = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'`,
+         recommendation = ?, rating = ?, owner_type = ?, owner_email = ?, owner_office = ?, due_date = ?, due_reason = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'`,
       v.title, v.subject_type, JSON.stringify(v.subject_cases), v.subject_office, v.subject_process, v.criteria || null, v.condition || null, v.cause || null, v.effect || null,
-      v.recommendation || null, v.rating, v.owner_email, v.due_date, v.due_reason, now, id);
+      v.recommendation || null, v.rating, v.owner_type, v.owner_email, v.owner_office, v.due_date, v.due_reason, now, id);
     if (!ok) return stale();
     await log(id, "EDITED", null, null);
     return json({ ok: true });
@@ -253,12 +251,12 @@ export async function onRequestPost({ request, env }) {
     // Everything must be complete to issue.
     const d = readDraft({
       title: o.title, subjectType: o.subject_type, subjectCases: JSON.parse(o.subject_cases || "[]"), subjectOffice: o.subject_office, subjectProcess: o.subject_process,
-      criteria: o.criteria, condition: o.condition, cause: o.cause, effect: o.effect, recommendation: o.recommendation, rating: o.rating, ownerEmail: o.owner_email,
-      dueDate: o.due_date, dueReason: o.due_reason,
+      criteria: o.criteria, condition: o.condition, cause: o.cause, effect: o.effect, recommendation: o.recommendation, rating: o.rating,
+      ownerType: o.owner_type, ownerEmail: o.owner_email, ownerOffice: o.owner_office, dueDate: o.due_date, dueReason: o.due_reason,
     }, true);
     if (d.fields) return json({ error: "Complete every field before issuing.", fields: d.fields, code: "INCOMPLETE" }, 400);
-    const ownerErr = await checkOwner(o.owner_email);
-    if (ownerErr) return json({ error: "Choose a staff member who isn't an auditor.", fields: { ownerEmail: ownerErr } }, 400);
+    const ownerErr = await checkOwner(d.value);
+    if (ownerErr) return ownerErr;
     // Due date: the one set, or the default for the rating from today. A
     // date other than the default needs a reason.
     const def = defaultDue(o.rating, today);
@@ -266,12 +264,15 @@ export async function onRequestPost({ request, env }) {
     if (due < today) return json({ error: "The due date can't be in the past.", fields: { dueDate: "PAST" } }, 400);
     if (due !== def && !(o.due_reason && o.due_reason.length >= 5)) return json({ error: "Give a reason for a due date other than the default.", fields: { dueReason: "REQUIRED" } }, 400);
     if (!(await setStatus("UPDATE observations SET status = 'ISSUED', due_date = ?, issued_at = ?, issued_by = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'", due, now, auth.email, now, id))) return stale();
-    await log(id, "ISSUED", null, { dueDate: due, owner: o.owner_email });
-    const emailed = await notify(env, request, o.owner_email, `${o.ref} — ${o.title}`, [
-      `An audit observation has been issued to you: ${o.ref} — ${o.title} (rating: ${o.rating}).`,
-      `Please reply with whether you agree and your action plan by ${due}.`,
-    ], id);
-    return json({ ok: true, emailed, dueDate: due });
+    const office = o.owner_type === "OFFICE" ? await officeByKey(env, o.owner_office) : null;
+    await log(id, "ISSUED", null, { dueDate: due, owner: office ? officeText(office) : o.owner_email, ownerOffice: o.owner_office || undefined });
+    const rc = await ownerRecipients(env, o);
+    const emailed = await notifyAudit(env, request, rc.to, `${o.ref} — ${o.title}`, [
+      office ? `An audit observation has been issued to your office (${officeText(office)}): ${o.ref} — ${o.title} (rating: ${o.rating}).`
+        : `An audit observation has been issued to you: ${o.ref} — ${o.title} (rating: ${o.rating}).`,
+      `Please reply with whether you agree and your action plan by ${due}.` + (office ? " Open the Audit tab in the GrievIQ representative console." : ""),
+    ], id, rc.link);
+    return json({ ok: true, emailed, recipients: rc.to.length, dueDate: due });
   }
 
   if (action === "amend") {
@@ -295,45 +296,10 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true });
   }
 
-  if (action === "respond") {
-    const denied = need(p.respond); if (denied) return denied;
-    const text = note("text", 10, 4000);
-    const plan = note("actionPlan", 0, 4000) || "";
-    const target = String(body.targetDate || "");
-    const agree = body.agree === true ? 1 : body.agree === false ? 0 : null;
-    const fields = {};
-    if (agree == null) fields.agree = "REQUIRED";
-    if (!text) fields.text = "LENGTH";
-    if (agree === 1) {
-      if (plan.length < 10) fields.actionPlan = "LENGTH";
-      if (!isDay(target)) fields.targetDate = "DATE"; else if (target < today) fields.targetDate = "PAST";
-    }
-    if (Object.keys(fields).length) return json({ error: "Please correct the highlighted fields.", fields }, 400);
-    if (!(await setStatus(
-      "UPDATE observations SET status = 'RESPONDED', response_agree = ?, response_text = ?, action_plan = ?, target_date = ?, updated_at = ? WHERE id = ? AND status IN ('ISSUED', 'RESPONDED')",
-      agree, text, agree === 1 ? plan : null, agree === 1 ? target : null, now, id))) return stale();
-    await log(id, "RESPONDED", text, { agree: agree === 1, actionPlan: agree === 1 ? plan : null, targetDate: agree === 1 ? target : null });
-    await notify(env, request, o.issued_by || o.created_by, `${o.ref} — reply received`, [`${auth.email} has replied to ${o.ref} — ${o.title}: ${agree === 1 ? "agrees, with an action plan" : "disagrees"}.`], id);
-    return json({ ok: true });
-  }
-
-  if (action === "report_done") {
-    const denied = need(p.reportDone); if (denied) return denied;
-    const evidence = note("evidence", 10, 4000);
-    if (!evidence) return json({ error: "Describe what was done and where the evidence can be seen.", fields: { evidence: "LENGTH" } }, 400);
-    if (o.response_agree !== 1) return json({ error: "Agree and give an action plan first.", code: "NO_PLAN" }, 409);
-    if (!(await setStatus("UPDATE observations SET status = 'DONE_REPORTED', done_evidence = ?, updated_at = ? WHERE id = ? AND status = 'RESPONDED'", evidence, now, id))) return stale();
-    await log(id, "DONE_REPORTED", evidence, null);
-    await notify(env, request, o.issued_by || o.created_by, `${o.ref} — ready for verification`, [`${auth.email} reports that the action for ${o.ref} — ${o.title} is done. Please verify it.`], id);
-    return json({ ok: true });
-  }
-
-  if (action === "comment") {
-    const denied = need(p.comment); if (denied) return denied;
-    const text = note("text", 2, 2000);
-    if (!text) return json({ error: "Write a comment (up to 2,000 characters).", fields: { text: "LENGTH" } }, 400);
-    await log(id, "COMMENT", text, null);
-    return json({ ok: true });
+  if (action === "respond" || action === "report_done" || action === "comment") {
+    const allowed = action === "respond" ? p.respond : action === "report_done" ? p.reportDone : p.comment;
+    const denied = need(allowed); if (denied) return denied;
+    return ownerAction(action, { env, request, o, body, json, who: auth.email, log: (kind, text, detail) => log(id, kind, text, detail) });
   }
 
   if (action === "close") {
@@ -342,7 +308,7 @@ export async function onRequestPost({ request, env }) {
     if (!n) return json({ error: "Record how you verified the action (at least 10 characters).", fields: { note: "LENGTH" } }, 400);
     if (!(await setStatus("UPDATE observations SET status = 'CLOSED', closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ? AND status = 'DONE_REPORTED'", now, auth.email, now, id))) return stale();
     await log(id, "CLOSED", n, null);
-    await notify(env, request, o.owner_email, `${o.ref} — closed`, [`The auditor has verified the action for ${o.ref} — ${o.title} and closed it.`], id);
+    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — closed`, [`The auditor has verified the action for ${o.ref} — ${o.title} and closed it.`], id, rc.link); }
     return json({ ok: true });
   }
 
@@ -352,12 +318,12 @@ export async function onRequestPost({ request, env }) {
     if (!n) return json({ error: "Say what is still missing (at least 10 characters).", fields: { note: "LENGTH" } }, 400);
     if (!(await setStatus("UPDATE observations SET status = 'RESPONDED', updated_at = ? WHERE id = ? AND status = 'DONE_REPORTED'", now, id))) return stale();
     await log(id, "SENT_BACK", n, null);
-    await notify(env, request, o.owner_email, `${o.ref} — sent back`, [`The auditor has sent ${o.ref} — ${o.title} back: ${n}`], id);
+    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — sent back`, [`The auditor has sent ${o.ref} — ${o.title} back: ${n}`], id, rc.link); }
     return json({ ok: true });
   }
 
   if (action === "accept_risk") {
-    if (can(auth.role, "accept_risk") && String(o.owner_email || "").toLowerCase() === auth.email) {
+    if (can(auth.role, "accept_risk") && o.owner_type !== "OFFICE" && String(o.owner_email || "").toLowerCase() === auth.email) {
       return json({ error: "You can't accept the risk on an observation you own.", code: "OWNER" }, 403);
     }
     const denied = need(p.acceptRisk); if (denied) return denied;
@@ -371,9 +337,9 @@ export async function onRequestPost({ request, env }) {
       "UPDATE observations SET status = 'RISK_ACCEPTED', risk_reason = ?, risk_review_date = ?, closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ? AND status IN ('ISSUED', 'RESPONDED', 'DONE_REPORTED')",
       reason, review, now, auth.email, now, id))) return stale();
     await log(id, "RISK_ACCEPTED", reason, { reviewDate: review });
-    for (const to of new Set([o.issued_by || o.created_by, o.owner_email])) {
-      await notify(env, request, to, `${o.ref} — risk accepted`, [`${auth.email} (super admin) has formally accepted the risk for ${o.ref} — ${o.title}. Reason: ${reason}. To be looked at again by ${review}.`], id);
-    }
+    const riskLine = [`${auth.email} (super admin) has formally accepted the risk for ${o.ref} — ${o.title}. Reason: ${reason}. To be looked at again by ${review}.`];
+    await notifyAudit(env, request, [o.issued_by || o.created_by], `${o.ref} — risk accepted`, riskLine, id, "staff");
+    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — risk accepted`, riskLine, id, rc.link); }
     return json({ ok: true });
   }
 
