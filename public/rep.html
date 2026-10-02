@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=9c"></script>
+<script src="/i18n.js?v=9e"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -1087,7 +1087,7 @@ function renderCase(c) {
     '<div class="case-main">' +
       '<div class="tracking-ref">' + esc(c.trackingRef) + '</div>' +
       '<div class="category">' + esc(catName(c.category.id, c.category.name)) + ' &middot; ' + esc(c.localUnit.name) + '</div>' +
-      '<p class="description">' + esc(c.description) + '</p>' +
+      (c.retentionRemovedAt ? '<p class="description muted-inline">' + esc(T('rep.retention_removed', { date: formatDateOnly(c.retentionRemovedAt) })) + '</p>' : '<p class="description">' + esc(c.description) + '</p>') +
       locationLine +
       renderMapLink(c) +
       renderPhotoThumbs(c.photos) +

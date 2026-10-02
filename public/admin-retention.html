@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.rt_page_title">GrievIQ Admin — Data retention</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9e"></script><script src="/admin-nav.js?v=r1"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  .req { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .req-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .req-head input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .req-title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+  .req-meta { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .status-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-PENDING { background: #3a3423; color: #d8c26f; } .st-APPROVED { background: #233a2b; color: #7fce8f; }
+  .st-REJECTED { background: #3a2323; color: #e2564f; } .st-WITHDRAWN, .st-OUT_OF_DATE { background: #2c3543; color: #9aa4b2; }
+  html.light-theme .st-PENDING { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-APPROVED { background: #e6f4ea; color: #1f7a3a; }
+  html.light-theme .st-REJECTED { background: #fbe7e5; color: #b23a30; } html.light-theme .st-WITHDRAWN, html.light-theme .st-OUT_OF_DATE { background: #eef0f3; color: #5b6472; }
+  table.cmp { margin-top: 10px; }
+  table.cmp td.changed { font-weight: 600; }
+  table.cmp .was { color: var(--admin-muted); text-decoration: line-through; }
+  .ood { margin-top: 8px; font-size: 13px; color: var(--admin-danger); }
+  .why { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .why b { color: var(--admin-muted); font-weight: 600; }
+  .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .reject-box { display: none; width: 100%; }
+  .reject-box.open { display: block; }
+  .reject-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); margin-top: 6px; }
+  html.light-theme .reject-box textarea { background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .row-msg { font-size: 13px; margin-top: 8px; } .row-msg:empty { display: none; }
+  .row-msg.error, #summary.error { color: var(--admin-danger); } .row-msg.success, #summary.success { color: #7fce8f; }
+  html.light-theme .row-msg.success, html.light-theme #summary.success { color: #1f7a3a; }
+  #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
+  .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
+  a.src { color: var(--admin-accent); word-break: break-all; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  main { max-width: 980px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .card { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 26px; font-weight: 700; }
+  .card .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.4; }
+  .panel p.sub { color: var(--admin-muted); font-size: 13px; margin: -8px 0 14px; line-height: 1.5; }
+  .form-row label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .form-row input[type=text], .form-row textarea { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=text], html.light-theme .form-row textarea { background: #fff; }
+  .form-row [aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  .hint { color: var(--admin-muted); font-size: 12.5px; margin: 0 0 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .msg { font-size: 14px; margin-top: 12px; padding: 10px 12px; border-radius: 6px; }
+  .msg:empty { display: none; }
+  .msg.ok { background: #1f3326; color: #a6e0b4; } .msg.err { background: var(--admin-danger-bg); color: var(--admin-danger); }
+  html.light-theme .msg.ok { background: #e6f4ea; color: #1f5f32; }
+  td .sub { display: block; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); }
+  details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention" class="active" aria-current="page">Data retention</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main>
+  <h1 data-i18n="adm.rt_title">Data retention</h1>
+  <p class="subtitle" id="page-sub" data-i18n="adm.rt_sub">Complaints are kept for 3 years from filing or 1 year after they close, whichever is later. Then the citizen's details are removed and the case is kept without them, so figures and reports stay correct.</p>
+  <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
+</main>
+
+<script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.rt_*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function toDate(s) { if (!s) return null; const t = String(s); const d = new Date(t.indexOf("T") !== -1 ? t : t.replace(" ", "T") + "Z"); return isNaN(d) ? null : d; }
+function day(s) { const d = toDate(s); return d ? d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) : "—"; }
+function dateTime(s) {
+  const d = toDate(s); if (!d) return "—";
+  return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) + ", " +
+    d.toLocaleTimeString(loc(), isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" });
+}
+function addDays(s, n) { const d = toDate(s); return d ? new Date(d.getTime() + n * 86400000).toISOString() : null; }
+
+let data = null, hold = { ref: "", reason: "", errors: {}, busy: false, msg: null }, run = { busy: false, msg: null };
+
+async function api(url, opts) {
+  try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
+  catch (e) { return { ok: false, status: 0, body: {} }; }
+}
+async function load() {
+  const r = await api("/api/admin/retention");
+  if (!r.ok) {
+    const msg = r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.rt_not_set_up") : r.body.error === "INSUFFICIENT_ROLE" || r.body.error === "NOT_ADMIN" ? T("adm.no_access") : T("adm.err_detail", { msg: r.body.error || r.status });
+    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(msg) + '</div>';
+    return;
+  }
+  data = r.body;
+  render();
+}
+
+function caseTable(list, cols, emptyKey) {
+  if (!list.length) return '<p class="empty">' + esc(T(emptyKey)) + '</p>';
+  const head = { ref: "adm.rt_col_case", ward: "adm.rt_col_ward", closed: "adm.rt_col_closed", due: "adm.rt_col_due", notice: "adm.rt_col_notice", remove: "adm.rt_col_remove", why: "adm.rt_col_why" };
+  return '<div class="table-wrap"><table><thead><tr>' + cols.map((c) => '<th scope="col">' + esc(T(head[c])) + '</th>').join("") + '</tr></thead><tbody>' +
+    list.map((x) => '<tr>' + cols.map((c) => {
+      if (c === "ref") return '<td class="name"><a class="src" href="/admin-cases.html?case=' + encodeURIComponent(x.id) + '">' + esc(x.ref) + '</a></td>';
+      if (c === "ward") return '<td>' + esc(x.ward || "—") + '</td>';
+      if (c === "closed") return '<td>' + esc(day(x.closedAt)) + '</td>';
+      if (c === "due") return '<td>' + esc(day(x.dueAt)) + '</td>';
+      if (c === "notice") return '<td>' + esc(x.noticeAt ? T("adm.rt_notice_sent", { date: day(x.noticeAt) }) : x.hasEmail ? T("adm.rt_notice_pending") : T("adm.rt_notice_none")) + '</td>';
+      if (c === "remove") return '<td>' + esc(day(addDays(x.noticeAt, data.policy.noticeDays) > (x.dueAt || "") ? addDays(x.noticeAt, data.policy.noticeDays) : x.dueAt)) + '</td>';
+      if (c === "why") {
+        const parts = [];
+        if (x.manual) parts.push(T("adm.rt_why_manual", { reason: x.reason || "—", by: x.by || "—", date: day(x.at) }));
+        if (x.observations) parts.push(T("adm.rt_why_obs", { refs: x.observations }));
+        return '<td>' + esc(parts.join(" · ")) + '</td>';
+      }
+      return '<td></td>';
+    }).join("") + '</tr>').join("") + '</tbody></table></div>';
+}
+
+function render() {
+  const d = data, man = d.canManage;
+  const card = (n, key) => '<div class="card"><div class="num">' + n + '</div><div class="label">' + esc(T(key)) + '</div></div>';
+  let html = '<div class="cards">' +
+    card(d.dueNow.length, "adm.rt_c_due") + card(d.noticeDue.length, "adm.rt_c_notice") + card(d.waitingAfterNotice.length, "adm.rt_c_waiting") +
+    card(d.next30.length, "adm.rt_c_next30") + card(d.held.length, "adm.rt_c_held") + card(d.totals.anonymised, "adm.rt_c_done") + '</div>';
+
+  if (man) {
+    html += '<div class="panel"><h2>' + esc(T("adm.rt_run_t")) + '</h2><p class="sub">' + esc(T("adm.rt_run_sub", { signins: d.totals.signinsDue, codes: d.totals.codesDue })) + '</p>' +
+      '<div class="actions"><button type="button" class="primary" id="run-btn"' + (run.busy ? " disabled" : "") + '>' + esc(T(run.busy ? "adm.rt_running" : "adm.rt_run_btn")) + '</button></div>' +
+      '<div class="msg ' + (run.msg && run.msg.err ? "err" : "ok") + '" id="run-msg" role="status" tabindex="-1">' + esc(run.msg ? run.msg.text : "") + '</div></div>';
+  }
+
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_due_t")) + '</h2><p class="sub">' + esc(T("adm.rt_due_sub")) + '</p>' + caseTable(d.dueNow, ["ref", "ward", "closed", "due", "notice"], "adm.rt_none_due") + '</div>';
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_notice_t")) + '</h2><p class="sub">' + esc(T("adm.rt_notice_sub", { n: d.policy.noticeDays })) + '</p>' + caseTable(d.noticeDue, ["ref", "ward", "closed", "due"], "adm.rt_none_notice") + '</div>';
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_waiting_t")) + '</h2><p class="sub">' + esc(T("adm.rt_waiting_sub", { n: d.policy.noticeDays })) + '</p>' + caseTable(d.waitingAfterNotice, ["ref", "ward", "notice", "remove"], "adm.rt_none_waiting") + '</div>';
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_next30_t")) + '</h2>' + caseTable(d.next30, ["ref", "ward", "closed", "due"], "adm.rt_none_next30") + '</div>';
+
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_held_t")) + '</h2><p class="sub">' + esc(T("adm.rt_held_sub")) + '</p>' + caseTable(d.held, ["ref", "ward", "due", "why"], "adm.rt_none_held");
+  if (man) {
+    const e = hold.errors, inv = (k) => e[k] ? ' aria-invalid="true"' : '';
+    html += '<form id="hold-form" novalidate style="margin-top:16px"><h2 style="font-size:14px;margin:0">' + esc(T("adm.rt_hold_form_t")) + '</h2>' +
+      '<div class="form-row"><label for="h-ref">' + esc(T("adm.rt_f_ref")) + '</label><input type="text" id="h-ref" maxlength="20" autocomplete="off" value="' + esc(hold.ref) + '" placeholder="' + esc(T("adm.rt_f_ref_ph")) + '" aria-describedby="h-ref-err"' + inv("ref") + '><div class="field-err" id="h-ref-err" role="alert">' + esc(e.ref || "") + '</div></div>' +
+      '<div class="form-row"><label for="h-reason">' + esc(T("adm.rt_f_reason")) + '</label><p class="hint" id="h-reason-hint">' + esc(T("adm.rt_f_reason_hint")) + '</p><textarea id="h-reason" rows="2" maxlength="500" aria-describedby="h-reason-hint h-reason-err"' + inv("reason") + '>' + esc(hold.reason) + '</textarea><div class="field-err" id="h-reason-err" role="alert">' + esc(e.reason || "") + '</div></div>' +
+      '<div class="actions"><button type="submit" class="primary" data-act="hold"' + (hold.busy ? " disabled" : "") + '>' + esc(T("adm.rt_hold_btn")) + '</button> <button type="submit" data-act="release"' + (hold.busy ? " disabled" : "") + '>' + esc(T("adm.rt_release_btn")) + '</button></div>' +
+      '<div class="msg ' + (hold.msg && hold.msg.err ? "err" : "ok") + '" id="hold-msg" role="status" tabindex="-1">' + esc(hold.msg ? hold.msg.text : "") + '</div></form>';
+  }
+  html += '</div>';
+
+  html += '<div class="panel"><h2>' + esc(T("adm.rt_register_t")) + '</h2><p class="sub">' + esc(T("adm.rt_register_sub")) + '</p>';
+  if (!d.runs.length) html += '<p class="empty">' + esc(T("adm.rt_none_runs")) + '</p>';
+  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rt_col_when")) + '</th><th scope="col">' + esc(T("adm.rt_col_by")) + '</th><th scope="col">' + esc(T("adm.rt_col_removed")) + '</th><th scope="col">' + esc(T("adm.rt_col_notices")) + '</th><th scope="col">' + esc(T("adm.rt_col_other")) + '</th></tr></thead><tbody>' +
+    d.runs.map((r) => '<tr><td>' + esc(dateTime(r.at)) + '</td><td>' + esc(r.by === "system" ? T("adm.rt_by_system") : r.by) + '<span class="sub">' + esc(T(r.kind === "MANUAL" ? "adm.rt_kind_manual" : "adm.rt_kind_auto")) + '</span></td>' +
+      '<td>' + esc(T("adm.rt_n_cases", { n: r.anonymised })) + (r.refs.length ? '<span class="sub">' + esc(r.refs.join(", ")) + '</span>' : '') + (r.fields ? '<span class="sub">' + esc(T("adm.rt_n_fields", { n: r.fields })) + '</span>' : '') + '</td>' +
+      '<td>' + esc(String(r.notices)) + (r.noticeRefs.length ? '<span class="sub">' + esc(r.noticeRefs.join(", ")) + '</span>' : '') + '</td>' +
+      '<td>' + esc(T("adm.rt_other_line", { signins: r.signins, codes: r.codes })) + '</td></tr>').join("") + '</tbody></table></div>';
+  html += '</div>';
+  if (man) html += '<p class="muted">' + esc(T("adm.rt_photos_line")) + ' <a class="src" href="/admin-photos.html">' + esc(T("adm.rt_photos_link")) + '</a></p>';
+  document.getElementById("content").innerHTML = html;
+  attach();
+}
+
+function attach() {
+  const rb = document.getElementById("run-btn");
+  if (rb) rb.addEventListener("click", async () => {
+    if (!confirm(T("adm.rt_run_confirm"))) return;
+    run = { busy: true, msg: null }; render();
+    const r = await api("/api/admin/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run" }) });
+    if (!r.ok) run = { busy: false, msg: { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) } };
+    else { const x = r.body.done; run = { busy: false, msg: { text: T("adm.rt_run_done", { cases: x.anonymised, notices: x.notices, signins: x.signins, codes: x.codes }) + (x.skipped ? " " + T("adm.rt_run_skipped", { n: x.skipped }) : "") } }; }
+    await load();
+    const m = document.getElementById("run-msg"); if (m) m.focus();
+  });
+  const f = document.getElementById("hold-form");
+  if (f) f.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const act = ev.submitter && ev.submitter.getAttribute("data-act") === "release" ? "release" : "hold";
+    hold.ref = document.getElementById("h-ref").value.trim(); hold.reason = document.getElementById("h-reason").value.trim();
+    hold.errors = {}; hold.msg = null;
+    if (!hold.ref) hold.errors.ref = T("adm.rt_e_ref");
+    if (hold.reason.length < 10) hold.errors.reason = T("adm.rt_e_reason");
+    if (Object.keys(hold.errors).length) { render(); const el = document.querySelector('#hold-form [aria-invalid="true"]'); if (el) el.focus(); return; }
+    hold.busy = true; render();
+    const r = await api("/api/admin/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: act, ref: hold.ref, reason: hold.reason }) });
+    hold.busy = false;
+    if (!r.ok) {
+      const M = { REQUIRED: "adm.rt_e_ref", NOT_FOUND: "adm.rt_e_not_found", REMOVED: "adm.rt_e_removed", ALREADY: "adm.rt_e_already", NOT_HELD: "adm.rt_e_not_held", LENGTH: "adm.rt_e_reason" };
+      const fl = (r.body && r.body.fields) || {};
+      Object.keys(fl).forEach((k) => { hold.errors[k] = T(M[fl[k]] || "adm.rt_e_ref"); });
+      if (!Object.keys(fl).length) hold.msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+      render(); const el = document.querySelector('#hold-form [aria-invalid="true"]') || document.getElementById("hold-msg"); if (el) el.focus(); return;
+    }
+    hold = { ref: "", reason: "", errors: {}, busy: false, msg: { text: T(act === "hold" ? "adm.rt_held_ok" : "adm.rt_released_ok", { ref: r.body.ref }) } };
+    await load();
+    const m = document.getElementById("hold-msg"); if (m) m.focus();
+  });
+}
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+}
+let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  let cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  const next = cur === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", () => {
+  let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (data) render();
+});
+load();
+</script>
+</body>
+</html>

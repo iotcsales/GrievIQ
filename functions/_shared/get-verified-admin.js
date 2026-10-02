@@ -57,6 +57,10 @@ export const PERMISSIONS = {
   view_exceptions: ["super_admin", "operations_admin", "auditor"],
   view_reviews: ["super_admin", "operations_admin", "data_moderator", "auditor"],
   view_change_requests: ["super_admin", "operations_admin", "auditor"],
+  // Item 9d: data retention. The super admin runs it and places holds; the
+  // auditor reads the register (records of what was removed and why).
+  view_retention: ["super_admin", "auditor"],
+  manage_retention: ["super_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -74,6 +78,7 @@ export const PAGES = {
   "admin-issue-types": "view_issue_types",
   "admin-staff": "view_staff",
   "admin-photos": "manage_photos",
+  "admin-retention": "view_retention",
   "admin-audit": null,   // everyone: the observations they own
 };
 export function pagesFor(role) {

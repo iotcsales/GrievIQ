@@ -124,11 +124,14 @@ export function stripJpegMetadata(input) {
 
 // SQL pieces. Dates may be ISO ("...T...Z") or "YYYY-MM-DD HH:MM:SS"; both
 // are compared in the second shape.
-const norm = (col) => `REPLACE(REPLACE(${col}, 'T', ' '), 'Z', '')`;
-const CLOSED = `g.status IN ('RESOLVED', 'CLOSED') AND COALESCE(g.photo_hold, 0) = 0`;
+export const norm = (col) => `REPLACE(REPLACE(${col}, 'T', ' '), 'Z', '')`;
+// Not on hold: no hold placed by the super admin (photo_hold) and no open
+// audit observation about the case (item 9d: an observation holds it).
+export const HOLD_FREE = `COALESCE(g.photo_hold, 0) = 0 AND NOT EXISTS (SELECT 1 FROM observations o WHERE o.status IN ('DRAFT', 'ISSUED', 'RESPONDED', 'DONE_REPORTED') AND o.subject_cases LIKE '%"' || g.tracking_ref || '"%')`;
+const CLOSED = `g.status IN ('RESOLVED', 'CLOSED') AND ${HOLD_FREE}`;
 // When the case finally closed: closed_at (item 7d); for cases closed
 // before it existed, resolved_at + CONFIRM_DAYS (never early).
-const CLOSED_AT = `(CASE WHEN g.closed_at IS NOT NULL THEN ${norm("g.closed_at")} ELSE datetime(${norm("COALESCE(g.resolved_at, g.updated_at, g.created_at)")}, '+${CONFIRM_DAYS} days') END)`;
+export const CLOSED_AT = `(CASE WHEN g.closed_at IS NOT NULL THEN ${norm("g.closed_at")} ELSE datetime(${norm("COALESCE(g.resolved_at, g.updated_at, g.created_at)")}, '+${CONFIRM_DAYS} days') END)`;
 const FULL_DUE = `${CLOSED} AND ${CLOSED_AT} < datetime('now', '-${FULL_KEEP_DAYS} days')`;
 const RECORD_OVER = `${norm("g.created_at")} < datetime('now', '-${RECORD_KEEP_YEARS} years')`;
 const ALL_DUE = `${FULL_DUE} AND ${RECORD_OVER}`;

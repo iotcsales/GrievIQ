@@ -268,6 +268,7 @@ export async function onRequestGet(context) {
       canApprove: Boolean(pendingRow && canManageCases(myRole) && pendingRow.created_by !== auth.email),
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
+      retentionRemovedAt: grievance.retention_removed_at || null,   // item 9d
       locationDetail: grievance.location_detail || null,
       // Where the problem is (pin saved at filing, Sept 2026). For the case's
       // representatives only -- never returned by any public/citizen endpoint.

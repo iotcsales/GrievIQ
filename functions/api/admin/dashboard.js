@@ -28,6 +28,7 @@ import { shapeObservation, todayIst } from "../../_shared/audit.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 import { purgeDuePhotos, PURGE_BATCH } from "../../_shared/photo-store.js";
+import { runRetention, RUN_BATCH } from "../../_shared/retention.js";
 
 const NOTE_KEY = "data_collection_note";
 
@@ -62,6 +63,9 @@ export async function onRequestGet(context) {
   // Photo retention (item 7c): remove a small batch of photos that are due,
   // in the background so the page isn't slowed down.
   if (context.waitUntil) context.waitUntil(purgeDuePhotos(env, PURGE_BATCH));
+  // Item 9d: data retention, in small batches the same way (notices,
+  // anonymising cases whose time is up, old sign-in details and codes).
+  if (context.waitUntil) context.waitUntil(runRetention(env, { limit: RUN_BATCH, actor: "system", kind: "AUTO", request: context.request }));
 
   // Close any case whose confirmation time has run out before counting
   // (item 7a), so "open cases" never includes one that has closed.
