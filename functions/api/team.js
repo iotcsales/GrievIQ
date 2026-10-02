@@ -1,3 +1,4 @@
+import { idKey } from "../_shared/employee-id.js";
 // /api/team   (rep console, item 8b)
 //
 // The representative's team for one office. The office comes from our ward
@@ -55,8 +56,9 @@ async function readPerson(env, m, body, exceptId) {
   if (employeeId) {
     if (!ID_RE.test(employeeId)) fields.employeeId = "EMPLOYEE_ID";
     else {
-      const u = await env.DB.prepare("SELECT member_name FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND UPPER(employee_id) = ? AND id <> ?")
-        .bind(m.tier, m.id, employeeId, exceptId || "").first();
+      const { results: ids } = await env.DB.prepare("SELECT member_name, employee_id FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND employee_id IS NOT NULL AND id <> ?")
+        .bind(m.tier, m.id, exceptId || "").all();
+      const u = (ids || []).find((r) => idKey(r.employee_id) === idKey(employeeId));
       if (u) { fields.employeeId = "EMPLOYEE_ID_TAKEN"; usedBy = u.member_name; }
     }
   }

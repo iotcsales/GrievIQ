@@ -1,3 +1,4 @@
+import { idKey } from "../../_shared/employee-id.js";
 // functions/api/admin/staff.js
 //
 // GrievIQ staff (admin_users). Item 10 (Oct 2026), following NIST SP 800-53
@@ -126,7 +127,8 @@ async function readDetails(env, body, exceptEmail) {
   if (designation.length > 60) fields.designation = "LENGTH";
   let usedBy = null;
   if (!fields.employeeId) {
-    const u = await env.DB.prepare("SELECT email, name FROM admin_users WHERE UPPER(employee_id) = ? AND LOWER(email) <> ?").bind(employeeId, exceptEmail || "").first();
+    const { results: ids } = await env.DB.prepare("SELECT email, name, employee_id FROM admin_users WHERE employee_id IS NOT NULL AND LOWER(email) <> ?").bind(exceptEmail || "").all();
+    const u = (ids || []).find((r) => idKey(r.employee_id) === idKey(employeeId));
     if (u) { fields.employeeId = "TAKEN"; usedBy = u.name || u.email; }
   }
   return { value: { name, employeeId, phone, designation: designation || null }, fields, usedBy };
