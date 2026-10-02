@@ -198,7 +198,7 @@ export async function onRequestGet(context) {
     const all = can(role, "view_all_observations");
     const { results: obs } = all
       ? await env.DB.prepare("SELECT * FROM observations WHERE status IN ('ISSUED', 'RESPONDED', 'DONE_REPORTED')").all()
-      : await env.DB.prepare("SELECT * FROM observations WHERE owner_type = 'STAFF' AND LOWER(owner_email) = ? AND status NOT IN ('DRAFT', 'WITHDRAWN')").bind(auth.email).all();
+      : await env.DB.prepare("SELECT * FROM observations WHERE owner_type = 'STAFF' AND LOWER(owner_email) IN (SELECT value FROM json_each(?)) AND status NOT IN ('DRAFT', 'WITHDRAWN')").bind(JSON.stringify(auth.myEmails || [auth.email])).all();
     const rows = obs || [];
     const ids = rows.map((r) => r.id);
     const amendBy = new Map();

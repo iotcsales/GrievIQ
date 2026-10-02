@@ -161,6 +161,22 @@ export async function resolveAdmin(env, email, permission) {
       covering = (results || []).map((c) => ({ id: c.id, email: String(c.away_email).toLowerCase(), role: c.role, name: c.name || null, employeeId: c.employee_id || null, until: c.to_date }));
     } catch (e) { covering = []; }
   }
+  // Item 10b: earlier sign-in emails of the same person still count as theirs
+  // (e.g. an audit observation issued to their old address).
+  let myEmails = [email];
+  const coverAliases = {};
+  if (extended) {
+    try {
+      const { results } = await env.DB.prepare("SELECT old_email FROM staff_email_history WHERE admin_id = ?").bind(admin.id).all();
+      for (const r of results || []) myEmails.push(String(r.old_email).toLowerCase());
+      if (covering.length) {
+        const { results: cr } = await env.DB.prepare(
+          "SELECT h.old_email, LOWER(a.email) AS cur FROM staff_email_history h JOIN admin_users a ON a.id = h.admin_id WHERE LOWER(a.email) IN (SELECT value FROM json_each(?))"
+        ).bind(JSON.stringify(covering.map((c) => c.email))).all();
+        for (const r of cr || []) coverAliases[String(r.old_email).toLowerCase()] = r.cur;
+      }
+    } catch (e) { /* item 10b table not there yet */ }
+  }
   const roles = Array.from(new Set([admin.role].concat(covering.map((c) => c.role))));
 
   if (permission) {
@@ -170,5 +186,5 @@ export async function resolveAdmin(env, email, permission) {
     }
   }
 
-  return { ok: true, email, role: admin.role, roles, name: admin.name || null, employeeId: admin.employee_id || null, covering, coverFor: covering.map((c) => c.email) };
+  return { ok: true, email, role: admin.role, roles, name: admin.name || null, employeeId: admin.employee_id || null, covering, coverFor: covering.map((c) => c.email), myEmails, coverAliases };
 }

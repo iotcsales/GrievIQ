@@ -123,6 +123,20 @@ export async function activityOf(env, emails) {
   return check.failed.length ? null : out;
 }
 
+// Item 10b: earlier sign-in emails, by person (admin id). Empty if the
+// table isn't there yet.
+async function pastEmails(env) {
+  const m = new Map();
+  try {
+    const { results } = await env.DB.prepare("SELECT old_email, admin_id, changed_at FROM staff_email_history ORDER BY changed_at ASC").all();
+    for (const r of results || []) { if (!m.has(r.admin_id)) m.set(r.admin_id, []); m.get(r.admin_id).push({ email: String(r.old_email).toLowerCase(), until: r.changed_at }); }
+  } catch (e) { /* item 10b table not there yet */ }
+  return m;
+}
+async function wasEmailOf(env, email) {
+  try { return await env.DB.prepare("SELECT admin_id FROM staff_email_history WHERE old_email = ?").bind(email).first(); } catch (e) { return null; }
+}
+
 export async function onRequestGet({ request, env }) {
   // The auditor may read the list (who holds which role is a core audit
   // check); only the super admin changes it.
@@ -148,10 +162,11 @@ export async function onRequestGet({ request, env }) {
   const byEmail = new Map(rows.map((r) => [String(r.email).toLowerCase(), r]));
   const nameOf = (e) => { const r = byEmail.get(String(e).toLowerCase()); return r ? { name: r.name || null, employeeId: r.employee_id || null } : { name: null, employeeId: null }; };
   const staff = rows.map((r) => shapeStaff(r, manage, auth.email));
+  if (extended) { const pe = await pastEmails(env); rows.forEach((r, i) => { staff[i].previousEmails = (pe.get(r.id) || []).map((x) => x.email); }); }
   let activityCheck;
   if (manage && extended) {
     const act = await activityOf(env, staff.map((x) => x.email));
-    for (const x of staff) { const a = act ? act.get(x.email) : null; x.canDelete = !!a && !a.length && !x.isMe; x.activity = a || null; }
+    for (const x of staff) { const a = act ? act.get(x.email) : null; x.canDelete = !!a && !a.length && !x.isMe && !(x.previousEmails || []).length; x.activity = a || null; }
     activityCheck = lastActivityCheck;
   }
   return json({
@@ -243,6 +258,7 @@ export async function onRequestPost({ request, env }) {
     if (Object.keys(d.fields).length) return bad("Please correct the highlighted fields.", d.fields, { usedBy: d.usedBy });
     const existing = await get(email);
     if (existing) return bad(existing.status === "LEFT" ? "This email belonged to someone who has left. Use a new email for a new person." : "That email is already a staff member.", { email: existing.status === "LEFT" ? "FORMER" : "TAKEN" });
+    if (await wasEmailOf(env, email)) return bad("This email was used by a staff member before. Use a new email for a new person.", { email: "PREVIOUS" });
     const id = `admin-${crypto.randomUUID().slice(0, 8)}`;
     const v = d.value;
     await env.DB.prepare(
@@ -355,11 +371,42 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true });
   }
 
+  if (action === "change_email") {
+    // Item 10b: the same person moves to a new sign-in email (e.g. from Gmail
+    // to their @grieviq.in address). Name, ID, role and history stay; the old
+    // address stays linked to them for good and stops working at once.
+    const newEmail = String(body.newEmail || "").trim().toLowerCase();
+    const reason = String(body.reason || "").trim();
+    if (email === auth.email) return bad("You can't change your own email. Ask another super admin to do it.", { email: "SELF_EMAIL" });
+    if (p.status === "LEFT") return bad("This person has left. Bring them back first.", { email: "LEFT" });
+    const fields = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) || newEmail.length > 120) fields.newEmail = "FORMAT";
+    else if (newEmail === email) fields.newEmail = "SAME";
+    else {
+      const other = await get(newEmail);
+      if (other) fields.newEmail = other.status === "LEFT" ? "FORMER" : "TAKEN";
+      else if (await wasEmailOf(env, newEmail)) fields.newEmail = "PREVIOUS";
+    }
+    if (reason.length < 10 || reason.length > 300) fields.reason = "LENGTH";
+    if (Object.keys(fields).length) return bad("Please correct the highlighted fields.", fields);
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO staff_email_history (old_email, admin_id, new_email, reason, changed_by, changed_at) VALUES (?, ?, ?, ?, ?, ?)").bind(email, p.id, newEmail, reason, auth.email, now),
+      env.DB.prepare("UPDATE admin_users SET email = ?, updated_at = ? WHERE id = ?").bind(newEmail, now, p.id),
+      // Leave covers and their own pending change requests follow them.
+      env.DB.prepare("UPDATE staff_covers SET away_email = ? WHERE LOWER(away_email) = ?").bind(newEmail, email),
+      env.DB.prepare("UPDATE staff_covers SET cover_email = ? WHERE LOWER(cover_email) = ?").bind(newEmail, email),
+      env.DB.prepare("UPDATE change_requests SET requested_by = ? WHERE status = 'PENDING' AND LOWER(requested_by) = ?").bind(newEmail, email),
+    ]);
+    await logEvent(env, auth.email, "staff_email_changed", newEmail, { from: email, to: newEmail, reason, name: p.name || null, employeeId: p.employee_id || null });
+    return json({ ok: true, email: newEmail });
+  }
+
   if (action === "delete") {
     // Only for an entry added by mistake: someone with no recorded activity.
     const reason = String(body.reason || "").trim();
     if (email === auth.email) return bad("You can't delete yourself.", { email: "SELF" });
     if (reason.length < 10 || reason.length > 300) return bad("Say why this entry is being deleted (at least 10 characters).", { reason: "LENGTH" });
+    if ((await pastEmails(env)).has(p.id)) return bad("This person's email was changed before, so the entry can't be deleted. Mark them as having left instead.", { email: "HAS_ACTIVITY" }, { areas: ["email_change"] });
     const act = await activityOf(env, [email]);
     if (!act) return json({ error: "Couldn't check this person's activity, so nothing was deleted. Try again.", activityCheck: lastActivityCheck }, 503);
     const areas = act.get(email);

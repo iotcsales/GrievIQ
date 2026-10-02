@@ -75,6 +75,15 @@ export async function addOwnerLabels(env, list) {
         for (const r of results || []) staff.set(String(r.email).toLowerCase(), r);
       } catch (e2) { /* names are optional */ }
     }
+    // Item 10b: an owner who has since changed email shows under their name
+    // and current email.
+    const missing = emails.filter((e) => !staff.has(e));
+    if (missing.length) {
+      try {
+        const { results } = await env.DB.prepare("SELECT h.old_email, a.email, a.name, a.employee_id FROM staff_email_history h JOIN admin_users a ON a.id = h.admin_id WHERE h.old_email IN (SELECT value FROM json_each(?))").bind(JSON.stringify(missing)).all();
+        for (const r of results || []) staff.set(String(r.old_email).toLowerCase(), { email: r.email, name: r.name, employee_id: r.employee_id, moved: true });
+      } catch (e) { /* item 10b table not there yet */ }
+    }
   }
   for (const o of list) {
     if (o.ownerType === "OFFICE") {
@@ -84,7 +93,8 @@ export async function addOwnerLabels(env, list) {
     } else {
       const n = staff.get(String(o.ownerEmail || "").toLowerCase());
       // Item 10: "Rahul Verma (GIQ-014) — rahul@grieviq.in" when the name is known.
-      o.ownerLabel = n && n.name ? n.name + (n.employee_id ? " (" + n.employee_id + ")" : "") + " — " + o.ownerEmail : (o.ownerEmail || "");
+      const shown = n && n.moved ? n.email : o.ownerEmail;
+      o.ownerLabel = n && n.name ? n.name + (n.employee_id ? " (" + n.employee_id + ")" : "") + " — " + shown : (n && n.moved ? shown : (o.ownerEmail || ""));
     }
   }
   return list;

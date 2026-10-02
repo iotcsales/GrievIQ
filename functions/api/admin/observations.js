@@ -37,8 +37,9 @@ function ownsAs(auth, o) {
   if (o.owner_type === "OFFICE") return null;
   const owner = String(o.owner_email || "").toLowerCase();
   if (!owner) return null;
-  if (owner === auth.email) return owner;
-  return (auth.coverFor || []).includes(owner) ? owner : null;
+  if (owner === auth.email || (auth.myEmails || []).includes(owner)) return auth.email;
+  if ((auth.coverFor || []).includes(owner)) return owner;
+  return (auth.coverAliases || {})[owner] || null;
 }
 
 // Who may see this observation at all.
@@ -82,13 +83,22 @@ async function staffList(env) {
 // representative and office managers (item 9c).
 async function ownerRecipients(env, o) {
   if (o.owner_type === "OFFICE") return { to: await officeRecipients(env, o.owner_office), link: "office" };
-  const to = o.owner_email ? [o.owner_email] : [];
+  // Item 10b: an observation issued to someone's old address reaches their
+  // current one.
+  let ownerEmail = o.owner_email ? String(o.owner_email).toLowerCase() : null;
+  if (ownerEmail) {
+    try {
+      const cur = await env.DB.prepare("SELECT a.email FROM staff_email_history h JOIN admin_users a ON a.id = h.admin_id WHERE h.old_email = ?").bind(ownerEmail).first();
+      if (cur) ownerEmail = String(cur.email).toLowerCase();
+    } catch (e) { /* item 10b table not there yet */ }
+  }
+  const to = ownerEmail ? [ownerEmail] : [];
   // Item 10: whoever is covering for the owner today hears too.
-  if (o.owner_email) {
+  if (ownerEmail) {
     try {
       const today = todayIst();
       const { results } = await env.DB.prepare("SELECT cover_email FROM staff_covers WHERE LOWER(away_email) = ? AND ended_at IS NULL AND from_date <= ? AND to_date >= ?")
-        .bind(String(o.owner_email).toLowerCase(), today, today).all();
+        .bind(ownerEmail, today, today).all();
       for (const r of results || []) to.push(String(r.cover_email).toLowerCase());
     } catch (e) { /* item 10 tables not there yet */ }
   }
@@ -124,7 +134,7 @@ export async function onRequestGet({ request, env }) {
   if (!auditor) {
     where.push("status NOT IN ('DRAFT', 'WITHDRAWN')");
     if (!can(auth.roles || auth.role, "view_all_observations")) {
-      const mine = [auth.email].concat(auth.coverFor || []);
+      const mine = Array.from(new Set([auth.email].concat(auth.myEmails || [], auth.coverFor || [], Object.keys(auth.coverAliases || {}))));
       where.push("LOWER(owner_email) IN (SELECT value FROM json_each(?))"); binds.push(JSON.stringify(mine));
     }
   }
