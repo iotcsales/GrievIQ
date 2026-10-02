@@ -39,7 +39,7 @@ export const VIEWS = {
   reopen: ["case_reopened_for_citizen", "reopen"],
   photos: ["purge", "photo_moved_private", "migrate"],
   exports: ["audit_log_exported", "observations_exported", "overview_exported"],
-  staff: ["staff_added", "staff_removed", "staff_role_changed", "staff_details_changed", "staff_left", "staff_reactivated", "staff_list_reviewed", "member_added", "member_removed", "role_changed", "member_confirmed"],
+  staff: ["staff_added", "staff_removed", "staff_role_changed", "staff_details_changed", "staff_left", "staff_reactivated", "staff_deleted", "staff_list_reviewed", "member_added", "member_removed", "role_changed", "member_confirmed"],
   // Item 10: leave and leave cover ("additional charge").
   leave: ["staff_on_leave", "staff_back_from_leave", "staff_cover_ended"],
 };

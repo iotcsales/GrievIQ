@@ -166,7 +166,7 @@
   details.panel[open] > summary { margin-bottom: 12px; }
   button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
 </style>
-<script src="/i18n.js?v=10b"></script>
+<script src="/i18n.js?v=10c"></script>
 <script src="/admin-nav.js?v=r2"></script>
 </head>
 <body>
@@ -235,7 +235,7 @@ async function load() {
 const ERR = {
   name: { LENGTH: "adm.sf_e_name" }, employeeId: { REQUIRED: "adm.sf_e_id", FORMAT: "adm.sf_e_id_format", TAKEN: "adm.sf_e_id_taken" },
   phone: { REQUIRED: "adm.sf_e_phone", FORMAT: "adm.sf_e_phone_format" }, designation: { LENGTH: "adm.sf_e_designation" },
-  email: { FORMAT: "adm.st_err_email", TAKEN: "adm.sf_e_email_taken", FORMER: "adm.sf_e_email_former", SELF: "adm.sf_e_self_left", LAST_SUPER: "adm.sf_e_last_super", LEFT: "adm.sf_e_already_left" },
+  email: { FORMAT: "adm.st_err_email", TAKEN: "adm.sf_e_email_taken", FORMER: "adm.sf_e_email_former", SELF: "adm.sf_e_self_left", LAST_SUPER: "adm.sf_e_last_super", LEFT: "adm.sf_e_already_left", HAS_ACTIVITY: "adm.sf_e_has_activity" },
   role: { REQUIRED: "adm.sf_e_role" },
   until: { DATE: "adm.sf_e_date", PAST: "adm.sf_e_past", TOO_LONG: "adm.sf_e_leave_long", COVER_TOO_LONG: "adm.sf_e_cover_long" },
   pause: { SELF: "adm.sf_e_pause_self", LAST_SUPER: "adm.sf_e_last_super" },
@@ -308,7 +308,7 @@ function render() {
   html += '</div>';
   // Former staff
   if (data.former.length) {
-    html += '<details class="panel" id="former"' + (Object.keys(rows).some((k) => rows[k].mode === "back") ? " open" : "") + '><summary>' + esc(T("adm.sf_former_t", { n: data.former.length })) + '</summary><p class="note">' + esc(T("adm.sf_former_note")) + '</p><div class="staff-list">' +
+    html += '<details class="panel" id="former"' + (data.former.some((x) => rows[x.email] && rows[x.email].mode) ? " open" : "") + '><summary>' + esc(T("adm.sf_former_t", { n: data.former.length })) + '</summary><p class="note">' + esc(T("adm.sf_former_note")) + '</p><div class="staff-list">' +
       data.former.map((p) => formerRow(p, man)).join("") + '</div></details>';
   }
   // Recent covers
@@ -342,7 +342,8 @@ function staffRow(p, man) {
       '<label class="sr-only" for="role-' + esc(p.email) + '">' + esc(T("adm.st_new_role_for", { email: p.email })) + '</label><select class="role-select" id="role-' + esc(p.email) + '" aria-label="' + esc(T("adm.st_new_role_for", { email: p.email })) + '">' + roleOptions(p.role) + '</select>' +
       '<button type="button" class="save-role-btn">' + esc(T("adm.save")) + '</button>' +
       (p.status === "ON_LEAVE" ? '<button type="button" class="act-present">' + esc(T("adm.sf_mark_present")) + '</button>' : '<button type="button" class="act-leave">' + esc(T("adm.sf_mark_leave")) + '</button>') +
-      (p.isMe ? '' : '<button type="button" class="danger act-left">' + esc(T("adm.sf_mark_left")) + '</button>') + '</div>';
+      (p.isMe ? '' : '<button type="button" class="danger act-left">' + esc(T("adm.sf_mark_left")) + '</button>') +
+      (p.canDelete ? '<button type="button" class="danger act-delete">' + esc(T("adm.sf_delete")) + '</button>' : '') + '</div>';
   }
   if (man && rs.mode) html += rowForm(p, rs);
   return html + '</div>';
@@ -366,8 +367,13 @@ function rowForm(p, rs) {
       (p.role === "super_admin" ? '<p class="note">' + esc(T("adm.sf_super_no_cover")) + '</p>' : '') +
       (p.isMe ? '' : '<div class="fld"><label class="check"><input type="checkbox" id="' + id("pause") + '"' + (v.pause ? " checked" : "") + ' aria-describedby="' + id("pause") + '-err"> <span>' + esc(T("adm.sf_f_pause")) + '</span></label><div class="field-err" id="' + id("pause") + '-err" role="alert">' + esc(e.pause || "") + '</div></div>');
     btn = "adm.sf_leave_btn";
+  } else if (rs.mode === "delete") {
+    inner = '<p class="note">' + esc(T("adm.sf_delete_note", { name: p.name || p.email })) + '</p><div class="form-grid">' +
+      fld(id("reason"), T("adm.sf_f_delete_reason"), "text", v.reason, e.reason, { max: 300, ph: T("adm.sf_ph_delete_reason") }) + '</div>';
+    btn = "adm.sf_delete_btn"; cls = "danger";
   } else if (rs.mode === "left") {
-    inner = '<p class="note">' + esc(T("adm.sf_left_note")) + '</p><div class="form-grid">' + fld(id("lastDay"), T("adm.sf_f_lastday"), "date", v.lastDay || todayIst(), e.lastDay, { maxDate: addDays(todayIst(), 30) }) +
+    inner = '<p class="note">' + esc(T("adm.sf_left_note")) + '</p>' +
+      (p.canDelete ? '<p class="note">' + esc(T("adm.sf_left_can_delete")) + '</p>' : p.activity && p.activity.length ? '<p class="note">' + esc(T("adm.sf_left_kept")) + '</p>' : '') + '<div class="form-grid">' + fld(id("lastDay"), T("adm.sf_f_lastday"), "date", v.lastDay || todayIst(), e.lastDay, { maxDate: addDays(todayIst(), 30) }) +
       fld(id("reason"), T("adm.sf_f_left_reason"), "text", v.reason, e.reason, { max: 300, ph: T("adm.sf_ph_left_reason") }) + '</div>';
     btn = "adm.sf_left_btn"; cls = "danger";
   }
@@ -379,7 +385,9 @@ function formerRow(p, man) {
   const rs = rows[p.email] || {};
   let html = '<div class="staff-row" data-email="' + esc(p.email) + '"><div class="staff-top"><div><div class="staff-name">' + esc(p.name || p.email) + (p.employeeId ? ' <span class="muted">· ' + esc(p.employeeId) + '</span>' : '') + '</div>' +
     '<div class="staff-meta">' + esc(p.email) + ' · ' + esc(roleLabel(p.role)) + ' · ' + esc(T("adm.sf_left_on", { date: day(p.leftAt), reason: p.leftReason || "" })) + '</div></div><div class="badges"><span class="st st-LEFT">' + esc(T("adm.sf_st_left")) + '</span></div></div>';
-  if (man && rs.mode !== "back") html += '<div class="row-actions"><button type="button" class="act-back">' + esc(T("adm.sf_bring_back")) + '</button></div>';
+  if (man && !rs.mode) html += '<div class="row-actions"><button type="button" class="act-back">' + esc(T("adm.sf_bring_back")) + '</button>' +
+    (p.canDelete ? '<button type="button" class="danger act-delete">' + esc(T("adm.sf_delete")) + '</button>' : '') + '</div>';
+  if (man && rs.mode === "delete") html += rowForm(p, rs);
   if (man && rs.mode === "back") {
     const e = rs.errors || {};
     html += '<form class="row-form" data-email="' + esc(p.email) + '" data-mode="back" novalidate><p class="note">' + esc(T("adm.sf_back_note")) + '</p>' + fld("r-reason", T("adm.sf_f_back_reason"), "text", (rs.values || {}).reason, e.reason, { max: 300 }) +
@@ -450,6 +458,7 @@ function attach() {
     on(".act-leave", () => openRow(email, "leave"));
     on(".act-left", () => openRow(email, "left"));
     on(".act-back", () => openRow(email, "back"));
+    on(".act-delete", () => openRow(email, "delete"));
     on(".row-cancel", () => { rows = {}; render(); const b = document.querySelector('.staff-row[data-email="' + CSS.escape(email) + '"] button'); if (b) b.focus(); });
     on(".act-present", async () => {
       const r = await api("POST", { action: "present", email });
@@ -479,19 +488,22 @@ function attach() {
       } else if (mode === "left") {
         if (!v.lastDay) e.lastDay = T("adm.sf_e_date");
         if (v.reason.length < 10) e.reason = T("adm.sf_e_reason");
-      } else if (mode === "back") {
+      } else if (mode === "back" || mode === "delete") {
         if (v.reason.length < 10) e.reason = T("adm.sf_e_reason");
       }
       rows[email] = { mode, values: v, errors: e, busy: !Object.keys(e).length };
       render();
       if (Object.keys(e).length) { focusFirst(document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"]')); return; }
-      if (mode === "left" && !confirm(T("adm.sf_left_confirm", { name: ((data.staff.filter((x) => x.email === email)[0] || {}).name) || email }))) { rows[email].busy = false; render(); return; }
+      const who = ((data.staff.concat(data.former).filter((x) => x.email === email)[0] || {}).name) || email;
+      if (mode === "left" && !confirm(T("adm.sf_left_confirm", { name: who }))) { rows[email].busy = false; render(); return; }
+      if (mode === "delete" && !confirm(T("adm.sf_delete_confirm", { name: who }))) { rows[email].busy = false; render(); return; }
       const payload = mode === "edit" ? { action: "edit", email, name: v.name, employeeId: v.employeeId, phone: v.phone, designation: v.designation }
         : mode === "leave" ? { action: "leave", email, until: v.until, pause: v.pause, coverEmail: v.coverEmail, reason: v.reason }
-        : mode === "left" ? { action: "left", email, lastDay: v.lastDay, reason: v.reason } : { action: "reactivate", email, reason: v.reason };
+        : mode === "left" ? { action: "left", email, lastDay: v.lastDay, reason: v.reason }
+        : mode === "delete" ? { action: "delete", email, reason: v.reason } : { action: "reactivate", email, reason: v.reason };
       const r = await api("POST", payload);
-      if (!r.ok) { rows[email] = { mode, values: v, errors: serverErrors(r.body), busy: false }; render(); focusFirst(document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"]')); return; }
-      done(mode === "edit" ? (r.body.unchanged ? "adm.sf_unchanged" : "adm.sf_saved_details") : mode === "leave" ? "adm.sf_leave_ok" : mode === "left" ? "adm.sf_left_ok" : "adm.sf_back_ok", { name: v.name || email });
+      if (!r.ok) { const se = serverErrors(r.body); if (se.email && !se.form) se.form = se.email; rows[email] = { mode, values: v, errors: se, busy: false }; render(); focusFirst(document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"]')); return; }
+      done(mode === "edit" ? (r.body.unchanged ? "adm.sf_unchanged" : "adm.sf_saved_details") : mode === "leave" ? "adm.sf_leave_ok" : mode === "left" ? "adm.sf_left_ok" : mode === "delete" ? "adm.sf_delete_ok" : "adm.sf_back_ok", { name: v.name || who });
     });
   });
 }

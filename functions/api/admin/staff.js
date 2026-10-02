@@ -73,6 +73,39 @@ function shapeStaff(r, seeFull, me) {
   };
 }
 
+
+// ---- "added by mistake": has this person ever done anything? ----
+// Every place that records an action by a staff member. Someone who appears
+// in none of them can be deleted outright; anyone else can only be marked
+// as having left, so the audit trail always points to a real record.
+const ACTIVITY = [
+  ["audit_log", "admin_events", "actor_email"], ["audit_log", "admin_settings", "updated_by"],
+  ["cases", "grievance_events", "actor"], ["cases", "grievance_reopens", "actor"], ["cases", "grievance_reopens", "staff_email"],
+  ["cases", "resolution_reports", "created_by"], ["cases", "resolution_reports", "reviewed_by"], ["cases", "resolution_checks", "checked_by"],
+  ["cases", "rep_suggestions", "reviewed_by"], ["cases", "case_assignments", "assigned_by"], ["cases", "case_assignments", "ended_by"],
+  ["changes", "change_requests", "requested_by"], ["changes", "change_requests", "reviewed_by"],
+  ["audit_work", "observations", "owner_email"], ["audit_work", "observations", "created_by"], ["audit_work", "observations", "issued_by"],
+  ["audit_work", "observations", "closed_by"], ["audit_work", "observation_events", "actor_email"], ["audit_work", "observation_amendments", "amended_by"],
+  ["audit_work", "audit_engagements", "created_by"], ["audit_work", "audit_reports", "issued_by"],
+  ["retention", "retention_holds", "by_email"], ["retention", "retention_runs", "ran_by"],
+  ["covers", "staff_covers", "away_email"], ["covers", "staff_covers", "cover_email"], ["covers", "staff_covers", "created_by"], ["covers", "staff_covers", "ended_by"],
+];
+// Returns Map(email -> [areas]) for the given emails, or null if the check
+// could not run (then nobody may be deleted).
+export async function activityOf(env, emails) {
+  const list = Array.from(new Set((emails || []).map((e) => String(e).toLowerCase())));
+  const out = new Map(list.map((e) => [e, []]));
+  if (!list.length) return out;
+  const sql = ACTIVITY.map(([area, t, c]) => `SELECT DISTINCT '${area}' AS area, LOWER(${c}) AS e FROM ${t} WHERE LOWER(${c}) IN (SELECT value FROM json_each(?1))`).join(" UNION ");
+  try {
+    const { results } = await env.DB.prepare(sql).bind(JSON.stringify(list)).all();
+    for (const r of results || []) { const a = out.get(r.e); if (a && !a.includes(r.area)) a.push(r.area); }
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function onRequestGet({ request, env }) {
   // The auditor may read the list (who holds which role is a core audit
   // check); only the super admin changes it.
@@ -98,6 +131,10 @@ export async function onRequestGet({ request, env }) {
   const byEmail = new Map(rows.map((r) => [String(r.email).toLowerCase(), r]));
   const nameOf = (e) => { const r = byEmail.get(String(e).toLowerCase()); return r ? { name: r.name || null, employeeId: r.employee_id || null } : { name: null, employeeId: null }; };
   const staff = rows.map((r) => shapeStaff(r, manage, auth.email));
+  if (manage && extended) {
+    const act = await activityOf(env, staff.map((x) => x.email));
+    for (const x of staff) { const a = act ? act.get(x.email) : null; x.canDelete = !!a && !a.length && !x.isMe; x.activity = a || null; }
+  }
   return json({
     role: auth.role, canManage: manage, ready: extended, today,
     staff: staff.filter((s) => s.status !== "LEFT"),
@@ -295,6 +332,20 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("UPDATE admin_users SET status = 'LEFT', left_at = ?, left_reason = ?, leave_until = NULL, access_paused = 0, updated_at = ? WHERE LOWER(email) = ?").bind(lastDay, reason, now, email).run();
     await env.DB.prepare("UPDATE staff_covers SET ended_at = ?, ended_by = ?, end_reason = 'Left GrievIQ' WHERE (LOWER(away_email) = ? OR LOWER(cover_email) = ?) AND ended_at IS NULL").bind(now, auth.email, email, email).run();
     await logEvent(env, auth.email, "staff_left", email, { lastDay, reason, role: p.role });
+    return json({ ok: true });
+  }
+
+  if (action === "delete") {
+    // Only for an entry added by mistake: someone with no recorded activity.
+    const reason = String(body.reason || "").trim();
+    if (email === auth.email) return bad("You can't delete yourself.", { email: "SELF" });
+    if (reason.length < 10 || reason.length > 300) return bad("Say why this entry is being deleted (at least 10 characters).", { reason: "LENGTH" });
+    const act = await activityOf(env, [email]);
+    if (!act) return json({ error: "Couldn't check this person's activity, so nothing was deleted. Try again." }, 503);
+    const areas = act.get(email);
+    if (areas.length) return bad("This person has activity on record, so the entry can't be deleted. Mark them as having left instead.", { email: "HAS_ACTIVITY" }, { areas });
+    await env.DB.prepare("DELETE FROM admin_users WHERE LOWER(email) = ?").bind(email).run();
+    await logEvent(env, auth.email, "staff_deleted", email, { reason, name: p.name || null, employeeId: p.employee_id || null, role: p.role, status: p.status || "PRESENT" });
     return json({ ok: true });
   }
 
