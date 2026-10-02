@@ -33,7 +33,7 @@ import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shar
 const NOTE_MAX = 500;
 const REASON_MIN = 10;
 
-function can(role, permission) { return (PERMISSIONS[permission] || []).includes(role); }
+function can(role, permission) { return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r)); }
 
 
 function maskPhone(p) {
@@ -115,8 +115,8 @@ export async function onRequestGet({ request, env }) {
 
   return Response.json({
     role: auth.role,
-    canCheck: can(auth.role, "check_resolutions"),
-    canReveal: can(auth.role, "reveal_citizen_phone"),
+    canCheck: can(auth.roles || auth.role, "check_resolutions"),
+    canReveal: can(auth.roles || auth.role, "reveal_citizen_phone"),
     cases,
     recent: (recentRes.results || []).map((r) => ({
       trackingRef: r.tracking_ref, grievanceId: r.grievance_id, method: r.method, outcome: r.outcome,

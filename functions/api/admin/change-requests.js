@@ -34,7 +34,7 @@ const FIELDS = ["name", "phone", "email"];
 const MAX_IDS = 50;
 
 function can(role, permission) {
-  return (PERMISSIONS[permission] || []).includes(role);
+  return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r));
 }
 
 async function logEvent(env, actorEmail, action, target, detail) {
@@ -77,10 +77,10 @@ function shape(r, live) {
 export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
-  const canApprove = can(auth.role, "approve_changes");
-  const canRequest = can(auth.role, "request_changes");
+  const canApprove = can(auth.roles || auth.role, "approve_changes");
+  const canRequest = can(auth.roles || auth.role, "request_changes");
   // The auditor sees every request and decision, read-only.
-  const canView = can(auth.role, "view_change_requests");
+  const canView = can(auth.roles || auth.role, "view_change_requests");
   if (!canApprove && !canRequest && !canView) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
 
   const url = new URL(request.url);
@@ -133,11 +133,11 @@ export async function onRequestPost({ request, env }) {
   const action = String(body.action || "");
 
   if (action === "submit" || action === "withdraw") {
-    if (!can(auth.role, "request_changes")) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
+    if (!can(auth.roles || auth.role, "request_changes")) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
     return action === "submit" ? submit(env, auth, body) : withdraw(env, auth, body);
   }
   if (action === "approve" || action === "reject") {
-    if (!can(auth.role, "approve_changes")) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
+    if (!can(auth.roles || auth.role, "approve_changes")) return Response.json({ error: "INSUFFICIENT_ROLE" }, { status: 403 });
     return action === "approve" ? approve(env, auth, body) : reject(env, auth, body);
   }
   return Response.json({ error: "Unknown action." }, { status: 400 });

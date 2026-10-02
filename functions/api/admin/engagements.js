@@ -17,7 +17,7 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { shapeObservation, todayIst } from "../../_shared/audit.js";
 import { isDay, nextEngagementRef } from "../../_shared/audit-reports.js";
 
-const can = (role, perm) => (PERMISSIONS[perm] || []).includes(role);
+const can = (role, perm) => [].concat(role).some((r) => (PERMISSIONS[perm] || []).includes(r));
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
 function shapeEng(e, reported) {
@@ -43,7 +43,7 @@ export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "view_all_observations");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const id = new URL(request.url).searchParams.get("id");
-  const auditor = can(auth.role, "audit_observations");
+  const auditor = can(auth.roles || auth.role, "audit_observations");
   if (!id) {
     const { results } = await env.DB.prepare(
       `SELECT e.*, (SELECT COUNT(*) FROM observations o WHERE o.engagement_id = e.id AND o.status NOT IN ('WITHDRAWN')) AS n_obs,

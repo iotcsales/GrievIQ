@@ -9,8 +9,9 @@ import { getVerifiedAdmin, pagesFor } from "../../_shared/get-verified-admin.js"
 
 export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedAdmin(request, env);
-  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
-  return new Response(JSON.stringify({ email: auth.email, role: auth.role, pages: pagesFor(auth.role) }), {
+  if (!auth.ok) return Response.json({ error: auth.error, leaveUntil: auth.leaveUntil || null }, { status: auth.status });
+  return new Response(JSON.stringify({ email: auth.email, role: auth.role, roles: auth.roles || [auth.role], name: auth.name || null, employeeId: auth.employeeId || null,
+    covering: auth.covering || [], pages: pagesFor(auth.roles || auth.role) }), {
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }

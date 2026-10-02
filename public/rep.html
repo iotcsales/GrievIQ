@@ -10,7 +10,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=9e"></script>
+<script src="/i18n.js?v=10a"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
@@ -1299,7 +1299,13 @@ function attachTeamCaseHandlers() {
 // representative only), and the team activity log.
 var teamOfficeKey = null;
 var teamData = null;       // GET /api/team result, or { error }
-function blankTeamForm(notice) { return { name: '', email: '', role: '', designation: '', designationOther: '', errors: {}, busy: false, notice: notice || '' }; }
+function blankTeamForm(notice) { return { name: '', employeeId: '', phone: '', email: '', role: '', designation: '', designationOther: '', errors: {}, busy: false, notice: notice || '' }; }
+// Item 10: server field codes for name / mobile / employee ID / leave date.
+function personErr(code, usedBy) {
+  return T({ NAME: 'rep.team_err_name', PHONE_REQUIRED: 'rep.tm_e_phone', PHONE: 'rep.tm_e_phone_format', EMPLOYEE_ID: 'rep.tm_e_id_format', EMPLOYEE_ID_TAKEN: 'rep.tm_e_id_taken',
+    LEAVE_DATE: 'rep.tm_e_leave_date', LEAVE_PAST: 'rep.tm_e_leave_past', LEAVE_LONG: 'rep.tm_e_leave_long' }[code] || 'rep.team_err_name', { name: usedBy || '' });
+}
+function todayIstDate() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
 var teamForm = blankTeamForm();
 var teamRowState = {};     // member id -> { confirmRemove, roleOpen, role, busy, error }
 var jobEdit = null;        // item 8c-1: the job profile being edited
@@ -1381,7 +1387,11 @@ function renderReviewBox(t) {
 function renderJobEditor(m) {
   var t = teamData, e = jobEdit, err = e.errors || {};
   var fe = function(k) { return '<div class="field-err" id="je-' + k + '-err" role="alert">' + esc(err[k] || '') + '</div>'; };
+  var inv = function(k) { return err[k] ? ' aria-invalid="true"' : ''; };
   var html = '<form class="team-form job-form" id="job-form" novalidate><h3>' + esc(T('rep.job_edit_t', { name: m.name })) + '</h3>' +
+    '<label for="je-name">' + esc(T('rep.team_name')) + '</label><input id="je-name" type="text" maxlength="80" autocomplete="off" value="' + esc(e.name) + '" aria-describedby="je-name-err"' + inv('name') + '>' + fe('name') +
+    '<label for="je-phone">' + esc(T('rep.tm_phone')) + '</label><p class="hint" id="je-phone-hint">' + esc(T('rep.tm_phone_hint')) + '</p><input id="je-phone" type="tel" maxlength="16" autocomplete="off" value="' + esc(e.phone) + '" aria-describedby="je-phone-hint je-phone-err"' + inv('phone') + '>' + fe('phone') +
+    '<label for="je-employeeId">' + esc(T('rep.tm_id')) + '</label><p class="hint" id="je-employeeId-hint">' + esc(T('rep.tm_id_hint')) + '</p><input id="je-employeeId" type="text" maxlength="20" autocomplete="off" value="' + esc(e.employeeId) + '" aria-describedby="je-employeeId-hint je-employeeId-err"' + inv('employeeId') + '>' + fe('employeeId') +
     '<label for="je-designation">' + esc(T('rep.des_label')) + '</label>' + designationSelect('je-designation', e.designation, err.designation, 'je-designation-err') + fe('designation') +
     '<div id="je-other-wrap"' + (e.designation === 'OTHER' ? '' : ' hidden') + '><label for="je-designationOther">' + esc(T('rep.des_other_label')) + '</label>' +
       '<input id="je-designationOther" type="text" maxlength="60" value="' + esc(e.designationOther) + '" aria-describedby="je-designationOther-err"' + (err.designationOther ? ' aria-invalid="true"' : '') + '>' + fe('designationOther') + '</div>' +
@@ -1414,11 +1424,12 @@ function renderJobEditor(m) {
       t.issueTypes.map(function(it) { return '<label class="check"><input type="checkbox" class="je-type" value="' + esc(it.id) + '"' + (e.issueTypes.indexOf(it.id) !== -1 ? ' checked' : '') + '> ' + esc(catName(it.id, it.name)) + '</label>'; }).join('') +
       '</div></fieldset>' + fe('issueTypes');
   }
-  if (m.role === 'FIELD_WORKER') {
-    html += '<fieldset class="team-roles"><legend>' + esc(T('rep.job_avail')) + '</legend>' +
-      '<label class="check"><input type="radio" name="je-avail" value="1"' + (e.available ? ' checked' : '') + '> ' + esc(T('rep.job_available')) + '</label>' +
-      '<label class="check"><input type="radio" name="je-avail" value="0"' + (!e.available ? ' checked' : '') + '> ' + esc(T('rep.job_on_leave')) + '</label></fieldset>';
-  }
+  // Item 10: Present / On leave for every member, with the return date.
+  html += '<fieldset class="team-roles"><legend>' + esc(T('rep.job_avail')) + '</legend>' +
+    '<label class="check"><input type="radio" name="je-avail" value="1"' + (e.available ? ' checked' : '') + '> ' + esc(T('rep.tm_present')) + '</label>' +
+    '<label class="check"><input type="radio" name="je-avail" value="0"' + (!e.available ? ' checked' : '') + '> ' + esc(T(m.role === 'FIELD_WORKER' ? 'rep.job_on_leave' : 'rep.tm_on_leave')) + '</label></fieldset>' +
+    '<div id="je-leave-wrap"' + (e.available ? ' hidden' : '') + '><label for="je-leaveUntil">' + esc(T('rep.tm_leave_until_label')) + '</label><p class="hint" id="je-leaveUntil-hint">' + esc(T('rep.tm_leave_until_hint')) + '</p>' +
+    '<input id="je-leaveUntil" type="date" min="' + todayIstDate() + '" value="' + esc(e.leaveUntil || '') + '" aria-describedby="je-leaveUntil-hint je-leaveUntil-err"' + inv('leaveUntil') + '>' + fe('leaveUntil') + '</div>';
   html += '<div class="actions"><button type="submit" class="resolve-btn" id="je-save"' + (e.busy ? ' disabled' : '') + '>' + esc(T('rep.job_save')) + '</button>' +
     '<button type="button" class="resolve-btn" id="je-cancel"' + (e.busy ? ' disabled' : '') + '>' + esc(T('rep.r_cancel')) + '</button></div>' +
     '<div class="resolve-error" role="alert">' + esc(err.form || '') + '</div></form>';
@@ -1450,6 +1461,8 @@ function renderTeamTab() {
     var inv = function(k) { return f.errors[k] ? ' aria-invalid="true"' : ''; };
     html += '<form class="team-form" id="team-form" novalidate><h3>' + esc(T('rep.team_add_t')) + '</h3>' +
       '<label for="tf-name">' + esc(T('rep.team_name')) + '</label><input id="tf-name" type="text" maxlength="80" autocomplete="off" value="' + esc(f.name) + '" aria-describedby="tf-name-err"' + inv('name') + '>' + err('name') +
+      '<label for="tf-phone">' + esc(T('rep.tm_phone')) + '</label><p class="hint" id="tf-phone-hint">' + esc(T('rep.tm_phone_hint')) + '</p><input id="tf-phone" type="tel" maxlength="16" autocomplete="off" value="' + esc(f.phone) + '" aria-describedby="tf-phone-hint tf-phone-err"' + inv('phone') + '>' + err('phone') +
+      '<label for="tf-employeeId">' + esc(T('rep.tm_id')) + '</label><p class="hint" id="tf-employeeId-hint">' + esc(T('rep.tm_id_hint')) + '</p><input id="tf-employeeId" type="text" maxlength="20" autocomplete="off" value="' + esc(f.employeeId) + '" aria-describedby="tf-employeeId-hint tf-employeeId-err"' + inv('employeeId') + '>' + err('employeeId') +
       '<label for="tf-email">' + esc(T('rep.team_email')) + '</label><p class="hint" id="tf-email-hint">' + esc(T('rep.team_email_hint')) + '</p>' +
       '<input id="tf-email" type="email" maxlength="120" autocomplete="off" value="' + esc(f.email) + '" aria-describedby="tf-email-hint tf-email-err"' + inv('email') + '>' + err('email') +
       '<fieldset class="team-roles" aria-describedby="tf-role-err"><legend>' + esc(T('rep.team_role')) + '</legend>' +
@@ -1494,9 +1507,10 @@ function renderTeamTab() {
       }
       var badgeCls = m.role === 'OFFICE_MANAGER' ? 'acknowledged' : m.role === 'OFFICE_ASSISTANT' ? 'neutral' : 'pending';
       return '<div class="team-member" role="listitem"><div><b>' + esc(m.name) + '</b> <span class="badge ' + badgeCls + '">' + esc(T(ROLE_KEYS[m.role])) + '</span>' +
-        (m.job && m.job.available === false ? ' <span class="badge escalated">' + esc(T('rep.job_on_leave_badge')) + '</span>' : '') +
+        (m.job && m.job.available === false ? ' <span class="badge escalated">' + esc(m.job.leaveUntil ? T('rep.tm_leave_until', { date: formatDateOnly(m.job.leaveUntil + 'T00:00:00+05:30') }) : T('rep.job_on_leave_badge')) + '</span>' : '') +
         (m.paused ? ' <span class="badge escalated">' + esc(T('rep.team_paused')) + '</span>' : '') +
         renderMemberJob(m) +
+        '<div class="muted-inline">' + (m.employeeId ? esc(T('rep.tm_id_line', { id: m.employeeId })) + ' &middot; ' : '') + esc(m.phone ? T('rep.tm_phone_line', { phone: m.phone }) : T('rep.tm_phone_missing')) + '</div>' +
         '<div class="muted-inline">' + esc(m.email) + ' &middot; ' + esc(T('rep.team_added', { date: formatDateOnly(m.addedAt) })) + '</div></div>' +
         (editing ? renderJobEditor(m) : '') + roleBox +
         (actions ? '<div class="actions">' + actions + '</div>' : '') +
@@ -1516,7 +1530,7 @@ function openJobEditor(m) {
   var j = m.job || {};
   jobEdit = { id: m.id, designation: j.designation || '', designationOther: j.designationOther || '', duties: j.duties || '',
     wardsMode: j.wards ? 'some' : 'all', wards: (j.wards || []).slice(), issueTypes: (j.issueTypes || []).slice(),
-    available: j.available !== false, errors: {}, busy: false };
+    available: j.available !== false, leaveUntil: j.leaveUntil || '', name: m.name || '', phone: m.phone || '', employeeId: m.employeeId || '', errors: {}, busy: false };
 }
 // Reads the job editor's fields into jobEdit (they are not all re-drawn on each change).
 function readJobEditor() {
@@ -1529,6 +1543,10 @@ function readJobEditor() {
   if (document.querySelector('.je-ward')) e.wards = Array.prototype.map.call(document.querySelectorAll('.je-ward:checked'), function(x) { return x.value; });
   if (document.querySelector('.je-type')) e.issueTypes = Array.prototype.map.call(document.querySelectorAll('.je-type:checked'), function(x) { return x.value; });
   var av = document.querySelector('input[name="je-avail"]:checked'); if (av) e.available = av.value === '1';
+  if (g('je-leaveUntil')) e.leaveUntil = g('je-leaveUntil').value;
+  if (g('je-name')) e.name = g('je-name').value;
+  if (g('je-phone')) e.phone = g('je-phone').value;
+  if (g('je-employeeId')) e.employeeId = g('je-employeeId').value;
 }
 function attachTeamHandlers() {
   var form = document.getElementById('team-form');
@@ -1545,18 +1563,20 @@ function attachTeamHandlers() {
       e.preventDefault();
       var f = teamForm;
       f.name = document.getElementById('tf-name').value; f.email = document.getElementById('tf-email').value;
+      f.phone = document.getElementById('tf-phone').value; f.employeeId = document.getElementById('tf-employeeId').value;
       f.designation = document.getElementById('tf-designation').value; f.designationOther = document.getElementById('tf-designationOther').value;
       var chk = form.querySelector('input[name="tf-role"]:checked'); f.role = chk ? chk.value : '';
       f.errors = {}; f.notice = '';
       if (f.name.trim().length < 2) f.errors.name = T('rep.team_err_name');
+      if (!f.phone.trim()) f.errors.phone = T('rep.tm_e_phone');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) f.errors.email = T('rep.team_err_email');
       if (!f.role) f.errors.role = T('rep.team_err_role');
       if (f.designation === 'OTHER' && (f.designationOther.trim().length < 2 || f.designationOther.trim().length > 60)) f.errors.designationOther = T('rep.des_other_err');
-      var first = f.errors.name ? '#tf-name' : f.errors.email ? '#tf-email' : f.errors.role ? 'input[name="tf-role"]' : f.errors.designationOther ? '#tf-designationOther' : null;
+      var first = f.errors.name ? '#tf-name' : f.errors.phone ? '#tf-phone' : f.errors.email ? '#tf-email' : f.errors.role ? 'input[name="tf-role"]' : f.errors.designationOther ? '#tf-designationOther' : null;
       if (first) { renderContent(); document.querySelector(first).focus(); return; }
       f.busy = true; renderContent();
       try {
-        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', office: teamOfficeKey, name: f.name.trim(), email: f.email.trim(), role: f.role,
+        var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', office: teamOfficeKey, name: f.name.trim(), phone: f.phone.trim(), employeeId: f.employeeId.trim(), email: f.email.trim(), role: f.role,
           designation: f.designation || null, designationOther: f.designation === 'OTHER' ? f.designationOther.trim() : '' }) });
         var data = await res.json().catch(function() { return {}; });
         f.busy = false;
@@ -1564,6 +1584,8 @@ function attachTeamHandlers() {
           var fe = data.fields || {};
           if (fe.email) f.errors.email = T(fe.email === 'DUPLICATE' ? 'rep.team_err_dup' : fe.email === 'SELF' ? 'rep.team_err_self' : 'rep.team_err_email');
           if (fe.name) f.errors.name = T('rep.team_err_name');
+          if (fe.phone) f.errors.phone = personErr(fe.phone);
+          if (fe.employeeId) f.errors.employeeId = personErr(fe.employeeId, data.usedBy);
           if (fe.role) f.errors.role = T('rep.team_err_role');
           if (fe.designation) f.errors.designation = T('rep.des_err');
           if (fe.designationOther) f.errors.designationOther = T('rep.des_other_err');
@@ -1644,7 +1666,7 @@ function attachTeamHandlers() {
       clearErr('wards');
     };
     document.querySelectorAll('input[name="je-wmode"], .je-ward').forEach(function(x) { x.addEventListener('change', wardsChanged); });
-    document.querySelectorAll('.je-type, input[name="je-avail"]').forEach(function(x) { x.addEventListener('change', function() { readJobEditor(); }); });
+    document.querySelectorAll('.je-type, input[name="je-avail"]').forEach(function(x) { x.addEventListener('change', function() { readJobEditor(); var lw = document.getElementById('je-leave-wrap'); if (lw) lw.hidden = jobEdit.available; }); });
     var wf = document.getElementById('je-wfilter');
     if (wf) wf.addEventListener('input', function() {
       var q = wf.value.trim().toLowerCase();
@@ -1657,10 +1679,13 @@ function attachTeamHandlers() {
       ev.preventDefault();
       readJobEditor();
       var e = jobEdit; e.errors = {};
+      if (e.name.trim().length < 2) e.errors.name = T('rep.team_err_name');
+      if (!e.phone.trim()) e.errors.phone = T('rep.tm_e_phone');
+      if (!e.available && !e.leaveUntil) e.errors.leaveUntil = T('rep.tm_e_leave_date');
       if (e.designation === 'OTHER' && (e.designationOther.trim().length < 2 || e.designationOther.trim().length > 60)) e.errors.designationOther = T('rep.des_other_err');
       if (e.duties.trim().length > teamData.dutiesMax) e.errors.duties = T('rep.job_duties_err', { max: teamData.dutiesMax });
       if (e.wardsMode === 'some' && !e.wards.length) e.errors.wards = T('rep.job_wards_err');
-      var order = ['designationOther', 'duties', 'wards'];
+      var order = ['name', 'phone', 'designationOther', 'duties', 'wards', 'leaveUntil'];
       var firstBad = order.filter(function(k) { return e.errors[k]; })[0];
       if (firstBad) { renderContent(); focusJobError(firstBad); return; }
       e.busy = true; renderContent();
@@ -1670,19 +1695,24 @@ function attachTeamHandlers() {
           action: 'profile', office: teamOfficeKey, memberId: e.id,
           designation: e.designation || null, designationOther: e.designation === 'OTHER' ? e.designationOther.trim() : '',
           duties: e.duties.trim(), wards: multi && e.wardsMode === 'some' ? e.wards : null,
-          issueTypes: e.issueTypes, available: e.available }) });
+          issueTypes: e.issueTypes, available: e.available, leaveUntil: e.available ? null : e.leaveUntil,
+          name: e.name.trim(), phone: e.phone.trim(), employeeId: e.employeeId.trim() }) });
         var data = await res.json().catch(function() { return {}; });
         e.busy = false;
         if (!res.ok) {
           var fe = data.fields || {};
           if (fe.designation) e.errors.designation = T('rep.des_err');
+          if (fe.name) e.errors.name = personErr(fe.name);
+          if (fe.phone) e.errors.phone = personErr(fe.phone);
+          if (fe.employeeId) e.errors.employeeId = personErr(fe.employeeId, data.usedBy);
+          if (fe.leaveUntil) e.errors.leaveUntil = personErr(fe.leaveUntil);
           if (fe.designationOther) e.errors.designationOther = T('rep.des_other_err');
           if (fe.duties) e.errors.duties = T('rep.job_duties_err', { max: teamData.dutiesMax });
           if (fe.wards) e.errors.wards = T(fe.wards === 'WARDS_NONE' ? 'rep.job_wards_err' : 'rep.job_wards_bad');
           if (fe.issueTypes) e.errors.issueTypes = T('rep.job_types_err');
           if (!Object.keys(fe).length) e.errors.form = errText(data.error);
           renderContent();
-          var fb = ['designation', 'designationOther', 'duties', 'wards', 'issueTypes'].filter(function(k) { return e.errors[k]; })[0];
+          var fb = ['name', 'phone', 'employeeId', 'designation', 'designationOther', 'duties', 'wards', 'issueTypes', 'leaveUntil'].filter(function(k) { return e.errors[k]; })[0];
           if (fb) focusJobError(fb);
           return;
         }

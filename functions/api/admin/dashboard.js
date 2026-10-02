@@ -37,7 +37,7 @@ function has(v) {
 }
 
 function can(role, permission) {
-  return (PERMISSIONS[permission] || []).includes(role);
+  return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r));
 }
 
 async function logEvent(env, actorEmail, action, target, detail) {
@@ -149,7 +149,7 @@ export async function onRequestGet(context) {
     };
   });
 
-  const role = auth.role;
+  const role = auth.roles || auth.role;   // item 10: includes roles held while covering
 
   // Change requests waiting (maker-checker): approvers see all waiting
   // requests; a data entry operator sees how many of their own are waiting.
@@ -218,7 +218,10 @@ export async function onRequestGet(context) {
   }
 
   return Response.json({
-    role,
+    role: auth.role,
+    roles: auth.roles || [auth.role],
+    me: { email: auth.email, name: auth.name || null, employeeId: auth.employeeId || null },
+    covering: auth.covering || [],
     wards,
     audit,
     needsAttentionTotal: exceptionCases.length,

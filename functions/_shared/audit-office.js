@@ -63,13 +63,28 @@ export async function addOwnerLabels(env, list) {
   const keys = Array.from(new Set(list.filter((o) => o.ownerType === "OFFICE" && o.ownerOffice).map((o) => o.ownerOffice)));
   const map = new Map();
   for (const k of keys) map.set(k, await officeByKey(env, k));
+  const staff = new Map();
+  const emails = Array.from(new Set(list.filter((o) => o.ownerType !== "OFFICE" && o.ownerEmail).map((o) => String(o.ownerEmail).toLowerCase())));
+  if (emails.length) {
+    try {
+      const { results } = await env.DB.prepare("SELECT email, name, employee_id FROM admin_users WHERE LOWER(email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all();
+      for (const r of results || []) staff.set(String(r.email).toLowerCase(), r);
+    } catch (e) {
+      try {
+        const { results } = await env.DB.prepare("SELECT email, name FROM admin_users WHERE LOWER(email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all();
+        for (const r of results || []) staff.set(String(r.email).toLowerCase(), r);
+      } catch (e2) { /* names are optional */ }
+    }
+  }
   for (const o of list) {
     if (o.ownerType === "OFFICE") {
       const info = map.get(o.ownerOffice) || null;
       o.ownerOfficeInfo = info ? { key: info.key, tier: info.tier, title: info.title, name: info.name, person: info.person, hasEmail: info.hasEmail } : null;
       o.ownerLabel = info ? officeText(info) : (o.ownerOffice || "");
     } else {
-      o.ownerLabel = o.ownerEmail || "";
+      const n = staff.get(String(o.ownerEmail || "").toLowerCase());
+      // Item 10: "Rahul Verma (GIQ-014) — rahul@grieviq.in" when the name is known.
+      o.ownerLabel = n && n.name ? n.name + (n.employee_id ? " (" + n.employee_id + ")" : "") + " — " + o.ownerEmail : (o.ownerEmail || "");
     }
   }
   return list;

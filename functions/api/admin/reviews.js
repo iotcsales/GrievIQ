@@ -137,7 +137,7 @@ export async function onRequestGet({ request, env }) {
   // Most-corroborated first, then oldest.
   list.sort((a, b) => b.count - a.count || String(a.firstAt).localeCompare(String(b.firstAt)));
 
-  return Response.json({ role: auth.role, canAct: (PERMISSIONS.review_queue || []).includes(auth.role), groups: list, generatedAt: new Date().toISOString() });
+  return Response.json({ role: auth.role, canAct: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.review_queue || []).includes(r)), groups: list, generatedAt: new Date().toISOString() });
 }
 
 export async function onRequestPost({ request, env }) {

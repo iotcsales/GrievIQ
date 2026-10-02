@@ -73,6 +73,7 @@ export function parseList(text) {
 }
 
 // A member row's job profile, for pages.
+function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
 export function jobProfile(r) {
   return {
     designation: r.designation || null,
@@ -80,7 +81,9 @@ export function jobProfile(r) {
     duties: r.duties || null,
     wards: parseList(r.wards),
     issueTypes: parseList(r.issue_types) || [],
-    available: r.available == null ? true : Number(r.available) === 1,
+    // Item 10: "on leave" ends by itself after the return date.
+    available: r.available == null ? true : Number(r.available) === 1 || (!!r.leave_until && r.leave_until < istToday()),
+    leaveUntil: r.available != null && Number(r.available) === 0 && r.leave_until && r.leave_until >= istToday() ? r.leave_until : null,
   };
 }
 

@@ -21,7 +21,7 @@ import {
 } from "../../_shared/audit.js";
 import { officeOptions, officeByKey, officeRecipients, addOwnerLabels, notifyAudit, ownerAction, officeText } from "../../_shared/audit-office.js";
 
-const can = (role, perm) => (PERMISSIONS[perm] || []).includes(role);
+const can = (role, perm) => [].concat(role).some((r) => (PERMISSIONS[perm] || []).includes(r));
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
 async function load(env, id) {
@@ -31,17 +31,27 @@ async function load(env, id) {
   return { o, amendments: results || [] };
 }
 
+// Item 10: the owner, or someone covering for the owner during their leave.
+// Returns the owner's email (whose behalf it is) or null.
+function ownsAs(auth, o) {
+  if (o.owner_type === "OFFICE") return null;
+  const owner = String(o.owner_email || "").toLowerCase();
+  if (!owner) return null;
+  if (owner === auth.email) return owner;
+  return (auth.coverFor || []).includes(owner) ? owner : null;
+}
+
 // Who may see this observation at all.
 function canSee(auth, o) {
-  if (can(auth.role, "audit_observations")) return true;                       // auditor: all, drafts too
+  if (can(auth.roles || auth.role, "audit_observations")) return true;                       // auditor: all, drafts too
   if (o.status === "DRAFT" || o.status === "WITHDRAWN") return false;
-  if (can(auth.role, "view_all_observations")) return true;                    // super admin
-  return String(o.owner_email || "").toLowerCase() === auth.email;              // the owner
+  if (can(auth.roles || auth.role, "view_all_observations")) return true;                    // super admin
+  return ownsAs(auth, o) !== null;                                               // the owner, or covering for them
 }
 
 function permissionsFor(auth, o) {
-  const auditor = can(auth.role, "audit_observations");
-  const owner = o.owner_type !== "OFFICE" && String(o.owner_email || "").toLowerCase() === auth.email;
+  const auditor = can(auth.roles || auth.role, "audit_observations");
+  const owner = ownsAs(auth, o) !== null;
   const open = OPEN_STATUSES.includes(o.status);
   return {
     edit: auditor && o.status === "DRAFT",
@@ -50,22 +60,39 @@ function permissionsFor(auth, o) {
     amend: auditor && open,
     respond: owner && (o.status === "ISSUED" || o.status === "RESPONDED"),
     reportDone: owner && o.status === "RESPONDED",
-    comment: o.status !== "DRAFT" && o.status !== "WITHDRAWN" && (auditor || owner || can(auth.role, "view_all_observations")),
+    comment: o.status !== "DRAFT" && o.status !== "WITHDRAWN" && (auditor || owner || can(auth.roles || auth.role, "view_all_observations")),
     close: auditor && o.status === "DONE_REPORTED",
     sendBack: auditor && o.status === "DONE_REPORTED",
-    acceptRisk: can(auth.role, "accept_risk") && open && !owner,
+    acceptRisk: can(auth.roles || auth.role, "accept_risk") && open && !owner,
   };
 }
 
 async function staffList(env) {
-  const { results } = await env.DB.prepare("SELECT email, name, role FROM admin_users WHERE role <> 'auditor' ORDER BY name, email").all();
-  return (results || []).map((r) => ({ email: String(r.email).toLowerCase(), name: r.name || null, role: r.role }));
+  let rows;
+  try {
+    // Item 10: people who have left can't be given new observations.
+    rows = (await env.DB.prepare("SELECT email, name, employee_id, role FROM admin_users WHERE role <> 'auditor' AND COALESCE(status, 'PRESENT') <> 'LEFT' ORDER BY name, email").all()).results;
+  } catch (e) {
+    rows = (await env.DB.prepare("SELECT email, name, role FROM admin_users WHERE role <> 'auditor' ORDER BY name, email").all()).results;
+  }
+  return (rows || []).map((r) => ({ email: String(r.email).toLowerCase(), name: r.name || null, employeeId: r.employee_id || null, role: r.role }));
 }
 
 // Who hears about an observation: a staff owner, or the office's
 // representative and office managers (item 9c).
 async function ownerRecipients(env, o) {
-  return o.owner_type === "OFFICE" ? { to: await officeRecipients(env, o.owner_office), link: "office" } : { to: o.owner_email ? [o.owner_email] : [], link: "staff" };
+  if (o.owner_type === "OFFICE") return { to: await officeRecipients(env, o.owner_office), link: "office" };
+  const to = o.owner_email ? [o.owner_email] : [];
+  // Item 10: whoever is covering for the owner today hears too.
+  if (o.owner_email) {
+    try {
+      const today = todayIst();
+      const { results } = await env.DB.prepare("SELECT cover_email FROM staff_covers WHERE LOWER(away_email) = ? AND ended_at IS NULL AND from_date <= ? AND to_date >= ?")
+        .bind(String(o.owner_email).toLowerCase(), today, today).all();
+      for (const r of results || []) to.push(String(r.cover_email).toLowerCase());
+    } catch (e) { /* item 10 tables not there yet */ }
+  }
+  return { to, link: "staff" };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -73,7 +100,7 @@ export async function onRequestGet({ request, env }) {
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const u = new URL(request.url);
   const today = todayIst();
-  const auditor = can(auth.role, "audit_observations");
+  const auditor = can(auth.roles || auth.role, "audit_observations");
 
   const id = u.searchParams.get("id");
   if (id) {
@@ -96,7 +123,10 @@ export async function onRequestGet({ request, env }) {
   const where = [], binds = [];
   if (!auditor) {
     where.push("status NOT IN ('DRAFT', 'WITHDRAWN')");
-    if (!can(auth.role, "view_all_observations")) { where.push("LOWER(owner_email) = ?"); binds.push(auth.email); }
+    if (!can(auth.roles || auth.role, "view_all_observations")) {
+      const mine = [auth.email].concat(auth.coverFor || []);
+      where.push("LOWER(owner_email) IN (SELECT value FROM json_each(?))"); binds.push(JSON.stringify(mine));
+    }
   }
   const { results: rows } = await env.DB.prepare(`SELECT * FROM observations ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY created_at DESC`).bind(...binds).all();
   const ids = (rows || []).map((r) => r.id);
@@ -133,7 +163,7 @@ export async function onRequestGet({ request, env }) {
     return csvResponse(list);
   }
   return json({
-    role: auth.role, me: auth.email, today, canCreate: auditor, canSeeLog: can(auth.role, "view_audit_log"),
+    role: auth.role, me: auth.email, today, canCreate: auditor, canSeeLog: can(auth.roles || auth.role, "view_audit_log"),
     totals, observations: list, staff: auditor ? await staffList(env) : null, offices: auditor ? await officeOptions(env) : null, defaults: DEFAULT_DUE_DAYS,
   });
 }
@@ -158,7 +188,7 @@ export async function onRequestPost({ request, env }) {
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
   const action = String(body.action || "");
-  const auditor = can(auth.role, "audit_observations");
+  const auditor = can(auth.roles || auth.role, "audit_observations");
   const now = new Date().toISOString();
   const today = todayIst();
   const log = (id, kind, text, detail) => logObservation(env, id, kind, auth.email, auth.role, text, detail);
@@ -175,7 +205,10 @@ export async function onRequestPost({ request, env }) {
       return null;
     }
     if (!v.owner_email) return null;
-    const s = await env.DB.prepare("SELECT email, role FROM admin_users WHERE LOWER(email) = ?").bind(v.owner_email).first();
+    let s = null;
+    try { s = await env.DB.prepare("SELECT email, role, status FROM admin_users WHERE LOWER(email) = ?").bind(v.owner_email).first(); }
+    catch (e) { s = await env.DB.prepare("SELECT email, role FROM admin_users WHERE LOWER(email) = ?").bind(v.owner_email).first(); }
+    if (s && s.status === "LEFT") s = null;
     if (!s || s.role === "auditor") return json({ error: "Choose a staff member who isn't an auditor.", fields: { ownerEmail: !s ? "NOT_STAFF" : "AUDITOR" } }, 400);
     return null;
   }
@@ -299,7 +332,11 @@ export async function onRequestPost({ request, env }) {
   if (action === "respond" || action === "report_done" || action === "comment") {
     const allowed = action === "respond" ? p.respond : action === "report_done" ? p.reportDone : p.comment;
     const denied = need(allowed); if (denied) return denied;
-    return ownerAction(action, { env, request, o, body, json, who: auth.email, log: (kind, text, detail) => log(id, kind, text, detail) });
+    // Item 10: a person covering for the owner acts on their behalf (recorded).
+    const behalf = ownsAs(auth, o);
+    const covering = behalf && behalf !== auth.email ? behalf : null;
+    return ownerAction(action, { env, request, o, body, json, who: covering ? `${auth.email} (covering for ${covering})` : auth.email,
+      log: (kind, text, detail) => log(id, kind, text, covering ? Object.assign({}, detail || {}, { onBehalfOf: covering }) : detail) });
   }
 
   if (action === "close") {
@@ -323,7 +360,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   if (action === "accept_risk") {
-    if (can(auth.role, "accept_risk") && o.owner_type !== "OFFICE" && String(o.owner_email || "").toLowerCase() === auth.email) {
+    if (can(auth.roles || auth.role, "accept_risk") && ownsAs(auth, o) !== null) {
       return json({ error: "You can't accept the risk on an observation you own.", code: "OWNER" }, 403);
     }
     const denied = need(p.acceptRisk); if (denied) return denied;

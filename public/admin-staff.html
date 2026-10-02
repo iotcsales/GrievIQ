@@ -127,9 +127,47 @@
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  /* Item 10: staff records, status, leave cover */
+  main { max-width: 980px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; }
+  .fld label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .fld input[type=text], .fld input[type=email], .fld input[type=tel], .fld input[type=date], .fld select, .fld textarea { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .fld input, html.light-theme .fld select, html.light-theme .fld textarea { background: #fff; }
+  .fld [aria-invalid="true"] { border-color: var(--admin-danger); }
+  .fld .hint { color: var(--admin-muted); font-size: 12px; margin: 0 0 4px; }
+  .fld .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 12px; }
+  .field-err { color: var(--admin-danger); font-size: 12.5px; margin-top: 4px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+  .note { font-size: 13px; color: var(--admin-muted); margin: 8px 0 0; line-height: 1.5; }
+  .msg { font-size: 14px; margin: 0 0 16px; padding: 10px 12px; border-radius: 6px; }
+  .msg:empty { display: none; }
+  .msg.success { background: #1f3326; color: #a6e0b4; } .msg.error { background: var(--admin-danger-bg); color: var(--admin-danger); }
+  html.light-theme .msg.success { background: #e6f4ea; color: #1f5f32; }
+  .staff-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .staff-row, .row-actions > *, .row-form { min-width: 0; }
+  .role-select, .row-form select, .row-form input { max-width: 100%; }
+  .staff-row { border: 1px solid var(--admin-border); border-radius: 8px; padding: 14px 16px; }
+  .staff-top { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; justify-content: space-between; }
+  .staff-name { font-weight: 600; font-size: 15px; }
+  .staff-name .missing { color: var(--admin-danger); font-weight: 600; font-size: 13px; }
+  .staff-meta { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.6; overflow-wrap: anywhere; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .st { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .st-PRESENT { background: #233a2b; color: #7fce8f; } .st-ON_LEAVE { background: #3a3423; color: #d8c26f; } .st-LEFT { background: #2c3543; color: #9aa4b2; }
+  .st-cover { background: #1f3040; color: #6fb0e8; }
+  html.light-theme .st-PRESENT { background: #e6f4ea; color: #1f7a3a; } html.light-theme .st-ON_LEAVE { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-LEFT { background: #eef0f3; color: #5b6472; } html.light-theme .st-cover { background: #e6effb; color: #1d4e9a; }
+  .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .row-form { border-top: 1px solid var(--admin-border); margin-top: 12px; padding-top: 4px; }
+  .review { border: 1px solid var(--admin-border); border-left: 4px solid #d8c26f; border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; }
+  .review p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+  .covers li { font-size: 14px; margin: 6px 0; line-height: 1.5; }
+  details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
 </style>
-<script src="/i18n.js?v=9e"></script>
-<script src="/admin-nav.js?v=r1"></script>
+<script src="/i18n.js?v=10a"></script>
+<script src="/admin-nav.js?v=r2"></script>
 </head>
 <body>
 
@@ -147,255 +185,342 @@
 <main>
   <h1 data-i18n="adm.st_title">Staff &amp; roles</h1>
   <p class="subtitle" id="page-sub" data-i18n="adm.st_sub">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
-
-  <div class="panel" id="add-panel">
-    <h2 data-i18n="adm.st_add_h">Add staff member</h2>
-    <div class="add-form">
-      <label for="new-email" class="sr-only" data-i18n="adm.st_email_label">Email address</label>
-      <input type="email" id="new-email" placeholder="name@example.com" data-i18n-ph="adm.st_email_ph" />
-      <label for="new-role" class="sr-only" data-i18n="adm.st_role_label">Role</label>
-      <select id="new-role">
-        <option value="operations_admin" data-i18n="adm.st_role_operations_admin">Operations Admin</option>
-        <option value="data_moderator" data-i18n="adm.st_role_data_moderator">Data Moderator</option>
-        <option value="auditor" data-i18n="adm.st_opt_auditor">Auditor (raises audit observations; can't change data)</option>
-        <option value="data_entry_operator" data-i18n="adm.st_opt_data_entry_operator">Data Entry Operator (requests need approval)</option>
-        <option value="super_admin" data-i18n="adm.st_role_super_admin">Super Admin</option>
-      </select>
-      <button class="primary" id="add-btn" data-i18n="adm.st_add_btn">Add staff</button>
-    </div>
-    <div id="status-msg"></div>
-  </div>
-
-  <div class="panel">
-    <h2 data-i18n="adm.st_current_h">Current staff</h2>
-    <table>
-      <thead>
-        <tr>
-          <th data-i18n="adm.st_th_email">Email</th>
-          <th data-i18n="adm.st_th_role">Role</th>
-          <th data-i18n="adm.st_th_added">Added</th>
-          <th id="actions-head"><span class="sr-only" data-i18n="adm.st_th_actions">Actions</span></th>
-        </tr>
-      </thead>
-      <tbody id="staff-rows">
-        <tr><td colspan="4" class="muted" data-i18n="adm.st_loading">Loading...</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <div class="msg" id="status-msg" role="status" tabindex="-1"></div>
+  <div id="content"><p class="muted" data-i18n="adm.st_loading">Loading...</p></div>
 </main>
 
 <script>
-// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+// ---- Language (English / Hindi): text lives in /i18n.js ("adm.st_*", "adm.sf_*") ----
 function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
 function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
-
-// Role keys in display order; the labels are in /i18n.js ("adm.st_role_*").
 const ROLE_LABELS = {
-  super_admin: "adm.st_role_super_admin",
-  operations_admin: "adm.st_role_operations_admin",
-  data_moderator: "adm.st_role_data_moderator",
-  auditor: "adm.st_role_auditor",
-  data_entry_operator: "adm.st_role_data_entry_operator",
+  super_admin: "adm.st_role_super_admin", operations_admin: "adm.st_role_operations_admin", data_moderator: "adm.st_role_data_moderator",
+  auditor: "adm.st_role_auditor", data_entry_operator: "adm.st_role_data_entry_operator",
 };
+const ROLE_OPTS = { auditor: "adm.st_opt_auditor", data_entry_operator: "adm.st_opt_data_entry_operator" };
 function roleLabel(r) { return ROLE_LABELS[r] ? T(ROLE_LABELS[r]) : r; }
+function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function day(d) { if (!d) return "—"; const x = new Date(String(d).length === 10 ? d + "T00:00:00+05:30" : String(d).replace(" ", "T") + (String(d).includes("T") ? "" : "Z")); return isNaN(x) ? String(d) : x.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }); }
+function todayIst() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+function addDays(d, n) { return new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
+function person(name, id, email) { return (name || email) + (id ? " (" + id + ")" : ""); }
 
-function esc(v) {
-  return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-let canManage = false;   // only the super admin adds, changes or removes staff
-let staffData = null;    // last staff list loaded, redrawn when the language changes
-let loadMsgKey = null;   // or the message shown instead of the list
-let lastStatus = null;   // last status line, as { key, vars, type }
+let data = null, loadErr = null, lastStatus = null;
+let addForm = { name: "", employeeId: "", phone: "", designation: "", email: "", role: "operations_admin", errors: {}, busy: false };
+let rows = {};   // per email: { mode: "edit"|"leave"|"left"|"back", values, errors, busy }
+let coverEnd = {};
 
-// key: an i18n key; vars: its {placeholders}. A server error (English) is
-// shown through "adm.err_detail" so Hindi users get a Hindi sentence.
 function setStatus(key, type, vars) {
-  lastStatus = key ? { key, vars, type } : null;
+  lastStatus = key ? { key, type, vars } : null;
   const el = document.getElementById("status-msg");
   el.textContent = key ? T(key, vars) : "";
-  el.className = type || "";
+  el.className = "msg " + (type || "");
 }
-
-async function loadStaff() {
-  const tbody = document.getElementById("staff-rows");
-  tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.st_loading")) + '</td></tr>';
+async function api(method, body) {
   try {
-    const res = await fetch("/api/admin/staff");
-    const data = await res.json();
-    if (!res.ok) {
-      let msg = "adm.st_err_load";
-      if (data.error === "NOT_ADMIN") msg = "adm.st_err_not_admin";
-      if (data.error === "INSUFFICIENT_ROLE") msg = "adm.st_err_role";
-      staffData = null;
-      loadMsgKey = msg;
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">${esc(T(msg))}</td></tr>`;
-      return;
-    }
-    canManage = data.canManage === true;
-    document.getElementById("add-panel").hidden = !canManage;
-    document.getElementById("add-panel").style.display = canManage ? "" : "none";
-    document.getElementById("actions-head").style.display = canManage ? "" : "none";
-    if (!canManage) {
-      const sub = document.getElementById("page-sub");
-      sub.setAttribute("data-i18n", "adm.st_sub_readonly");
-      sub.textContent = T("adm.st_sub_readonly");
-    }
-    staffData = data;
-    loadMsgKey = null;
-    renderStaff(false);
-  } catch (err) {
-    staffData = null;
-    loadMsgKey = "adm.st_err_network_load";
-    tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.st_err_network_load")) + '</td></tr>';
+    const r = await fetch("/api/admin/staff", { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) };
+  } catch (e) { return { ok: false, status: 0, body: {} }; }
+}
+async function load() {
+  const r = await api("GET");
+  if (!r.ok) {
+    loadErr = r.status === 0 ? "adm.st_err_network_load" : r.body.error === "NOT_ADMIN" ? "adm.st_err_not_admin" : r.body.error === "INSUFFICIENT_ROLE" ? "adm.st_err_role" : "adm.st_err_load";
+    render(); return;
   }
+  data = r.body; loadErr = null; render();
 }
 
-function renderStaff(keepPicks) {
-  const tbody = document.getElementById("staff-rows");
-  const data = staffData;
-  const cols = canManage ? 4 : 3;
-  if (!data.staff || data.staff.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${cols}" class="muted">${esc(T("adm.st_none"))}</td></tr>`;
-    return;
-  }
-  // On a language switch, keep any role a user has picked but not yet saved.
-  const picked = {};
-  if (keepPicks) tbody.querySelectorAll("tr[data-email]").forEach((tr) => {
-    const sel = tr.querySelector(".role-select");
-    if (sel) picked[tr.dataset.email] = sel.value;
-  });
-  tbody.innerHTML = "";
-  data.staff.forEach((s) => {
-    const tr = document.createElement("tr");
-    tr.dataset.email = s.email;
-    const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString(loc()) : "";
-    const label = roleLabel(s.role);
-    const chosen = Object.prototype.hasOwnProperty.call(picked, s.email) ? picked[s.email] : s.role;
-    tr.innerHTML = `
-      <td>${esc(s.email)}</td>
-      <td><span class="role-badge role-${esc(s.role)}">${esc(label)}</span></td>
-      <td class="muted">${esc(addedDate)}</td>` + (canManage ? `
-      <td>
-        <div class="row-actions">
-          <select class="role-select" aria-label="${esc(T("adm.st_new_role_for", { email: s.email }))}">
-            ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === chosen ? "selected" : ""}>${esc(roleLabel(r))}</option>`).join("")}
-          </select>
-          <button class="save-role-btn">${esc(T("adm.save"))}</button>
-          <button class="danger remove-btn">${esc(T("adm.st_remove"))}</button>
-        </div>
-      </td>` : "");
-    tbody.appendChild(tr);
-  });
+// Field error messages.
+const ERR = {
+  name: { LENGTH: "adm.sf_e_name" }, employeeId: { REQUIRED: "adm.sf_e_id", FORMAT: "adm.sf_e_id_format", TAKEN: "adm.sf_e_id_taken" },
+  phone: { REQUIRED: "adm.sf_e_phone", FORMAT: "adm.sf_e_phone_format" }, designation: { LENGTH: "adm.sf_e_designation" },
+  email: { FORMAT: "adm.st_err_email", TAKEN: "adm.sf_e_email_taken", FORMER: "adm.sf_e_email_former", SELF: "adm.sf_e_self_left", LAST_SUPER: "adm.sf_e_last_super", LEFT: "adm.sf_e_already_left" },
+  role: { REQUIRED: "adm.sf_e_role" },
+  until: { DATE: "adm.sf_e_date", PAST: "adm.sf_e_past", TOO_LONG: "adm.sf_e_leave_long", COVER_TOO_LONG: "adm.sf_e_cover_long" },
+  pause: { SELF: "adm.sf_e_pause_self", LAST_SUPER: "adm.sf_e_last_super" },
+  coverEmail: { NOT_STAFF: "adm.sf_e_cover_staff", SAME: "adm.sf_e_cover_same", SUPER: "adm.sf_e_cover_super", AUDITOR: "adm.sf_e_cover_auditor", ALREADY_ALL: "adm.sf_e_cover_all", COVER_ON_LEAVE: "adm.sf_e_cover_leave", BUSY: "adm.sf_e_cover_busy", AWAY_IS_COVERING: "adm.sf_e_cover_away" },
+  reason: { LENGTH: "adm.sf_e_reason" }, lastDay: { DATE: "adm.sf_e_date", TOO_FAR: "adm.sf_e_lastday_far" },
+};
+function serverErrors(body) {
+  const out = {}, f = (body && body.fields) || {};
+  Object.keys(f).forEach((k) => { const key = (ERR[k] || {})[f[k]]; out[k] = key ? T(key, { name: body.usedBy || "" }) : T("adm.err_detail", { msg: body.error || f[k] }); });
+  if (!Object.keys(f).length) out.form = body && body.error ? T("adm.err_detail", { msg: body.error }) : T("adm.network");
+  return out;
+}
+function fld(id, label, type, value, err, opts) {
+  const o = opts || {};
+  const hint = o.hint ? '<p class="hint" id="' + id + '-hint">' + esc(o.hint) + '</p>' : '';
+  const desc = (o.hint ? id + '-hint ' : '') + id + '-err';
+  const inv = err ? ' aria-invalid="true"' : '';
+  let input;
+  if (type === "select") input = '<select id="' + id + '" aria-describedby="' + desc + '"' + inv + '>' + o.options + '</select>';
+  else if (type === "textarea") input = '<textarea id="' + id + '" rows="2" maxlength="300" aria-describedby="' + desc + '"' + inv + '>' + esc(value) + '</textarea>';
+  else input = '<input type="' + type + '" id="' + id + '" value="' + esc(value) + '"' + (o.max ? ' maxlength="' + o.max + '"' : '') + (o.min ? ' min="' + o.min + '"' : '') + (o.maxDate ? ' max="' + o.maxDate + '"' : '') + (o.auto ? ' autocomplete="' + o.auto + '"' : '') + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + ' aria-describedby="' + desc + '"' + inv + '>';
+  return '<div class="fld"><label for="' + id + '">' + esc(label) + '</label>' + hint + input + '<div class="field-err" id="' + id + '-err" role="alert">' + esc(err || "") + '</div></div>';
+}
+function roleOptions(sel) { return Object.keys(ROLE_LABELS).map((r) => '<option value="' + r + '"' + (r === sel ? " selected" : "") + '>' + esc(T(ROLE_OPTS[r] || ROLE_LABELS[r])) + '</option>').join(""); }
 
-  document.querySelectorAll(".save-role-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const email = btn.closest("tr").dataset.email;
-      const select = btn.closest("tr").querySelector(".role-select");
-      const role = select.value;
+function render() {
+  const c = document.getElementById("content");
+  if (loadErr) { c.innerHTML = '<p class="muted">' + esc(T(loadErr)) + '</p>'; return; }
+  if (!data) return;
+  const man = data.canManage;
+  document.getElementById("page-sub").textContent = T(man ? "adm.st_sub" : "adm.st_sub_readonly");
+  let html = "";
+  if (!data.ready) html += '<div class="msg error">' + esc(T("adm.sf_not_ready")) + '</div>';
+  // 90-day review
+  if (man && data.review && data.review.due) {
+    html += '<div class="review" role="region" aria-label="' + esc(T("adm.sf_review_t")) + '"><p><b>' + esc(T("adm.sf_review_t")) + '</b><br>' +
+      esc(data.review.lastAt ? T("adm.sf_review_last", { date: day(data.review.lastAt), by: data.review.by }) : T("adm.sf_review_never")) + ' ' + esc(T("adm.sf_review_ask", { n: data.review.everyDays })) + '</p>' +
+      '<button type="button" class="primary" id="review-btn">' + esc(T("adm.sf_review_btn")) + '</button></div>';
+  }
+  // Leave covers running now
+  const active = (data.covers || []).filter((x) => x.state === "ACTIVE");
+  if (active.length) {
+    html += '<div class="panel"><h2>' + esc(T("adm.sf_covers_t")) + '</h2><ul class="covers">' + active.map((x) => {
+      const ce = coverEnd[x.id] || {};
+      return '<li>' + esc(T("adm.sf_cover_line", { cover: person(x.coverName.name, x.coverName.employeeId, x.cover), away: person(x.awayName.name, x.awayName.employeeId, x.away), date: day(x.to) })) +
+        '<span class="muted"> · ' + esc(x.reason) + '</span>' +
+        (man ? (ce.open
+          ? '<form class="cover-end" data-id="' + esc(x.id) + '" novalidate>' + fld("ce-" + x.id, T("adm.sf_f_end_reason"), "text", ce.reason || "", ce.err, { max: 300 }) +
+            '<div class="actions"><button type="submit" class="danger"' + (ce.busy ? " disabled" : "") + '>' + esc(T("adm.sf_end_cover_btn")) + '</button> <button type="button" class="ce-cancel" data-id="' + esc(x.id) + '">' + esc(T("adm.cancel")) + '</button></div></form>'
+          : ' <button type="button" class="ce-open" data-id="' + esc(x.id) + '">' + esc(T("adm.sf_end_cover")) + '</button>') : '') + '</li>';
+    }).join("") + '</ul></div>';
+  }
+  // Add staff
+  if (man) {
+    const f = addForm, e = f.errors;
+    html += '<form class="panel" id="add-panel" novalidate><h2>' + esc(T("adm.st_add_h")) + '</h2><div class="form-grid">' +
+      fld("a-name", T("adm.sf_f_name"), "text", f.name, e.name, { max: 80, auto: "off" }) +
+      fld("a-employeeId", T("adm.sf_f_id"), "text", f.employeeId, e.employeeId, { max: 20, auto: "off", hint: T("adm.sf_h_id"), ph: "GIQ-001" }) +
+      fld("a-phone", T("adm.sf_f_phone"), "tel", f.phone, e.phone, { max: 16, auto: "off", hint: T("adm.sf_h_phone"), ph: "98XXXXXXXX" }) +
+      fld("a-designation", T("adm.sf_f_designation"), "text", f.designation, e.designation, { max: 60, auto: "off" }) +
+      fld("new-email", T("adm.st_email_label"), "email", f.email, e.email, { max: 120, auto: "off", hint: T("adm.sf_h_email"), ph: "name@grieviq.in" }) +
+      fld("new-role", T("adm.st_role_label"), "select", "", e.role, { options: roleOptions(f.role) }) +
+      '</div><p class="note">' + esc(T("adm.sf_privacy_note")) + '</p>' +
+      '<div class="actions"><button type="submit" class="primary" id="add-btn"' + (f.busy ? " disabled" : "") + '>' + esc(T(f.busy ? "adm.st_adding" : "adm.st_add_btn")) + '</button></div>' +
+      '<div class="field-err" role="alert">' + esc(e.form || "") + '</div></form>';
+  }
+  // Current staff
+  html += '<div class="panel"><h2>' + esc(T("adm.st_current_h")) + ' <span class="muted">(' + data.staff.length + ')</span></h2>';
+  html += data.staff.length ? '<div class="staff-list" id="staff-rows">' + data.staff.map((p) => staffRow(p, man)).join("") + '</div>' : '<p class="muted">' + esc(T("adm.st_none")) + '</p>';
+  html += '</div>';
+  // Former staff
+  if (data.former.length) {
+    html += '<details class="panel" id="former"' + (Object.keys(rows).some((k) => rows[k].mode === "back") ? " open" : "") + '><summary>' + esc(T("adm.sf_former_t", { n: data.former.length })) + '</summary><p class="note">' + esc(T("adm.sf_former_note")) + '</p><div class="staff-list">' +
+      data.former.map((p) => formerRow(p, man)).join("") + '</div></details>';
+  }
+  // Recent covers
+  const past = (data.covers || []).filter((x) => x.state !== "ACTIVE");
+  if (past.length) {
+    html += '<details class="panel"><summary>' + esc(T("adm.sf_cover_history_t")) + '</summary><ul class="covers">' + past.map((x) =>
+      '<li>' + esc(T("adm.sf_cover_hist", { cover: person(x.coverName.name, x.coverName.employeeId, x.cover), away: person(x.awayName.name, x.awayName.employeeId, x.away), from: day(x.from), to: day(x.to) })) +
+      ' <span class="muted">' + esc(x.endedAt ? T("adm.sf_cover_ended", { date: day(x.endedAt), reason: x.endReason || "" }) : T(x.state === "UPCOMING" ? "adm.sf_cover_upcoming" : "adm.sf_cover_finished")) + '</span></li>').join("") + '</ul></details>';
+  }
+  c.innerHTML = html;
+  attach();
+}
+
+function statusBadges(p) {
+  let b = '<span class="role-badge role-' + esc(p.role) + '">' + esc(roleLabel(p.role)) + '</span> ';
+  if (p.status === "ON_LEAVE") b += '<span class="st st-ON_LEAVE">' + esc(T(p.leaveUntil ? "adm.sf_st_leave_until" : "adm.sf_st_leave", { date: day(p.leaveUntil) })) + (p.accessPaused ? " · " + esc(T("adm.sf_st_paused")) : "") + '</span>';
+  else b += '<span class="st st-PRESENT">' + esc(T("adm.sf_st_present")) + '</span>';
+  const cov = (data.covers || []).filter((x) => x.state === "ACTIVE" && x.cover === p.email)[0];
+  if (cov) b += ' <span class="st st-cover">' + esc(T("adm.sf_st_covering", { name: cov.awayName.name || cov.away })) + '</span>';
+  return '<div class="badges">' + b + '</div>';
+}
+function staffRow(p, man) {
+  const rs = rows[p.email] || {};
+  let html = '<div class="staff-row" data-email="' + esc(p.email) + '"><div class="staff-top"><div><div class="staff-name">' +
+    (p.name ? esc(p.name) : '<span class="missing">' + esc(T("adm.sf_name_missing")) + '</span>') + (p.employeeId ? ' <span class="muted">· ' + esc(p.employeeId) + '</span>' : '') + (p.isMe ? ' <span class="muted">· ' + esc(T("adm.sf_you")) + '</span>' : '') + '</div>' +
+    '<div class="staff-meta">' + esc(p.email) + (p.designation ? ' · ' + esc(p.designation) : '') + ' · ' + (p.phone ? esc(T("adm.sf_mobile", { phone: p.phone })) : esc(T("adm.sf_mobile_missing"))) +
+    ' · ' + esc(T("adm.sf_added_on", { date: day(p.createdAt) })) + '</div></div>' + statusBadges(p) + '</div>';
+  if (man && !rs.mode) {
+    html += '<div class="row-actions">' +
+      '<button type="button" class="act-edit">' + esc(T(p.name && p.employeeId && p.phone ? "adm.sf_edit" : "adm.sf_add_details")) + '</button>' +
+      '<label class="sr-only" for="role-' + esc(p.email) + '">' + esc(T("adm.st_new_role_for", { email: p.email })) + '</label><select class="role-select" id="role-' + esc(p.email) + '" aria-label="' + esc(T("adm.st_new_role_for", { email: p.email })) + '">' + roleOptions(p.role) + '</select>' +
+      '<button type="button" class="save-role-btn">' + esc(T("adm.save")) + '</button>' +
+      (p.status === "ON_LEAVE" ? '<button type="button" class="act-present">' + esc(T("adm.sf_mark_present")) + '</button>' : '<button type="button" class="act-leave">' + esc(T("adm.sf_mark_leave")) + '</button>') +
+      (p.isMe ? '' : '<button type="button" class="danger act-left">' + esc(T("adm.sf_mark_left")) + '</button>') + '</div>';
+  }
+  if (man && rs.mode) html += rowForm(p, rs);
+  return html + '</div>';
+}
+function rowForm(p, rs) {
+  const v = rs.values || {}, e = rs.errors || {}, id = (k) => "r-" + k;
+  let inner = "", btn = "", cls = "primary";
+  if (rs.mode === "edit") {
+    inner = '<div class="form-grid">' + fld(id("name"), T("adm.sf_f_name"), "text", v.name, e.name, { max: 80, auto: "off" }) +
+      fld(id("employeeId"), T("adm.sf_f_id"), "text", v.employeeId, e.employeeId, { max: 20, auto: "off", hint: T("adm.sf_h_id") }) +
+      fld(id("phone"), T("adm.sf_f_phone"), "tel", v.phone, e.phone, { max: 16, auto: "off", hint: p.phoneMasked ? T("adm.sf_h_phone_masked") : T("adm.sf_h_phone") }) +
+      fld(id("designation"), T("adm.sf_f_designation"), "text", v.designation, e.designation, { max: 60, auto: "off" }) + '</div>';
+    btn = "adm.save";
+  } else if (rs.mode === "leave") {
+    const t = todayIst();
+    const eligible = data.staff.filter((x) => x.email !== p.email && x.status !== "ON_LEAVE" && x.role !== "super_admin" && ((x.role === "auditor") === (p.role === "auditor")));
+    const coverOpts = '<option value="">' + esc(T("adm.sf_no_cover")) + '</option>' + eligible.map((x) => '<option value="' + esc(x.email) + '"' + (v.coverEmail === x.email ? " selected" : "") + '>' + esc(person(x.name, x.employeeId, x.email) + " — " + roleLabel(x.role)) + '</option>').join("");
+    inner = '<div class="form-grid">' + fld(id("until"), T("adm.sf_f_until"), "date", v.until, e.until, { min: t, maxDate: addDays(t, data.rules.maxLeaveDays), hint: T("adm.sf_h_until") }) +
+      (p.role === "super_admin" ? '' : fld(id("coverEmail"), T("adm.sf_f_cover"), "select", "", e.coverEmail, { options: coverOpts, hint: T(p.role === "auditor" ? "adm.sf_h_cover_auditor" : "adm.sf_h_cover", { n: data.rules.maxCoverDays }) })) +
+      '<div id="cover-reason-wrap"' + (v.coverEmail ? "" : " hidden") + '>' + fld(id("reason"), T("adm.sf_f_cover_reason"), "text", v.reason, e.reason, { max: 300, ph: T("adm.sf_ph_cover_reason") }) + '</div></div>' +
+      (p.role === "super_admin" ? '<p class="note">' + esc(T("adm.sf_super_no_cover")) + '</p>' : '') +
+      (p.isMe ? '' : '<div class="fld"><label class="check"><input type="checkbox" id="' + id("pause") + '"' + (v.pause ? " checked" : "") + ' aria-describedby="' + id("pause") + '-err"> <span>' + esc(T("adm.sf_f_pause")) + '</span></label><div class="field-err" id="' + id("pause") + '-err" role="alert">' + esc(e.pause || "") + '</div></div>');
+    btn = "adm.sf_leave_btn";
+  } else if (rs.mode === "left") {
+    inner = '<p class="note">' + esc(T("adm.sf_left_note")) + '</p><div class="form-grid">' + fld(id("lastDay"), T("adm.sf_f_lastday"), "date", v.lastDay || todayIst(), e.lastDay, { maxDate: addDays(todayIst(), 30) }) +
+      fld(id("reason"), T("adm.sf_f_left_reason"), "text", v.reason, e.reason, { max: 300, ph: T("adm.sf_ph_left_reason") }) + '</div>';
+    btn = "adm.sf_left_btn"; cls = "danger";
+  }
+  return '<form class="row-form" data-email="' + esc(p.email) + '" data-mode="' + rs.mode + '" novalidate>' + inner +
+    '<div class="actions"><button type="submit" class="' + cls + '"' + (rs.busy ? " disabled" : "") + '>' + esc(T(btn)) + '</button> <button type="button" class="row-cancel">' + esc(T("adm.cancel")) + '</button></div>' +
+    '<div class="field-err" role="alert">' + esc(e.form || "") + '</div></form>';
+}
+function formerRow(p, man) {
+  const rs = rows[p.email] || {};
+  let html = '<div class="staff-row" data-email="' + esc(p.email) + '"><div class="staff-top"><div><div class="staff-name">' + esc(p.name || p.email) + (p.employeeId ? ' <span class="muted">· ' + esc(p.employeeId) + '</span>' : '') + '</div>' +
+    '<div class="staff-meta">' + esc(p.email) + ' · ' + esc(roleLabel(p.role)) + ' · ' + esc(T("adm.sf_left_on", { date: day(p.leftAt), reason: p.leftReason || "" })) + '</div></div><div class="badges"><span class="st st-LEFT">' + esc(T("adm.sf_st_left")) + '</span></div></div>';
+  if (man && rs.mode !== "back") html += '<div class="row-actions"><button type="button" class="act-back">' + esc(T("adm.sf_bring_back")) + '</button></div>';
+  if (man && rs.mode === "back") {
+    const e = rs.errors || {};
+    html += '<form class="row-form" data-email="' + esc(p.email) + '" data-mode="back" novalidate><p class="note">' + esc(T("adm.sf_back_note")) + '</p>' + fld("r-reason", T("adm.sf_f_back_reason"), "text", (rs.values || {}).reason, e.reason, { max: 300 }) +
+      '<div class="actions"><button type="submit" class="primary"' + (rs.busy ? " disabled" : "") + '>' + esc(T("adm.sf_bring_back")) + '</button> <button type="button" class="row-cancel">' + esc(T("adm.cancel")) + '</button></div><div class="field-err" role="alert">' + esc(e.form || "") + '</div></form>';
+  }
+  return html + '</div>';
+}
+
+function focusFirst(scope) {
+  const el = (scope || document).querySelector('[aria-invalid="true"]') || (scope || document).querySelector('.field-err:not(:empty)');
+  if (el) { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) el.setAttribute("tabindex", "-1"); el.focus(); }
+}
+function openRow(email, mode) {
+  const p = data.staff.concat(data.former).filter((x) => x.email === email)[0];
+  rows = {}; rows[email] = { mode, errors: {}, values: mode === "edit" ? { name: p.name || "", employeeId: p.employeeId || "", phone: p.phoneMasked ? "" : (p.phone || ""), designation: p.designation || "" } : {} };
+  setStatus(null); render();
+  const f = document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"] input, form.row-form[data-email="' + CSS.escape(email) + '"] select');
+  if (f) f.focus();
+}
+function readRow(form) {
+  const g = (k) => { const el = form.querySelector("#r-" + k); return el ? (el.type === "checkbox" ? el.checked : el.value.trim()) : ""; };
+  return { name: g("name"), employeeId: g("employeeId"), phone: g("phone"), designation: g("designation"), until: g("until"), coverEmail: g("coverEmail"), reason: g("reason"), pause: g("pause") === true, lastDay: g("lastDay") };
+}
+function done(msgKey, vars) { rows = {}; setStatus(msgKey, "success", vars); return load().then(() => document.getElementById("status-msg").focus()); }
+
+function attach() {
+  const rv = document.getElementById("review-btn");
+  if (rv) rv.addEventListener("click", async () => {
+    const r = await api("POST", { action: "review" });
+    if (!r.ok) { setStatus("adm.err_detail", "error", { msg: r.body.error || r.status }); return; }
+    done("adm.sf_reviewed");
+  });
+  document.querySelectorAll(".ce-open").forEach((b) => b.addEventListener("click", () => { coverEnd = {}; coverEnd[b.dataset.id] = { open: true }; render(); const i = document.getElementById("ce-" + b.dataset.id); if (i) i.focus(); }));
+  document.querySelectorAll(".ce-cancel").forEach((b) => b.addEventListener("click", () => { coverEnd = {}; render(); }));
+  document.querySelectorAll("form.cover-end").forEach((f) => f.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const id = f.dataset.id, reason = document.getElementById("ce-" + id).value.trim();
+    if (reason.length < 5) { coverEnd[id] = { open: true, reason, err: T("adm.sf_e_reason") }; render(); focusFirst(); return; }
+    coverEnd[id] = { open: true, reason, busy: true }; render();
+    const r = await api("POST", { action: "cover_end", id, reason });
+    if (!r.ok) { coverEnd[id] = { open: true, reason, err: serverErrors(r.body).reason || serverErrors(r.body).form }; render(); focusFirst(); return; }
+    coverEnd = {}; done("adm.sf_cover_ended_ok");
+  }));
+  const af = document.getElementById("add-panel");
+  if (af) af.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const g = (id) => document.getElementById(id).value.trim();
+    Object.assign(addForm, { name: g("a-name"), employeeId: g("a-employeeId"), phone: g("a-phone"), designation: g("a-designation"), email: g("new-email"), role: document.getElementById("new-role").value });
+    const e = {};
+    if (addForm.name.length < 2) e.name = T("adm.sf_e_name");
+    if (!addForm.employeeId) e.employeeId = T("adm.sf_e_id");
+    if (!addForm.phone) e.phone = T("adm.sf_e_phone");
+    if (!addForm.email) e.email = T("adm.st_err_email");
+    addForm.errors = e;
+    if (Object.keys(e).length) { render(); focusFirst(document.getElementById("add-panel")); return; }
+    addForm.busy = true; render();
+    const r = await api("POST", Object.assign({ action: "add" }, addForm));
+    addForm.busy = false;
+    if (!r.ok) { addForm.errors = serverErrors(r.body); if (addForm.errors.email && !addForm.errors.form && r.body.fields && r.body.fields.email === "FORMAT") addForm.errors.email = T("adm.st_err_email"); render(); focusFirst(document.getElementById("add-panel")); return; }
+    const added = addForm.email, role = roleLabel(addForm.role);
+    addForm = { name: "", employeeId: "", phone: "", designation: "", email: "", role: "operations_admin", errors: {}, busy: false };
+    done("adm.st_added", { email: added, role });
+  });
+  document.querySelectorAll(".staff-row").forEach((row) => {
+    const email = row.dataset.email;
+    const on = (sel, fn) => { const b = row.querySelector(sel); if (b) b.addEventListener("click", fn); };
+    on(".act-edit", () => openRow(email, "edit"));
+    on(".act-leave", () => openRow(email, "leave"));
+    on(".act-left", () => openRow(email, "left"));
+    on(".act-back", () => openRow(email, "back"));
+    on(".row-cancel", () => { rows = {}; render(); const b = document.querySelector('.staff-row[data-email="' + CSS.escape(email) + '"] button'); if (b) b.focus(); });
+    on(".act-present", async () => {
+      const r = await api("POST", { action: "present", email });
+      if (!r.ok) { setStatus("adm.err_detail", "error", { msg: r.body.error || r.status }); return; }
+      done("adm.sf_present_ok", { name: email });
+    });
+    on(".save-role-btn", async () => {
+      const role = row.querySelector(".role-select").value;
       setStatus("adm.st_saving", "");
-      try {
-        const res = await fetch("/api/admin/staff", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, role }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
-          else setStatus("adm.st_err_update", "error");
-          return;
-        }
-        setStatus("adm.st_updated", "success", { email, role: roleLabel(role) });
-        loadStaff();
-      } catch (err) {
-        setStatus("adm.st_err_network_update", "error");
-      }
+      const r = await api("PATCH", { email, role });
+      if (!r.ok) { setStatus(r.status === 0 ? "adm.st_err_network_update" : "adm.err_detail", "error", { msg: r.body.error || r.status }); return; }
+      done("adm.st_updated", { email, role: roleLabel(role) });
     });
-  });
-
-  document.querySelectorAll(".remove-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const email = btn.closest("tr").dataset.email;
-      if (!confirm(T("adm.st_confirm_remove", { email }))) {
-        return;
+    const sel = row.querySelector("#r-coverEmail");
+    if (sel) sel.addEventListener("change", () => { const w = document.getElementById("cover-reason-wrap"); if (w) w.hidden = !sel.value; });
+    const form = row.querySelector("form.row-form");
+    if (form) form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const mode = form.dataset.mode, v = readRow(form), e = {};
+      if (mode === "edit") {
+        if (v.name.length < 2) e.name = T("adm.sf_e_name");
+        if (!v.employeeId) e.employeeId = T("adm.sf_e_id");
+        if (!v.phone) e.phone = T("adm.sf_e_phone");
+      } else if (mode === "leave") {
+        if (!v.until) e.until = T("adm.sf_e_date");
+        if (v.coverEmail && v.reason.length < 5) e.reason = T("adm.sf_e_reason");
+      } else if (mode === "left") {
+        if (!v.lastDay) e.lastDay = T("adm.sf_e_date");
+        if (v.reason.length < 10) e.reason = T("adm.sf_e_reason");
+      } else if (mode === "back") {
+        if (v.reason.length < 10) e.reason = T("adm.sf_e_reason");
       }
-      setStatus("adm.st_removing", "");
-      try {
-        const res = await fetch("/api/admin/staff", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
-          else setStatus("adm.st_err_remove", "error");
-          return;
-        }
-        setStatus("adm.st_removed", "success", { email });
-        loadStaff();
-      } catch (err) {
-        setStatus("adm.st_err_network_remove", "error");
-      }
+      rows[email] = { mode, values: v, errors: e, busy: !Object.keys(e).length };
+      render();
+      if (Object.keys(e).length) { focusFirst(document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"]')); return; }
+      if (mode === "left" && !confirm(T("adm.sf_left_confirm", { name: ((data.staff.filter((x) => x.email === email)[0] || {}).name) || email }))) { rows[email].busy = false; render(); return; }
+      const payload = mode === "edit" ? { action: "edit", email, name: v.name, employeeId: v.employeeId, phone: v.phone, designation: v.designation }
+        : mode === "leave" ? { action: "leave", email, until: v.until, pause: v.pause, coverEmail: v.coverEmail, reason: v.reason }
+        : mode === "left" ? { action: "left", email, lastDay: v.lastDay, reason: v.reason } : { action: "reactivate", email, reason: v.reason };
+      const r = await api("POST", payload);
+      if (!r.ok) { rows[email] = { mode, values: v, errors: serverErrors(r.body), busy: false }; render(); focusFirst(document.querySelector('form.row-form[data-email="' + CSS.escape(email) + '"]')); return; }
+      done(mode === "edit" ? (r.body.unchanged ? "adm.sf_unchanged" : "adm.sf_saved_details") : mode === "leave" ? "adm.sf_leave_ok" : mode === "left" ? "adm.sf_left_ok" : "adm.sf_back_ok", { name: v.name || email });
     });
   });
 }
-
-document.getElementById("add-btn").addEventListener("click", async () => {
-  const email = document.getElementById("new-email").value.trim();
-  const role = document.getElementById("new-role").value;
-  if (!email) {
-    setStatus("adm.st_err_email", "error");
-    return;
-  }
-  setStatus("adm.st_adding", "");
-  try {
-    const res = await fetch("/api/admin/staff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, role }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
-      else setStatus("adm.st_err_add", "error");
-      return;
-    }
-    setStatus("adm.st_added", "success", { email, role: roleLabel(role) });
-    document.getElementById("new-email").value = "";
-    loadStaff();
-  } catch (err) {
-    setStatus("adm.st_err_network_add", "error");
-  }
-});
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
   document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
 }
-
-const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
+let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
 applyTheme(savedTheme);
-
 document.getElementById("theme-toggle").addEventListener("click", () => {
-  const current = localStorage.getItem("griq-admin-theme") || "dark";
-  const next = current === "light" ? "dark" : "light";
-  localStorage.setItem("griq-admin-theme", next);
+  let cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  const next = cur === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
 });
-
-// Switching हिन्दी / English redraws from the data already loaded,
-// keeping the typed email, the chosen roles and the status line.
+// Switching हिन्दी / English redraws from the data already loaded, keeping
+// what was typed (read back from the forms first).
 document.addEventListener("giq:lang", () => {
   let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
   applyTheme(th);
+  const af = document.getElementById("add-panel");
+  if (af) { const g = (id) => { const el = document.getElementById(id); return el ? el.value : ""; }; Object.assign(addForm, { name: g("a-name"), employeeId: g("a-employeeId"), phone: g("a-phone"), designation: g("a-designation"), email: g("new-email"), role: g("new-role") || addForm.role }); }
+  const rf = document.querySelector("form.row-form");
+  if (rf && rows[rf.dataset.email]) rows[rf.dataset.email].values = readRow(rf);
   if (lastStatus) setStatus(lastStatus.key, lastStatus.type, lastStatus.vars);
-  if (staffData) renderStaff(true);
-  else if (loadMsgKey) document.getElementById("staff-rows").innerHTML = `<tr><td colspan="4" class="muted">${esc(T(loadMsgKey))}</td></tr>`;
+  render();
 });
-
-loadStaff();
+load();
 </script>
-
 </body>
 </html>

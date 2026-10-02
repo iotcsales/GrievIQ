@@ -243,7 +243,7 @@ async function caseDetail(env, auth, id) {
       })),
     },
     role: auth.role,
-    canReveal: (PERMISSIONS.reveal_citizen_phone || []).includes(auth.role),
+    canReveal: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.reveal_citizen_phone || []).includes(r)),
     // Item 7d: the reopening (if any), and whether staff may reopen for a
     // citizen with no email (once, within 30 days of closing).
     reopen: shapeReopen(await loadReopen(env, g.id), "staff"),
@@ -255,7 +255,7 @@ async function caseDetail(env, auth, id) {
     }),
     reopens: ((await env.DB.prepare("SELECT * FROM grievance_reopens WHERE grievance_id = ? ORDER BY reopened_at ASC, rowid ASC").bind(g.id).all()).results || []).map((r) => shapeReopen(r, "staff")),
     reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(g)),
-    canStaffReopen: (PERMISSIONS.reopen_cases || []).includes(auth.role) && !String(g.citizen_email || "").trim() && reopenStatus(g).can,
+    canStaffReopen: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.reopen_cases || []).includes(r)) && !String(g.citizen_email || "").trim() && reopenStatus(g).can,
     viewedBy: auth.email,
     viewedAt: new Date().toISOString(),
   });

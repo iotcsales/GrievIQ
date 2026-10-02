@@ -54,8 +54,8 @@ export async function onRequestGet({ request, env }) {
 
   return Response.json({
     role: auth.role,
-    canEdit: (PERMISSIONS.run_import || []).includes(auth.role),
-    canRequest: (PERMISSIONS.request_changes || []).includes(auth.role),
+    canEdit: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.run_import || []).includes(r)),
+    canRequest: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.request_changes || []).includes(r)),
     pendingRequests: waiting.map((w) => w.target_type + ":" + w.target_id),
     mps: mps.results,
     mlas: mlas.results,

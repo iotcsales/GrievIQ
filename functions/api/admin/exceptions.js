@@ -61,7 +61,7 @@ export async function onRequestGet({ request, env }) {
 
   return Response.json({
     role: auth.role,
-    canAct: (PERMISSIONS.exceptions_queue || []).includes(auth.role),
+    canAct: (auth.roles || [auth.role]).some((r) => (PERMISSIONS.exceptions_queue || []).includes(r)),
     exceptions,
     generatedAt: new Date().toISOString(),
   });

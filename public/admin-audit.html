@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.au_page_title">Audit — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=9e"></script><script src="/admin-nav.js?v=r1"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=10a"></script><script src="/admin-nav.js?v=r2"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -788,11 +788,14 @@ async function send(action, payload, key) {
 // ---------- audit log ----------
 // Written for the auditor: each record reads as a sentence, links to the
 // case it is about, and quick views bring risky activity to the top.
-const QUICK = ["phone", "refused", "reopen", "photos", "exports", "staff"];
+const QUICK = ["phone", "refused", "reopen", "photos", "exports", "staff", "leave"];
 function actionLabel(code) { const k = "adm.al_a_" + String(code).toLowerCase(); const v = T(k); if (v !== k) return v; const s = String(code).replace(/_/g, " ").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 function whoText(r) {
   const role = r.role ? (roleLabel(r.role) !== r.role ? roleLabel(r.role) : T("adm.al_role_" + String(r.role).toLowerCase()) !== "adm.al_role_" + String(r.role).toLowerCase() ? T("adm.al_role_" + String(r.role).toLowerCase()) : r.role.replace(/_/g, " ").toLowerCase()) : "";
-  return (r.actor || T("adm.al_someone")) + (role ? " (" + role + ")" : "");
+  // Item 10: "Rahul Verma (GIQ-014) — rahul@grieviq.in" when the name is known.
+  const n = r.actor && log && log.names ? log.names[String(r.actor).toLowerCase()] : null;
+  const who = n && n.name ? n.name + (n.employeeId ? " (" + n.employeeId + ")" : "") + " — " + r.actor : (r.actor || T("adm.al_someone"));
+  return who + (role ? " (" + role + ")" : "");
 }
 function sentence(r) {
   const key = "adm.al_s_" + String(r.action).toLowerCase();

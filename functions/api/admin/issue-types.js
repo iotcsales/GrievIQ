@@ -18,7 +18,7 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { DEPARTMENTS } from "../../_shared/departments.js";
 
 function can(role, permission) {
-  return (PERMISSIONS[permission] || []).includes(role);
+  return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r));
 }
 
 async function logEvent(env, actorEmail, action, target, detail) {
@@ -47,7 +47,7 @@ export async function onRequestGet({ request, env }) {
 
   return Response.json({
     role: auth.role,
-    canEdit: can(auth.role, "manage_issue_types"),
+    canEdit: can(auth.roles || auth.role, "manage_issue_types"),
     departments: DEPARTMENTS,
     issueTypes: results.map((r) => ({
       id: r.id,

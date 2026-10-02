@@ -31,6 +31,37 @@ import {
 } from "../_shared/team.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Item 10: the member's mobile number (required) and the office's own
+// employee ID (optional, unique among the office's current members).
+const ID_RE = /^[A-Za-z0-9][A-Za-z0-9/-]{0,19}$/;
+function normPhone(p) {
+  let d = String(p || "").replace(/[\s()-]/g, "");
+  if (d.startsWith("+91")) d = d.slice(3); else if (d.length === 12 && d.startsWith("91")) d = d.slice(2); else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+  return /^[6-9]\d{9}$/.test(d) ? d : null;
+}
+function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+function isDay(d) { return /^\d{4}-\d{2}-\d{2}$/.test(String(d || "")) && !isNaN(Date.parse(d + "T00:00:00Z")); }
+function addDays(day, n) { return new Date(Date.parse(day + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10); }
+// Checks name, mobile and employee ID. Returns { value, fields }.
+async function readPerson(env, m, body, exceptId) {
+  const fields = {};
+  const name = String(body.name || "").trim().replace(/\s+/g, " ");
+  const phone = normPhone(body.phone);
+  const employeeId = String(body.employeeId || "").trim().toUpperCase();
+  if (name.length < 2 || name.length > 80) fields.name = "NAME";
+  if (!String(body.phone || "").trim()) fields.phone = "PHONE_REQUIRED";
+  else if (!phone) fields.phone = "PHONE";
+  let usedBy = null;
+  if (employeeId) {
+    if (!ID_RE.test(employeeId)) fields.employeeId = "EMPLOYEE_ID";
+    else {
+      const u = await env.DB.prepare("SELECT member_name FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' AND UPPER(employee_id) = ? AND id <> ?")
+        .bind(m.tier, m.id, employeeId, exceptId || "").first();
+      if (u) { fields.employeeId = "EMPLOYEE_ID_TAKEN"; usedBy = u.member_name; }
+    }
+  }
+  return { value: { name, phone, employeeId: employeeId || null }, fields, usedBy };
+}
 
 function myOffice(auth, key) {
   const o = parseOfficeKey(key);
@@ -58,9 +89,11 @@ async function sendInvite(env, request, to, name, office, role, inviter) {
         html: `<p>Hello ${escHtml(name)},</p>
           <p>${escHtml(inviter)} has added you as <strong>${roleEn}</strong> for <strong>${escHtml(office.label)}, ${escHtml(office.name)}</strong> on GrievIQ.</p>
           <p>To start, open <a href="${url}">${url}</a> and choose <strong>Sign in with Google</strong> with the Google account for this email address (${escHtml(to)}).</p>
+          <p>The office keeps your name, mobile number and (if given) employee ID on GrievIQ, so the team can reach you about the work and every action can be traced to the right person.</p>
           <hr><p>नमस्ते ${escHtml(name)},</p>
           <p>${escHtml(inviter)} ने आपको GrievIQ पर <strong>${escHtml(office.name)}</strong> के कार्यालय में <strong>${roleHi}</strong> के रूप में जोड़ा है।</p>
-          <p>शुरू करने के लिए <a href="${url}">${url}</a> खोलें और इस ईमेल पते (${escHtml(to)}) वाले Google खाते से <strong>Google से साइन इन करें</strong> चुनें।</p>`,
+          <p>शुरू करने के लिए <a href="${url}">${url}</a> खोलें और इस ईमेल पते (${escHtml(to)}) वाले Google खाते से <strong>Google से साइन इन करें</strong> चुनें।</p>
+          <p>कार्यालय GrievIQ पर आपका नाम, मोबाइल नंबर और (यदि दी गई हो) कर्मचारी आईडी रखता है, ताकि टीम काम के बारे में आपसे संपर्क कर सके और हर कार्य सही व्यक्ति तक पहुँचे।</p>`,
       }),
     });
     return res.ok;
@@ -75,6 +108,11 @@ export async function onRequestGet({ request, env }) {
     return Response.json({ error: "You can't see this team.", code: "ROLE" }, { status: 403 });
   }
   const office = await officeInfo(env, m.tier, m.id);
+  // Item 10: members whose leave has ended are shown as present again.
+  try {
+    await env.DB.prepare("UPDATE office_team SET available = 1, leave_until = NULL WHERE office_tier = ? AND office_id = ? AND available = 0 AND leave_until IS NOT NULL AND leave_until < ?")
+      .bind(m.tier, m.id, istToday()).run();
+  } catch (e) { /* item 10 columns not there yet */ }
   const [membersRes, activityRes, openRes, reviewRes, catRes] = await env.DB.batch([
     env.DB.prepare("SELECT * FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE' ORDER BY role, member_name").bind(m.tier, m.id),
     env.DB.prepare(
@@ -128,6 +166,7 @@ export async function onRequestGet({ request, env }) {
     },
     members: members.map((r) => ({
       id: r.id, email: r.member_email, name: r.member_name, role: r.role, addedBy: r.added_by, addedAt: r.added_at,
+      employeeId: r.employee_id || null, phone: r.phone || null,
       paused: String(r.confirmed_by_rep_email || "").toLowerCase() !== String(repEmail || "").toLowerCase(),
       job: jobProfile(r),
       open: openBy.get(String(r.member_email).toLowerCase()) || 0,
@@ -218,16 +257,16 @@ export async function onRequestPost({ request, env }) {
 
   if (action === "add") {
     const email = String(body.email || "").trim().toLowerCase();
-    const name = String(body.name || "").trim().slice(0, 80);
     const role = String(body.role || "").toUpperCase();
-    const fields = {};
+    const person = await readPerson(env, m, body, null);
+    const name = person.value.name;
+    const fields = Object.assign({}, person.fields);
     if (!EMAIL_RE.test(email) || email.length > 120) fields.email = "EMAIL";
     else if (email === auth.email) fields.email = "SELF";
-    if (name.length < 2) fields.name = "NAME";
     if (!TEAM_ROLES.includes(role)) fields.role = "ROLE";
     const prof = await readProfile(env, m, { designation: body.designation, designationOther: body.designationOther });
     if (prof.fields) Object.assign(fields, prof.fields);
-    if (Object.keys(fields).length) return Response.json({ error: "Please correct the highlighted fields.", fields }, { status: 400 });
+    if (Object.keys(fields).length) return Response.json({ error: "Please correct the highlighted fields.", fields, usedBy: person.usedBy }, { status: 400 });
     const { results } = await env.DB.prepare(
       "SELECT member_email FROM office_team WHERE office_tier = ? AND office_id = ? AND status = 'ACTIVE'"
     ).bind(m.tier, m.id).all();
@@ -239,11 +278,11 @@ export async function onRequestPost({ request, env }) {
     }
     const id = crypto.randomUUID();
     await env.DB.prepare(
-      `INSERT INTO office_team (id, office_tier, office_id, member_email, member_name, role, status, confirmed_by_rep_email, added_by, added_at, updated_at, designation, designation_other)
-       VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)`
-    ).bind(id, m.tier, m.id, email, name, role, auth.email, auth.email, now, now, prof.value.designation, prof.value.designationOther).run();
+      `INSERT INTO office_team (id, office_tier, office_id, member_email, member_name, role, status, confirmed_by_rep_email, added_by, added_at, updated_at, designation, designation_other, phone, employee_id)
+       VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, m.tier, m.id, email, name, role, auth.email, auth.email, now, now, prof.value.designation, prof.value.designationOther, person.value.phone, person.value.employeeId).run();
     const emailed = await sendInvite(env, request, email, name, office || m, role, auth.email);
-    await log("MEMBER_ADDED", { email, name, role, emailed, designation: prof.value.designation, designationOther: prof.value.designationOther });
+    await log("MEMBER_ADDED", { email, name, role, emailed, designation: prof.value.designation, designationOther: prof.value.designationOther, employeeId: person.value.employeeId });
     return Response.json({ ok: true, id, emailed });
   }
 
@@ -258,13 +297,28 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: "An office manager can change the job profile of field workers and assistants only.", code: "ROLE" }, { status: 403 });
     }
     const prof = await readProfile(env, m, body);
-    if (prof.fields) return Response.json({ error: "Please correct the highlighted fields.", fields: prof.fields }, { status: 400 });
-    const v = prof.value;
-    const before = jobProfile(member);
+    // Details not sent keep their stored values (the job editor always sends them).
+    const person = await readPerson(env, m, {
+      name: "name" in body ? body.name : member.member_name,
+      phone: "phone" in body ? body.phone : member.phone,
+      employeeId: "employeeId" in body ? body.employeeId : member.employee_id,
+    }, member.id);
+    const pf = Object.assign({}, prof.fields || {}, person.fields);
+    // Item 10: "on leave" needs the return date (at most a year ahead).
+    const leaveUntil = body.available === false ? String(body.leaveUntil || "") : null;
+    if (body.available === false) {
+      if (!isDay(leaveUntil)) pf.leaveUntil = "LEAVE_DATE";
+      else if (leaveUntil < istToday()) pf.leaveUntil = "LEAVE_PAST";
+      else if (leaveUntil > addDays(istToday(), 365)) pf.leaveUntil = "LEAVE_LONG";
+    }
+    if (Object.keys(pf).length) return Response.json({ error: "Please correct the highlighted fields.", fields: pf, usedBy: person.usedBy }, { status: 400 });
+    const v = prof.value, pv = person.value;
+    const before = Object.assign(jobProfile(member), { name: member.member_name, employeeId: member.employee_id || null, phoneChanged: false });
     const stmts = [env.DB.prepare(
-      `UPDATE office_team SET designation = ?, designation_other = ?, duties = ?, wards = ?, issue_types = ?, available = ?, updated_at = ? WHERE id = ?`
+      `UPDATE office_team SET designation = ?, designation_other = ?, duties = ?, wards = ?, issue_types = ?, available = ?, leave_until = ?,
+         member_name = ?, phone = ?, employee_id = ?, updated_at = ? WHERE id = ?`
     ).bind(v.designation, v.designationOther, v.duties, v.wards ? JSON.stringify(v.wards) : null,
-      v.issueTypes.length ? JSON.stringify(v.issueTypes) : null, v.available, now, member.id)];
+      v.issueTypes.length ? JSON.stringify(v.issueTypes) : null, v.available, v.available ? null : leaveUntil, pv.name, pv.phone, pv.employeeId, now, member.id)];
     // Narrowed wards: the member's open jobs outside them go back to the office.
     let ended = [];
     if (v.wards) {
@@ -278,7 +332,8 @@ export async function onRequestPost({ request, env }) {
       }
     }
     await env.DB.batch(stmts);
-    const after = { designation: v.designation, designationOther: v.designationOther, duties: v.duties, wards: v.wards, issueTypes: v.issueTypes, available: v.available === 1 };
+    const after = { designation: v.designation, designationOther: v.designationOther, duties: v.duties, wards: v.wards, issueTypes: v.issueTypes, available: v.available === 1,
+      leaveUntil: v.available ? null : leaveUntil, name: pv.name, employeeId: pv.employeeId, phoneChanged: (member.phone || null) !== pv.phone };
     await log("PROFILE_CHANGED", { email: member.member_email, name: member.member_name, before, after, endedAssignments: ended.length });
     for (const r of ended) {
       await logTeam(env, { officeTier: m.tier, officeId: m.id, actor: auth.email, actorRole: m.role, onBehalf: m.officeRepEmail || auth.email,

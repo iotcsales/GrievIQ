@@ -19,7 +19,7 @@ import {
 } from "../../_shared/audit-reports.js";
 import { todayIst } from "../../_shared/audit.js";
 
-const can = (role, perm) => (PERMISSIONS[perm] || []).includes(role);
+const can = (role, perm) => [].concat(role).some((r) => (PERMISSIONS[perm] || []).includes(r));
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const MAX_DAYS = 3 * 366;
 
@@ -90,7 +90,7 @@ export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const u = new URL(request.url);
-  const auditor = can(auth.role, "audit_observations");
+  const auditor = can(auth.roles || auth.role, "audit_observations");
 
   if (u.searchParams.get("preview") === "1") {
     if (!auditor) return json({ error: "INSUFFICIENT_ROLE" }, 403);

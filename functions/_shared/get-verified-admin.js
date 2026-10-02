@@ -81,11 +81,12 @@ export const PAGES = {
   "admin-retention": "view_retention",
   "admin-audit": null,   // everyone: the observations they own
 };
-export function pagesFor(role) {
+export function pagesFor(roleOrRoles) {
+  const mine = [].concat(roleOrRoles);
   const out = {};
   for (const [page, perm] of Object.entries(PAGES)) {
     const perms = perm == null ? null : [].concat(perm);
-    out[page] = { allowed: !perms || perms.some((p) => (PERMISSIONS[p] || []).includes(role)),
+    out[page] = { allowed: !perms || perms.some((p) => (PERMISSIONS[p] || []).some((r) => mine.includes(r))),
       roles: perms ? Array.from(new Set(perms.flatMap((p) => PERMISSIONS[p] || []))) : null };
   }
   return out;
@@ -116,20 +117,58 @@ export async function getVerifiedAdmin(request, env, permission) {
     return { ok: false, status: 401, error: (err && err.message) || "Unauthorized" };
   }
 
-  const admin = await env.DB.prepare(
-    "SELECT id, role FROM admin_users WHERE LOWER(email) = ?"
-  ).bind(email).first();
+  return resolveAdmin(env, email, permission);
+}
 
-  if (!admin) {
-    return { ok: false, status: 403, error: "NOT_ADMIN" };
+// Does this signed-in admin hold the permission (through their own role or
+// a role they are covering for)?
+export function allows(auth, permission) {
+  const roles = (auth && (auth.roles || (auth.role ? [auth.role] : []))) || [];
+  return roles.some((r) => (PERMISSIONS[permission] || []).includes(r));
+}
+
+function istDay(ms) { return new Date((ms || Date.now()) + 5.5 * 3600000).toISOString().slice(0, 10); }
+
+// The admin's record, status and leave cover, after the email is verified.
+// Item 10: staff who have left can't sign in; staff on leave whose access is
+// paused can't either, until their return date; a person covering for a
+// colleague also holds that colleague's role (NIST AC-2: temporary access
+// that ends by itself). Exported so tests can use it without Access.
+export async function resolveAdmin(env, email, permission) {
+  let admin = null, extended = true;
+  try {
+    admin = await env.DB.prepare(
+      "SELECT id, role, name, employee_id, status, leave_until, access_paused FROM admin_users WHERE LOWER(email) = ?"
+    ).bind(email).first();
+  } catch (e) {
+    extended = false;   // item 10 columns not added yet
+    admin = await env.DB.prepare("SELECT id, role FROM admin_users WHERE LOWER(email) = ?").bind(email).first();
   }
+  if (!admin) return { ok: false, status: 403, error: "NOT_ADMIN" };
+
+  const today = istDay();
+  let covering = [];
+  if (extended) {
+    if (admin.status === "LEFT") return { ok: false, status: 403, error: "ACCOUNT_LEFT" };
+    const onLeave = admin.status === "ON_LEAVE" && (!admin.leave_until || admin.leave_until >= today);
+    if (onLeave && admin.access_paused === 1) return { ok: false, status: 403, error: "ACCESS_PAUSED", leaveUntil: admin.leave_until || null };
+    try {
+      const { results } = await env.DB.prepare(
+        `SELECT c.id, c.away_email, c.to_date, a.role, a.name, a.employee_id FROM staff_covers c
+         JOIN admin_users a ON LOWER(a.email) = LOWER(c.away_email)
+         WHERE LOWER(c.cover_email) = ? AND c.ended_at IS NULL AND c.from_date <= ? AND c.to_date >= ? AND a.status <> 'LEFT'`
+      ).bind(email, today, today).all();
+      covering = (results || []).map((c) => ({ id: c.id, email: String(c.away_email).toLowerCase(), role: c.role, name: c.name || null, employeeId: c.employee_id || null, until: c.to_date }));
+    } catch (e) { covering = []; }
+  }
+  const roles = Array.from(new Set([admin.role].concat(covering.map((c) => c.role))));
 
   if (permission) {
     const allowedRoles = PERMISSIONS[permission] || [];
-    if (!allowedRoles.includes(admin.role)) {
+    if (!roles.some((r) => allowedRoles.includes(r))) {
       return { ok: false, status: 403, error: "INSUFFICIENT_ROLE" };
     }
   }
 
-  return { ok: true, email, role: admin.role };
+  return { ok: true, email, role: admin.role, roles, name: admin.name || null, employeeId: admin.employee_id || null, covering, coverFor: covering.map((c) => c.email) };
 }

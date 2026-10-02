@@ -18,6 +18,11 @@
     "adm.nav_denied": "Your role ({role}) can't use this page. It is for: {roles}.",
     "adm.nav_denied_help": "If you need it for your work, ask a super admin.",
     "adm.nav_denied_go": "Go to {page}",
+    "adm.nav_left_title": "Your access has ended",
+    "adm.nav_left": "This account is marked as having left GrievIQ, so it can no longer use the admin panel.",
+    "adm.nav_paused_title": "Your access is paused while you are on leave",
+    "adm.nav_paused": "Welcome back on {date}. Your access starts again automatically after that date.",
+    "adm.nav_covering": "You are covering for {name} ({role}) until {date}. What you do for them is recorded in your name, on their behalf.",
     "adm.role_super_admin": "Super admin",
     "adm.role_operations_admin": "Operations admin",
     "adm.role_data_moderator": "Data moderator",
@@ -121,15 +126,58 @@
     else fn();
   }
 
+  // Item 10: a person who has left, or whose access is paused during leave,
+  // gets a plain message instead of pages that would only show errors; a
+  // person covering for a colleague sees a reminder on every page.
+  var blocked = null;
+  function dayText(d) {
+    if (!d) return "";
+    var x = new Date(d + "T00:00:00+05:30");
+    var lc = (window.GIQ && GIQ.locale) ? GIQ.locale() : "en-IN";
+    return isNaN(x) ? d : x.toLocaleDateString(lc, { day: "numeric", month: "short", year: "numeric" });
+  }
+  function showBlocked() {
+    var main = document.querySelector("main");
+    if (!main) return;
+    var box = document.getElementById("adm-denied");
+    if (!box) {
+      box = document.createElement("section"); box.id = "adm-denied"; box.className = "adm-denied"; box.setAttribute("role", "alert");
+      main.parentNode.insertBefore(box, main); main.hidden = true; main.style.display = "none";
+    }
+    var paused = blocked.error === "ACCESS_PAUSED";
+    box.innerHTML = "<h1>" + esc(t(paused ? "adm.nav_paused_title" : "adm.nav_left_title")) + "</h1><p>" +
+      esc(paused ? t("adm.nav_paused", { date: dayText(blocked.leaveUntil) }) : t("adm.nav_left")) + "</p><p>" + esc(t("adm.nav_denied_help")) + "</p>";
+    document.querySelectorAll("nav a[href]").forEach(function (a) { a.style.display = "none"; });
+  }
+  function showCovering() {
+    if (!info || !info.covering || !info.covering.length || document.getElementById("adm-covering")) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    var bar = document.createElement("div"); bar.id = "adm-covering"; bar.className = "adm-covering"; bar.setAttribute("role", "note");
+    main.insertBefore(bar, main.firstChild);
+    drawCovering();
+  }
+  function drawCovering() {
+    var bar = document.getElementById("adm-covering");
+    if (!bar || !info) return;
+    bar.textContent = info.covering.map(function (c) {
+      return t("adm.nav_covering", { name: (c.name || c.email) + (c.employeeId ? " (" + c.employeeId + ")" : ""), role: roleName(c.role), date: dayText(c.until) });
+    }).join(" ");
+  }
+  style.textContent += ".adm-covering{margin:0 0 18px;padding:10px 14px;border-radius:8px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px}";
+
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
-    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })
     .then(function (d) {
+      if (d && d.blocked && (d.blocked.error === "ACCOUNT_LEFT" || d.blocked.error === "ACCESS_PAUSED")) {
+        blocked = d.blocked; clearTimeout(failSafe); root.classList.remove("adm-nav-pending"); ready(showBlocked); return;
+      }
       if (!d || !d.pages) { root.classList.remove("adm-nav-pending"); return; }
       info = d;
       window.GIQ_ADMIN = d;
-      ready(run);
+      ready(function () { run(); showCovering(); });
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (info) applyPage(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } });
 })();

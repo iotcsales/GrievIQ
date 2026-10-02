@@ -39,7 +39,9 @@ export const VIEWS = {
   reopen: ["case_reopened_for_citizen", "reopen"],
   photos: ["purge", "photo_moved_private", "migrate"],
   exports: ["audit_log_exported", "observations_exported", "overview_exported"],
-  staff: ["staff_added", "staff_removed", "staff_role_changed", "member_added", "member_removed", "role_changed", "member_confirmed"],
+  staff: ["staff_added", "staff_removed", "staff_role_changed", "staff_details_changed", "staff_left", "staff_reactivated", "staff_list_reviewed", "member_added", "member_removed", "role_changed", "member_confirmed"],
+  // Item 10: leave and leave cover ("additional charge").
+  leave: ["staff_on_leave", "staff_back_from_leave", "staff_cover_ended"],
 };
 
 function istStartIso(d) { return new Date(Date.parse(d + "T00:00:00.000+05:30")).toISOString(); }
@@ -137,7 +139,17 @@ export async function onRequestGet({ request, env }) {
     total, page, pageSize: PAGE, pages: Math.max(1, Math.ceil(total / PAGE)), timeline,
     views: Object.fromEntries(Object.keys(VIEWS).map((k) => [k, Number(vc[k] || 0)])),
     rows: (rowsRes.results || []).map(shape),
+    names: await staffNames(env),
   }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+
+// Item 10: staff names and employee IDs, so the log reads "Rahul Verma
+// (GIQ-014)" next to the email. Includes people who have left.
+async function staffNames(env) {
+  try {
+    const { results } = await env.DB.prepare("SELECT email, name, employee_id FROM admin_users WHERE name IS NOT NULL OR employee_id IS NOT NULL").all();
+    return Object.fromEntries((results || []).map((r) => [String(r.email).toLowerCase(), { name: r.name || null, employeeId: r.employee_id || null }]));
+  } catch (e) { return {}; }
 }
 
 function shape(r) {
