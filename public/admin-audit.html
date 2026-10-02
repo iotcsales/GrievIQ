@@ -259,6 +259,10 @@
   .obs-form input[type=text], .obs-form textarea, .obs-form select, form.act textarea, form.act input[type=text], form.act select { width: 100%; max-width: 720px; }
   .obs-form input[type=date], form.act input[type=date] { background: var(--admin-input); border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; }
   .hint.warn { color: var(--admin-danger); font-weight: 600; }
+  .hint.warn:empty { display: none; }
+  .hint.chosen { font-weight: 600; color: var(--admin-text); margin-top: 6px !important; }
+  .page-head #top-new { align-self: flex-start; }
+  #top-new[hidden] { display: none; }
   #fm-ownerOffice { width: 100%; }
   .obs-form .hint, form.act .hint, .act-row .hint { font-size: 12.5px; color: var(--admin-muted); margin: 0 0 5px; line-height: 1.45; font-weight: 400; }
   [aria-invalid="true"] { border-color: var(--admin-danger) !important; }
@@ -343,6 +347,7 @@
       <h1 data-i18n="adm.au_title">Audit</h1>
       <p class="subtitle" data-i18n="adm.au_sub">Audit findings (observations) and the records GrievIQ keeps. Records here can't be changed or deleted.</p>
     </div>
+    <a class="btn-link primary" href="#new" id="top-new" hidden data-i18n="adm.au_new">New observation</a>
   </div>
   <div class="au-tabs" role="tablist" id="au-tabs"></div>
   <div id="notice-area" aria-live="polite"></div>
@@ -457,6 +462,7 @@ async function loadReg(quiet) {
   reg = r.body; me.role = reg.role; me.email = reg.me; me.canSeeLog = reg.canSeeLog; me.canCreate = reg.canCreate;
   document.getElementById("who-line").innerHTML = '<b>' + esc(roleLabel(me.role)) + '</b>';
   renderTabs();
+  const tn = document.getElementById("top-new"); if (tn) tn.hidden = !me.canCreate;
   if (!quiet) renderReg();
 }
 function regQuery(extra) {
@@ -554,6 +560,7 @@ function renderForm() {
       '<label for="fm-officeSearch">' + esc(T("adm.au_fl_office_search")) + '</label><input type="search" id="fm-officeSearch" value="' + esc(f.officeSearch) + '" placeholder="' + esc(T("adm.au_office_search_ph")) + '" aria-controls="fm-ownerOffice">' +
       '<label for="fm-ownerOffice">' + esc(T("adm.au_fl_owner_office")) + '</label><p class="hint" id="fm-office-hint">' + esc(T("adm.au_fh_owner_office")) + '</p>' +
       '<select id="fm-ownerOffice" size="6" aria-describedby="fm-office-hint fm-ownerOffice-err"' + inv("ownerOffice") + '>' + officeOptionsHtml(f) + '</select>' + fe("ownerOffice") +
+      '<p class="hint chosen" id="fm-office-chosen" role="status">' + esc(chosenText(f)) + '</p>' +
       '<p class="hint warn" id="fm-office-noemail" role="status">' + esc(officeNoEmail(f.ownerOffice) ? T("adm.au_office_noemail") : "") + '</p>' +
     '</div>' +
     '<label for="fm-dueDate">' + esc(T("adm.au_fl_due")) + '</label><p class="hint" id="fm-due-hint">' + esc(defDue ? T("adm.au_fh_due", { date: day(defDue) }) : T("adm.au_fh_due_none")) + '</p><input type="date" id="fm-dueDate" value="' + esc(f.dueDate) + '" min="' + todayIst() + '" aria-describedby="fm-due-hint fm-dueDate-err"' + inv("dueDate") + '>' + fe("dueDate") +
@@ -577,8 +584,19 @@ function renderForm() {
   document.querySelectorAll('input[name="fm-rating"]').forEach((r) => r.addEventListener("change", refreshDue));
   document.querySelectorAll('input[name="fm-ot"]').forEach((r) => r.addEventListener("change", () => { read(); ["STAFF", "OFFICE"].forEach((t) => { document.getElementById("fm-ot-" + t).hidden = f.ownerType !== t; }); }));
   const os = document.getElementById("fm-officeSearch");
-  os.addEventListener("input", () => { read(); document.getElementById("fm-ownerOffice").innerHTML = officeOptionsHtml(f); });
-  document.getElementById("fm-ownerOffice").addEventListener("change", () => { read(); document.getElementById("fm-office-noemail").textContent = officeNoEmail(f.ownerOffice) ? T("adm.au_office_noemail") : ""; });
+  const officeChanged = () => {
+    document.getElementById("fm-office-chosen").textContent = chosenText(f);
+    document.getElementById("fm-office-noemail").textContent = officeNoEmail(f.ownerOffice) ? T("adm.au_office_noemail") : "";
+  };
+  os.addEventListener("input", () => {
+    read();
+    // When the search leaves exactly one office, it is chosen for you.
+    const m = matchingOffices(f);
+    if (m.length === 1) f.ownerOffice = m[0].key;
+    document.getElementById("fm-ownerOffice").innerHTML = officeOptionsHtml(f);
+    officeChanged();
+  });
+  document.getElementById("fm-ownerOffice").addEventListener("change", () => { read(); officeChanged(); });
   document.getElementById("fm-dueDate").addEventListener("change", refreshDue);
   document.getElementById("obs-form").addEventListener("submit", async (ev) => {
     ev.preventDefault(); read();
@@ -586,6 +604,7 @@ function renderForm() {
     if (f.title.trim().length < 5) f.errors.title = T("adm.au_e_title");
     if (!f.subjectType) f.errors.subjectType = T("adm.au_e_about");
     if (!f.rating) f.errors.rating = T("adm.au_e_rating");
+    if (f.ownerType === "OFFICE" && !f.ownerOffice) f.errors.ownerOffice = T("adm.au_e_office");
     if (Object.keys(f.errors).length) { renderForm(); focusFirstError(); return; }
     f.busy = true; renderForm();
     const payload = { action: f.id ? "update" : "create", id: f.id, title: f.title, subjectType: f.subjectType,
@@ -604,6 +623,14 @@ function renderForm() {
 }
 // The office list, filtered by what the auditor typed; the chosen office
 // always stays in the list.
+function matchingOffices(f) {
+  const q = String(f.officeSearch || "").trim().toLowerCase();
+  return allOffices().filter((o) => !q || officeLabel(o).toLowerCase().includes(q));
+}
+function chosenText(f) {
+  const o = allOffices().filter((x) => x.key === f.ownerOffice)[0];
+  return o ? T("adm.au_office_chosen", { name: officeLabel(o) }) : T("adm.au_office_not_chosen");
+}
 function officeOptionsHtml(f) {
   const q = String(f.officeSearch || "").trim().toLowerCase();
   const list = allOffices().filter((o) => !q || o.key === f.ownerOffice || officeLabel(o).toLowerCase().includes(q));

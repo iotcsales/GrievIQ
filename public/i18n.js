@@ -1414,6 +1414,8 @@
 "adm.au_office_search_ph": ["Type a ward, constituency or name", "वार्ड, क्षेत्र या नाम लिखें"],
 "adm.au_fl_owner_office": ["Office", "कार्यालय"],
 "adm.au_fh_owner_office": ["The office owns the observation, not the person: if the representative changes, the new one takes it over. Its representative and office managers reply.", "यह अवलोकन कार्यालय का है, व्यक्ति का नहीं: जनप्रतिनिधि बदलने पर नए जनप्रतिनिधि इसे संभालेंगे। उत्तर उसके जनप्रतिनिधि और कार्यालय प्रबंधक देते हैं।"],
+"adm.au_office_chosen": ["Chosen: {name}", "चुना गया: {name}"],
+"adm.au_office_not_chosen": ["No office chosen yet. Click an office in the list.", "अभी कोई कार्यालय नहीं चुना गया। सूची में किसी कार्यालय पर क्लिक करें।"],
 "adm.au_office_none": ["No office matches. Try another word.", "कोई कार्यालय नहीं मिला। कोई और शब्द आज़माएँ।"],
 "adm.au_office_noemail": ["This office has no email on file; they will see it only in the console.", "इस कार्यालय का ईमेल दर्ज नहीं है; वे इसे केवल कंसोल में देखेंगे।"],
 "adm.au_office_noemail_short": ["no email on file", "ईमेल दर्ज नहीं"],
