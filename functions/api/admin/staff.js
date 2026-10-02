@@ -94,19 +94,33 @@ const ACTIVITY = [
   ["covers", "staff_covers", "created_by"], ["covers", "staff_covers", "ended_by"],
 ];
 // Returns Map(email -> [areas]) for the given emails, or null if the check
-// could not run (then nobody may be deleted).
+// could not run (then nobody may be deleted). One small query per place, so
+// one awkward table can't stop the rest; a table or column that doesn't
+// exist holds no activity and is skipped. Any other error fails closed.
+// lastActivityCheck keeps what happened, for the super admin to see.
+export let lastActivityCheck = { skipped: [], failed: [] };
 export async function activityOf(env, emails) {
   const list = Array.from(new Set((emails || []).map((e) => String(e).toLowerCase())));
   const out = new Map(list.map((e) => [e, []]));
+  const check = { skipped: [], failed: [] };
+  lastActivityCheck = check;
   if (!list.length) return out;
-  const sql = ACTIVITY.map(([area, t, c]) => `SELECT DISTINCT '${area}' AS area, LOWER(${c}) AS e FROM ${t} WHERE LOWER(${c}) IN (SELECT value FROM json_each(?1))`).join(" UNION ");
-  try {
-    const { results } = await env.DB.prepare(sql).bind(JSON.stringify(list)).all();
-    for (const r of results || []) { const a = out.get(r.e); if (a && !a.includes(r.area)) a.push(r.area); }
-    return out;
-  } catch (e) {
-    return null;
-  }
+  // The database takes at most 100 values per query, so long lists go in parts.
+  const parts = [];
+  for (let i = 0; i < list.length; i += 50) parts.push(list.slice(i, i + 50));
+  await Promise.all(ACTIVITY.map(async ([area, t, c]) => {
+    try {
+      for (const part of parts) {
+        const { results } = await env.DB.prepare(`SELECT DISTINCT LOWER(${c}) AS e FROM ${t} WHERE LOWER(${c}) IN (${part.map(() => "?").join(", ")})`).bind(...part).all();
+        for (const r of results || []) { const a = out.get(r.e); if (a && !a.includes(area)) a.push(area); }
+      }
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (/no such (table|column)/i.test(msg)) check.skipped.push(t + "." + c);
+      else check.failed.push(t + "." + c + ": " + msg.slice(0, 160));
+    }
+  }));
+  return check.failed.length ? null : out;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -134,9 +148,11 @@ export async function onRequestGet({ request, env }) {
   const byEmail = new Map(rows.map((r) => [String(r.email).toLowerCase(), r]));
   const nameOf = (e) => { const r = byEmail.get(String(e).toLowerCase()); return r ? { name: r.name || null, employeeId: r.employee_id || null } : { name: null, employeeId: null }; };
   const staff = rows.map((r) => shapeStaff(r, manage, auth.email));
+  let activityCheck;
   if (manage && extended) {
     const act = await activityOf(env, staff.map((x) => x.email));
     for (const x of staff) { const a = act ? act.get(x.email) : null; x.canDelete = !!a && !a.length && !x.isMe; x.activity = a || null; }
+    activityCheck = lastActivityCheck;
   }
   return json({
     role: auth.role, canManage: manage, ready: extended, today,
@@ -149,6 +165,7 @@ export async function onRequestGet({ request, env }) {
     })),
     review,
     rules: { maxCoverDays: MAX_COVER_DAYS, maxLeaveDays: MAX_LEAVE_DAYS },
+    activityCheck,
   });
 }
 
@@ -344,7 +361,7 @@ export async function onRequestPost({ request, env }) {
     if (email === auth.email) return bad("You can't delete yourself.", { email: "SELF" });
     if (reason.length < 10 || reason.length > 300) return bad("Say why this entry is being deleted (at least 10 characters).", { reason: "LENGTH" });
     const act = await activityOf(env, [email]);
-    if (!act) return json({ error: "Couldn't check this person's activity, so nothing was deleted. Try again." }, 503);
+    if (!act) return json({ error: "Couldn't check this person's activity, so nothing was deleted. Try again.", activityCheck: lastActivityCheck }, 503);
     const areas = act.get(email);
     if (areas.length) return bad("This person has activity on record, so the entry can't be deleted. Mark them as having left instead.", { email: "HAS_ACTIVITY" }, { areas });
     // Leave covers they were part of go with the entry (the audit log keeps
