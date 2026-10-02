@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GrievIQ Admin — Staff</title>
+<title data-i18n="adm.st_page_title">GrievIQ Admin — Staff</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -125,191 +125,230 @@
   #status-msg.success { color: #7fce8f; }
   .muted { color: var(--admin-muted); font-size: 13px; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a>
-    <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Staff &amp; roles</h1>
-  <p class="subtitle" id="page-sub">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
+  <h1 data-i18n="adm.st_title">Staff &amp; roles</h1>
+  <p class="subtitle" id="page-sub" data-i18n="adm.st_sub">Manage who has admin access to GrievIQ, and what they're allowed to do.</p>
 
   <div class="panel" id="add-panel">
-    <h2>Add staff member</h2>
+    <h2 data-i18n="adm.st_add_h">Add staff member</h2>
     <div class="add-form">
-      <label for="new-email" class="sr-only">Email address</label>
-      <input type="email" id="new-email" placeholder="name@example.com" />
-      <label for="new-role" class="sr-only">Role</label>
+      <label for="new-email" class="sr-only" data-i18n="adm.st_email_label">Email address</label>
+      <input type="email" id="new-email" placeholder="name@example.com" data-i18n-ph="adm.st_email_ph" />
+      <label for="new-role" class="sr-only" data-i18n="adm.st_role_label">Role</label>
       <select id="new-role">
-        <option value="operations_admin">Operations Admin</option>
-        <option value="data_moderator">Data Moderator</option>
-        <option value="auditor">Auditor (raises audit observations; can't change data)</option>
-        <option value="data_entry_operator">Data Entry Operator (requests need approval)</option>
-        <option value="super_admin">Super Admin</option>
+        <option value="operations_admin" data-i18n="adm.st_role_operations_admin">Operations Admin</option>
+        <option value="data_moderator" data-i18n="adm.st_role_data_moderator">Data Moderator</option>
+        <option value="auditor" data-i18n="adm.st_opt_auditor">Auditor (raises audit observations; can't change data)</option>
+        <option value="data_entry_operator" data-i18n="adm.st_opt_data_entry_operator">Data Entry Operator (requests need approval)</option>
+        <option value="super_admin" data-i18n="adm.st_role_super_admin">Super Admin</option>
       </select>
-      <button class="primary" id="add-btn">Add staff</button>
+      <button class="primary" id="add-btn" data-i18n="adm.st_add_btn">Add staff</button>
     </div>
     <div id="status-msg"></div>
   </div>
 
   <div class="panel">
-    <h2>Current staff</h2>
+    <h2 data-i18n="adm.st_current_h">Current staff</h2>
     <table>
       <thead>
         <tr>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Added</th>
-          <th id="actions-head"><span class="sr-only">Actions</span></th>
+          <th data-i18n="adm.st_th_email">Email</th>
+          <th data-i18n="adm.st_th_role">Role</th>
+          <th data-i18n="adm.st_th_added">Added</th>
+          <th id="actions-head"><span class="sr-only" data-i18n="adm.st_th_actions">Actions</span></th>
         </tr>
       </thead>
       <tbody id="staff-rows">
-        <tr><td colspan="4" class="muted">Loading...</td></tr>
+        <tr><td colspan="4" class="muted" data-i18n="adm.st_loading">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 </main>
 
 <script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+
+// Role keys in display order; the labels are in /i18n.js ("adm.st_role_*").
 const ROLE_LABELS = {
-  super_admin: "Super Admin",
-  operations_admin: "Operations Admin",
-  data_moderator: "Data Moderator",
-  auditor: "Auditor",
-  data_entry_operator: "Data Entry Operator",
+  super_admin: "adm.st_role_super_admin",
+  operations_admin: "adm.st_role_operations_admin",
+  data_moderator: "adm.st_role_data_moderator",
+  auditor: "adm.st_role_auditor",
+  data_entry_operator: "adm.st_role_data_entry_operator",
 };
+function roleLabel(r) { return ROLE_LABELS[r] ? T(ROLE_LABELS[r]) : r; }
 
 function esc(v) {
   return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 let canManage = false;   // only the super admin adds, changes or removes staff
+let staffData = null;    // last staff list loaded, redrawn when the language changes
+let loadMsgKey = null;   // or the message shown instead of the list
+let lastStatus = null;   // last status line, as { key, vars, type }
 
-function setStatus(msg, type) {
+// key: an i18n key; vars: its {placeholders}. A server error (English) is
+// shown through "adm.err_detail" so Hindi users get a Hindi sentence.
+function setStatus(key, type, vars) {
+  lastStatus = key ? { key, vars, type } : null;
   const el = document.getElementById("status-msg");
-  el.textContent = msg || "";
+  el.textContent = key ? T(key, vars) : "";
   el.className = type || "";
 }
 
 async function loadStaff() {
   const tbody = document.getElementById("staff-rows");
-  tbody.innerHTML = '<tr><td colspan="4" class="muted">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.st_loading")) + '</td></tr>';
   try {
     const res = await fetch("/api/admin/staff");
     const data = await res.json();
     if (!res.ok) {
-      let msg = "Could not load the staff list. Press refresh to try again.";
-      if (data.error === "NOT_ADMIN") msg = "Your account is not a GrievIQ staff account.";
-      if (data.error === "INSUFFICIENT_ROLE") msg = "Your role can't see the staff list. It is for super admins and auditors.";
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">${esc(msg)}</td></tr>`;
+      let msg = "adm.st_err_load";
+      if (data.error === "NOT_ADMIN") msg = "adm.st_err_not_admin";
+      if (data.error === "INSUFFICIENT_ROLE") msg = "adm.st_err_role";
+      staffData = null;
+      loadMsgKey = msg;
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">${esc(T(msg))}</td></tr>`;
       return;
     }
     canManage = data.canManage === true;
     document.getElementById("add-panel").hidden = !canManage;
     document.getElementById("add-panel").style.display = canManage ? "" : "none";
     document.getElementById("actions-head").style.display = canManage ? "" : "none";
-    if (!canManage) document.getElementById("page-sub").textContent =
-      "Who has admin access to GrievIQ and their role. This is a read-only view: only a super admin can add, change or remove staff.";
-    const cols = canManage ? 4 : 3;
-    if (!data.staff || data.staff.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${cols}" class="muted">No staff yet.</td></tr>`;
-      return;
+    if (!canManage) {
+      const sub = document.getElementById("page-sub");
+      sub.setAttribute("data-i18n", "adm.st_sub_readonly");
+      sub.textContent = T("adm.st_sub_readonly");
     }
-    tbody.innerHTML = "";
-    data.staff.forEach((s) => {
-      const tr = document.createElement("tr");
-      tr.dataset.email = s.email;
-      const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : "";
-      const label = ROLE_LABELS[s.role] || s.role;
-      tr.innerHTML = `
-        <td>${esc(s.email)}</td>
-        <td><span class="role-badge role-${esc(s.role)}">${esc(label)}</span></td>
-        <td class="muted">${esc(addedDate)}</td>` + (canManage ? `
-        <td>
-          <div class="row-actions">
-            <select class="role-select" aria-label="New role for ${esc(s.email)}">
-              ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === s.role ? "selected" : ""}>${esc(ROLE_LABELS[r])}</option>`).join("")}
-            </select>
-            <button class="save-role-btn">Save</button>
-            <button class="danger remove-btn">Remove</button>
-          </div>
-        </td>` : "");
-      tbody.appendChild(tr);
-    });
+    staffData = data;
+    loadMsgKey = null;
+    renderStaff(false);
+  } catch (err) {
+    staffData = null;
+    loadMsgKey = "adm.st_err_network_load";
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.st_err_network_load")) + '</td></tr>';
+  }
+}
 
-    document.querySelectorAll(".save-role-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const email = btn.closest("tr").dataset.email;
-        const select = btn.closest("tr").querySelector(".role-select");
-        const role = select.value;
-        setStatus("Saving...", "");
-        try {
-          const res = await fetch("/api/admin/staff", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, role }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            setStatus(data.error || "Failed to update role.", "error");
-            return;
-          }
-          setStatus(`Updated ${email} to ${ROLE_LABELS[role]}.`, "success");
-          loadStaff();
-        } catch (err) {
-          setStatus("Network error while updating role.", "error");
-        }
-      });
-    });
+function renderStaff(keepPicks) {
+  const tbody = document.getElementById("staff-rows");
+  const data = staffData;
+  const cols = canManage ? 4 : 3;
+  if (!data.staff || data.staff.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="muted">${esc(T("adm.st_none"))}</td></tr>`;
+    return;
+  }
+  // On a language switch, keep any role a user has picked but not yet saved.
+  const picked = {};
+  if (keepPicks) tbody.querySelectorAll("tr[data-email]").forEach((tr) => {
+    const sel = tr.querySelector(".role-select");
+    if (sel) picked[tr.dataset.email] = sel.value;
+  });
+  tbody.innerHTML = "";
+  data.staff.forEach((s) => {
+    const tr = document.createElement("tr");
+    tr.dataset.email = s.email;
+    const addedDate = s.created_at ? new Date(s.created_at).toLocaleDateString(loc()) : "";
+    const label = roleLabel(s.role);
+    const chosen = Object.prototype.hasOwnProperty.call(picked, s.email) ? picked[s.email] : s.role;
+    tr.innerHTML = `
+      <td>${esc(s.email)}</td>
+      <td><span class="role-badge role-${esc(s.role)}">${esc(label)}</span></td>
+      <td class="muted">${esc(addedDate)}</td>` + (canManage ? `
+      <td>
+        <div class="row-actions">
+          <select class="role-select" aria-label="${esc(T("adm.st_new_role_for", { email: s.email }))}">
+            ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${r === chosen ? "selected" : ""}>${esc(roleLabel(r))}</option>`).join("")}
+          </select>
+          <button class="save-role-btn">${esc(T("adm.save"))}</button>
+          <button class="danger remove-btn">${esc(T("adm.st_remove"))}</button>
+        </div>
+      </td>` : "");
+    tbody.appendChild(tr);
+  });
 
-    document.querySelectorAll(".remove-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const email = btn.closest("tr").dataset.email;
-        if (!confirm(`Remove ${email} from staff? They will lose admin access immediately.`)) {
+  document.querySelectorAll(".save-role-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const email = btn.closest("tr").dataset.email;
+      const select = btn.closest("tr").querySelector(".role-select");
+      const role = select.value;
+      setStatus("adm.st_saving", "");
+      try {
+        const res = await fetch("/api/admin/staff", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, role }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
+          else setStatus("adm.st_err_update", "error");
           return;
         }
-        setStatus("Removing...", "");
-        try {
-          const res = await fetch("/api/admin/staff", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            setStatus(data.error || "Failed to remove staff member.", "error");
-            return;
-          }
-          setStatus(`Removed ${email}.`, "success");
-          loadStaff();
-        } catch (err) {
-          setStatus("Network error while removing staff member.", "error");
-        }
-      });
+        setStatus("adm.st_updated", "success", { email, role: roleLabel(role) });
+        loadStaff();
+      } catch (err) {
+        setStatus("adm.st_err_network_update", "error");
+      }
     });
-  } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="4" class="muted">Network error loading staff.</td></tr>';
-  }
+  });
+
+  document.querySelectorAll(".remove-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const email = btn.closest("tr").dataset.email;
+      if (!confirm(T("adm.st_confirm_remove", { email }))) {
+        return;
+      }
+      setStatus("adm.st_removing", "");
+      try {
+        const res = await fetch("/api/admin/staff", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
+          else setStatus("adm.st_err_remove", "error");
+          return;
+        }
+        setStatus("adm.st_removed", "success", { email });
+        loadStaff();
+      } catch (err) {
+        setStatus("adm.st_err_network_remove", "error");
+      }
+    });
+  });
 }
 
 document.getElementById("add-btn").addEventListener("click", async () => {
   const email = document.getElementById("new-email").value.trim();
   const role = document.getElementById("new-role").value;
   if (!email) {
-    setStatus("Enter an email address.", "error");
+    setStatus("adm.st_err_email", "error");
     return;
   }
-  setStatus("Adding...", "");
+  setStatus("adm.st_adding", "");
   try {
     const res = await fetch("/api/admin/staff", {
       method: "POST",
@@ -318,20 +357,21 @@ document.getElementById("add-btn").addEventListener("click", async () => {
     });
     const data = await res.json();
     if (!res.ok) {
-      setStatus(data.error || "Failed to add staff member.", "error");
+      if (data.error) setStatus("adm.err_detail", "error", { msg: data.error });
+      else setStatus("adm.st_err_add", "error");
       return;
     }
-    setStatus(`Added ${email} as ${ROLE_LABELS[role]}.`, "success");
+    setStatus("adm.st_added", "success", { email, role: roleLabel(role) });
     document.getElementById("new-email").value = "";
     loadStaff();
   } catch (err) {
-    setStatus("Network error while adding staff member.", "error");
+    setStatus("adm.st_err_network_add", "error");
   }
 });
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
-  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
 }
 
 const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
@@ -342,6 +382,16 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
   const next = current === "light" ? "dark" : "light";
   localStorage.setItem("griq-admin-theme", next);
   applyTheme(next);
+});
+
+// Switching हिन्दी / English redraws from the data already loaded,
+// keeping the typed email, the chosen roles and the status line.
+document.addEventListener("giq:lang", () => {
+  let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (lastStatus) setStatus(lastStatus.key, lastStatus.type, lastStatus.vars);
+  if (staffData) renderStaff(true);
+  else if (loadMsgKey) document.getElementById("staff-rows").innerHTML = `<tr><td colspan="4" class="muted">${esc(T(loadMsgKey))}</td></tr>`;
 });
 
 loadStaff();

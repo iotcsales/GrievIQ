@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Cases — GrievIQ Admin</title>
+<title data-i18n="adm.cs_page_title">Cases — GrievIQ Admin</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -220,6 +220,8 @@
   }
   .theme-toggle:hover { color: var(--admin-text); }
   html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 
   /* Cases page */
   .status {
@@ -299,22 +301,23 @@
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.d_service_tag">Citywide ward data · Lucknow pilot</div></div>
   <div class="header-right">
     <nav>
-      <a href="/admin-dashboard.html">Dashboard</a>
-      <a href="/admin-cases.html" class="active">Cases</a>
-      <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-      <a href="/admin-import-wards.html">Ward boundaries</a>
-      <a href="/admin-jurisdiction.html">Jurisdiction</a>
-      <a href="/admin-exceptions.html">Exceptions</a>
-      <a href="/admin-reviews.html">Reviews</a>
-      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+      <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a>
+      <a href="/admin-cases.html" class="active" data-i18n="adm.nav_cases">Cases</a>
+      <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+      <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+      <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+      <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a>
+      <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
     </nav>
     <div class="who-line" id="who-line"></div>
   </div>
@@ -322,22 +325,22 @@
 
 <main>
   <div id="list-view" hidden>
-    <h1>Cases</h1>
-    <p class="subtitle">Every complaint across all wards, read-only. Open a case to see its full history. Citizens' phone numbers and email addresses are partly hidden by default, and each case you open is recorded in the access log. Super admins and Operations admins can show a full number, with a reason, which is also recorded.</p>
+    <h1 data-i18n="adm.nav_cases">Cases</h1>
+    <p class="subtitle" data-i18n="adm.cs_sub">Every complaint across all wards, read-only. Open a case to see its full history. Citizens' phone numbers and email addresses are partly hidden by default, and each case you open is recorded in the access log. Super admins and Operations admins can show a full number, with a reason, which is also recorded.</p>
 
     <div class="panel">
       <div class="filters" style="margin-bottom:0">
-        <div><label for="f-q">Tracking number</label><input type="search" id="f-q" placeholder="e.g. GRV-58P3PP" /></div>
-        <div><label for="f-status">Status</label><select id="f-status">
-          <option value="open">Open</option>
-          <option value="waiting">Awaiting citizen</option>
-          <option value="unresolved">Open or awaiting citizen</option>
-          <option value="done">Resolved or closed</option>
-          <option value="all">All cases</option>
+        <div><label for="f-q" data-i18n="adm.cs_f_ref">Tracking number</label><input type="search" id="f-q" placeholder="e.g. GRV-58P3PP" data-i18n-ph="adm.cs_f_ref_ph" /></div>
+        <div><label for="f-status" data-i18n="adm.cs_f_status">Status</label><select id="f-status">
+          <option value="open" data-i18n="adm.cs_o_open">Open</option>
+          <option value="waiting" data-i18n="adm.cs_o_waiting">Awaiting citizen</option>
+          <option value="unresolved" data-i18n="adm.cs_o_unresolved">Open or awaiting citizen</option>
+          <option value="done" data-i18n="adm.cs_o_done">Resolved or closed</option>
+          <option value="all" data-i18n="adm.cs_o_all">All cases</option>
         </select></div>
-        <div><label for="f-ward">Ward / village</label><select id="f-ward"><option value="">All wards</option></select></div>
-        <div class="check"><label><input type="checkbox" id="f-attn" /> Only cases needing attention</label></div>
-        <div><button id="refresh-btn" type="button">Refresh</button></div>
+        <div><label for="f-ward" data-i18n="adm.cs_f_ward">Ward / village</label><select id="f-ward"><option value="" data-i18n="adm.all_wards">All wards</option></select></div>
+        <div class="check"><label><input type="checkbox" id="f-attn" /> <span data-i18n="adm.cs_f_attn">Only cases needing attention</span></label></div>
+        <div><button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button></div>
       </div>
     </div>
 
@@ -353,30 +356,53 @@
 </main>
 
 <script>
-  const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
-  const STATUS_LABELS = { OPEN: "Open", PENDING_CONFIRMATION: "Awaiting citizen", RESOLVED: "Resolved", CLOSED: "Closed" };
+  // ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+  function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+  function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+  function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+  function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "2-digit", minute: "2-digit" }; }
+  // Label maps hold i18n keys; lbl() gives the text in the page language.
+  function lbl(map, k) { return map[k] ? T(map[k]) : k; }
+  // Error/notice values are kept as keys (or {key, vars}) so they redraw in the new language.
+  function msgText(v) {
+    if (!v) return "";
+    if (typeof v === "object") return T(v.key, v.vars);
+    return v.indexOf("adm.") === 0 ? T(v) : v;
+  }
+  // Categories come from the database by English name; show the Hindi name when we know it.
+  const CAT_IDS = { "Water Supply / Sanitation": "water-sanitation", "Electricity Supply": "electricity", "Sanitation / Garbage Collection": "garbage",
+    "Road / Infrastructure Repair": "road-infra", "Public Safety / Law & Order": "public-safety", "Land Dispute / Legal Matter": "land-dispute",
+    "Document/Certificate Correction": "doc-correction", "Other / Uncategorized": "other" };
+  function catText(name, id) { return window.GIQ ? window.GIQ.category(id || CAT_IDS[name], name) : (name || ""); }
+  function levelText(label) { return window.GIQ ? window.GIQ.level(label) : (label || ""); }
+
+  const ROLE_LABELS = { super_admin: "adm.role_super_admin", operations_admin: "adm.role_operations_admin", data_moderator: "adm.role_data_moderator", auditor: "adm.role_auditor" };
+  const STATUS_LABELS = { OPEN: "adm.cs_st_OPEN", PENDING_CONFIRMATION: "adm.cs_st_PENDING_CONFIRMATION", RESOLVED: "adm.cs_st_RESOLVED", CLOSED: "adm.cs_st_CLOSED" };
   // How a resolved case was resolved (item 7a).
-  const KIND_LABELS = { CONFIRMED: "confirmed by citizen", NOT_CONFIRMED: "not confirmed by citizen", NO_EMAIL: "citizen had no email",
-    VERIFIED_BY_GRIEVIQ: "checked by GrievIQ", NOT_VERIFIED: "not verified (no email, not checked in time)" };
-  const CHECK_LABELS = { VERIFIED: "fixed", NOT_FIXED: "not fixed", CANT_TELL: "can't tell from photos", NO_ANSWER: "no answer" };
+  const KIND_LABELS = { CONFIRMED: "adm.cs_kind_CONFIRMED", NOT_CONFIRMED: "adm.cs_kind_NOT_CONFIRMED", NO_EMAIL: "adm.cs_kind_NO_EMAIL",
+    VERIFIED_BY_GRIEVIQ: "adm.cs_kind_VERIFIED_BY_GRIEVIQ", NOT_VERIFIED: "adm.cs_kind_NOT_VERIFIED" };
+  const CHECK_LABELS = { VERIFIED: "adm.cs_chk_VERIFIED", NOT_FIXED: "adm.cs_chk_NOT_FIXED", CANT_TELL: "adm.cs_chk_CANT_TELL", NO_ANSWER: "adm.cs_chk_NO_ANSWER" };
   const CONFIRM_DAYS = 7;
-  const FLAG_LABELS = { ACK_OVERDUE: "Not acknowledged in time", ESCALATED: "Escalated", DISPUTED: "Citizen disputed", LEGAL_REVIEW: "Legal review", REOPENED: "Reopened after closing", REOPENED_TOP: "Reopened at the top level" };
+  const FLAG_LABELS = { ACK_OVERDUE: "adm.cs_flag_ACK_OVERDUE", ESCALATED: "adm.cs_flag_ESCALATED", DISPUTED: "adm.cs_flag_DISPUTED", LEGAL_REVIEW: "adm.cs_flag_LEGAL_REVIEW", REOPENED: "adm.cs_flag_REOPENED", REOPENED_TOP: "adm.cs_flag_REOPENED_TOP" };
   // Item 7d: reopening reasons (same list as disputes).
-  const REOPEN_REASONS = { NOT_FIXED: "Not fixed at all", PARTIALLY_FIXED: "Partially fixed", CAME_BACK: "Fixed, but came back", WRONG_ISSUE: "Wrong issue fixed", OTHER: "Other" };
-  const TIER_NAMES = { LOCAL: "Ward representative", MAYOR: "Mayor", MLA: "MLA", MP: "MP" };
+  const REOPEN_REASONS = { NOT_FIXED: "adm.cs_rr_NOT_FIXED", PARTIALLY_FIXED: "adm.cs_rr_PARTIALLY_FIXED", CAME_BACK: "adm.cs_rr_CAME_BACK", WRONG_ISSUE: "adm.cs_rr_WRONG_ISSUE", OTHER: "adm.cs_rr_OTHER" };
+  const TIER_NAMES = { LOCAL: "adm.d_rep", MAYOR: "level.mayor", MLA: "level.mla", MP: "level.mp" };
   const EVENT_LABELS = {
-    ACKNOWLEDGED: "Acknowledged by representative",
-    FOLLOW_UP: "Follow-up logged",
-    MARKED_RESOLVED: "Marked resolved by representative",
-    CITIZEN_CONFIRMED: "Citizen confirmed it is resolved",
-    CITIZEN_DISPUTED: "Citizen disputed the resolution",
-    CITIZEN_REOPENED: "Reopened by the citizen",
-    STAFF_REOPENED: "Reopened by GrievIQ staff for the citizen",
-    ADMIN_NUDGE: "Reminder sent by GrievIQ admin",
+    ACKNOWLEDGED: "adm.cs_ev_ACKNOWLEDGED",
+    FOLLOW_UP: "adm.cs_ev_FOLLOW_UP",
+    MARKED_RESOLVED: "adm.cs_ev_MARKED_RESOLVED",
+    CITIZEN_CONFIRMED: "adm.cs_ev_CITIZEN_CONFIRMED",
+    CITIZEN_DISPUTED: "adm.cs_ev_CITIZEN_DISPUTED",
+    CITIZEN_REOPENED: "adm.cs_ev_CITIZEN_REOPENED",
+    STAFF_REOPENED: "adm.cs_ev_STAFF_REOPENED",
+    ADMIN_NUDGE: "adm.cs_ev_ADMIN_NUDGE",
   };
 
   let cases = [];
   const params = new URLSearchParams(location.search);
+  // Kept so a language switch can redraw without refetching.
+  let listLoaded = false, listGeneratedAt = null, listError = null, lastRole = null;
+  let detailBody = null, detailError = null, revealState = null, reopenState = null, redrawing = false;
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -390,30 +416,31 @@
   function dateOnly(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" });
   }
   function dateTime(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return dateOnly(s) + ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    return dateOnly(s) + ", " + d.toLocaleTimeString(loc(), timeOpts());
   }
   function days(n) {
     if (n == null) return "";
     const whole = Math.floor(n);
-    return whole < 1 ? "Under a day" : whole + (whole === 1 ? " day" : " days");
+    return whole < 1 ? T("adm.cs_under_day") : T(whole === 1 ? "adm.cs_day_one" : "adm.cs_days", { n: whole });
   }
   function statusTag(s, kind, awaitingCheck) {
-    return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(awaitingCheck ? "Awaiting GrievIQ check" : (STATUS_LABELS[s] || s)) + '</span>' +
-      (KIND_LABELS[kind] ? '<div class="ward-sub">' + escapeHtml(KIND_LABELS[kind]) + '</div>' : '');
+    return '<span class="status ' + escapeHtml(s) + '">' + escapeHtml(awaitingCheck ? T("adm.cs_st_check") : lbl(STATUS_LABELS, s)) + '</span>' +
+      (KIND_LABELS[kind] ? '<div class="ward-sub">' + escapeHtml(lbl(KIND_LABELS, kind)) + '</div>' : '');
   }
-  function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(FLAG_LABELS[f] || f) + '</span>').join(""); }
+  function badges(flags) { return (flags || []).map((f) => '<span class="badge ' + f + '">' + escapeHtml(lbl(FLAG_LABELS, f)) + '</span>').join(""); }
   function whoLine(role) {
-    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] || role || "") + '</b><br>All wards';
+    lastRole = role;
+    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[role] ? T(ROLE_LABELS[role]) : (role || "")) + '</b><br>' + escapeHtml(T("adm.all_wards"));
   }
   function errorText(body, fallback) {
-    if (body && body.error === "NOT_ADMIN") return "Your account is not an admin.";
-    if (body && body.error === "INSUFFICIENT_ROLE") return "Your role doesn't have access to case details.";
-    return (body && body.error) || fallback;
+    if (body && body.error === "NOT_ADMIN") return T("adm.d_err_not_admin");
+    if (body && body.error === "INSUFFICIENT_ROLE") return T("adm.cs_err_role");
+    return (body && body.error) ? T("adm.err_detail", { msg: body.error }) : fallback;
   }
 
   // ---- List ---------------------------------------------------------------
@@ -438,27 +465,27 @@
       (!q || String(c.trackingRef || "").toLowerCase().indexOf(q) !== -1)
     );
 
-    document.getElementById("result-count").innerHTML = 'Showing <b>' + rows.length + '</b> of ' + cases.length + ' cases';
+    document.getElementById("result-count").innerHTML = T("adm.cs_showing", { n: rows.length, total: cases.length });
     const area = document.getElementById("table-area");
     if (rows.length === 0) {
-      area.innerHTML = '<div class="empty">No cases match these filters.</div>';
+      area.innerHTML = '<div class="empty">' + escapeHtml(T("adm.cs_empty")) + '</div>';
       return;
     }
     area.innerHTML = '<table><thead><tr>' +
-      '<th>Case</th><th>Ward / village</th><th>Status</th><th>Filed</th><th>Open for</th><th>Current level</th><th>Issues</th>' +
+      '<th>' + T("adm.cs_th_case") + '</th><th>' + T("adm.cs_f_ward") + '</th><th>' + T("adm.cs_f_status") + '</th><th>' + T("adm.cs_th_filed") + '</th><th>' + T("adm.cs_th_open_for") + '</th><th>' + T("adm.cs_th_level") + '</th><th>' + T("adm.cs_th_issues") + '</th>' +
       '</tr></thead><tbody>' +
       rows.map((c) =>
         '<tr class="case-row" data-id="' + escapeHtml(c.id) + '">' +
           '<td><a class="case-link" href="?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a>' +
-            '<div class="ward-sub">' + escapeHtml(c.category) + '</div></td>' +
+            '<div class="ward-sub">' + escapeHtml(catText(c.category, c.categoryId)) + '</div></td>' +
           '<td>' + escapeHtml(c.ward.name) + '</td>' +
           '<td>' + statusTag(c.status, c.resolutionKind, c.awaitingCheck) +
-            (c.confirmBy ? '<div class="ward-sub">Closes ' + escapeHtml(dateOnly(c.confirmBy)) + ' if no reply</div>' : '') +
-            (c.reopened ? '<div class="ward-sub">Reopened</div>' : '') + '</td>' +
+            (c.confirmBy ? '<div class="ward-sub">' + escapeHtml(T("adm.cs_closes_no_reply", { date: dateOnly(c.confirmBy) })) + '</div>' : '') +
+            (c.reopened ? '<div class="ward-sub">' + escapeHtml(T("adm.cs_reopened")) + '</div>' : '') + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(dateOnly(c.createdAt)) + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(days(c.daysOpen)) + '</td>' +
-          '<td>' + (c.currentLevel ? escapeHtml(c.currentLevel) : '<span class="muted">—</span>') + '</td>' +
-          '<td>' + (badges(c.flags) || '<span class="muted">None</span>') + '</td>' +
+          '<td>' + (c.currentLevel ? escapeHtml(levelText(c.currentLevel)) : '<span class="muted">—</span>') + '</td>' +
+          '<td>' + (badges(c.flags) || '<span class="muted">' + escapeHtml(T("adm.cs_none")) + '</span>') + '</td>' +
         '</tr>'
       ).join("") +
       '</tbody></table>';
@@ -471,36 +498,49 @@
     });
   }
 
-  function fillWardFilter() {
+  function fillWardFilter(keep) {
     const sel = document.getElementById("f-ward");
     const seen = new Map();
     cases.forEach((c) => { if (c.ward.id && !seen.has(c.ward.id)) seen.set(c.ward.id, c.ward.name); });
     const wanted = params.get("ward") || "";
-    if (wanted && !seen.has(wanted)) seen.set(wanted, "Selected ward (no cases)");
+    if (wanted && !seen.has(wanted)) seen.set(wanted, T("adm.cs_ward_selected"));
     const opts = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-    sel.innerHTML = '<option value="">All wards</option>' +
+    sel.innerHTML = '<option value="">' + escapeHtml(T("adm.all_wards")) + '</option>' +
       opts.map(([id, name]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>').join("");
-    sel.value = wanted;
+    sel.value = keep != null ? keep : wanted;
+  }
+
+  function updatedText() {
+    if (!listLoaded) return;
+    document.getElementById("updated-at").textContent = T("adm.cs_updated", { time: (toDate(listGeneratedAt) || new Date()).toLocaleTimeString(loc(), timeOpts()) });
+  }
+  function showListError() {
+    document.getElementById("result-count").textContent = "";
+    document.getElementById("table-area").innerHTML = '<div class="error-msg">' +
+      (listError.net ? escapeHtml(T("adm.d_err_reach")) : escapeHtml(errorText(listError.body, T("adm.cs_err_load_list")))) + '</div>';
   }
 
   async function loadList() {
-    document.getElementById("result-count").textContent = "Loading…";
+    document.getElementById("result-count").textContent = T("adm.loading");
     try {
       const res = await fetch("/api/admin/cases");
       const body = await res.json();
       if (!res.ok) {
-        document.getElementById("result-count").textContent = "";
-        document.getElementById("table-area").innerHTML = '<div class="error-msg">' + escapeHtml(errorText(body, "Could not load cases.")) + '</div>';
+        listError = { body };
+        showListError();
         return;
       }
+      listError = null;
       whoLine(body.role);
       cases = body.cases;
-      document.getElementById("updated-at").textContent = "Updated " + (toDate(body.generatedAt) || new Date()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      listGeneratedAt = body.generatedAt || new Date().toISOString();
+      listLoaded = true;
+      updatedText();
       fillWardFilter();
       renderList();
     } catch (err) {
-      document.getElementById("result-count").textContent = "";
-      document.getElementById("table-area").innerHTML = '<div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div>';
+      listError = { net: true };
+      showListError();
     }
   }
 
@@ -531,28 +571,28 @@
   function reportHtml(r) {
     const photos = r.photos && r.photos.length
       ? '<div class="res-photos" style="margin-top:8px">' + r.photos.map((p, i) => '<div class="res-photo" style="width:120px">' +
-          (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="After-photo ' + (i + 1) + '" loading="lazy" /></a>' : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
-          (p.warnings.some((w) => w.level === "warn") ? '<div class="attn" style="font-size:12px;margin-top:3px">⚠ ' + p.warnings.filter((w) => w.level === "warn").length + ' warning(s)</div>' : '') + '</div>').join("") + '</div>'
-      : (r.noPhotoReason ? '<div class="t-body" style="margin-top:4px"><b>No photo — reason:</b> ' + escapeHtml(r.noPhotoReason) + '</div>' : '');
-    return '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' + photos + reportWho(r);
+          (p.url ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer"><img style="width:120px;height:90px" src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="' + escapeHtml(T("adm.cs_after_photo", { n: i + 1 })) + '" loading="lazy" /></a>' : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
+          (p.warnings.some((w) => w.level === "warn") ? '<div class="attn" style="font-size:12px;margin-top:3px">⚠ ' + escapeHtml(T("adm.cs_warnings_n", { n: p.warnings.filter((w) => w.level === "warn").length })) + '</div>' : '') + '</div>').join("") + '</div>'
+      : (r.noPhotoReason ? '<div class="t-body" style="margin-top:4px"><b>' + escapeHtml(T("adm.cs_no_photo_reason")) + '</b> ' + escapeHtml(r.noPhotoReason) + '</div>' : '');
+    return '<div class="t-body"><b>' + escapeHtml(T("adm.cs_what_done")) + '</b> ' + escapeHtml(r.note) + '</div>' + photos + reportWho(r);
   }
   // Item 8b: who wrote the report, in which role, and who approved it.
-  const ROLE_NAMES = { REPRESENTATIVE: "representative", OFFICE_MANAGER: "office manager", FIELD_WORKER: "field worker", OFFICE_ASSISTANT: "office assistant" };
+  const ROLE_NAMES = { REPRESENTATIVE: "adm.cs_rn_REPRESENTATIVE", OFFICE_MANAGER: "adm.cs_rn_OFFICE_MANAGER", FIELD_WORKER: "adm.cs_rn_FIELD_WORKER", OFFICE_ASSISTANT: "adm.cs_rn_OFFICE_ASSISTANT" };
   function reportWho(r) {
     if (!r.submittedRole || r.submittedRole === "REPRESENTATIVE") return "";
-    return '<div class="t-body" style="margin-top:4px;color:var(--admin-muted)">Written by ' + escapeHtml(r.by || "") + ' (' + escapeHtml(ROLE_NAMES[r.submittedRole] || r.submittedRole) + ')' +
-      (r.reviewStatus === "APPROVED" ? ' · approved by ' + escapeHtml(r.reviewedBy || "") : '') + '</div>';
+    return '<div class="t-body" style="margin-top:4px;color:var(--admin-muted)">' + escapeHtml(T("adm.cs_written_by", { who: r.by || "", role: lbl(ROLE_NAMES, r.submittedRole) })) +
+      (r.reviewStatus === "APPROVED" ? ' · ' + escapeHtml(T("adm.cs_approved_by", { who: r.reviewedBy || "" })) : '') + '</div>';
   }
 
   function timelineItems(c) {
-    const items = [{ cls: "", title: "Complaint filed", meta: dateTime(c.createdAt), body: "", at: c.createdAt }];
+    const items = [{ cls: "", title: T("adm.cs_t_filed"), meta: dateTime(c.createdAt), body: "", at: c.createdAt }];
     c.events.forEach((e) => {
       const cls = e.type === "CITIZEN_DISPUTED" || e.type === "ADMIN_NUDGE" ? "warn"
         : (e.type === "MARKED_RESOLVED" || e.type === "CITIZEN_CONFIRMED") ? "done" : "";
-      const body = [e.reason ? "Reason: " + e.reason : "", e.note || ""].filter(Boolean).join("\n");
+      const body = [e.reason ? T("adm.cs_reason_line", { r: e.reason }) : "", e.note || ""].filter(Boolean).join("\n");
       items.push({
         cls,
-        title: EVENT_LABELS[e.type] || e.type,
+        title: lbl(EVENT_LABELS, e.type),
         meta: dateTime(e.at) + (e.actor ? " · " + e.actor : ""),
         body,
         at: e.at,
@@ -562,25 +602,25 @@
     // Item 8b: fix reports from field workers (waiting or sent back), and assignments.
     (c.reports || []).forEach((r) => {
       if (r.reviewStatus !== "PENDING" && r.reviewStatus !== "SENT_BACK" && r.reviewStatus !== "APPROVED") return;
-      items.push({ cls: "", title: "Fix report submitted by field worker", meta: dateTime(r.createdAt) + " · " + (r.by || ""), body: "", at: r.createdAt,
-        html: '<div class="t-body"><b>What was done:</b> ' + escapeHtml(r.note) + '</div>' });
-      if (r.reviewStatus === "SENT_BACK") items.push({ cls: "warn", title: "Fix report sent back", meta: dateTime(r.reviewedAt) + " · " + (r.reviewedBy || ""), body: r.reviewNote || "", at: r.reviewedAt });
+      items.push({ cls: "", title: T("adm.cs_t_fix_submitted"), meta: dateTime(r.createdAt) + " · " + (r.by || ""), body: "", at: r.createdAt,
+        html: '<div class="t-body"><b>' + escapeHtml(T("adm.cs_what_done")) + '</b> ' + escapeHtml(r.note) + '</div>' });
+      if (r.reviewStatus === "SENT_BACK") items.push({ cls: "warn", title: T("adm.cs_t_fix_sent_back"), meta: dateTime(r.reviewedAt) + " · " + (r.reviewedBy || ""), body: r.reviewNote || "", at: r.reviewedAt });
     });
     (c.teamActivity || []).forEach((t) => {
       const d = t.detail || {};
-      items.push({ cls: "", title: t.action === "ASSIGNED" ? "Assigned to " + (d.name || d.to || "field worker") : (d.reason === "OUT_OF_AREA" ? "Assignment cleared (ward no longer covered by that field worker)" : "Assignment cleared"),
-        meta: dateTime(t.at) + " · " + t.by + (t.onBehalfOf && t.onBehalfOf !== t.by ? " for " + t.onBehalfOf : ""), body: "", at: t.at });
+      items.push({ cls: "", title: t.action === "ASSIGNED" ? T("adm.cs_t_assigned", { name: d.name || d.to || T("adm.cs_rn_FIELD_WORKER") }) : (d.reason === "OUT_OF_AREA" ? T("adm.cs_t_unassigned_area") : T("adm.cs_t_unassigned")),
+        meta: dateTime(t.at) + " · " + t.by + (t.onBehalfOf && t.onBehalfOf !== t.by ? " " + T("adm.cs_on_behalf", { who: t.onBehalfOf }) : ""), body: "", at: t.at });
     });
     // Reopenings (item 7d), kept in their own table.
     (c.reopens || []).forEach((r) => {
-      items.push({ cls: "warn", title: r.by === "staff" ? EVENT_LABELS.STAFF_REOPENED : EVENT_LABELS.CITIZEN_REOPENED,
-        meta: dateTime(r.at) + (r.by === "staff" && r.staffEmail ? " · " + r.staffEmail : " · Citizen") + " · sent to " + (TIER_NAMES[r.toTier] || r.toTier),
-        body: "Reason: " + (REOPEN_REASONS[r.reason] || r.reason) + "\n" + r.note, at: r.at });
+      items.push({ cls: "warn", title: r.by === "staff" ? T(EVENT_LABELS.STAFF_REOPENED) : T(EVENT_LABELS.CITIZEN_REOPENED),
+        meta: dateTime(r.at) + (r.by === "staff" && r.staffEmail ? " · " + r.staffEmail : " · " + T("adm.cs_citizen")) + " · " + T("adm.cs_sent_to", { tier: lbl(TIER_NAMES, r.toTier) }),
+        body: T("adm.cs_reason_line", { r: lbl(REOPEN_REASONS, r.reason) }) + "\n" + r.note, at: r.at });
     });
         // GrievIQ staff checks (item 7b-2).
     (c.staffChecks || []).forEach((k) => {
       items.push({ cls: k.outcome === "VERIFIED" ? "done" : k.outcome === "NOT_FIXED" ? "warn" : "",
-        title: "GrievIQ check (" + (k.method === "PHONE" ? "phone call" : "photos") + "): " + (CHECK_LABELS[k.outcome] || k.outcome),
+        title: T("adm.cs_t_check", { method: k.method === "PHONE" ? T("adm.cs_m_phone") : T("adm.cs_m_photos"), outcome: lbl(CHECK_LABELS, k.outcome) }),
         meta: dateTime(k.at) + (k.by ? " · " + k.by : ""), body: k.note || "", at: k.at });
     });
     // Closing after no reply isn't a stored event; it happens CONFIRM_DAYS
@@ -588,7 +628,7 @@
     if (c.resolutionKind === "NOT_CONFIRMED" && c.resolvedAt) {
       const d = toDate(c.resolvedAt);
       if (d && !isNaN(d)) {
-        items.push({ cls: "done", title: "Closed as resolved: no reply from the citizen in " + CONFIRM_DAYS + " days",
+        items.push({ cls: "done", title: T("adm.cs_t_closed_no_reply", { n: CONFIRM_DAYS }),
           meta: dateTime(new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString()), body: "", at: new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString() });
       }
     }
@@ -596,7 +636,7 @@
       const d = toDate(c.resolvedAt);
       if (d && !isNaN(d)) {
         const at = new Date(d.getTime() + CONFIRM_DAYS * 86400000).toISOString();
-        items.push({ cls: "warn", title: "Closed as not verified: GrievIQ didn't check it within " + CONFIRM_DAYS + " days", meta: dateTime(at), body: "", at });
+        items.push({ cls: "warn", title: T("adm.cs_t_closed_unverified", { n: CONFIRM_DAYS }), meta: dateTime(at), body: "", at });
       }
     }
     // One record in date order (both timestamp shapes; stable for ties).
@@ -606,28 +646,31 @@
 
   // Resolution report and photo warnings (item 7b). Warnings never block;
   // photo dates and locations can be missing or edited.
-  function dist(m) { m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km"; }
+  function dist(m) {
+    if (window.GIQ && window.GIQ.distance) return window.GIQ.distance(m);
+    m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km";
+  }
   function evText(w) {
-    if (w.code === "DATE_BEFORE_FILING") return "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")";
-    if (w.code === "DATE_FUTURE") return "Photo date is in the future (" + dateTime(w.takenAt) + ")";
-    if (w.code === "FAR_FROM_PIN") return "Photo taken about " + dist(w.metres) + " in a straight line from the complaint's pin";
-    if (w.code === "REUSED_OTHER_CASE") return (w.kind === "similar" ? "Very similar to a photo on " : "Same photo already used on ") + "another case";
-    if (w.code === "CITIZEN_PHOTO") return "This is one of the citizen's own photos";
-    if (w.code === "NO_DATE") return "No date in photo";
-    if (w.code === "NO_LOCATION") return "No location in photo or from the representative's phone";
-    if (w.code === "NO_PIN") return "No pin or ward boundary to compare the location with";
-    if (w.code === "DEVICE_FAR_FROM_PIN") return "Representative added this photo about " + dist(w.metres) + " in a straight line from the complaint's pin (phone accuracy ±" + w.accuracy + " m)";
-    if (w.code === "DEVICE_OUTSIDE_WARD") return "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)";
-    if (w.code === "PHOTO_OUTSIDE_WARD") return "Photo's own location is outside the complaint's ward";
-    if (w.code === "DEVICE_NOT_SHARED") return "Representative's location not shared";
-    if (w.code === "DEVICE_ROUGH") return "Representative's location too rough to check (±" + w.accuracy + " m)";
+    if (w.code === "DATE_BEFORE_FILING") return T("adm.cs_w_date_before", { date: dateTime(w.takenAt) });
+    if (w.code === "DATE_FUTURE") return T("adm.cs_w_date_future", { date: dateTime(w.takenAt) });
+    if (w.code === "FAR_FROM_PIN") return T("adm.cs_w_far", { dist: dist(w.metres) });
+    if (w.code === "REUSED_OTHER_CASE") return w.kind === "similar" ? T("adm.cs_w_similar") : T("adm.cs_w_reused");
+    if (w.code === "CITIZEN_PHOTO") return T("adm.cs_w_citizen");
+    if (w.code === "NO_DATE") return T("adm.cs_w_no_date");
+    if (w.code === "NO_LOCATION") return T("adm.cs_w_no_location");
+    if (w.code === "NO_PIN") return T("adm.cs_w_no_pin");
+    if (w.code === "DEVICE_FAR_FROM_PIN") return T("adm.cs_w_dev_far", { dist: dist(w.metres), acc: w.accuracy });
+    if (w.code === "DEVICE_OUTSIDE_WARD") return T("adm.cs_w_dev_outside", { acc: w.accuracy });
+    if (w.code === "PHOTO_OUTSIDE_WARD") return T("adm.cs_w_photo_outside");
+    if (w.code === "DEVICE_NOT_SHARED") return T("adm.cs_w_dev_not_shared");
+    if (w.code === "DEVICE_ROUGH") return T("adm.cs_w_dev_rough", { acc: w.accuracy });
     return w.code;
   }
   // Item 7c: photos removed under the retention policy.
   function removedText(p) {
-    if (p && p.removed === "ALL") return "Photo removed under the retention policy on " + dateOnly(p.removedAt) + ".";
-    if (p && p.removed === "FULL") return "Full-size photo removed under the retention policy on " + dateOnly(p.removedAt) + "; preview kept.";
-    return "Photo unavailable (photo links are not set up).";
+    if (p && p.removed === "ALL") return T("adm.cs_removed_all", { date: dateOnly(p.removedAt) });
+    if (p && p.removed === "FULL") return T("adm.cs_removed_full", { date: dateOnly(p.removedAt) });
+    return T("adm.cs_photo_unavailable");
   }
 
   function renderResolutionPanel(c) {
@@ -636,88 +679,90 @@
     const photos = r.photos.length
       ? '<div class="res-photos">' + r.photos.map((p, i) =>
           '<div class="res-photo">' + (p.url
-            ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="Open after-photo ' + (i + 1) + (p.removed ? '' : ' full size') + '"><img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="After-photo ' + (i + 1) + ' added by the representative" loading="lazy" /></a>' +
+            ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(T(p.removed ? "adm.cs_open_after" : "adm.cs_open_after_full", { n: i + 1 })) + '"><img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="' + escapeHtml(T("adm.cs_after_photo_rep", { n: i + 1 })) + '" loading="lazy" /></a>' +
               (p.removed ? '<div class="muted" style="margin-top:3px">' + escapeHtml(removedText(p)) + '</div>' : '')
             : '<span class="muted">' + escapeHtml(removedText(p)) + '</span>') +
           '<ul class="ev">' + p.warnings.map((w) =>
             '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) +
-            (w.otherCaseIdForLink ? ' — <a href="?case=' + encodeURIComponent(w.otherCaseIdForLink) + '">' + escapeHtml(w.otherCaseRef || "open it") + '</a>' : '') +
+            (w.otherCaseIdForLink ? ' — <a href="?case=' + encodeURIComponent(w.otherCaseIdForLink) + '">' + escapeHtml(w.otherCaseRef || T("adm.cs_open_it")) + '</a>' : '') +
             '</li>').join("") + '</ul></div>').join("") + '</div>'
-      : '<div class="field"><div class="k">No photo — reason given</div><div class="v">' + escapeHtml(r.noPhotoReason || "—") + '</div></div>';
+      : '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_no_photo_given")) + '</div><div class="v">' + escapeHtml(r.noPhotoReason || "—") + '</div></div>';
     return '<div class="panel" style="margin-top:20px">' +
-      '<h2 style="margin-bottom:6px">What the representative says was done</h2>' +
+      '<h2 style="margin-bottom:6px">' + escapeHtml(T("adm.cs_res_title")) + '</h2>' +
       '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(dateTime(r.createdAt)) + (r.by ? ' · ' + escapeHtml(r.by) : '') +
-        (r.warningCount ? ' · <b style="color:var(--admin-danger)">' + r.warningCount + (r.warningCount === 1 ? ' warning' : ' warnings') + '</b>' : '') + '</p>' +
+        (r.warningCount ? ' · <b style="color:var(--admin-danger)">' + escapeHtml(T(r.warningCount === 1 ? "adm.cs_warning_one" : "adm.cs_warning_many", { n: r.warningCount })) + '</b>' : '') + '</p>' +
       '<div class="res-note">' + escapeHtml(r.note) + '</div>' + reportWho(r) + photos +
     '</div>';
   }
 
-  function renderDetail(body) {
+  function renderDetail(body, keepState) {
+    detailBody = body;
+    detailError = null;
     const c = body.case;
     c.reopens = body.reopens || [];
     c.teamActivity = body.teamActivity || [];
     const view = document.getElementById("detail-view");
-    const wardType = c.ward.type === "URBAN" ? "Urban ward" : c.ward.type === "RURAL" ? "Rural village" : "";
+    const wardType = c.ward.type === "URBAN" ? T("adm.urban_ward") : c.ward.type === "RURAL" ? T("adm.rural_village") : "";
 
     const photos = c.photos.length
       ? '<div class="photos">' + c.photos.map((p, i) => {
           if (typeof p === "string") p = { url: p, thumbUrl: p };
           if (!p.url) return '<span class="muted">' + escapeHtml(removedText(p)) + '</span>';
-          return '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(p.removed ? removedText(p) : "Open photo " + (i + 1) + " full size") + '">' +
-            '<img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="Photo ' + (i + 1) + ' attached by the citizen" loading="lazy" /></a>';
+          return '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(p.removed ? removedText(p) : T("adm.cs_open_photo", { n: i + 1 })) + '">' +
+            '<img src="' + escapeHtml(p.thumbUrl || p.url) + '" alt="' + escapeHtml(T("adm.cs_photo_citizen", { n: i + 1 })) + '" loading="lazy" /></a>';
         }).join("") + '</div>'
-      : '<span class="muted">No photo attached.</span>';
+      : '<span class="muted">' + escapeHtml(T("adm.cs_no_photo")) + '</span>';
 
     const tiers = c.level
       ? '<ul class="tiers">' + c.level.tiers.map((t, i) =>
           '<li class="' + (t.reached ? 'reached' : '') + (i === c.level.index ? ' current' : '') + '">' +
             '<span class="mark" aria-hidden="true">' + (t.reached ? '●' : '○') + '</span>' +
-            '<span>' + escapeHtml(t.label) + (i === c.level.index ? ' (current level)' : '') +
-            ' <span class="who">— ' + (t.name ? escapeHtml(t.name) : 'no name on file') + '</span>' +
-            (t.reached ? '<span class="sr-only"> (reached)</span>' : '') + '</span></li>').join("") + '</ul>'
-      : '<span class="muted">Escalation details unavailable.</span>';
+            '<span>' + escapeHtml(levelText(t.label)) + (i === c.level.index ? ' ' + escapeHtml(T("adm.cs_current_level")) : '') +
+            ' <span class="who">— ' + (t.name ? escapeHtml(t.name) : escapeHtml(T("adm.cs_no_name"))) + '</span>' +
+            (t.reached ? '<span class="sr-only"> ' + escapeHtml(T("adm.cs_reached")) + '</span>' : '') + '</span></li>').join("") + '</ul>'
+      : '<span class="muted">' + escapeHtml(T("adm.cs_esc_unavailable")) + '</span>';
 
-    const contact = [c.citizen.phone ? '<div class="masked">Phone: ' + escapeHtml(c.citizen.phone) + '</div>' : '',
-                     c.citizen.email ? '<div class="masked">Email: ' + escapeHtml(c.citizen.email) + '</div>' : '']
-                    .join("") || '<span class="muted">None on file.</span>';
+    const contact = [c.citizen.phone ? '<div class="masked">' + escapeHtml(T("adm.cs_phone", { v: c.citizen.phone })) + '</div>' : '',
+                     c.citizen.email ? '<div class="masked">' + escapeHtml(T("adm.cs_email", { v: c.citizen.email })) + '</div>' : '']
+                    .join("") || '<span class="muted">' + escapeHtml(T("adm.cs_none_on_file")) + '</span>';
 
     view.innerHTML =
-      '<a class="back-link" href="/admin-cases.html" id="back-link">← All cases</a>' +
+      '<a class="back-link" href="/admin-cases.html" id="back-link">' + escapeHtml(T("adm.cs_back")) + '</a>' +
       '<div class="identity-bar">' +
         '<div class="ref">' + escapeHtml(c.trackingRef) + ' ' + statusTag(c.status, null, c.awaitingCheck) + '</div>' +
-        (KIND_LABELS[c.resolutionKind] ? '<div class="facts">Resolved · <b>' + escapeHtml(KIND_LABELS[c.resolutionKind]) + '</b></div>' : '') +
-        (c.confirmBy && !c.awaitingCheck ? '<div class="facts">Waiting for the citizen to confirm. Escalation is paused. Closes as resolved on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if the citizen doesn\'t reply.</div>' : '') +
-        (c.confirmBy && c.awaitingCheck ? '<div class="facts">The citizen gave no email, so GrievIQ staff check the fix. Escalation is paused. Closes as <b>not verified</b> on <b>' + escapeHtml(dateTime(c.confirmBy)) + '</b> if nobody checks it. <a href="/admin-checks.html" style="color:var(--admin-accent)">Go to Checks</a></div>' : '') +
-        '<div class="facts"><b>' + escapeHtml(c.ward.name) + '</b>' + (wardType ? ' · ' + wardType : '') +
-          ' · ' + escapeHtml(c.category) + ' · Filed ' + escapeHtml(dateOnly(c.createdAt)) +
-          ' · ' + (c.status === "RESOLVED" || c.status === "CLOSED" ? 'Took ' : 'Open for ') + escapeHtml(days(c.daysOpen).toLowerCase()) + '</div>' +
+        (KIND_LABELS[c.resolutionKind] ? '<div class="facts">' + escapeHtml(T("adm.cs_st_RESOLVED")) + ' · <b>' + escapeHtml(lbl(KIND_LABELS, c.resolutionKind)) + '</b></div>' : '') +
+        (c.confirmBy && !c.awaitingCheck ? '<div class="facts">' + T("adm.cs_waiting_confirm", { date: escapeHtml(dateTime(c.confirmBy)) }) + '</div>' : '') +
+        (c.confirmBy && c.awaitingCheck ? '<div class="facts">' + T("adm.cs_waiting_check", { date: escapeHtml(dateTime(c.confirmBy)) }) + ' <a href="/admin-checks.html" style="color:var(--admin-accent)">' + escapeHtml(T("adm.cs_go_checks")) + '</a></div>' : '') +
+        '<div class="facts"><b>' + escapeHtml(c.ward.name) + '</b>' + (wardType ? ' · ' + escapeHtml(wardType) : '') +
+          ' · ' + escapeHtml(catText(c.category, c.categoryId)) + ' · ' + escapeHtml(T("adm.cs_filed", { date: dateOnly(c.createdAt) })) +
+          ' · ' + escapeHtml(T(c.status === "RESOLVED" || c.status === "CLOSED" ? "adm.cs_took" : "adm.cs_open_for", { d: days(c.daysOpen).toLowerCase() })) + '</div>' +
         (c.flags.length ? '<div class="badges">' + badges(c.flags) + '</div>' : '') +
         // Item 9a: the auditor can raise an observation straight from a case.
-        (body.role === "auditor" ? '<div class="facts"><a style="color:var(--admin-accent)" href="/admin-audit.html#new&case=' + encodeURIComponent(c.trackingRef) + '&src=' + encodeURIComponent("case:" + c.id) + '&label=' + encodeURIComponent("Case " + c.trackingRef) + '">Raise an audit observation about this case</a></div>' : '') +
+        (body.role === "auditor" ? '<div class="facts"><a style="color:var(--admin-accent)" href="/admin-audit.html#new&case=' + encodeURIComponent(c.trackingRef) + '&src=' + encodeURIComponent("case:" + c.id) + '&label=' + encodeURIComponent("Case " + c.trackingRef) + '">' + escapeHtml(T("adm.cs_raise_obs")) + '</a></div>' : '') +
       '</div>' +
       '<div class="detail-grid">' +
         '<div class="panel">' +
-          '<div class="field"><div class="k">What the citizen reported</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
-          '<div class="field"><div class="k">Location</div><div class="v">' + (c.locationDetail ? escapeHtml(c.locationDetail) : '<span class="muted">Not given.</span>') + '</div></div>' +
-          '<div class="field"><div class="k">Photos</div>' + photos + '</div>' +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_reported")) + '</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_location")) + '</div><div class="v">' + (c.locationDetail ? escapeHtml(c.locationDetail) : '<span class="muted">' + escapeHtml(T("adm.cs_not_given")) + '</span>') + '</div></div>' +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_photos")) + '</div>' + photos + '</div>' +
         '</div>' +
         '<div class="panel">' +
-          '<div class="field"><div class="k">Escalation</div>' + tiers + '</div>' +
-          '<div class="field"><div class="k">Citizen contact</div><div class="v">' + contact + '</div>' +
-            '<div class="mask-note">Partly hidden by default. Super admins and Operations admins can show the full number, with a reason, to call the citizen about a fix; each time is recorded.</div>' +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_escalation")) + '</div>' + tiers + '</div>' +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_contact")) + '</div><div class="v">' + contact + '</div>' +
+            '<div class="mask-note">' + escapeHtml(T("adm.cs_mask_note")) + '</div>' +
             (body.canReveal && c.citizen.phone ? '<div id="reveal-area"></div>' : '') + '</div>' +
         '</div>' +
       '</div>' +
       renderResolutionPanel(c) +
       renderReopenPanel(body) +
       '<div class="panel" style="margin-top:20px">' +
-        '<h2 style="margin-bottom:16px">History</h2>' +
+        '<h2 style="margin-bottom:16px">' + escapeHtml(T("adm.cs_history")) + '</h2>' +
         '<ol class="timeline">' + timelineItems(c).map((it) =>
           '<li class="' + it.cls + '"><div class="t-title">' + escapeHtml(it.title) + '</div>' +
           '<div class="t-meta">' + escapeHtml(it.meta) + '</div>' +
           (it.body ? '<div class="t-body">' + escapeHtml(it.body) + '</div>' : '') + (it.html || '') + '</li>').join("") +
         '</ol>' +
-        '<p class="access-note">You opened this case on ' + escapeHtml(dateTime(body.viewedAt)) + '. This was recorded in the admin access log.</p>' +
+        '<p class="access-note">' + escapeHtml(T("adm.cs_access_note", { date: dateTime(body.viewedAt) })) + '</p>' +
       '</div>';
 
     document.getElementById("back-link").addEventListener("click", (e) => {
@@ -726,9 +771,11 @@
         history.back();
       }
     });
-    document.title = c.trackingRef + " — Cases — GrievIQ Admin";
-    if (body.canReveal && c.citizen.phone) renderReveal(c.id, { open: false, reason: "", error: "", phone: "" });
-    if (body.canStaffReopen) renderStaffReopen(c.id, { open: false, reason: "", note: "", staffReason: "", errors: {}, busy: false });
+    document.title = T("adm.cs_page_title_case", { ref: c.trackingRef });
+    if (!keepState || !revealState) revealState = { open: false, reason: "", error: "", phone: "" };
+    if (!keepState || !reopenState) reopenState = { open: false, reason: "", note: "", staffReason: "", errors: {}, busy: false };
+    if (body.canReveal && c.citizen.phone) renderReveal(c.id, revealState);
+    if (body.canStaffReopen) renderStaffReopen(c.id, reopenState);
   }
 
   // Item 7d: the reopening, and whether the case can still be reopened.
@@ -736,21 +783,25 @@
     const r = body.reopen, st = body.reopenStatus || {};
     let inner = "";
     if (r) {
-      inner += '<div style="font-size:14px;line-height:1.6;margin-bottom:12px">Reopened on <b>' + escapeHtml(dateTime(r.at)) + '</b> ' +
-        (r.by === "staff" ? 'by GrievIQ staff (' + escapeHtml(r.staffEmail || "") + ') for the citizen' : 'by the citizen') +
-        ' · moved from ' + escapeHtml(TIER_NAMES[r.fromTier] || r.fromTier) + ' to <b>' + escapeHtml(TIER_NAMES[r.toTier] || r.toTier) + '</b>' +
-        (r.fromTier === r.toTier ? ' (already the top level)' : '') + '</div>' +
-        '<div class="field"><div class="k">Why</div><div class="v"><b>' + escapeHtml(REOPEN_REASONS[r.reason] || r.reason) + '</b> — ' + escapeHtml(r.note) + '</div></div>' +
-        (r.staffReason ? '<div class="field"><div class="k">How the citizen asked</div><div class="v">' + escapeHtml(r.staffReason) + '</div></div>' : '');
+      inner += '<div style="font-size:14px;line-height:1.6;margin-bottom:12px">' + T("adm.cs_ro_on", { date: escapeHtml(dateTime(r.at)) }) + ' ' +
+        (r.by === "staff" ? escapeHtml(T("adm.cs_ro_by_staff", { email: r.staffEmail || "" })) : escapeHtml(T("adm.cs_ro_by_citizen"))) +
+        ' · ' + T("adm.cs_ro_moved", { from: escapeHtml(lbl(TIER_NAMES, r.fromTier)), to: escapeHtml(lbl(TIER_NAMES, r.toTier)) }) +
+        (r.fromTier === r.toTier ? ' ' + escapeHtml(T("adm.cs_ro_top")) : '') + '</div>' +
+        '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_why")) + '</div><div class="v"><b>' + escapeHtml(lbl(REOPEN_REASONS, r.reason)) + '</b> — ' + escapeHtml(r.note) + '</div></div>' +
+        (r.staffReason ? '<div class="field"><div class="k">' + escapeHtml(T("adm.cs_k_how_asked")) + '</div><div class="v">' + escapeHtml(r.staffReason) + '</div></div>' : '');
     } else if (st.code === "OK") {
-      inner += '<p class="section-sub">The citizen can reopen this case once, until <b>' + escapeHtml(dateTime(st.until)) + '</b>. It would go one level up with a fresh time limit.</p>';
+      inner += '<p class="section-sub">' + T("adm.cs_can_reopen", { date: escapeHtml(dateTime(st.until)) }) + '</p>';
     } else if (st.code === "TOO_LATE") {
-      inner += '<p class="section-sub">The 30 days to reopen this case have passed.</p>';
+      inner += '<p class="section-sub">' + escapeHtml(T("adm.cs_too_late")) + '</p>';
     } else {
       return "";
     }
     inner += '<div id="staff-reopen-area"></div>';
-    return '<div class="panel" style="margin-top:20px"><h2 style="margin-bottom:10px">Reopening</h2>' + inner + '</div>';
+    return '<div class="panel" style="margin-top:20px"><h2 style="margin-bottom:10px">' + escapeHtml(T("adm.cs_reopening")) + '</h2>' + inner + '</div>';
+  }
+
+  function reopenDoneText(b) {
+    return T(b.atTop ? "adm.cs_sr_done_top" : "adm.cs_sr_done", { tier: TIER_NAMES[b.toTier] ? T(TIER_NAMES[b.toTier]) : (b.toLabel ? levelText(b.toLabel) : b.toTier) }) + " " + T("adm.cs_reloading");
   }
 
   // Reopen for a citizen who gave no email (Super admin / Operations admin).
@@ -758,38 +809,38 @@
     const area = document.getElementById("staff-reopen-area");
     if (!area) return;
     if (f.done) {
-      area.innerHTML = '<div class="notice ok" role="status" tabindex="-1" id="reopen-done" style="margin-top:12px">' + escapeHtml(f.done) + '</div>';
-      document.getElementById("reopen-done").focus();
+      area.innerHTML = '<div class="notice ok" role="status" tabindex="-1" id="reopen-done" style="margin-top:12px">' + escapeHtml(reopenDoneText(f.done)) + '</div>';
+      if (!redrawing) document.getElementById("reopen-done").focus();
       return;
     }
     if (!f.open) {
-      area.innerHTML = '<p class="mask-note" style="margin-top:10px">The citizen gave no email, so they can\'t reopen it from the status page. If they ask (for example by phone), you can reopen it for them.</p>' +
-        '<button type="button" class="small" id="reopen-open">Reopen for the citizen</button>';
+      area.innerHTML = '<p class="mask-note" style="margin-top:10px">' + escapeHtml(T("adm.cs_sr_note")) + '</p>' +
+        '<button type="button" class="small" id="reopen-open">' + escapeHtml(T("adm.cs_sr_open")) + '</button>';
       document.getElementById("reopen-open").addEventListener("click", () => { f.open = true; renderStaffReopen(caseId, f); document.getElementById("ro-reason").focus(); });
       return;
     }
-    const err = (k, key) => '<div id="ro-' + k + '-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(f.errors[key || k] || "") + '</div>';
+    const err = (k, key) => '<div id="ro-' + k + '-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(msgText(f.errors[key || k])) + '</div>';
     const inv = (k) => f.errors[k] ? ' aria-invalid="true"' : '';
-    const lab = (id, t) => '<label for="' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:12px 0 5px">' + t + '</label>';
+    const lab = (id, t) => '<label for="' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:12px 0 5px">' + escapeHtml(t) + '</label>';
     area.innerHTML =
-      lab("ro-reason", "What the citizen says") +
-      '<select id="ro-reason" aria-describedby="ro-reason-err"' + inv("reason") + '><option value="">Choose…</option>' +
-        Object.keys(REOPEN_REASONS).map((k) => '<option value="' + k + '"' + (f.reason === k ? ' selected' : '') + '>' + escapeHtml(REOPEN_REASONS[k]) + '</option>').join("") + '</select>' + err("reason") +
-      lab("ro-note", "What is still wrong, in the citizen's words (10 to 500 characters)") +
+      lab("ro-reason", T("adm.cs_sr_l_reason")) +
+      '<select id="ro-reason" aria-describedby="ro-reason-err"' + inv("reason") + '><option value="">' + escapeHtml(T("adm.cs_choose")) + '</option>' +
+        Object.keys(REOPEN_REASONS).map((k) => '<option value="' + k + '"' + (f.reason === k ? ' selected' : '') + '>' + escapeHtml(lbl(REOPEN_REASONS, k)) + '</option>').join("") + '</select>' + err("reason") +
+      lab("ro-note", T("adm.cs_sr_l_note")) +
       '<textarea id="ro-note" maxlength="500" style="width:100%;min-height:70px" aria-describedby="ro-note-err"' + inv("note") + '>' + escapeHtml(f.note) + '</textarea>' + err("note") +
-      lab("ro-staff", "How the citizen asked (for the record, e.g. phoned support on 2 Oct)") +
+      lab("ro-staff", T("adm.cs_sr_l_staff")) +
       '<textarea id="ro-staff" maxlength="300" style="width:100%;min-height:50px" aria-describedby="ro-staff-err"' + inv("staffReason") + '>' + escapeHtml(f.staffReason) + '</textarea>' + err("staff", "staffReason") +
-      '<div role="alert" id="ro-err" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:6px">' + escapeHtml(f.errors.form || "") + '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="primary small" id="ro-go"' + (f.busy ? ' disabled' : '') + '>Reopen case</button><button type="button" class="small" id="ro-cancel">Cancel</button></div>' +
-      '<div class="mask-note">It goes one level up with a fresh time limit. Your name, the time and these details are recorded.</div>';
+      '<div role="alert" id="ro-err" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:6px">' + escapeHtml(msgText(f.errors.form)) + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="primary small" id="ro-go"' + (f.busy ? ' disabled' : '') + '>' + escapeHtml(T("adm.cs_sr_go")) + '</button><button type="button" class="small" id="ro-cancel">' + escapeHtml(T("adm.cancel")) + '</button></div>' +
+      '<div class="mask-note">' + escapeHtml(T("adm.cs_sr_hint")) + '</div>';
     const read = () => { f.reason = document.getElementById("ro-reason").value; f.note = document.getElementById("ro-note").value; f.staffReason = document.getElementById("ro-staff").value; };
     document.getElementById("ro-cancel").addEventListener("click", () => { f.open = false; f.errors = {}; renderStaffReopen(caseId, f); document.getElementById("reopen-open").focus(); });
     document.getElementById("ro-go").addEventListener("click", async () => {
       read();
       f.errors = {};
-      if (!f.reason) f.errors.reason = "Choose what the citizen says.";
-      if (f.note.trim().length < 10 || f.note.trim().length > 500) f.errors.note = "Write 10 to 500 characters.";
-      if (f.staffReason.trim().length < 10) f.errors.staffReason = "Write at least 10 characters.";
+      if (!f.reason) f.errors.reason = "adm.cs_e_reason";
+      if (f.note.trim().length < 10 || f.note.trim().length > 500) f.errors.note = "adm.cs_e_note";
+      if (f.staffReason.trim().length < 10) f.errors.staffReason = "adm.cs_e_staff";
       const first = f.errors.reason ? "ro-reason" : f.errors.note ? "ro-note" : f.errors.staffReason ? "ro-staff" : null;
       if (first) { renderStaffReopen(caseId, f); document.getElementById(first).focus(); return; }
       f.busy = true; renderStaffReopen(caseId, f);
@@ -800,17 +851,17 @@
         f.busy = false;
         if (!res.ok) {
           const fl = b.fields || {};
-          if (fl.reason) f.errors.reason = "Choose what the citizen says.";
-          if (fl.note) f.errors.note = "Write 10 to 500 characters.";
-          if (fl.staffReason) f.errors.staffReason = "Write at least 10 characters.";
-          if (!fl.reason && !fl.note && !fl.staffReason) f.errors.form = b.error === "INSUFFICIENT_ROLE" ? "Your role can't reopen cases." : (b.error || "Could not reopen the case.");
+          if (fl.reason) f.errors.reason = "adm.cs_e_reason";
+          if (fl.note) f.errors.note = "adm.cs_e_note";
+          if (fl.staffReason) f.errors.staffReason = "adm.cs_e_staff";
+          if (!fl.reason && !fl.note && !fl.staffReason) f.errors.form = b.error === "INSUFFICIENT_ROLE" ? "adm.cs_e_role_reopen" : (b.error ? { key: "adm.err_detail", vars: { msg: b.error } } : "adm.cs_e_reopen");
           renderStaffReopen(caseId, f);
           return;
         }
-        f.done = "Case reopened and sent to " + (TIER_NAMES[b.toTier] || b.toLabel || b.toTier) + (b.atTop ? " (it was already at the top level, so it stays there and shows in Exceptions)." : ".") + " Reloading…";
+        f.done = { toTier: b.toTier, toLabel: b.toLabel, atTop: b.atTop };
         renderStaffReopen(caseId, f);
         setTimeout(() => initDetail(caseId), 1200);
-      } catch (e) { f.busy = false; f.errors.form = "Could not reach the server."; renderStaffReopen(caseId, f); }
+      } catch (e) { f.busy = false; f.errors.form = "adm.cs_e_network"; renderStaffReopen(caseId, f); }
     });
   }
 
@@ -821,58 +872,65 @@
     if (!area) return;
     if (r.phone) {
       area.innerHTML = '<div style="margin-top:10px;font-size:18px;font-weight:700"><a href="tel:' + escapeHtml(r.phone) + '" style="color:var(--admin-accent)">' + escapeHtml(r.phone) + '</a></div>' +
-        '<div class="mask-note">Shown for this case only. Recorded in the admin log with your reason.</div>';
-      area.querySelector("a").focus();
+        '<div class="mask-note">' + escapeHtml(T("adm.cs_rv_shown")) + '</div>';
+      if (!redrawing) area.querySelector("a").focus();
       return;
     }
     if (!r.open) {
-      area.innerHTML = '<button type="button" class="small" id="reveal-open" style="margin-top:10px">Show full number</button>';
+      area.innerHTML = '<button type="button" class="small" id="reveal-open" style="margin-top:10px">' + escapeHtml(T("adm.cs_rv_open")) + '</button>';
       document.getElementById("reveal-open").addEventListener("click", () => { r.open = true; renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); });
       return;
     }
     area.innerHTML =
-      '<label for="reveal-reason" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:10px 0 5px">Why do you need the full number?</label>' +
+      '<label for="reveal-reason" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:10px 0 5px">' + escapeHtml(T("adm.cs_rv_label")) + '</label>' +
       '<textarea id="reveal-reason" maxlength="300" style="width:100%;min-height:60px"' + (r.error ? ' aria-invalid="true" aria-describedby="reveal-err"' : '') + '>' + escapeHtml(r.reason) + '</textarea>' +
-      '<div id="reveal-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(r.error) + '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="primary small" id="reveal-go">Show number</button><button type="button" class="small" id="reveal-cancel">Cancel</button></div>' +
-      '<div class="mask-note">Your name, the time and your reason are recorded in the admin log.</div>';
+      '<div id="reveal-err" role="alert" style="color:var(--admin-danger);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(msgText(r.error)) + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="primary small" id="reveal-go">' + escapeHtml(T("adm.cs_rv_go")) + '</button><button type="button" class="small" id="reveal-cancel">' + escapeHtml(T("adm.cancel")) + '</button></div>' +
+      '<div class="mask-note">' + escapeHtml(T("adm.cs_rv_hint")) + '</div>';
     document.getElementById("reveal-cancel").addEventListener("click", () => { r.open = false; r.error = ""; renderReveal(caseId, r); document.getElementById("reveal-open").focus(); });
     document.getElementById("reveal-go").addEventListener("click", async () => {
       r.reason = document.getElementById("reveal-reason").value;
-      if (r.reason.trim().length < 10) { r.error = "Give a reason of at least 10 characters."; renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
+      if (r.reason.trim().length < 10) { r.error = "adm.cs_rv_e_short"; renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
       try {
         const res = await fetch("/api/admin/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reveal_phone", id: caseId, reason: r.reason.trim() }) });
         const b = await res.json().catch(() => ({}));
-        if (!res.ok) { r.error = b.error === "INSUFFICIENT_ROLE" ? "Your role can't see full numbers." : (b.error || "Could not show the number."); renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
+        if (!res.ok) { r.error = b.error === "INSUFFICIENT_ROLE" ? "adm.cs_rv_e_role" : (b.error ? { key: "adm.err_detail", vars: { msg: b.error } } : "adm.cs_rv_e_fail"); renderReveal(caseId, r); document.getElementById("reveal-reason").focus(); return; }
         r.phone = b.phone; r.error = ""; renderReveal(caseId, r);
-      } catch (e) { r.error = "Could not reach the server."; renderReveal(caseId, r); }
+      } catch (e) { r.error = "adm.cs_e_network"; renderReveal(caseId, r); }
     });
+  }
+
+  function showDetailError() {
+    document.getElementById("detail-view").innerHTML = '<a class="back-link" href="/admin-cases.html">' + escapeHtml(T("adm.cs_back")) + '</a>' +
+      '<div class="panel"><div class="error-msg">' +
+      (detailError.net ? escapeHtml(T("adm.cs_err_reach_reload")) : escapeHtml(errorText(detailError.body, T("adm.cs_err_load_case")))) + '</div></div>';
   }
 
   async function initDetail(id) {
     const view = document.getElementById("detail-view");
     view.hidden = false;
-    view.innerHTML = '<p class="muted">Loading case…</p>';
+    detailBody = null; detailError = null;
+    view.innerHTML = '<p class="muted">' + escapeHtml(T("adm.cs_loading_case")) + '</p>';
     try {
       const res = await fetch("/api/admin/cases?id=" + encodeURIComponent(id));
       const body = await res.json();
       if (!res.ok) {
-        view.innerHTML = '<a class="back-link" href="/admin-cases.html">← All cases</a>' +
-          '<div class="panel"><div class="error-msg">' + escapeHtml(errorText(body, "Could not load this case.")) + '</div></div>';
+        detailError = { body };
+        showDetailError();
         return;
       }
       whoLine(body.role);
       renderDetail(body);
     } catch (err) {
-      view.innerHTML = '<a class="back-link" href="/admin-cases.html">← All cases</a>' +
-        '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and reload the page.</div></div>';
+      detailError = { net: true };
+      showDetailError();
     }
   }
 
   // ---- Theme --------------------------------------------------------------
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
   const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
   applyTheme(savedTheme);
@@ -881,6 +939,32 @@
     const next = current === "light" ? "dark" : "light";
     localStorage.setItem("griq-admin-theme", next);
     applyTheme(next);
+  });
+
+  // Switching हिन्दी / English redraws from the data already loaded.
+  document.addEventListener("giq:lang", () => {
+    let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    applyTheme(th);
+    if (lastRole != null) whoLine(lastRole);
+    if (params.get("case")) {
+      // Keep anything typed into open forms.
+      const g = (id) => document.getElementById(id);
+      if (reopenState && reopenState.open && g("ro-reason")) { reopenState.reason = g("ro-reason").value; reopenState.note = g("ro-note").value; reopenState.staffReason = g("ro-staff").value; }
+      if (revealState && revealState.open && g("reveal-reason")) revealState.reason = g("reveal-reason").value;
+      redrawing = true;
+      try {
+        if (detailBody) renderDetail(detailBody, true);
+        else if (detailError) showDetailError();
+        else document.getElementById("detail-view").innerHTML = '<p class="muted">' + escapeHtml(T("adm.cs_loading_case")) + '</p>';
+      } finally { redrawing = false; }
+    } else {
+      if (listLoaded && !listError) {
+        fillWardFilter(document.getElementById("f-ward").value);
+        updatedText();
+        renderList();
+      } else if (listError) showListError();
+      else document.getElementById("result-count").textContent = T("adm.loading");
+    }
   });
 
   if (params.get("case")) initDetail(params.get("case")); else initList();

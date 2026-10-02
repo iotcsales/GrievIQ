@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Reviews — GrievIQ Admin</title>
+<title data-i18n="adm.rv_page_title">Reviews — GrievIQ Admin</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -146,58 +146,76 @@
   }
   .theme-toggle:hover { color: var(--admin-text); }
   html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a>
-    <a href="/admin-reviews.html" class="active">Reviews</a>
-    <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+    <a href="/admin-reviews.html" data-i18n="adm.nav_reviews" class="active">Reviews</a>
+    <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Reviews</h1>
-  <p class="subtitle" id="page-sub">Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. Nothing here is used until you approve it. Suggestions made by several citizens independently are listed first.</p>
+  <h1 data-i18n="adm.nav_reviews">Reviews</h1>
+  <p class="subtitle" id="page-sub" data-i18n="adm.rv_sub">Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. Nothing here is used until you approve it. Suggestions made by several citizens independently are listed first.</p>
 
   <div id="notice-area"></div>
 
   <div class="result-bar">
     <span id="result-count">Loading…</span>
-    <button id="refresh-btn" type="button">Refresh</button>
+    <button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button>
   </div>
 
   <div id="list"></div>
 </main>
 
 <dialog id="approve-dialog">
-  <h2 id="approve-title">Approve</h2>
+  <h2 id="approve-title" data-i18n="adm.c_approve">Approve</h2>
   <p class="ctx" id="approve-ctx"></p>
-  <label for="approve-name">Name to save</label>
+  <label for="approve-name" data-i18n="adm.rv_name_label">Name to save</label>
   <input type="text" id="approve-name" maxlength="120" autocomplete="off" />
-  <div class="hint">Correct the spelling if needed before saving.</div>
-  <label for="approve-phone">Phone to save (optional)</label>
+  <div class="hint" data-i18n="adm.rv_name_hint">Correct the spelling if needed before saving.</div>
+  <label for="approve-phone" data-i18n="adm.rv_phone_label">Phone to save (optional)</label>
   <input type="text" id="approve-phone" maxlength="40" autocomplete="off" />
   <div class="hint" id="approve-phone-hint"></div>
   <div class="scope" id="approve-scope"></div>
   <div class="dialog-error" id="approve-error" role="alert"></div>
   <div class="dlg-actions">
-    <button type="button" id="approve-cancel">Cancel</button>
-    <button type="button" class="primary" id="approve-save">Approve and save</button>
+    <button type="button" id="approve-cancel" data-i18n="adm.cancel">Cancel</button>
+    <button type="button" class="primary" id="approve-save" data-i18n="adm.rv_save">Approve and save</button>
   </div>
 </dialog>
 
 <script>
+  // ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+  function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+  function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+  function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+  function lvl(label) { return window.GIQ ? window.GIQ.level(label) : label; }
+  // Set an element's text from a key and remember it, so a language switch can redraw it.
+  function setText(el, key, vars) {
+    el._t = key ? [key, vars] : null;
+    el.textContent = key ? T(key, vars) : "";
+  }
+
   let groups = [];
   let canAct = false;   // false for read-only roles (the auditor): no Approve / Reject
   let active = null;
+  let loaded = false;
+  let loadError = null;   // { key, msg } when the last load failed
+  let noticeFn = null;    // rebuilds the last notice in the current language
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -213,46 +231,47 @@
   function shortDate(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short" });
   }
 
   function valueOrMissing(v, label) {
-    return v ? escapeHtml(v) : '<span class="missing">no ' + label + '</span>';
+    return v ? escapeHtml(v) : '<span class="missing">' + T("adm.rv_no_" + label) + '</span>';
   }
 
   function scopeText(g) {
     if (g.tier === "LOCAL") return "";
-    return "Approving updates the " + g.roleLabel + " for all " + g.wardsAffected + " ward" + (g.wardsAffected === 1 ? "" : "s") + " in " + g.targetLabel + ".";
+    return T(g.wardsAffected === 1 ? "adm.rv_scope_one" : "adm.rv_scope", { role: lvl(g.roleLabel), n: g.wardsAffected, place: g.targetLabel });
   }
 
   function renderGroup(g, i) {
-    const where = g.tier === "LOCAL"
-      ? escapeHtml(g.targetLabel)
-      : escapeHtml(g.targetLabel) + ' <span class="role">(reported from ' + escapeHtml(g.wardName || "a ward") + ')</span>';
+    const where = escapeHtml(g.targetLabel);
+    const from = g.tier === "LOCAL"
+      ? ""
+      : ' <span class="role">(' + escapeHtml(T("adm.rv_reported_from", { ward: g.wardName || T("adm.rv_a_ward") })) + ')</span>';
     const badge = g.count > 1
-      ? '<span class="corroboration">Suggested by ' + g.count + ' citizens</span>'
-      : '<span class="corroboration single">Suggested by 1 citizen</span>';
-    const phones = g.phones.length ? g.phones.map(escapeHtml).join(", ") : '<span class="missing">no phone given</span>';
+      ? '<span class="corroboration">' + T("adm.rv_by_many", { n: g.count }) + '</span>'
+      : '<span class="corroboration single">' + T("adm.rv_by_one") + '</span>';
+    const phones = g.phones.length ? g.phones.map(escapeHtml).join(", ") : '<span class="missing">' + T("adm.rv_no_phone_given") + '</span>';
     const refs = g.trackingRefs.slice(0, 5).map(escapeHtml).join(", ") + (g.trackingRefs.length > 5 ? "…" : "");
     const when = shortDate(g.firstAt) === shortDate(g.lastAt) ? shortDate(g.firstAt) : shortDate(g.firstAt) + " – " + shortDate(g.lastAt);
     const scope = scopeText(g);
 
     return '<div class="review">' +
       '<div class="review-head">' +
-        '<div><div class="review-title">' + escapeHtml(g.roleLabel) + ' for ' + where + '</div>' +
+        '<div><div class="review-title">' + T("adm.rv_role_for", { role: escapeHtml(lvl(g.roleLabel)), where: where }) + from + '</div>' +
         (scope ? '<div class="scope">' + escapeHtml(scope) + '</div>' : '') + '</div>' +
         badge +
       '</div>' +
       '<div class="compare">' +
-        '<div class="col"><h3>On file now</h3><div class="val">' +
+        '<div class="col"><h3>' + T("adm.rv_on_file") + '</h3><div class="val">' +
           valueOrMissing(g.currentName, "name") + '<br>' + valueOrMissing(g.currentPhone, "phone") + '</div></div>' +
-        '<div class="col suggested"><h3>Citizens suggest</h3><div class="val">' +
+        '<div class="col suggested"><h3>' + T("adm.rv_suggest") + '</h3><div class="val">' +
           escapeHtml(g.suggestedName) + '<br>' + phones + '</div></div>' +
       '</div>' +
-      '<div class="meta">From complaint' + (g.trackingRefs.length === 1 ? ' ' : 's ') + refs + ' · ' + when + '</div>' +
+      '<div class="meta">' + T(g.trackingRefs.length === 1 ? "adm.rv_from_one" : "adm.rv_from_many", { refs: refs }) + ' · ' + when + '</div>' +
       (canAct ? '<div class="actions">' +
-        '<button type="button" class="reject" data-reject="' + i + '">Reject</button>' +
-        '<button type="button" class="primary" data-approve="' + i + '">Approve…</button>' +
+        '<button type="button" class="reject" data-reject="' + i + '">' + T("adm.c_reject") + '</button>' +
+        '<button type="button" class="primary" data-approve="' + i + '">' + T("adm.rv_approve_btn") + '</button>' +
       '</div>' : '') +
     '</div>';
   }
@@ -260,10 +279,12 @@
   function render() {
     const list = document.getElementById("list");
     const total = groups.reduce((n, g) => n + g.count, 0);
-    document.getElementById("result-count").innerHTML =
-      '<span><b>' + groups.length + '</b> to review' + (total !== groups.length ? ' (' + total + ' suggestions)' : '') + '</span>';
+    const countEl = document.getElementById("result-count");
+    countEl._t = null;
+    countEl.innerHTML =
+      '<span>' + (total !== groups.length ? T("adm.rv_count_total", { n: groups.length, total: total }) : T("adm.rv_count", { n: groups.length })) + '</span>';
     if (groups.length === 0) {
-      list.innerHTML = '<div class="empty">No suggestions waiting for review.</div>';
+      list.innerHTML = '<div class="empty">' + T("adm.rv_empty") + '</div>';
       return;
     }
     list.innerHTML = groups.map(renderGroup).join("");
@@ -271,50 +292,71 @@
     list.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reject(Number(b.dataset.reject))));
   }
 
+  function showLoadError() {
+    const msg = loadError.key === "adm.err_detail" ? T("adm.err_detail", { msg: loadError.msg }) : T(loadError.key);
+    document.getElementById("list").innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
+  }
+
   async function load() {
-    document.getElementById("result-count").textContent = "Loading…";
+    setText(document.getElementById("result-count"), "adm.loading");
     try {
       const res = await fetch("/api/admin/reviews");
       const data = await res.json();
       if (!res.ok) {
-        let msg = data.error || "Could not load suggestions.";
-        if (data.error === "NOT_ADMIN") msg = "Your account is not an admin.";
-        if (data.error === "INSUFFICIENT_ROLE") msg = "Your role doesn't have access to the review queue.";
-        document.getElementById("list").innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
-        document.getElementById("result-count").textContent = "";
+        loadError = data.error ? { key: "adm.err_detail", msg: data.error } : { key: "adm.rv_err_load" };
+        if (data.error === "NOT_ADMIN") loadError = { key: "adm.d_err_not_admin" };
+        if (data.error === "INSUFFICIENT_ROLE") loadError = { key: "adm.rv_err_role" };
+        showLoadError();
+        setText(document.getElementById("result-count"), null);
         return;
       }
+      loadError = null;
       groups = data.groups || [];
       canAct = data.canAct !== false;
-      if (!canAct) document.getElementById("page-sub").textContent =
-        "Representative details suggested by citizens when they filed a complaint in an area where we're missing a name or phone. This is a read-only view: approving or rejecting is done by super admins, operations admins and data moderators.";
+      if (!canAct) {
+        const sub = document.getElementById("page-sub");
+        sub.setAttribute("data-i18n", "adm.rv_sub_ro");
+        sub.textContent = T("adm.rv_sub_ro");
+      }
+      loaded = true;
       render();
     } catch (err) {
-      document.getElementById("list").innerHTML = '<div class="error-msg">Could not load suggestions. Check your connection and press Refresh.</div>';
-      document.getElementById("result-count").textContent = "";
+      loadError = { key: "adm.rv_err_conn" };
+      showLoadError();
+      setText(document.getElementById("result-count"), null);
     }
   }
 
   function showNotice(html, ok) {
     document.getElementById("notice-area").innerHTML = '<div class="notice ' + (ok ? "ok" : "err") + '">' + html + '</div>';
   }
+  // Shows a notice built by fn() and keeps fn so a language switch can rebuild it.
+  function notice(fn, ok) {
+    noticeFn = [fn, ok];
+    showNotice(fn(), ok);
+  }
 
   // --- Approve ---
   const dialog = document.getElementById("approve-dialog");
 
+  function fillApprove() {
+    document.getElementById("approve-title").textContent = T("adm.rv_approve_role", { role: lvl(active.roleLabel) });
+    document.getElementById("approve-ctx").textContent = active.currentName
+      ? T("adm.rv_ctx_cur", { role: lvl(active.roleLabel), place: active.targetLabel, name: active.currentName })
+      : T("adm.rv_ctx_none", { role: lvl(active.roleLabel), place: active.targetLabel });
+    document.getElementById("approve-phone-hint").textContent =
+      active.phones.length > 1 ? T("adm.rv_ph_diff", { list: active.phones.join(", ") }) :
+      active.currentPhone ? T("adm.rv_ph_keep_cur", { phone: active.currentPhone }) : T("adm.rv_ph_keep");
+    document.getElementById("approve-scope").textContent = scopeText(active);
+  }
+
   function openApprove(i) {
     active = groups[i];
     if (!active) return;
-    document.getElementById("approve-title").textContent = "Approve " + active.roleLabel;
-    document.getElementById("approve-ctx").textContent = active.roleLabel + " for " + active.targetLabel +
-      (active.currentName ? ". Currently on file: " + active.currentName + "." : ". No name on file yet.");
+    fillApprove();
     document.getElementById("approve-name").value = active.suggestedName;
     document.getElementById("approve-phone").value = active.phones[0] || "";
-    document.getElementById("approve-phone-hint").textContent =
-      active.phones.length > 1 ? "Citizens gave different numbers: " + active.phones.join(", ") + ". Keep the one you've verified." :
-      "Leave blank to keep the phone already on file" + (active.currentPhone ? " (" + active.currentPhone + ")." : ".");
-    document.getElementById("approve-scope").textContent = scopeText(active);
-    document.getElementById("approve-error").textContent = "";
+    setText(document.getElementById("approve-error"), null);
     document.getElementById("approve-save").disabled = false;
     dialog.showModal();
     document.getElementById("approve-name").focus();
@@ -327,10 +369,10 @@
     const name = document.getElementById("approve-name").value.trim();
     const phone = document.getElementById("approve-phone").value.trim();
     const errorEl = document.getElementById("approve-error");
-    if (name.length < 2) { errorEl.textContent = "Enter the representative's name."; return; }
+    if (name.length < 2) { setText(errorEl, "adm.rv_err_name"); return; }
     const btn = document.getElementById("approve-save");
     btn.disabled = true;
-    errorEl.textContent = "";
+    setText(errorEl, null);
     try {
       const res = await fetch("/api/admin/reviews", {
         method: "POST",
@@ -339,15 +381,17 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        errorEl.textContent = data.error || "Could not approve.";
+        if (data.error) setText(errorEl, "adm.err_detail", { msg: data.error });
+        else setText(errorEl, "adm.rv_err_approve");
         btn.disabled = false;
         return;
       }
       dialog.close();
-      showNotice("Approved. " + escapeHtml(active.roleLabel) + " for " + escapeHtml(active.targetLabel) + " is now saved as <b>" + escapeHtml(name) + "</b>.", true);
+      const g = active;
+      notice(() => T("adm.rv_approved", { role: escapeHtml(lvl(g.roleLabel)), place: escapeHtml(g.targetLabel), name: escapeHtml(name) }), true);
       load();
     } catch (err) {
-      errorEl.textContent = "Network error. Please try again.";
+      setText(errorEl, "adm.rv_err_net");
       btn.disabled = false;
     }
   });
@@ -356,7 +400,7 @@
   async function reject(i) {
     const g = groups[i];
     if (!g) return;
-    if (!confirm('Reject "' + g.suggestedName + '" as ' + g.roleLabel + ' for ' + g.targetLabel + '? Nothing will be changed.')) return;
+    if (!confirm(T("adm.rv_confirm_reject", { name: g.suggestedName, role: lvl(g.roleLabel), place: g.targetLabel }))) return;
     try {
       const res = await fetch("/api/admin/reviews", {
         method: "POST",
@@ -365,13 +409,14 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        showNotice(escapeHtml(data.error || "Could not reject."), false);
+        const err = data.error;
+        notice(() => escapeHtml(err ? T("adm.err_detail", { msg: err }) : T("adm.rv_err_reject")), false);
         return;
       }
-      showNotice("Rejected " + escapeHtml(g.suggestedName) + " for " + escapeHtml(g.targetLabel) + ". Nothing was changed.", true);
+      notice(() => T("adm.rv_rejected", { name: escapeHtml(g.suggestedName), place: escapeHtml(g.targetLabel) }), true);
       load();
     } catch (err) {
-      showNotice("Network error. Please try again.", false);
+      notice(() => T("adm.rv_err_net"), false);
     }
   }
 
@@ -379,7 +424,7 @@
 
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
 
   const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
@@ -390,6 +435,19 @@
     const next = current === "light" ? "dark" : "light";
     localStorage.setItem("griq-admin-theme", next);
     applyTheme(next);
+  });
+
+  // Switching हिन्दी / English redraws from the data already loaded.
+  document.addEventListener("giq:lang", () => {
+    let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    applyTheme(th);
+    [document.getElementById("result-count"), document.getElementById("approve-error")].forEach((el) => {
+      if (el._t) el.textContent = T(el._t[0], el._t[1]);
+    });
+    if (loadError) showLoadError();
+    else if (loaded) render();
+    if (noticeFn) showNotice(noticeFn[0](), noticeFn[1]);
+    if (dialog.open && active) fillApprove();
   });
 
   load();

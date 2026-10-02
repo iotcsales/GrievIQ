@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Checks — GrievIQ Admin</title>
+<title data-i18n="adm.ck_page_title">Checks — GrievIQ Admin</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -321,86 +321,106 @@
   .hist { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; }
   .hist li { padding: 4px 0; border-bottom: 1px solid var(--admin-border); }
   .hist li:last-child { border-bottom: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span><div class="service-tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.d_service_tag">Citywide ward data · Lucknow pilot</div></div>
   <div class="header-right">
     <nav>
-      <a href="/admin-dashboard.html">Dashboard</a>
-      <a href="/admin-cases.html">Cases</a>
-      <a href="/admin-checks.html" class="active">Checks</a>
-      <a href="/admin-import.html">Import</a>
-      <a href="/admin-import-wards.html">Ward boundaries</a>
-      <a href="/admin-jurisdiction.html">Jurisdiction</a>
-      <a href="/admin-exceptions.html">Exceptions</a>
-      <a href="/admin-reviews.html">Reviews</a>
-      <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+      <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a>
+      <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a>
+      <a href="/admin-checks.html" data-i18n="adm.nav_checks" class="active">Checks</a>
+      <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+      <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+      <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+      <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a>
+      <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a>
+      <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
     </nav>
     <div class="who-line" id="who-line"></div>
   </div>
 </header>
 
 <main>
-  <h1>Checks</h1>
-  <p class="subtitle">Fixes to check. These cases were marked resolved by a representative, but the citizen gave no email, so they can't confirm it themselves. Look at the before and after photos, or call the citizen, and record what you found. Escalation is paused while a case waits here. If nobody checks within 7 days, it closes as <b>not verified</b>.</p>
+  <h1 data-i18n="adm.nav_checks">Checks</h1>
+  <p class="subtitle" data-i18n-html="adm.ck_sub">Fixes to check. These cases were marked resolved by a representative, but the citizen gave no email, so they can't confirm it themselves. Look at the before and after photos, or call the citizen, and record what you found. Escalation is paused while a case waits here. If nobody checks within 7 days, it closes as <b>not verified</b>.</p>
   <div id="notice-area" role="status"></div>
-  <div class="result-bar"><span id="result-count">Loading…</span><span><button id="refresh-btn" type="button">Refresh</button></span></div>
+  <div class="result-bar"><span id="result-count">Loading…</span><span><button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button></span></div>
   <div id="queue"></div>
   <div class="panel" id="recent-panel" hidden>
-    <h2 style="margin-bottom:12px">Latest decisions</h2>
+    <h2 style="margin-bottom:12px" data-i18n="adm.ck_latest">Latest decisions</h2>
     <div class="table-wrap" id="recent"></div>
   </div>
 </main>
 
 <script>
-  const ROLE_LABELS = { super_admin: "Super admin", operations_admin: "Operations admin", data_moderator: "Data moderator", auditor: "Auditor" };
-  const OUTCOME_LABELS = { VERIFIED: "Fixed", NOT_FIXED: "Not fixed", CANT_TELL: "Can't tell from photos", NO_ANSWER: "No answer" };
+  // ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+  function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+  function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+  function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+  function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "2-digit", minute: "2-digit" }; }
+  function roleLabel(r) { const k = "adm.role_" + r; const v = T(k); return v === k ? (r || "") : v; }
+  function outcomeLabel(o) { const k = "adm.ck_o_" + o; const v = T(k); return v === k ? o : v; }
+  // Category names come from the database in English; show them in the page language.
+  const CAT_IDS = { "Document/Certificate Correction": "doc-correction", "Water Supply / Sanitation": "water-sanitation",
+    "Electricity Supply": "electricity", "Road / Infrastructure Repair": "road-infra", "Sanitation / Garbage Collection": "garbage",
+    "Land Dispute / Legal Matter": "land-dispute", "Public Safety / Law & Order": "public-safety", "Other / Uncategorized": "other" };
+  function catName(name) { return window.GIQ && CAT_IDS[name] ? window.GIQ.category(CAT_IDS[name], name) : name; }
+  // An error is kept as { key } (our text) or { srv } (the server's English detail), so it redraws in either language.
+  function errText(e) { return !e ? "" : e.srv !== undefined ? T("adm.err_detail", { msg: e.srv }) : e.key ? T(e.key) : String(e); }
   let data = null;
+  let lastNotice = null;   // { key, ref } of the last "recorded" notice
+  let loadError = null;    // function returning the load error text
   const state = {};   // case id -> { method, note, errors, busy, reveal: { open, reason, phone, error } }
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function toDate(s) { if (!s) return null; return String(s).indexOf("T") !== -1 ? new Date(s) : new Date(String(s).replace(" ", "T") + "Z"); }
-  function dateOnly(s) { const d = toDate(s); return d && !isNaN(d) ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""; }
-  function dateTime(s) { const d = toDate(s); return d && !isNaN(d) ? dateOnly(s) + ", " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""; }
-  function dist(m) { m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km"; }
+  function dateOnly(s) { const d = toDate(s); return d && !isNaN(d) ? d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) : ""; }
+  function dateTime(s) { const d = toDate(s); return d && !isNaN(d) ? dateOnly(s) + ", " + d.toLocaleTimeString(loc(), timeOpts()) : ""; }
+  function dist(m) {
+    if (window.GIQ && window.GIQ.distance) return window.GIQ.distance(m);
+    m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km";
+  }
   function evText(w) {
     const M = {
-      DATE_BEFORE_FILING: () => "Photo taken before the complaint was filed (" + dateTime(w.takenAt) + ")",
-      DATE_FUTURE: () => "Photo date is in the future (" + dateTime(w.takenAt) + ")",
-      FAR_FROM_PIN: () => "Photo taken about " + dist(w.metres) + " in a straight line from the complaint's pin",
-      DEVICE_FAR_FROM_PIN: () => "Representative added this photo about " + dist(w.metres) + " in a straight line from the complaint's pin (phone accuracy ±" + w.accuracy + " m)",
-      DEVICE_OUTSIDE_WARD: () => "Representative added this photo from outside the complaint's ward (phone accuracy ±" + w.accuracy + " m)",
-      PHOTO_OUTSIDE_WARD: () => "Photo's own location is outside the complaint's ward",
-      REUSED_OTHER_CASE: () => (w.kind === "similar" ? "Very similar to a photo on another case" : "Same photo already used on another case"),
-      CITIZEN_PHOTO: () => "This is one of the citizen's own photos",
-      NO_DATE: () => "No date in photo",
-      NO_LOCATION: () => "No location in photo or from the representative's phone",
-      NO_PIN: () => "No pin or ward boundary to compare the location with",
-      DEVICE_NOT_SHARED: () => "Representative's location not shared",
-      DEVICE_ROUGH: () => "Representative's location too rough to check (±" + w.accuracy + " m)",
+      DATE_BEFORE_FILING: () => T("rep.ev_date_before", { date: dateTime(w.takenAt) }),
+      DATE_FUTURE: () => T("rep.ev_date_future", { date: dateTime(w.takenAt) }),
+      FAR_FROM_PIN: () => T("rep.ev_far", { dist: dist(w.metres) }),
+      DEVICE_FAR_FROM_PIN: () => T("adm.ck_ev_dev_far", { dist: dist(w.metres), acc: w.accuracy }),
+      DEVICE_OUTSIDE_WARD: () => T("adm.ck_ev_dev_outside", { acc: w.accuracy }),
+      PHOTO_OUTSIDE_WARD: () => T("rep.ev_photo_outside"),
+      REUSED_OTHER_CASE: () => (w.kind === "similar" ? T("rep.ev_similar") : T("rep.ev_reused")),
+      CITIZEN_PHOTO: () => T("rep.ev_citizen"),
+      NO_DATE: () => T("rep.ev_no_date"),
+      NO_LOCATION: () => T("adm.ck_ev_no_location"),
+      NO_PIN: () => T("adm.ck_ev_no_pin"),
+      DEVICE_NOT_SHARED: () => T("adm.ck_ev_dev_not_shared"),
+      DEVICE_ROUGH: () => T("adm.ck_ev_dev_rough", { acc: w.accuracy }),
     };
     return M[w.code] ? M[w.code]() : w.code;
   }
   function st(id) { return state[id] || (state[id] = { method: "", note: "", errors: {}, busy: false, reveal: { open: false, reason: "", phone: "", error: "" } }); }
 
   function photosHtml(list, who) {
-    if (!list || !list.length) return '<span class="muted">None.</span>';
+    if (!list || !list.length) return '<span class="muted">' + T("adm.ck_none") + '</span>';
     return '<div class="res-photos">' + list.map((p, i) => {
       const url = typeof p === "string" ? p : p.url;
       const thumb = typeof p === "string" ? p : (p.thumbUrl || p.url);
       const warns = typeof p === "string" ? [] : (p.warnings || []);
       // Item 7c: photos removed under the retention policy say so.
       const removed = typeof p === "string" ? null : p.removed;
-      const removedText = removed === "ALL" ? "Photo removed under the retention policy on " + dateOnly(p.removedAt) + "."
-        : removed === "FULL" ? "Full-size photo removed under the retention policy on " + dateOnly(p.removedAt) + "; preview kept." : "Photo unavailable.";
+      const removedText = removed === "ALL" ? T("adm.ck_ph_removed", { date: dateOnly(p.removedAt) })
+        : removed === "FULL" ? T("adm.ck_ph_full_removed", { date: dateOnly(p.removedAt) }) : T("adm.ck_ph_unavailable");
       return '<div class="res-photo">' + (url
-        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Open ' + who + ' photo ' + (i + 1) + (removed ? '' : ' full size') + '"><img src="' + escapeHtml(thumb) + '" alt="' + escapeHtml(who + " photo " + (i + 1)) + '" loading="lazy" /></a>' +
+        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(T(removed ? "adm.ck_ph_open" : "adm.ck_ph_open_full", { who: who, n: i + 1 })) + '"><img src="' + escapeHtml(thumb) + '" alt="' + escapeHtml(T("adm.ck_ph_alt", { who: who, n: i + 1 })) + '" loading="lazy" /></a>' +
           (removed ? '<div class="muted" style="font-size:12px;margin-top:3px">' + escapeHtml(removedText) + '</div>' : '')
         : '<span class="muted">' + escapeHtml(removedText) + '</span>') +
         (warns.length ? '<ul class="ev">' + warns.map((w) => '<li class="' + (w.level === "warn" ? "warn" : "info") + '">' + (w.level === "warn" ? "⚠ " : "") + escapeHtml(evText(w)) + '</li>').join("") + '</ul>' : '') +
@@ -410,44 +430,44 @@
 
   function actionsHtml(c) {
     const s = st(c.id);
-    if (c.conflict) return '<div class="conflict">You can\'t check this case: you are one of its representatives, or you marked it resolved.</div>';
-    if (!data.canCheck) return '<p class="muted" style="margin-top:12px">Your role can view checks but not record them.</p>';
+    if (c.conflict) return '<div class="conflict">' + escapeHtml(T("adm.ck_conflict")) + '</div>';
+    if (!data.canCheck) return '<p class="muted" style="margin-top:12px">' + escapeHtml(T("adm.ck_view_only")) + '</p>';
     const id = escapeHtml(c.id);
     return '<div style="margin-top:14px">' +
-      '<fieldset id="method-' + id + '"' + (s.errors.method ? ' aria-invalid="true" aria-describedby="method-err-' + id + '"' : '') + '><legend>How did you check?</legend>' +
-        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHOTO" data-id="' + id + '" class="m-radio"' + (s.method === "PHOTO" ? " checked" : "") + '> Looked at the photos</label>' +
-        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHONE" data-id="' + id + '" class="m-radio"' + (s.method === "PHONE" ? " checked" : "") + '> Called the citizen</label>' +
-        '<div class="field-err" id="method-err-' + id + '" role="alert">' + escapeHtml(s.errors.method || "") + '</div>' +
+      '<fieldset id="method-' + id + '"' + (s.errors.method ? ' aria-invalid="true" aria-describedby="method-err-' + id + '"' : '') + '><legend>' + escapeHtml(T("adm.ck_how")) + '</legend>' +
+        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHOTO" data-id="' + id + '" class="m-radio"' + (s.method === "PHOTO" ? " checked" : "") + '> ' + escapeHtml(T("adm.ck_m_photo")) + '</label>' +
+        '<label class="radio"><input type="radio" name="m-' + id + '" value="PHONE" data-id="' + id + '" class="m-radio"' + (s.method === "PHONE" ? " checked" : "") + '> ' + escapeHtml(T("adm.ck_m_phone")) + '</label>' +
+        '<div class="field-err" id="method-err-' + id + '" role="alert">' + escapeHtml(errText(s.errors.method)) + '</div>' +
       '</fieldset>' +
-      '<label for="note-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin-bottom:5px">Note <span style="font-weight:400">(required for "Not fixed": the representative will see it)</span></label>' +
+      '<label for="note-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin-bottom:5px">' + escapeHtml(T("adm.al_k_note")) + ' <span style="font-weight:400">' + escapeHtml(T("adm.ck_note_hint")) + '</span></label>' +
       '<textarea class="note" id="note-' + id + '" data-id="' + id + '" maxlength="500"' + (s.errors.note ? ' aria-invalid="true" aria-describedby="note-err-' + id + '"' : '') + '>' + escapeHtml(s.note) + '</textarea>' +
-      '<div class="field-err" id="note-err-' + id + '" role="alert">' + escapeHtml(s.errors.note || "") + '</div>' +
+      '<div class="field-err" id="note-err-' + id + '" role="alert">' + escapeHtml(errText(s.errors.note)) + '</div>' +
       '<div class="actions-row">' +
-        '<button type="button" class="primary act" data-id="' + id + '" data-action="verify"' + (s.busy ? " disabled" : "") + '>Fixed</button>' +
-        '<button type="button" class="act" data-id="' + id + '" data-action="not_fixed"' + (s.busy ? " disabled" : "") + '>Not fixed</button>' +
-        (s.method !== "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="cant_tell"' + (s.busy ? " disabled" : "") + '>Can\'t tell from photos</button>' : '') +
-        (s.method === "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="no_answer"' + (s.busy ? " disabled" : "") + '>No answer</button>' : '') +
+        '<button type="button" class="primary act" data-id="' + id + '" data-action="verify"' + (s.busy ? " disabled" : "") + '>' + escapeHtml(T("adm.ck_o_VERIFIED")) + '</button>' +
+        '<button type="button" class="act" data-id="' + id + '" data-action="not_fixed"' + (s.busy ? " disabled" : "") + '>' + escapeHtml(T("adm.ck_o_NOT_FIXED")) + '</button>' +
+        (s.method !== "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="cant_tell"' + (s.busy ? " disabled" : "") + '>' + escapeHtml(T("adm.ck_o_CANT_TELL")) + '</button>' : '') +
+        (s.method === "PHONE" ? '<button type="button" class="act" data-id="' + id + '" data-action="no_answer"' + (s.busy ? " disabled" : "") + '>' + escapeHtml(T("adm.ck_o_NO_ANSWER")) + '</button>' : '') +
       '</div>' +
-      '<div class="field-err" id="act-err-' + id + '" role="alert">' + escapeHtml(s.errors.form || "") + '</div>' +
+      '<div class="field-err" id="act-err-' + id + '" role="alert">' + escapeHtml(errText(s.errors.form)) + '</div>' +
       revealHtml(c) +
     '</div>';
   }
 
   function revealHtml(c) {
     const s = st(c.id), r = s.reveal, id = escapeHtml(c.id);
-    const masked = '<div>Citizen\'s mobile: <span class="masked">' + escapeHtml(c.phoneMasked || "not on file") + '</span></div>';
-    if (!data.canReveal) return '<div class="reveal-box">' + masked + '<div class="mask-note">Only Super admins and Operations admins can see the full number to call.</div></div>';
+    const masked = '<div>' + escapeHtml(T("adm.ck_mobile")) + ' <span class="masked">' + escapeHtml(c.phoneMasked || T("adm.ck_not_on_file")) + '</span></div>';
+    if (!data.canReveal) return '<div class="reveal-box">' + masked + '<div class="mask-note">' + escapeHtml(T("adm.ck_reveal_only")) + '</div></div>';
     if (r.phone) {
       return '<div class="reveal-box"><div class="phone-big"><a href="tel:' + escapeHtml(r.phone) + '">' + escapeHtml(r.phone) + '</a></div>' +
-        '<div class="mask-note">Shown for this case only. This was recorded in the admin log with your reason. After the call, choose "Called the citizen" above and record what they said.</div></div>';
+        '<div class="mask-note">' + escapeHtml(T("adm.ck_shown_note")) + '</div></div>';
     }
-    if (!r.open) return '<div class="reveal-box">' + masked + (c.phoneMasked ? '<button type="button" class="small reveal-open" data-id="' + id + '" style="margin-top:8px">Show number to call</button>' : '') + '</div>';
+    if (!r.open) return '<div class="reveal-box">' + masked + (c.phoneMasked ? '<button type="button" class="small reveal-open" data-id="' + id + '" style="margin-top:8px">' + escapeHtml(T("adm.ck_show_call")) + '</button>' : '') + '</div>';
     return '<div class="reveal-box">' + masked +
-      '<label for="reason-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:8px 0 5px">Why do you need the number?</label>' +
-      '<textarea class="note reason" id="reason-' + id + '" data-id="' + id + '" maxlength="300"' + (r.error ? ' aria-invalid="true" aria-describedby="reason-err-' + id + '"' : '') + ' placeholder="e.g. Photos don\'t show whether water supply is back; calling to check">' + escapeHtml(r.reason) + '</textarea>' +
-      '<div class="field-err" id="reason-err-' + id + '" role="alert">' + escapeHtml(r.error || "") + '</div>' +
-      '<div class="actions-row"><button type="button" class="primary reveal-go" data-id="' + id + '">Show number</button><button type="button" class="reveal-cancel" data-id="' + id + '">Cancel</button></div>' +
-      '<div class="mask-note">Your name, the time and your reason are recorded in the admin log.</div></div>';
+      '<label for="reason-' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:8px 0 5px">' + escapeHtml(T("adm.ck_why")) + '</label>' +
+      '<textarea class="note reason" id="reason-' + id + '" data-id="' + id + '" maxlength="300"' + (r.error ? ' aria-invalid="true" aria-describedby="reason-err-' + id + '"' : '') + ' placeholder="' + escapeHtml(T("adm.ck_reason_ph")) + '">' + escapeHtml(r.reason) + '</textarea>' +
+      '<div class="field-err" id="reason-err-' + id + '" role="alert">' + escapeHtml(errText(r.error)) + '</div>' +
+      '<div class="actions-row"><button type="button" class="primary reveal-go" data-id="' + id + '">' + escapeHtml(T("adm.ck_show")) + '</button><button type="button" class="reveal-cancel" data-id="' + id + '">' + escapeHtml(T("adm.cancel")) + '</button></div>' +
+      '<div class="mask-note">' + escapeHtml(T("adm.ck_logged")) + '</div></div>';
   }
 
   function caseHtml(c) {
@@ -455,34 +475,35 @@
     const hoursLeft = c.closesAt ? (toDate(c.closesAt) - Date.now()) / 3600000 : 999;
     return '<div class="panel check-card' + (hoursLeft < 48 ? ' soon' : '') + '" id="case-' + escapeHtml(c.id) + '">' +
       '<div class="check-head"><div><div class="ref"><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(c.id) + '">' + escapeHtml(c.trackingRef) + '</a></div>' +
-        '<div class="ward-sub">' + escapeHtml(c.ward) + ' · ' + escapeHtml(c.category) + ' · filed ' + escapeHtml(dateOnly(c.createdAt)) + ' · marked resolved ' + escapeHtml(dateTime(c.markedResolvedAt)) + '</div></div>' +
-        '<div class="' + (hoursLeft < 48 ? 'attn' : 'muted') + '" style="font-size:13px">Closes as not verified ' + escapeHtml(dateTime(c.closesAt)) + '</div></div>' +
+        '<div class="ward-sub">' + escapeHtml(c.ward) + ' · ' + escapeHtml(catName(c.category)) + ' · ' + escapeHtml(T("adm.ck_filed", { date: dateOnly(c.createdAt) })) + ' · ' + escapeHtml(T("adm.ck_marked", { date: dateTime(c.markedResolvedAt) })) + '</div></div>' +
+        '<div class="' + (hoursLeft < 48 ? 'attn' : 'muted') + '" style="font-size:13px">' + escapeHtml(T("adm.ck_closes", { date: dateTime(c.closesAt) })) + '</div></div>' +
       '<div class="check-cols">' +
-        '<div><div class="field"><div class="k">What the citizen reported</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
-          (c.locationDetail ? '<div class="field"><div class="k">Location</div><div class="v">' + escapeHtml(c.locationDetail) + '</div></div>' : '') +
-          (c.pin ? '<div class="field"><a href="https://www.google.com/maps/search/?api=1&query=' + Number(c.pin.lat) + ',' + Number(c.pin.lng) + '" target="_blank" rel="noopener noreferrer" style="color:var(--admin-accent)">Open the complaint\'s pin in Google Maps</a></div>' : '') +
-          '<div class="field"><div class="k">Before (citizen\'s photos)</div>' + photosHtml(c.beforePhotos, "Citizen's") + '</div></div>' +
-        '<div><div class="field"><div class="k">What the representative says was done' + (r && r.warningCount ? ' · <span class="attn">' + r.warningCount + (r.warningCount === 1 ? ' warning' : ' warnings') + '</span>' : '') + '</div><div class="v">' + escapeHtml(r ? r.note : "No report (marked resolved before reports existed).") + '</div></div>' +
-          (r && !r.photos.length && r.noPhotoReason ? '<div class="field"><div class="k">No photo — reason given</div><div class="v">' + escapeHtml(r.noPhotoReason) + '</div></div>' : '') +
-          '<div class="field"><div class="k">After (representative\'s photos)</div>' + photosHtml(r ? r.photos : [], "Representative's") + '</div></div>' +
+        '<div><div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_reported")) + '</div><div class="v">' + escapeHtml(c.description || "—") + '</div></div>' +
+          (c.locationDetail ? '<div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_location")) + '</div><div class="v">' + escapeHtml(c.locationDetail) + '</div></div>' : '') +
+          (c.pin ? '<div class="field"><a href="https://www.google.com/maps/search/?api=1&query=' + Number(c.pin.lat) + ',' + Number(c.pin.lng) + '" target="_blank" rel="noopener noreferrer" style="color:var(--admin-accent)">' + escapeHtml(T("adm.ck_maps")) + '</a></div>' : '') +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_before")) + '</div>' + photosHtml(c.beforePhotos, T("adm.ck_who_citizen")) + '</div></div>' +
+        '<div><div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_done")) + (r && r.warningCount ? ' · <span class="attn">' + escapeHtml(T(r.warningCount === 1 ? "adm.ck_warn_1" : "adm.ck_warn_n", { n: r.warningCount })) + '</span>' : '') + '</div><div class="v">' + escapeHtml(r ? r.note : T("adm.ck_no_report")) + '</div></div>' +
+          (r && !r.photos.length && r.noPhotoReason ? '<div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_nophoto")) + '</div><div class="v">' + escapeHtml(r.noPhotoReason) + '</div></div>' : '') +
+          '<div class="field"><div class="k">' + escapeHtml(T("adm.ck_k_after")) + '</div>' + photosHtml(r ? r.photos : [], T("adm.ck_who_rep")) + '</div></div>' +
       '</div>' +
-      (c.history.length ? '<div class="field" style="margin-top:6px"><div class="k">Earlier checks on this case</div><ul class="hist">' + c.history.map((h) =>
-        '<li><b>' + escapeHtml(OUTCOME_LABELS[h.outcome] || h.outcome) + '</b> (' + (h.method === "PHONE" ? "phone call" : "photos") + ') · ' + escapeHtml(dateTime(h.checked_at)) + ' · ' + escapeHtml(h.checked_by) + (h.note ? '<br>' + escapeHtml(h.note) : '') + '</li>').join("") + '</ul></div>' : '') +
+      (c.history.length ? '<div class="field" style="margin-top:6px"><div class="k">' + escapeHtml(T("adm.ck_k_history")) + '</div><ul class="hist">' + c.history.map((h) =>
+        '<li><b>' + escapeHtml(outcomeLabel(h.outcome)) + '</b> (' + escapeHtml(h.method === "PHONE" ? T("adm.ck_by_phone_l") : T("adm.ck_by_photos_l")) + ') · ' + escapeHtml(dateTime(h.checked_at)) + ' · ' + escapeHtml(h.checked_by) + (h.note ? '<br>' + escapeHtml(h.note) : '') + '</li>').join("") + '</ul></div>' : '') +
       actionsHtml(c) +
     '</div>';
   }
 
   function render() {
-    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(ROLE_LABELS[data.role] || data.role || "") + '</b><br>All wards';
+    document.getElementById("who-line").innerHTML = '<b>' + escapeHtml(roleLabel(data.role)) + '</b><br>' + escapeHtml(T("adm.all_wards"));
     const n = data.cases.length;
-    document.getElementById("result-count").innerHTML = n ? '<b>' + n + '</b> ' + (n === 1 ? 'fix' : 'fixes') + ' waiting, oldest first' : 'Nothing waiting to be checked.';
-    document.getElementById("queue").innerHTML = n ? data.cases.map(caseHtml).join("") : '<div class="panel"><div class="empty">No fixes are waiting for a check.</div></div>';
+    document.getElementById("result-count").innerHTML = n ? T(n === 1 ? "adm.ck_count_1" : "adm.ck_count_n", { n: '<b>' + n + '</b>' }) : escapeHtml(T("adm.ck_nothing"));
+    document.getElementById("queue").innerHTML = n ? data.cases.map(caseHtml).join("") : '<div class="panel"><div class="empty">' + escapeHtml(T("adm.ck_empty")) + '</div></div>';
     const rp = document.getElementById("recent-panel");
     rp.hidden = !data.recent.length;
-    document.getElementById("recent").innerHTML = data.recent.length ? '<table><thead><tr><th>Case</th><th>Found</th><th>How</th><th>When</th><th>By</th><th>Note</th>' + (data.role === "auditor" ? '<th><span style="position:absolute;left:-9999px">Audit</span></th>' : '') + '</tr></thead><tbody>' +
-      data.recent.map((x) => '<tr><td><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(x.grievanceId) + '">' + escapeHtml(x.trackingRef) + '</a></td><td>' + escapeHtml(OUTCOME_LABELS[x.outcome] || x.outcome) + '</td><td>' + (x.method === "PHONE" ? "Phone call" : "Photos") + '</td><td style="white-space:nowrap">' + escapeHtml(dateTime(x.at)) + '</td><td>' + escapeHtml(x.by) + '</td><td>' + escapeHtml(x.note || "") + '</td>' +
+    document.getElementById("recent").innerHTML = data.recent.length ? '<table><thead><tr><th>' + escapeHtml(T("adm.al_c_case")) + '</th><th>' + escapeHtml(T("adm.ck_col_found")) + '</th><th>' + escapeHtml(T("adm.ck_col_how")) + '</th><th>' + escapeHtml(T("adm.al_c_when")) + '</th><th>' + escapeHtml(T("adm.ph_who")) + '</th><th>' + escapeHtml(T("adm.al_k_note")) + '</th>' + (data.role === "auditor" ? '<th><span style="position:absolute;left:-9999px">' + escapeHtml(T("adm.nav_audit")) + '</span></th>' : '') + '</tr></thead><tbody>' +
+      data.recent.map((x) => '<tr><td><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(x.grievanceId) + '">' + escapeHtml(x.trackingRef) + '</a></td><td>' + escapeHtml(outcomeLabel(x.outcome)) + '</td><td>' + escapeHtml(x.method === "PHONE" ? T("adm.ck_by_phone") : T("adm.ck_by_photos")) + '</td><td style="white-space:nowrap">' + escapeHtml(dateTime(x.at)) + '</td><td>' + escapeHtml(x.by) + '</td><td>' + escapeHtml(x.note || "") + '</td>' +
         // Item 9a: the auditor can raise an observation straight from a check decision.
-        (data.role === "auditor" ? '<td><a style="color:var(--admin-accent);white-space:nowrap" href="/admin-audit.html#new&case=' + encodeURIComponent(x.trackingRef) + '&src=' + encodeURIComponent("check:" + (x.id || x.grievanceId)) + '&label=' + encodeURIComponent("Check on " + x.trackingRef + " by " + x.by) + '">Raise observation</a></td>' : '') + '</tr>').join("") + '</tbody></table>' : '';
+        // (The label travels to the audit page as the observation's source, so it stays in English.)
+        (data.role === "auditor" ? '<td><a style="color:var(--admin-accent);white-space:nowrap" href="/admin-audit.html#new&case=' + encodeURIComponent(x.trackingRef) + '&src=' + encodeURIComponent("check:" + (x.id || x.grievanceId)) + '&label=' + encodeURIComponent("Check on " + x.trackingRef + " by " + x.by) + '">' + escapeHtml(T("adm.al_raise")) + '</a></td>' : '') + '</tr>').join("") + '</tbody></table>' : '';
     attach();
   }
 
@@ -504,12 +525,17 @@
     document.querySelectorAll(".reveal-go").forEach((b) => b.addEventListener("click", () => reveal(b.dataset.id)));
   }
 
+  const DONE_KEYS = { verify: "adm.ck_done_verify", not_fixed: "adm.ck_done_not_fixed", cant_tell: "adm.ck_done_cant_tell", no_answer: "adm.ck_done_no_answer" };
+  function showNotice() {
+    document.getElementById("notice-area").innerHTML = lastNotice ? '<div class="notice ok">' + escapeHtml(T(lastNotice.key, { ref: lastNotice.ref })) + '</div>' : "";
+  }
+
   async function decide(id, action) {
     const s = st(id);
     s.errors = {};
     const noteEl = document.getElementById("note-" + id); if (noteEl) s.note = noteEl.value;
-    if (!s.method) s.errors.method = "Choose how you checked.";
-    if (action === "not_fixed" && s.note.trim().length < 10) s.errors.note = "Tell the representative what is still wrong (at least 10 characters).";
+    if (!s.method) s.errors.method = { key: "adm.ck_e_method" };
+    if (action === "not_fixed" && s.note.trim().length < 10) s.errors.note = { key: "adm.ck_e_note" };
     if (s.errors.method || s.errors.note) { redraw(s.errors.method ? 'input[name="m-' + sel(id) + '"]' : "#note-" + sel(id)); return; }
     s.busy = true; render();
     try {
@@ -519,52 +545,56 @@
       s.busy = false;
       if (!res.ok) {
         const f = body.fields || {};
-        if (f.method) s.errors.method = body.error; else if (f.note) s.errors.note = body.error; else s.errors.form = body.error || "Could not save. Please try again.";
+        if (f.method) s.errors.method = { srv: body.error }; else if (f.note) s.errors.note = { srv: body.error }; else s.errors.form = body.error ? { srv: body.error } : { key: "adm.ck_e_save" };
         redraw('#case-' + sel(id) + ' [aria-invalid="true"], #act-err-' + sel(id));
         return;
       }
       const c = data.cases.find((x) => x.id === id);
-      const msg = c.trackingRef + ": " + (action === "verify" ? "recorded as fixed. The case is closed as \u201cResolved \u2014 checked by GrievIQ\u201d."
-        : action === "not_fixed" ? "recorded as not fixed. The case is reopened and the representative can see your note."
-        : action === "cant_tell" ? "recorded. It stays here; try a phone call." : "recorded as no answer. It stays here; try again later.");
-      document.getElementById("notice-area").innerHTML = '<div class="notice ok">' + escapeHtml(msg) + '</div>';
+      lastNotice = { key: DONE_KEYS[action] || DONE_KEYS.no_answer, ref: c.trackingRef };
+      showNotice();
       delete state[id];
       await load(true);
       document.getElementById("notice-area").focus();
     } catch (e) {
-      s.busy = false; s.errors.form = "Could not reach the server. Check your connection and try again."; render();
+      s.busy = false; s.errors.form = { key: "adm.network" }; render();
     }
   }
 
   async function reveal(id) {
     const r = st(id).reveal;
     const el = document.getElementById("reason-" + id); if (el) r.reason = el.value;
-    if (r.reason.trim().length < 10) { r.error = "Give a reason of at least 10 characters."; redraw("#reason-" + sel(id)); return; }
+    if (r.reason.trim().length < 10) { r.error = { key: "adm.ck_e_reason" }; redraw("#reason-" + sel(id)); return; }
     try {
       const res = await fetch("/api/admin/checks", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reveal_phone", grievanceId: id, reason: r.reason.trim() }) });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { r.error = body.error || "Could not show the number."; redraw("#reason-" + sel(id)); return; }
+      if (!res.ok) { r.error = body.error ? { srv: body.error } : { key: "adm.ck_e_show" }; redraw("#reason-" + sel(id)); return; }
       r.phone = body.phone; r.error = ""; st(id).method = "PHONE";
       redraw('#case-' + sel(id) + ' .phone-big a');
-    } catch (e) { r.error = "Could not reach the server."; redraw("#reason-" + sel(id)); }
+    } catch (e) { r.error = { key: "adm.ck_e_reach" }; redraw("#reason-" + sel(id)); }
+  }
+
+  function showLoadError() {
+    document.getElementById("result-count").textContent = "";
+    document.getElementById("queue").innerHTML = '<div class="panel"><div class="error-msg">' + escapeHtml(loadError()) + '</div></div>';
   }
 
   async function load(keepNotice) {
-    if (!keepNotice) document.getElementById("notice-area").innerHTML = "";
-    document.getElementById("result-count").textContent = "Loading…";
+    if (!keepNotice) { lastNotice = null; document.getElementById("notice-area").innerHTML = ""; }
+    document.getElementById("result-count").textContent = T("adm.loading");
     try {
       const res = await fetch("/api/admin/checks");
       const body = await res.json();
       if (!res.ok) {
-        document.getElementById("result-count").textContent = "";
-        document.getElementById("queue").innerHTML = '<div class="panel"><div class="error-msg">' + escapeHtml(body.error === "INSUFFICIENT_ROLE" ? "Your role doesn't have access to Checks." : body.error === "NOT_ADMIN" ? "Your account is not an admin." : (body.error || "Could not load checks.")) + '</div></div>';
+        loadError = () => body.error === "INSUFFICIENT_ROLE" ? T("adm.ck_e_role") : body.error === "NOT_ADMIN" ? T("adm.ck_e_not_admin") : (body.error ? T("adm.err_detail", { msg: body.error }) : T("adm.ck_e_load"));
+        showLoadError();
         return;
       }
+      loadError = null;
       data = body; render();
     } catch (e) {
-      document.getElementById("result-count").textContent = "";
-      document.getElementById("queue").innerHTML = '<div class="panel"><div class="error-msg">Could not reach the server. Check your connection and click Refresh.</div></div>';
+      loadError = () => T("adm.ck_e_net_refresh");
+      showLoadError();
     }
   }
   document.getElementById("notice-area").setAttribute("tabindex", "-1");
@@ -572,7 +602,7 @@
 
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
   let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
   applyTheme(savedTheme);
@@ -581,6 +611,18 @@
     const next = cur === "light" ? "dark" : "light";
     try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
     applyTheme(next);
+  });
+
+  // Switching हिन्दी / English redraws from the data already loaded (typed notes and reasons are kept).
+  document.addEventListener("giq:lang", () => {
+    let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    applyTheme(th);
+    document.querySelectorAll("textarea.note:not(.reason)").forEach((el) => { st(el.dataset.id).note = el.value; });
+    document.querySelectorAll("textarea.reason").forEach((el) => { st(el.dataset.id).reveal.reason = el.value; });
+    if (data) render();
+    else if (loadError) showLoadError();
+    else document.getElementById("result-count").textContent = T("adm.loading");
+    showNotice();
   });
   load();
 </script>

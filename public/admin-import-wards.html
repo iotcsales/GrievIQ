@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Import ward boundaries — GrievIQ Admin</title>
+<title data-i18n="adm.iw_page_title">Import ward boundaries — GrievIQ Admin</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -141,53 +141,93 @@
   html.light-theme button.import-btn:disabled { background: #dde1e6; color: var(--admin-muted); }
   html.light-theme .summary-box.ok { border-color: #b7dcc2; }
   html.light-theme .summary-box.err { border-color: #e8c3bf; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html" class="active">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries" class="active">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Import ward boundaries</h1>
-  <p class="subtitle">Attach real ward polygon shapes to existing wards, matched by name. Requires you to be logged in as an authorized admin.</p>
+  <h1 data-i18n="adm.iw_title">Import ward boundaries</h1>
+  <p class="subtitle" data-i18n="adm.iw_sub">Attach real ward polygon shapes to existing wards, matched by name. Requires you to be logged in as an authorized admin.</p>
 
   <div class="panel">
-    <h2>GeoJSON format</h2>
-    <p>Upload a ward-boundary GeoJSON file (e.g. from bharatlas.com). Each feature's <code>Ward Name</code> property is matched, case-insensitively, against an existing <code>local_units</code> row.</p>
+    <h2 data-i18n="adm.iw_format_h">GeoJSON format</h2>
+    <p data-i18n-html="adm.iw_format_p">Upload a ward-boundary GeoJSON file (e.g. from bharatlas.com). Each feature's <code>Ward Name</code> property is matched, case-insensitively, against an existing <code>local_units</code> row.</p>
     <ul>
-      <li>This only updates wards that already exist — it never creates new ones. Add the ward first via the jurisdiction CSV importer.</li>
-      <li>A ward name in the file with no matching local unit is reported as "unmatched," not an error.</li>
-      <li>Re-uploading the same file safely overwrites the polygon on each matched ward.</li>
+      <li data-i18n="adm.iw_rule_existing">This only updates wards that already exist — it never creates new ones. Add the ward first via the jurisdiction CSV importer.</li>
+      <li data-i18n="adm.iw_rule_unmatched">A ward name in the file with no matching local unit is reported as "unmatched," not an error.</li>
+      <li data-i18n="adm.iw_rule_reupload">Re-uploading the same file safely overwrites the polygon on each matched ward.</li>
     </ul>
   </div>
 
   <div class="panel">
-    <h2>Upload GeoJSON</h2>
-    <div class="drop-zone" id="dropZone">Click to choose a .geojson file</div>
+    <h2 data-i18n="adm.iw_upload_h">Upload GeoJSON</h2>
+    <div class="drop-zone" id="dropZone" data-i18n="adm.iw_choose">Click to choose a .geojson file</div>
     <input type="file" id="fileInput" accept=".geojson,application/geo+json,application/json" />
     <div class="file-name" id="fileName"></div>
-    <button class="import-btn" id="importBtn" disabled>Run import</button>
+    <button class="import-btn" id="importBtn" disabled data-i18n="adm.iw_run">Run import</button>
 
     <div class="summary-box" id="summaryBox"></div>
   </div>
 </main>
 
 <script>
+  // ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+  function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+  function esc(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const fileNameEl = document.getElementById('fileName');
   const importBtn = document.getElementById('importBtn');
   const summaryBox = document.getElementById('summaryBox');
   let geojsonText = null;
+  let busy = false;
+  let lastResult = null;   // what the summary box shows, redrawn when the language changes
+
+  function renderResult() {
+    const r = lastResult;
+    if (!r) return;
+    if (r.kind === 'failed') {
+      summaryBox.className = 'summary-box err';
+      summaryBox.innerHTML = '<b>' + T('adm.iw_failed') + '</b> ' + (r.error ? esc(T('adm.err_detail', { msg: r.error })) : T('adm.iw_unknown'));
+    } else if (r.kind === 'network') {
+      summaryBox.className = 'summary-box err';
+      summaryBox.innerHTML = T('adm.iw_network');
+    } else {
+      const s = r.summary;
+      let html = '<b>' + T('adm.iw_complete') + '</b>';
+      html += '<div class="stat-row"><span>' + T('adm.iw_features') + '</span><b>' + s.featuresInFile + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.iw_matched') + '</span><b>' + s.matchedCount + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.iw_unmatched') + '</span><b>' + s.unmatchedCount + '</b></div>';
+      if (s.unmatchedSample && s.unmatchedSample.length > 0) {
+        html += '<div class="unmatched-list">' + T('adm.iw_sample') + ' ' + s.unmatchedSample.map(esc).join(', ') + (s.unmatchedCount > s.unmatchedSample.length ? ', …' : '') + '</div>';
+      }
+      if (s.errors && s.errors.length > 0) {
+        html += '<div class="error-list"><b>' + T('adm.iw_issues', { n: s.errors.length }) + '</b><ul>';
+        s.errors.forEach((e) => { html += '<li>' + esc(e) + '</li>'; });
+        html += '</ul></div>';
+      }
+      summaryBox.className = 'summary-box ok';
+      summaryBox.innerHTML = html;
+    }
+    summaryBox.style.display = 'block';
+  }
 
   dropZone.addEventListener('click', () => fileInput.click());
 
@@ -206,8 +246,10 @@
   importBtn.addEventListener('click', async () => {
     if (!geojsonText) return;
     importBtn.disabled = true;
-    importBtn.textContent = 'Importing...';
+    busy = true;
+    importBtn.textContent = T('adm.iw_importing');
     summaryBox.style.display = 'none';
+    lastResult = null;
 
     try {
       const res = await fetch('/api/admin/import-ward-boundaries', {
@@ -218,40 +260,25 @@
       const data = await res.json();
 
       if (!res.ok) {
-        summaryBox.className = 'summary-box err';
-        summaryBox.innerHTML = '<b>Import failed:</b> ' + (data.error || 'Unknown error.');
-        summaryBox.style.display = 'block';
+        lastResult = { kind: 'failed', error: data.error || '' };
+        renderResult();
         return;
       }
 
-      const s = data.summary;
-      let html = '<b>Import complete</b>';
-      html += '<div class="stat-row"><span>Features in file</span><b>' + s.featuresInFile + '</b></div>';
-      html += '<div class="stat-row"><span>Wards matched &amp; updated</span><b>' + s.matchedCount + '</b></div>';
-      html += '<div class="stat-row"><span>Wards unmatched</span><b>' + s.unmatchedCount + '</b></div>';
-      if (s.unmatchedSample && s.unmatchedSample.length > 0) {
-        html += '<div class="unmatched-list">Sample unmatched names: ' + s.unmatchedSample.join(', ') + (s.unmatchedCount > s.unmatchedSample.length ? ', …' : '') + '</div>';
-      }
-      if (s.errors && s.errors.length > 0) {
-        html += '<div class="error-list"><b>' + s.errors.length + ' issue(s):</b><ul>';
-        s.errors.forEach((e) => { html += '<li>' + e + '</li>'; });
-        html += '</ul></div>';
-      }
-      summaryBox.className = 'summary-box ok';
-      summaryBox.innerHTML = html;
-      summaryBox.style.display = 'block';
+      lastResult = { kind: 'ok', summary: data.summary };
+      renderResult();
     } catch (err) {
-      summaryBox.className = 'summary-box err';
-      summaryBox.innerHTML = '<b>Network error.</b> Please try again.';
-      summaryBox.style.display = 'block';
+      lastResult = { kind: 'network' };
+      renderResult();
     } finally {
       importBtn.disabled = false;
-      importBtn.textContent = 'Run import';
+      busy = false;
+      importBtn.textContent = T('adm.iw_run');
     }
   });
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
 
   const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
@@ -262,6 +289,14 @@
     const next = current === "light" ? "dark" : "light";
     localStorage.setItem("griq-admin-theme", next);
     applyTheme(next);
+  });
+
+  // Switching हिन्दी / English redraws what the script built, keeping the chosen file.
+  document.addEventListener("giq:lang", () => {
+    let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    applyTheme(th);
+    importBtn.textContent = busy ? T('adm.iw_importing') : T('adm.iw_run');
+    renderResult();
   });
 </script>
 

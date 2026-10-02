@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Exceptions — GrievIQ Admin</title>
+<title data-i18n="adm.ex_page_title">Exceptions — GrievIQ Admin</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -174,50 +174,54 @@
   }
   .theme-toggle:hover { color: var(--admin-text); }
   html.light-theme .theme-toggle { background: none; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html" class="active">Exceptions</a>
-    <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions" class="active">Exceptions</a>
+    <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Exceptions</h1>
-  <p class="subtitle" id="page-sub">Open cases across all wards that need attention: not acknowledged in time, escalated, disputed by the citizen, or awaiting legal review. Oldest first. You can nudge the responsible representatives, but not change the case yourself.</p>
+  <h1 data-i18n="adm.nav_exceptions">Exceptions</h1>
+  <p class="subtitle" id="page-sub" data-i18n="adm.ex_sub">Open cases across all wards that need attention: not acknowledged in time, escalated, disputed by the citizen, or awaiting legal review. Oldest first. You can nudge the responsible representatives, but not change the case yourself.</p>
 
   <div class="panel">
     <div class="filters">
       <div>
-        <label for="f-issue">Issue</label>
+        <label for="f-issue" data-i18n="adm.ex_f_issue">Issue</label>
         <select id="f-issue">
-          <option value="">All issues</option>
-          <option value="ACK_OVERDUE">Not acknowledged in time</option>
-          <option value="ESCALATED">Escalated</option>
-          <option value="DISPUTED">Citizen disputed</option>
-          <option value="LEGAL_REVIEW">Legal review</option>
-          <option value="REOPENED">Reopened after closing</option>
-          <option value="REOPENED_TOP">Reopened at the top level</option>
+          <option value="" data-i18n="adm.ex_all_issues">All issues</option>
+          <option value="ACK_OVERDUE" data-i18n="adm.ex_i_ACK_OVERDUE">Not acknowledged in time</option>
+          <option value="ESCALATED" data-i18n="adm.ex_i_ESCALATED">Escalated</option>
+          <option value="DISPUTED" data-i18n="adm.ex_i_DISPUTED">Citizen disputed</option>
+          <option value="LEGAL_REVIEW" data-i18n="adm.ex_i_LEGAL_REVIEW">Legal review</option>
+          <option value="REOPENED" data-i18n="adm.ex_i_REOPENED">Reopened after closing</option>
+          <option value="REOPENED_TOP" data-i18n="adm.ex_i_REOPENED_TOP">Reopened at the top level</option>
         </select>
       </div>
       <div>
-        <label for="f-ward">Ward / village</label>
-        <select id="f-ward"><option value="">All wards</option></select>
+        <label for="f-ward" data-i18n="adm.d_th_ward">Ward / village</label>
+        <select id="f-ward"><option value="" data-i18n="adm.all_wards">All wards</option></select>
       </div>
       <div>
-        <label for="f-level">Current level</label>
-        <select id="f-level"><option value="">All levels</option></select>
+        <label for="f-level" data-i18n="adm.ex_f_level">Current level</label>
+        <select id="f-level"><option value="" data-i18n="adm.ex_all_levels">All levels</option></select>
       </div>
       <div>
-        <button id="refresh-btn" type="button">Refresh</button>
+        <button id="refresh-btn" type="button" data-i18n="adm.d_refresh">Refresh</button>
       </div>
     </div>
   </div>
@@ -235,39 +239,42 @@
 </main>
 
 <dialog id="nudge-dialog">
-  <h2 id="nudge-title">Nudge representatives</h2>
+  <h2 id="nudge-title" data-i18n="adm.ex_nudge_title">Nudge representatives</h2>
   <div class="who" id="nudge-who"></div>
-  <label for="nudge-note">Note to the representatives (optional)</label>
-  <textarea id="nudge-note" maxlength="500" placeholder="e.g. The citizen has been waiting 5 days. Please acknowledge today."></textarea>
-  <div class="hint">Representatives see this note. The citizen only sees that a reminder was sent, not the note.</div>
+  <label for="nudge-note" data-i18n="adm.ex_note_label">Note to the representatives (optional)</label>
+  <textarea id="nudge-note" maxlength="500" data-i18n-ph="adm.ex_note_ph" placeholder="e.g. The citizen has been waiting 5 days. Please acknowledge today."></textarea>
+  <div class="hint" data-i18n="adm.ex_note_hint">Representatives see this note. The citizen only sees that a reminder was sent, not the note.</div>
   <div class="dialog-error" id="nudge-error"></div>
   <div class="actions">
-    <button type="button" id="nudge-cancel">Cancel</button>
-    <button type="button" class="primary" id="nudge-send">Send nudge</button>
+    <button type="button" id="nudge-cancel" data-i18n="adm.cancel">Cancel</button>
+    <button type="button" class="primary" id="nudge-send" data-i18n="adm.ex_send">Send nudge</button>
   </div>
 </dialog>
 
 <script>
-  const ISSUE_LABELS = {
-    ACK_OVERDUE: "Not acknowledged in time",
-    ESCALATED: "Escalated",
-    DISPUTED: "Citizen disputed",
-    LEGAL_REVIEW: "Legal review",
-    REOPENED: "Reopened after closing",
-    REOPENED_TOP: "Reopened at the top level",
-  };
+  // ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+  function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+  function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+  function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+  function lvl(label) { return window.GIQ ? window.GIQ.level(label) : label; }
+  function catName(c) { return window.GIQ ? window.GIQ.category(c.id, c.name) : c.name; }
+  // Set an element's text from a key and remember it, so a language switch can redraw it.
+  function setText(el, key, vars) {
+    el._t = key ? [key, vars] : null;
+    el.textContent = key ? T(key, vars) : "";
+  }
 
-  const DISPUTE_LABELS = {
-    NOT_FIXED: "Not fixed",
-    PARTIALLY_FIXED: "Partially fixed",
-    CAME_BACK: "Problem came back",
-    WRONG_ISSUE: "Wrong issue fixed",
-    OTHER: "Other",
-  };
+  const ISSUE_KEYS = ["ACK_OVERDUE", "ESCALATED", "DISPUTED", "LEGAL_REVIEW", "REOPENED", "REOPENED_TOP"];
+  const DISPUTE_KEYS = ["NOT_FIXED", "PARTIALLY_FIXED", "CAME_BACK", "WRONG_ISSUE", "OTHER"];
+  function issueText(f) { return ISSUE_KEYS.includes(f) ? T("adm.ex_i_" + f) : f; }
+  function disputeText(r) { return DISPUTE_KEYS.includes(r) ? T("adm.ex_d_" + r) : r; }
 
   let allCases = [];
   let nudgeTarget = null;
   let canAct = false;   // false for read-only roles (the auditor): no Nudge buttons
+  let generatedAt = null;
+  let loadError = null;   // { key, msg } when the last load failed
+  let lastResult = null;  // last nudge result, redrawn on language switch
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -283,43 +290,43 @@
   function shortDate(s) {
     const d = toDate(s);
     if (!d || isNaN(d)) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    return d.toLocaleDateString(loc(), { day: "numeric", month: "short" });
   }
 
   function daysText(days) {
-    if (days < 1) return "Under 1 day";
+    if (days < 1) return T("adm.ex_days_under1");
     const n = Math.floor(days);
-    return n + (n === 1 ? " day" : " days");
+    return T(n === 1 ? "adm.ex_day_one" : "adm.ex_days", { n: n });
   }
 
   function personText(p) {
-    return escapeHtml(p.name || ("Unnamed " + p.label)) + ' <span class="role">(' + escapeHtml(p.label) + ')</span>';
+    return escapeHtml(p.name || T("adm.ex_unnamed", { label: lvl(p.label) })) + ' <span class="role">(' + escapeHtml(lvl(p.label)) + ')</span>';
   }
 
-  function fillSelect(id, values, allLabel) {
+  function fillSelect(id, values, allLabel, show) {
     const sel = document.getElementById(id);
     const current = sel.value;
     sel.innerHTML = '<option value="">' + allLabel + '</option>' +
-      values.map((v) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join("");
+      values.map((v) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(show ? show(v) : v) + '</option>').join("");
     if (values.includes(current)) sel.value = current;
   }
 
   function buildFilterOptions() {
     const wards = Array.from(new Set(allCases.map((c) => c.localUnit.name))).sort();
     const levels = Array.from(new Set(allCases.map((c) => c.currentTierLabel))).sort();
-    fillSelect("f-ward", wards, "All wards");
-    fillSelect("f-level", levels, "All levels");
+    fillSelect("f-ward", wards, T("adm.all_wards"));
+    fillSelect("f-level", levels, T("adm.ex_all_levels"), lvl);
   }
 
   function renderRow(c) {
     const badges = c.flags.map((f) =>
-      '<span class="badge ' + f + '">' + escapeHtml(ISSUE_LABELS[f] || f) + '</span>'
+      '<span class="badge ' + f + '">' + escapeHtml(issueText(f)) + '</span>'
     ).join("");
 
     let disputeDetail = "";
     if (c.disputeReason) {
       disputeDetail = '<div class="dispute-detail">' +
-        escapeHtml(DISPUTE_LABELS[c.disputeReason] || c.disputeReason) +
+        escapeHtml(disputeText(c.disputeReason)) +
         (c.disputeNote ? ' — "' + escapeHtml(c.disputeNote) + '"' : "") + '</div>';
     }
 
@@ -328,25 +335,25 @@
 
     const responsible = c.responsible.map((r) =>
       '<div>' + personText(r) +
-      (r.hasEmail ? "" : ' <span class="no-email">· no email</span>') + '</div>'
+      (r.hasEmail ? "" : ' <span class="no-email">' + T("adm.ex_no_email") + '</span>') + '</div>'
     ).join("");
 
     const nudge = c.nudgeCount
-      ? shortDate(c.lastNudgeAt) + (c.nudgeCount > 1 ? " (" + c.nudgeCount + " total)" : "")
-      : "Never";
+      ? (c.nudgeCount > 1 ? escapeHtml(T("adm.ex_nudge_many", { date: shortDate(c.lastNudgeAt), n: c.nudgeCount })) : shortDate(c.lastNudgeAt))
+      : T("adm.ex_never");
 
     return '<tr>' +
       '<td><div class="case-ref">' + escapeHtml(c.trackingRef) + '</div>' +
         '<div class="case-desc">' + escapeHtml(desc) + '</div>' +
-        '<div class="case-cat">' + escapeHtml(c.category.name) + '</div></td>' +
+        '<div class="case-cat">' + escapeHtml(catName(c.category)) + '</div></td>' +
       '<td>' + escapeHtml(c.localUnit.name) + '</td>' +
       '<td class="days">' + daysText(c.elapsedDays) + '</td>' +
       '<td>' + badges + disputeDetail + '</td>' +
-      '<td>' + escapeHtml(c.currentTierLabel) +
-        '<div class="level-sub">Level ' + (c.currentTierIndex + 1) + ' of ' + c.tierCount + '</div></td>' +
+      '<td>' + escapeHtml(lvl(c.currentTierLabel)) +
+        '<div class="level-sub">' + T("adm.ex_level_of", { i: c.currentTierIndex + 1, n: c.tierCount }) + '</div></td>' +
       '<td class="resp">' + responsible + '</td>' +
       '<td class="nudge-info">' + nudge +
-        (canAct ? '<div><button type="button" class="nudge-btn" data-id="' + escapeHtml(c.id) + '">Nudge</button></div>' : '') + '</td>' +
+        (canAct ? '<div><button type="button" class="nudge-btn" data-id="' + escapeHtml(c.id) + '">' + T("adm.ex_nudge_btn") + '</button></div>' : '') + '</td>' +
     '</tr>';
   }
 
@@ -361,22 +368,24 @@
       (!level || c.currentTierLabel === level)
     );
 
-    document.getElementById("result-count").innerHTML =
-      'Showing <b>' + shown.length + '</b> of <b>' + allCases.length + '</b> case' + (allCases.length === 1 ? '' : 's');
+    const countEl = document.getElementById("result-count");
+    countEl._t = null;
+    countEl.innerHTML =
+      T(allCases.length === 1 ? "adm.ex_showing_one" : "adm.ex_showing", { shown: shown.length, total: allCases.length });
 
     const area = document.getElementById("table-area");
     if (allCases.length === 0) {
-      area.innerHTML = '<div class="empty">No cases need attention right now.</div>';
+      area.innerHTML = '<div class="empty">' + T("adm.ex_empty") + '</div>';
       return;
     }
     if (shown.length === 0) {
-      area.innerHTML = '<div class="empty">No cases match these filters.</div>';
+      area.innerHTML = '<div class="empty">' + T("adm.ex_empty_filter") + '</div>';
       return;
     }
 
     area.innerHTML = '<table><thead><tr>' +
-      '<th>Case</th><th>Ward / village</th><th>Open for</th><th>Issues</th>' +
-      '<th>Current level</th><th>Responsible</th><th>Last nudge</th>' +
+      '<th>' + T("adm.al_c_case") + '</th><th>' + T("adm.d_th_ward") + '</th><th>' + T("adm.ex_th_open") + '</th><th>' + T("adm.ex_th_issues") + '</th>' +
+      '<th>' + T("adm.ex_f_level") + '</th><th>' + T("adm.ex_th_resp") + '</th><th>' + T("adm.ex_th_nudge") + '</th>' +
       '</tr></thead><tbody>' + shown.map(renderRow).join("") + '</tbody></table>';
 
     document.querySelectorAll(".nudge-btn").forEach((btn) => {
@@ -384,32 +393,49 @@
     });
   }
 
+  function showLoadError() {
+    const msg = loadError.key === "adm.err_detail" ? T("adm.err_detail", { msg: loadError.msg }) : T(loadError.key);
+    document.getElementById("table-area").innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
+  }
+
+  function showUpdated() {
+    const when = toDate(generatedAt);
+    document.getElementById("updated-at").textContent =
+      when ? T("adm.ex_updated", { time: isHi()
+        ? when.toLocaleTimeString(loc(), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+        : when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) }) : "";
+  }
+
   async function load() {
     const area = document.getElementById("table-area");
-    document.getElementById("result-count").textContent = "Loading…";
+    setText(document.getElementById("result-count"), "adm.loading");
     try {
       const res = await fetch("/api/admin/exceptions");
       const data = await res.json();
       if (!res.ok) {
-        let msg = data.error || "Could not load cases.";
-        if (data.error === "NOT_ADMIN") msg = "Your account is not an admin.";
-        if (data.error === "INSUFFICIENT_ROLE") msg = "Your role doesn't have access to the exceptions queue.";
-        area.innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
-        document.getElementById("result-count").textContent = "";
+        loadError = data.error ? { key: "adm.err_detail", msg: data.error } : { key: "adm.ex_err_load" };
+        if (data.error === "NOT_ADMIN") loadError = { key: "adm.d_err_not_admin" };
+        if (data.error === "INSUFFICIENT_ROLE") loadError = { key: "adm.ex_err_role" };
+        showLoadError();
+        setText(document.getElementById("result-count"), null);
         return;
       }
+      loadError = null;
       allCases = data.exceptions || [];
       canAct = data.canAct !== false;
-      if (!canAct) document.getElementById("page-sub").textContent =
-        "Open cases across all wards that need attention: not acknowledged in time, escalated, disputed by the citizen, or awaiting legal review. Oldest first. This is a read-only view: nudging representatives is done by super admins and operations admins.";
+      if (!canAct) {
+        const sub = document.getElementById("page-sub");
+        sub.setAttribute("data-i18n", "adm.ex_sub_ro");
+        sub.textContent = T("adm.ex_sub_ro");
+      }
       buildFilterOptions();
       render();
-      const when = toDate(data.generatedAt);
-      document.getElementById("updated-at").textContent =
-        when ? "Updated " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
+      generatedAt = data.generatedAt;
+      showUpdated();
     } catch (err) {
-      area.innerHTML = '<div class="error-msg">Could not load cases. Check your connection and press Refresh.</div>';
-      document.getElementById("result-count").textContent = "";
+      loadError = { key: "adm.ex_err_conn" };
+      showLoadError();
+      setText(document.getElementById("result-count"), null);
     }
   }
 
@@ -419,21 +445,25 @@
   const errorEl = document.getElementById("nudge-error");
   const sendBtn = document.getElementById("nudge-send");
 
+  function fillNudge() {
+    document.getElementById("nudge-title").textContent = T("adm.ex_nudge_title_ref", { ref: nudgeTarget.trackingRef });
+    document.getElementById("nudge-who").innerHTML =
+      '<div>' + T("adm.ex_who_intro") + '</div>' +
+      nudgeTarget.responsible.map((r) =>
+        '<div>• ' + personText(r) +
+        (r.hasEmail ? " — " + T("adm.ex_via_both") : ' — <span class="no-email">' + T("adm.ex_via_console") + '</span>') +
+        '</div>'
+      ).join("");
+  }
+
   function openNudge(id) {
     nudgeTarget = allCases.find((c) => c.id === id);
     if (!nudgeTarget) return;
-    document.getElementById("nudge-title").textContent = "Nudge representatives — " + nudgeTarget.trackingRef;
-    document.getElementById("nudge-who").innerHTML =
-      '<div>This reminder goes to everyone currently responsible:</div>' +
-      nudgeTarget.responsible.map((r) =>
-        '<div>• ' + personText(r) +
-        (r.hasEmail ? " — email + console" : ' — <span class="no-email">console only (no email on file)</span>') +
-        '</div>'
-      ).join("");
+    fillNudge();
     noteEl.value = "";
-    errorEl.textContent = "";
+    setText(errorEl, null);
     sendBtn.disabled = false;
-    sendBtn.textContent = "Send nudge";
+    setText(sendBtn, "adm.ex_send");
     dialog.showModal();
     noteEl.focus();
   }
@@ -443,8 +473,8 @@
   sendBtn.addEventListener("click", async () => {
     if (!nudgeTarget) return;
     sendBtn.disabled = true;
-    sendBtn.textContent = "Sending…";
-    errorEl.textContent = "";
+    setText(sendBtn, "adm.ex_sending");
+    setText(errorEl, null);
     try {
       const res = await fetch("/api/admin/exceptions", {
         method: "POST",
@@ -453,29 +483,31 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        errorEl.textContent = data.error || "Could not send the nudge.";
+        if (data.error) setText(errorEl, "adm.err_detail", { msg: data.error });
+        else setText(errorEl, "adm.ex_err_send");
         sendBtn.disabled = false;
-        sendBtn.textContent = "Send nudge";
+        setText(sendBtn, "adm.ex_send");
         return;
       }
       dialog.close();
       showResult(data);
       load();
     } catch (err) {
-      errorEl.textContent = "Network error. Please try again.";
+      setText(errorEl, "adm.ex_err_net");
       sendBtn.disabled = false;
-      sendBtn.textContent = "Send nudge";
+      setText(sendBtn, "adm.ex_send");
     }
   });
 
   function showResult(data) {
+    lastResult = data;
     const lines = (data.recipients || []).map((r) => {
-      if (r.status === "sent") return '<div>✓ Emailed ' + personText(r) + '</div>';
-      if (r.status === "no_email") return '<div class="warn-line">• No email on file for ' + personText(r) + ' — they will see it in their console</div>';
-      return '<div class="fail-line">✗ Email to ' + personText(r) + ' failed — they will still see it in their console</div>';
+      if (r.status === "sent") return '<div>' + T("adm.ex_r_sent", { who: personText(r) }) + '</div>';
+      if (r.status === "no_email") return '<div class="warn-line">' + T("adm.ex_r_no_email", { who: personText(r) }) + '</div>';
+      return '<div class="fail-line">' + T("adm.ex_r_failed", { who: personText(r) }) + '</div>';
     }).join("");
     document.getElementById("notice-area").innerHTML =
-      '<div class="notice ok"><b>Nudge sent for ' + escapeHtml(data.trackingRef) + '.</b>' + lines + '</div>';
+      '<div class="notice ok"><b>' + T("adm.ex_r_head", { ref: escapeHtml(data.trackingRef) }) + '</b>' + lines + '</div>';
   }
 
   document.getElementById("f-issue").addEventListener("change", render);
@@ -485,7 +517,7 @@
 
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
-    document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+    document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
   }
 
   const savedTheme = localStorage.getItem("griq-admin-theme") || "dark";
@@ -496,6 +528,19 @@
     const next = current === "light" ? "dark" : "light";
     localStorage.setItem("griq-admin-theme", next);
     applyTheme(next);
+  });
+
+  // Switching हिन्दी / English redraws from the data already loaded.
+  document.addEventListener("giq:lang", () => {
+    let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+    applyTheme(th);
+    [document.getElementById("result-count"), errorEl, sendBtn].forEach((el) => {
+      if (el._t) el.textContent = T(el._t[0], el._t[1]);
+    });
+    if (loadError) { showLoadError(); }
+    else if (generatedAt) { buildFilterOptions(); render(); showUpdated(); }
+    if (lastResult) showResult(lastResult);
+    if (dialog.open && nudgeTarget) fillNudge();
   });
 
   load();

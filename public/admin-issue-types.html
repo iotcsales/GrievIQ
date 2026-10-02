@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GrievIQ Admin — Issue types</title>
+<title data-i18n="adm.it_page_title">GrievIQ Admin — Issue types</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
   :root {
     --admin-bg: #14181f;
@@ -141,27 +141,30 @@
   select.dept-select { min-width: 210px; min-height: 34px; }
   button { min-height: 32px; }
   @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
+<script src="/i18n.js?v=9d"></script>
 <script src="/admin-nav.js?v=r1"></script>
 </head>
 <body>
 
 <header>
-  <div class="brand">GrievIQ <span>Admin</span></div>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html">Dashboard</a> <a href="/admin-cases.html">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html">Import</a>
-    <a href="/admin-import-wards.html">Ward boundaries</a>
-    <a href="/admin-jurisdiction.html">Jurisdiction</a>
-    <a href="/admin-exceptions.html">Exceptions</a> <a href="/admin-reviews.html">Reviews</a> <a href="/admin-change-requests.html">Change requests</a> <a href="/admin-issue-types.html" class="active" aria-current="page">Issue types</a> <a href="/admin-staff.html">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a>
-    <button class="theme-toggle" id="theme-toggle">Light mode</button>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types" class="active" aria-current="page">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
 <main>
-  <h1>Issue types <span class="readonly-tag" id="readonly-tag" hidden>View only</span></h1>
-  <p class="subtitle">Each type of problem citizens can report, its time limits, and the department suggested to representatives.</p>
+  <h1><span data-i18n="adm.nav_issue_types">Issue types</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
+  <p class="subtitle" data-i18n="adm.it_sub">Each type of problem citizens can report, its time limits, and the department suggested to representatives.</p>
 
-  <div class="note">
+  <div class="note" data-i18n-html="adm.it_note">
     The <b>suggested department</b> is listed first, marked "(suggested)", when a representative logs a follow-up on a case of this type.
     Nothing is pre-selected: the representative always chooses the department. Every change here is recorded in the audit log.
     Time limits are shown for reference and cannot be changed on this page.
@@ -172,14 +175,14 @@
       <table>
         <thead>
           <tr>
-            <th scope="col">Issue type</th>
-            <th scope="col">Acknowledge within</th>
-            <th scope="col">Respond within (per level)</th>
-            <th scope="col">Suggested department</th>
+            <th scope="col" data-i18n="adm.it_col_type">Issue type</th>
+            <th scope="col" data-i18n="adm.it_col_ack">Acknowledge within</th>
+            <th scope="col" data-i18n="adm.it_col_resp">Respond within (per level)</th>
+            <th scope="col" data-i18n="adm.it_col_dept">Suggested department</th>
           </tr>
         </thead>
         <tbody id="rows">
-          <tr><td colspan="4" class="muted">Loading...</td></tr>
+          <tr><td colspan="4" class="muted" data-i18n="adm.it_loading">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -188,6 +191,11 @@
 </main>
 
 <script>
+// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.*") ----
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function catName(id, name) { return window.GIQ ? window.GIQ.category(id, name) : name; }
+function deptName(d) { return window.GIQ ? window.GIQ.dept(d) : d; }
+
 // Every value from the server is escaped before it goes into the page.
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
@@ -198,13 +206,18 @@ function esc(s) {
 function hoursText(h) {
   if (h === null || h === undefined) return null;
   var days = h / 24;
-  var dayText = Number.isInteger(days) ? days + (days === 1 ? " day" : " days") : (Math.round(days * 10) / 10) + " days";
-  return h + " hours (" + dayText + ")";
+  var dayText = Number.isInteger(days) ? T(days === 1 ? "adm.it_day" : "adm.it_days", { n: days }) : T("adm.it_days", { n: Math.round(days * 10) / 10 });
+  return T("adm.it_hours", { h: h, d: dayText });
 }
 
+// The last message shown, kept as a function so it can be redrawn in the other language.
+var lastStatus = null;
 function setStatus(msg, type, id) {
   // With an id, the message appears in that issue type's row, next to its
   // Save button (feedback must be where the person is looking).
+  var make = typeof msg === "function" ? msg : null;
+  lastStatus = make ? { make: make, type: type, id: id } : null;
+  if (make) msg = make();
   var el = (id && document.getElementById("msg-" + id)) || document.getElementById("status-msg");
   document.querySelectorAll(".row-msg").forEach(function (m) { if (m !== el) { m.textContent = ""; m.className = "row-msg"; } });
   el.textContent = msg || "";
@@ -212,40 +225,42 @@ function setStatus(msg, type, id) {
 }
 
 var state = { canEdit: false, departments: [], issueTypes: [] };
+var loadError = null;   // function returning the load error text
+var loaded = false;
 
-function deptLabel(d) { return d ? d : "No suggestion"; }
+function deptLabel(d) { return d ? deptName(d) : T("adm.it_no_sugg"); }
 
 function render() {
   var tbody = document.getElementById("rows");
   document.getElementById("readonly-tag").hidden = state.canEdit;
   if (!state.issueTypes.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="muted">No issue types found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.it_none")) + '</td></tr>';
     return;
   }
   tbody.innerHTML = state.issueTypes.map(function (t) {
     var ack = hoursText(t.ackHours) || "—";
     var resp = hoursText(t.resolutionHours);
-    var respCell = resp ? esc(resp) : '<span class="dept-none">No limit — goes to legal review</span>';
+    var respCell = resp ? esc(resp) : '<span class="dept-none">' + esc(T("adm.it_no_limit")) + '</span>';
     var deptCell;
     if (state.canEdit) {
-      var opts = '<option value="">No suggestion</option>' + state.departments.map(function (d) {
-        return '<option value="' + esc(d) + '"' + (d === t.suggestedDepartment ? " selected" : "") + ">" + esc(d) + "</option>";
+      var opts = '<option value="">' + esc(T("adm.it_no_sugg")) + '</option>' + state.departments.map(function (d) {
+        return '<option value="' + esc(d) + '"' + (d === t.suggestedDepartment ? " selected" : "") + ">" + esc(deptName(d)) + "</option>";
       }).join("");
       deptCell =
         '<div class="row-actions">' +
-          '<label class="visually-hidden" for="dept-' + esc(t.id) + '">Suggested department for ' + esc(t.name) + "</label>" +
+          '<label class="visually-hidden" for="dept-' + esc(t.id) + '">' + esc(T("adm.it_dept_for", { name: catName(t.id, t.name) })) + "</label>" +
           '<select class="dept-select" id="dept-' + esc(t.id) + '" data-id="' + esc(t.id) + '">' + opts + "</select>" +
-          '<button class="primary save-btn" data-id="' + esc(t.id) + '">Save</button>' +
+          '<button class="primary save-btn" data-id="' + esc(t.id) + '">' + esc(T("adm.save")) + '</button>' +
         "</div>" +
         // Result shown right next to the button that was pressed.
         '<div class="row-msg" id="msg-' + esc(t.id) + '" role="status" aria-live="polite"></div>';
     } else {
       deptCell = t.suggestedDepartment
-        ? '<span class="dept-now">' + esc(t.suggestedDepartment) + "</span>"
-        : '<span class="dept-none">No suggestion</span>';
+        ? '<span class="dept-now">' + esc(deptName(t.suggestedDepartment)) + "</span>"
+        : '<span class="dept-none">' + esc(T("adm.it_no_sugg")) + '</span>';
     }
     return "<tr>" +
-      '<td class="name">' + esc(t.name) + '<span class="sub">' + esc(t.id) + "</span></td>" +
+      '<td class="name">' + esc(catName(t.id, t.name)) + '<span class="sub">' + esc(t.id) + "</span></td>" +
       "<td>" + esc(ack) + "</td>" +
       "<td>" + respCell + "</td>" +
       "<td>" + deptCell + "</td>" +
@@ -257,21 +272,30 @@ function render() {
   });
 }
 
+function showLoadError() {
+  document.getElementById("rows").innerHTML = '<tr><td colspan="4" class="muted">' + esc(loadError()) + "</td></tr>";
+}
+
 async function load() {
   try {
     var res = await fetch("/api/admin/issue-types");
     var data = await res.json();
     if (!res.ok) {
-      var msg = data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE"
-        ? "Your account does not have access to this page."
-        : "Could not load issue types (" + (data.error || res.status) + ").";
-      document.getElementById("rows").innerHTML = '<tr><td colspan="4" class="muted">' + esc(msg) + "</td></tr>";
+      loadError = function () {
+        return data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE"
+          ? T("adm.no_access")
+          : T("adm.it_e_load", { err: data.error || res.status });
+      };
+      showLoadError();
       return;
     }
+    loadError = null;
+    loaded = true;
     state = data;
     render();
   } catch (err) {
-    document.getElementById("rows").innerHTML = '<tr><td colspan="4" class="muted">Network error loading issue types.</td></tr>';
+    loadError = function () { return T("adm.it_e_net_load"); };
+    showLoadError();
   }
 }
 
@@ -280,11 +304,11 @@ async function save(id, btn) {
   var value = select.value || null;
   var t = state.issueTypes.filter(function (x) { return x.id === id; })[0];
   if (t && (t.suggestedDepartment || null) === value) {
-    setStatus("No change to save.", "", id);
+    setStatus(function () { return T("adm.it_no_change"); }, "", id);
     return;
   }
   btn.disabled = true;
-  setStatus("Saving...", "", id);
+  setStatus(T("adm.saving"), "", id);
   try {
     var res = await fetch("/api/admin/issue-types", {
       method: "PATCH",
@@ -294,23 +318,23 @@ async function save(id, btn) {
     var data = await res.json();
     btn.disabled = false;
     if (!res.ok) {
-      setStatus(data.error === "INSUFFICIENT_ROLE" ? "Your role can view this page but not change it." : (data.error || "Failed to save."), "error", id);
+      setStatus(function () { return data.error === "INSUFFICIENT_ROLE" ? T("adm.it_e_role") : (data.error ? T("adm.err_detail", { msg: data.error }) : T("adm.it_e_save")); }, "error", id);
       return;
     }
     if (t) {
-      setStatus("Saved: changed from " + deptLabel(data.before === undefined ? t.suggestedDepartment : data.before) +
-        " to " + deptLabel(data.suggestedDepartment) + ".", "success", id);
+      var from = data.before === undefined ? t.suggestedDepartment : data.before, to = data.suggestedDepartment;
+      setStatus(function () { return T("adm.it_saved", { from: deptLabel(from), to: deptLabel(to) }); }, "success", id);
       t.suggestedDepartment = data.suggestedDepartment;
     }
   } catch (err) {
     btn.disabled = false;
-    setStatus("Network error while saving.", "error", id);
+    setStatus(function () { return T("adm.it_e_net_save"); }, "error", id);
   }
 }
 
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
-  document.getElementById("theme-toggle").textContent = theme === "light" ? "Dark mode" : "Light mode";
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
 }
 var savedTheme = "dark";
 try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
@@ -321,6 +345,20 @@ document.getElementById("theme-toggle").addEventListener("click", function () {
   var next = current === "light" ? "dark" : "light";
   try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
+});
+
+// Switching हिन्दी / English redraws from the data already loaded; unsaved
+// choices in the department lists and the last message are kept.
+document.addEventListener("giq:lang", function () {
+  var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (loadError) { showLoadError(); return; }
+  if (!loaded) return; // still loading: the "Loading..." row is translated by i18n.js
+  var picked = {};
+  document.querySelectorAll(".dept-select").forEach(function (s) { picked[s.getAttribute("data-id")] = s.value; });
+  render();
+  document.querySelectorAll(".dept-select").forEach(function (s) { var v = picked[s.getAttribute("data-id")]; if (v !== undefined) s.value = v; });
+  if (lastStatus) setStatus(lastStatus.make, lastStatus.type, lastStatus.id);
 });
 
 load();
