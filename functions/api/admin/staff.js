@@ -88,7 +88,10 @@ const ACTIVITY = [
   ["audit_work", "observations", "closed_by"], ["audit_work", "observation_events", "actor_email"], ["audit_work", "observation_amendments", "amended_by"],
   ["audit_work", "audit_engagements", "created_by"], ["audit_work", "audit_reports", "issued_by"],
   ["retention", "retention_holds", "by_email"], ["retention", "retention_runs", "ran_by"],
-  ["covers", "staff_covers", "away_email"], ["covers", "staff_covers", "cover_email"], ["covers", "staff_covers", "created_by"], ["covers", "staff_covers", "ended_by"],
+  // Being put on leave, or named as the stand-in, is done TO the person by
+  // the super admin, so only setting up or ending a cover counts here; what
+  // a stand-in actually does is recorded under their own email above.
+  ["covers", "staff_covers", "created_by"], ["covers", "staff_covers", "ended_by"],
 ];
 // Returns Map(email -> [areas]) for the given emails, or null if the check
 // could not run (then nobody may be deleted).
@@ -344,8 +347,11 @@ export async function onRequestPost({ request, env }) {
     if (!act) return json({ error: "Couldn't check this person's activity, so nothing was deleted. Try again." }, 503);
     const areas = act.get(email);
     if (areas.length) return bad("This person has activity on record, so the entry can't be deleted. Mark them as having left instead.", { email: "HAS_ACTIVITY" }, { areas });
+    // Leave covers they were part of go with the entry (the audit log keeps
+    // the leave and cover lines), so a reused email never inherits them.
+    const cv = await env.DB.prepare("DELETE FROM staff_covers WHERE LOWER(away_email) = ? OR LOWER(cover_email) = ?").bind(email, email).run();
     await env.DB.prepare("DELETE FROM admin_users WHERE LOWER(email) = ?").bind(email).run();
-    await logEvent(env, auth.email, "staff_deleted", email, { reason, name: p.name || null, employeeId: p.employee_id || null, role: p.role, status: p.status || "PRESENT" });
+    await logEvent(env, auth.email, "staff_deleted", email, { reason, name: p.name || null, employeeId: p.employee_id || null, role: p.role, status: p.status || "PRESENT", coversRemoved: (cv.meta && cv.meta.changes) || 0 });
     return json({ ok: true });
   }
 
