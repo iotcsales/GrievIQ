@@ -26,6 +26,7 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../../_shared/escalation.js";
+import { recipientName, greetingHtml, SAFETY_LINE } from "../../_shared/audit-office.js";
 
 const FINAL_OR_WAITING = ["RESOLVED", "CLOSED", "PENDING_CONFIRMATION"];
 
@@ -148,12 +149,15 @@ export async function onRequestPost({ request, env }) {
           to: [email],
           subject: `Reminder: GrievIQ case ${g.tracking_ref} needs your attention`,
           html:
-            `<p>This is a reminder from the GrievIQ admin team about case <strong>${escapeHtml(g.tracking_ref)}</strong> ` +
-            `in <strong>${escapeHtml(chain.localUnit.name)}</strong> (${escapeHtml(category.name)}), open for ${days} day${days === 1 ? "" : "s"}.</p>` +
-            `<p><em>${escapeHtml(g.description)}</em></p>` +
-            (note ? `<p><strong>Note from the admin team:</strong> ${escapeHtml(note)}</p>` : "") +
+            // Content-free on purpose: no complaint text, place or note by
+            // email. The note shows on the case in the console.
+            greetingHtml((await recipientName(env, email)) || (people[0] && people[0].name ? { name: people[0].name, id: null } : null)) +
+            `<p>This is a reminder from the GrievIQ admin team about case <strong>${escapeHtml(g.tracking_ref)}</strong>, ` +
+            `open for ${days} day${days === 1 ? "" : "s"}.</p>` +
+            (note ? `<p>The admin team has added a note, shown on the case in your console.</p>` : "") +
             `<p>Please sign in to your GrievIQ console to acknowledge or update this case: ` +
-            `<a href="${consoleUrl}">${consoleUrl}</a></p>`,
+            `<a href="${consoleUrl}">${consoleUrl}</a></p>` +
+            `<p>For security, the details are shown only after you sign in. ${SAFETY_LINE}</p>`,
         }),
       });
       if (!resendResponse.ok) {

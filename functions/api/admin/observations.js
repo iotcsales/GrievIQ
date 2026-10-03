@@ -310,10 +310,9 @@ export async function onRequestPost({ request, env }) {
     const office = o.owner_type === "OFFICE" ? await officeByKey(env, o.owner_office) : null;
     await log(id, "ISSUED", null, { dueDate: due, owner: office ? officeText(office) : o.owner_email, ownerOffice: o.owner_office || undefined });
     const rc = await ownerRecipients(env, o);
-    const emailed = await notifyAudit(env, request, rc.to, `${o.ref} — ${o.title}`, [
-      office ? `An audit observation has been issued to your office (${officeText(office)}): ${o.ref} — ${o.title} (rating: ${o.rating}).`
-        : `An audit observation has been issued to you: ${o.ref} — ${o.title} (rating: ${o.rating}).`,
-      `Please reply with whether you agree and your action plan by ${due}.` + (office ? " Open the Audit tab in the GrievIQ representative console." : ""),
+    const emailed = await notifyAudit(env, request, rc.to, `${o.ref} — new observation`, [
+      office ? `A new audit observation (${o.ref}) has been issued to your office.` : `A new audit observation (${o.ref}) has been issued to you.`,
+      `Please reply by ${due}.` + (office ? " It is in the Audit tab of the GrievIQ representative console." : ""),
     ], id, rc.link);
     return json({ ok: true, emailed, recipients: rc.to.length, dueDate: due });
   }
@@ -355,7 +354,7 @@ export async function onRequestPost({ request, env }) {
     if (!n) return json({ error: "Record how you verified the action (at least 10 characters).", fields: { note: "LENGTH" } }, 400);
     if (!(await setStatus("UPDATE observations SET status = 'CLOSED', closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ? AND status = 'DONE_REPORTED'", now, auth.email, now, id))) return stale();
     await log(id, "CLOSED", n, null);
-    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — closed`, [`The auditor has verified the action for ${o.ref} — ${o.title} and closed it.`], id, rc.link); }
+    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — closed`, [`The auditor has verified the action for audit observation ${o.ref} and closed it.`], id, rc.link); }
     return json({ ok: true });
   }
 
@@ -365,7 +364,7 @@ export async function onRequestPost({ request, env }) {
     if (!n) return json({ error: "Say what is still missing (at least 10 characters).", fields: { note: "LENGTH" } }, 400);
     if (!(await setStatus("UPDATE observations SET status = 'RESPONDED', updated_at = ? WHERE id = ? AND status = 'DONE_REPORTED'", now, id))) return stale();
     await log(id, "SENT_BACK", n, null);
-    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — sent back`, [`The auditor has sent ${o.ref} — ${o.title} back: ${n}`], id, rc.link); }
+    { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — sent back`, [`The auditor has sent audit observation ${o.ref} back to you with a note.`], id, rc.link); }
     return json({ ok: true });
   }
 
@@ -384,7 +383,7 @@ export async function onRequestPost({ request, env }) {
       "UPDATE observations SET status = 'RISK_ACCEPTED', risk_reason = ?, risk_review_date = ?, closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ? AND status IN ('ISSUED', 'RESPONDED', 'DONE_REPORTED')",
       reason, review, now, auth.email, now, id))) return stale();
     await log(id, "RISK_ACCEPTED", reason, { reviewDate: review });
-    const riskLine = [`${auth.email} (super admin) has formally accepted the risk for ${o.ref} — ${o.title}. Reason: ${reason}. To be looked at again by ${review}.`];
+    const riskLine = [`The super admin has formally accepted the risk for audit observation ${o.ref}. It will be looked at again by ${review}.`];
     await notifyAudit(env, request, [o.issued_by || o.created_by], `${o.ref} — risk accepted`, riskLine, id, "staff");
     { const rc = await ownerRecipients(env, o); await notifyAudit(env, request, rc.to, `${o.ref} — risk accepted`, riskLine, id, rc.link); }
     return json({ ok: true });

@@ -18,6 +18,7 @@ import {
   KINDS, CONCLUSIONS, sha256Hex, isDay, buildPeriod, buildFollowUp, buildRegister, buildAnalytics, nextReportRef,
 } from "../../_shared/audit-reports.js";
 import { todayIst } from "../../_shared/audit.js";
+import { recipientName, greetingHtml, closingHtml } from "../../_shared/audit-office.js";
 
 const can = (role, perm) => [].concat(role).some((r) => (PERMISSIONS[perm] || []).includes(r));
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
@@ -75,7 +76,7 @@ async function notifySuperAdmins(env, request, subject, line, id) {
       await fetch("https://api.resend.com/emails", {
         method: "POST", headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ from: env.OTP_FROM_EMAIL || "onboarding@resend.dev", to: [r.email], subject: "GrievIQ audit: " + subject,
-          html: `<p>${String(line).replace(/</g, "&lt;")}</p><p><a href="${url}">${url}</a></p>` }),
+          html: greetingHtml(await recipientName(env, r.email)) + `<p>${String(line).replace(/</g, "&lt;")}</p>` + closingHtml(url) }),
       });
     } catch (e) { /* email never blocks issuing */ }
   }
@@ -166,6 +167,6 @@ export async function onRequestPost({ request, env }) {
     JSON.stringify(params), text, hash, reason, auth.email, now).run();
   await env.DB.prepare("INSERT INTO admin_events (id, actor_email, action, target, detail) VALUES (?, ?, ?, ?, ?)")
     .bind(crypto.randomUUID(), auth.email, prev ? "audit_report_corrected" : "audit_report_issued", id, JSON.stringify({ ref, version, kind: b.content.kind, fingerprint: hash, role: auth.role, reason })).run();
-  await notifySuperAdmins(env, request, `${ref} v${version} — ${b.title}`, `${auth.email} has ${prev ? "issued a corrected version of" : "issued"} the audit report ${ref} (version ${version}): ${b.title}.`, id);
+  await notifySuperAdmins(env, request, `${ref} v${version} issued`, `${auth.email} has ${prev ? "issued a corrected version of" : "issued"} audit report ${ref} (version ${version}).`, id);
   return json({ ok: true, id, ref, version, fingerprint: hash });
 }

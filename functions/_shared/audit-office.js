@@ -123,6 +123,32 @@ export function answerableOffices(auth) {
   return (auth.mandates || []).filter((m) => OFFICE_ROLES.includes(m.role || ROLE.REP)).map((m) => ({ key: m.tier + ":" + m.id, mandate: m }));
 }
 
+// Item 10c: emails greet the person by name (and staff ID) so a fake email
+// is easier to spot (UK Government Service Manual), and end with a line on
+// what GrievIQ never asks for.
+export const SAFETY_LINE = "GrievIQ will never ask for your sign-in code by email or phone.";
+export async function recipientName(env, email) {
+  const e = String(email || "").toLowerCase();
+  const tries = [
+    ["SELECT name, employee_id FROM admin_users WHERE LOWER(email) = ? AND COALESCE(status, 'PRESENT') <> 'LEFT'", (r) => r.name ? { name: r.name, id: r.employee_id || null } : null],
+    ["SELECT member_name AS name FROM office_team WHERE LOWER(member_email) = ? AND status = 'ACTIVE' LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
+    ["SELECT mla_name AS name FROM mla_constituencies WHERE LOWER(mla_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
+    ["SELECT mp_name AS name FROM mp_constituencies WHERE LOWER(mp_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
+    ["SELECT rep_name AS name FROM local_units WHERE LOWER(rep_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
+  ];
+  for (const [sql, pick] of tries) {
+    try { const r = await env.DB.prepare(sql).bind(e).first(); const v = r && pick(r); if (v) return v; } catch (err) { /* table or column missing */ }
+  }
+  return null;
+}
+export function greetingHtml(who) {
+  return "<p>Dear " + escHtml(who ? who.name + (who.id ? " (" + who.id + ")" : "") : "colleague") + ",</p>";
+}
+export function closingHtml(url) {
+  return `<p>Sign in to GrievIQ to read it: <a href="${url}">${url}</a></p>` +
+    "<p>For security, the details are shown only after you sign in. " + SAFETY_LINE + "</p>";
+}
+
 function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
 // Emails about an observation. `link` is the page to open ("staff" = the
@@ -140,7 +166,9 @@ export async function notifyAudit(env, request, toList, subject, lines, obsId, l
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: env.OTP_FROM_EMAIL || "onboarding@resend.dev", to: [addr], subject: "GrievIQ audit: " + subject,
-          html: lines.map((l) => "<p>" + escHtml(l) + "</p>").join("") + `<p><a href="${url}">${url}</a></p>`,
+          // Content-free on purpose: only the reference and what happened.
+          // Titles, ratings and notes are shown after signing in, never by email.
+          html: greetingHtml(await recipientName(env, addr)) + lines.map((l) => "<p>" + escHtml(l) + "</p>").join("") + closingHtml(url),
         }),
       });
       if (res.ok) any = true;
@@ -183,7 +211,7 @@ export async function ownerAction(action, ctx) {
       "UPDATE observations SET status = 'RESPONDED', response_agree = ?, response_text = ?, action_plan = ?, target_date = ?, updated_at = ? WHERE id = ? AND status IN ('ISSUED', 'RESPONDED')",
       agree, text, agree === 1 ? plan : null, agree === 1 ? target : null, now, o.id))) return stale();
     await log("RESPONDED", text, { agree: agree === 1, actionPlan: agree === 1 ? plan : null, targetDate: agree === 1 ? target : null });
-    await notifyAudit(env, request, [auditorEmail], `${o.ref} — reply received`, [`${who} has replied to ${o.ref} — ${o.title}: ${agree === 1 ? "agrees, with an action plan" : "disagrees"}.`], o.id, "staff");
+    await notifyAudit(env, request, [auditorEmail], `${o.ref} — reply received`, [`${who} has replied to audit observation ${o.ref}.`], o.id, "staff");
     return json({ ok: true });
   }
 
@@ -193,7 +221,7 @@ export async function ownerAction(action, ctx) {
     if (o.response_agree !== 1) return json({ error: "Agree and give an action plan first.", code: "NO_PLAN" }, 409);
     if (!(await setStatus("UPDATE observations SET status = 'DONE_REPORTED', done_evidence = ?, updated_at = ? WHERE id = ? AND status = 'RESPONDED'", evidence, now, o.id))) return stale();
     await log("DONE_REPORTED", evidence, null);
-    await notifyAudit(env, request, [auditorEmail], `${o.ref} — ready for verification`, [`${who} reports that the action for ${o.ref} — ${o.title} is done. Please verify it.`], o.id, "staff");
+    await notifyAudit(env, request, [auditorEmail], `${o.ref} — ready for verification`, [`${who} reports that the action for audit observation ${o.ref} is done. Please verify it.`], o.id, "staff");
     return json({ ok: true });
   }
 
