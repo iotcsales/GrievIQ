@@ -23,6 +23,12 @@
     "adm.nav_paused_title": "Your access is paused while you are on leave",
     "adm.nav_paused": "Welcome back on {date}. Your access starts again automatically after that date.",
     "adm.nav_covering": "You are covering for {name} ({role}) until {date}. What you do for them is recorded in your name, on their behalf.",
+    "adm.nav_signed_in_as": "Signed in as {who}",
+    "adm.nav_signout": "Sign out",
+    "adm.idle_title": "Are you still there?",
+    "adm.idle_text": "For security, you will be signed out in {time} because there has been no activity for almost an hour.",
+    "adm.idle_stay": "Stay signed in",
+    "adm.idle_signout": "Sign out now",
     "adm.role_super_admin": "Super admin",
     "adm.role_operations_admin": "Operations admin",
     "adm.role_data_moderator": "Data moderator",
@@ -166,6 +172,78 @@
   }
   style.textContent += ".adm-covering{margin:0 0 18px;padding:10px 14px;border-radius:8px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px}";
 
+  // ---- Sign out, and automatic sign-out after an hour without activity ----
+  // Signing out ends the Cloudflare Access session (for all GrievIQ admin
+  // pages), so getting back in needs a new code. The idle limit follows the
+  // owner's choice of 60 minutes; the warning comes 2 minutes before. Activity
+  // in any open admin tab counts for all of them.
+  var IDLE_MS = 60 * 60 * 1000, WARN_MS = 2 * 60 * 1000, KEY = "giq-admin-last-active";
+  function signOut(reason) { location.href = "/signed-out.html" + (reason ? "?reason=" + reason : ""); }
+  function drawAccount() {
+    var box = document.getElementById("adm-acct");
+    if (!box) {
+      var nav = document.querySelector("header nav");
+      if (!nav) return;
+      box = document.createElement("div"); box.id = "adm-acct"; box.className = "adm-acct";
+      nav.parentNode.insertBefore(box, nav.nextSibling);
+    }
+    var who = info ? (info.name ? info.name + (info.employeeId ? " (" + info.employeeId + ")" : "") : info.email) : "";
+    box.innerHTML = (who ? '<span class="adm-who">' + esc(t("adm.nav_signed_in_as", { who: who })) + "</span> " : "") +
+      '<button type="button" class="adm-signout" id="adm-signout">' + esc(t("adm.nav_signout")) + "</button>";
+    document.getElementById("adm-signout").addEventListener("click", function () { signOut(""); });
+  }
+  style.textContent += ".adm-acct{display:inline-flex;align-items:center;gap:10px;margin-left:20px;font-size:13px;color:var(--admin-muted,#889);flex-shrink:0}" +
+    ".adm-who{white-space:nowrap}.adm-signout{white-space:nowrap}" +
+    "@media (max-width:760px){header{flex-wrap:wrap}.adm-acct{margin-left:0;margin-top:10px;width:100%;justify-content:space-between}.adm-who{white-space:normal}}" +
+    ".adm-signout{background:none;border:1px solid var(--admin-border,#334);border-radius:6px;color:var(--admin-text,inherit);font:inherit;font-size:13px;padding:5px 10px;cursor:pointer;min-height:30px}" +
+    ".adm-signout:hover,.adm-signout:focus-visible{border-color:var(--admin-text,#fff);outline:none}" +
+    ".adm-idle{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}" +
+    ".adm-idle-box{max-width:440px;width:100%;background:var(--admin-bg,#151922);color:var(--admin-text,#e6e8eb);border:1px solid var(--admin-border,#334);border-radius:10px;padding:22px 24px}" +
+    "html.light-theme .adm-idle-box{background:#fff;color:#1b1f24}" +
+    ".adm-idle-box h2{margin:0 0 10px;font-size:1.15rem}.adm-idle-box p{margin:0 0 16px;line-height:1.5}" +
+    ".adm-idle-box button{font:inherit;padding:8px 14px;border-radius:6px;cursor:pointer;margin-right:8px;border:1px solid var(--admin-border,#334);background:none;color:inherit}" +
+    ".adm-idle-box button.primary{background:var(--admin-accent,#3b6ff0);border-color:var(--admin-accent,#3b6ff0);color:#fff}";
+  function getLast() { try { return Number(localStorage.getItem(KEY)) || 0; } catch (e) { return 0; } }
+  var lastLocal = Date.now();
+  function touch() {
+    var now = Date.now();
+    if (now - lastLocal < 5000 && document.getElementById("adm-idle") == null) return;   // at most every 5 s
+    lastLocal = now;
+    try { localStorage.setItem(KEY, String(now)); } catch (e) { /* storage off: this tab still counts */ }
+  }
+  function lastActive() { return Math.max(lastLocal, getLast()); }
+  function hideIdle() { var d = document.getElementById("adm-idle"); if (d) { d.remove(); } }
+  function showIdle(left) {
+    var d = document.getElementById("adm-idle");
+    var mins = Math.floor(left / 60000), secs = Math.max(0, Math.floor((left % 60000) / 1000));
+    var time = mins + ":" + (secs < 10 ? "0" : "") + secs;
+    if (!d) {
+      d = document.createElement("div"); d.id = "adm-idle"; d.className = "adm-idle";
+      d.innerHTML = '<div class="adm-idle-box" role="alertdialog" aria-modal="true" aria-labelledby="adm-idle-h" aria-describedby="adm-idle-p">' +
+        '<h2 id="adm-idle-h"></h2><p id="adm-idle-p"></p><button type="button" class="primary" id="adm-idle-stay"></button><button type="button" id="adm-idle-out"></button></div>';
+      document.body.appendChild(d);
+      document.getElementById("adm-idle-stay").addEventListener("click", function () { lastLocal = 0; touch(); hideIdle(); });
+      document.getElementById("adm-idle-out").addEventListener("click", function () { signOut(""); });
+      document.getElementById("adm-idle-stay").focus();
+    }
+    document.getElementById("adm-idle-h").textContent = t("adm.idle_title");
+    document.getElementById("adm-idle-p").textContent = t("adm.idle_text", { time: time });
+    document.getElementById("adm-idle-stay").textContent = t("adm.idle_stay");
+    document.getElementById("adm-idle-out").textContent = t("adm.idle_signout");
+  }
+  function tick() {
+    var idle = Date.now() - lastActive();
+    if (idle >= IDLE_MS) { signOut("idle"); return; }
+    if (idle >= IDLE_MS - WARN_MS) showIdle(IDLE_MS - idle); else hideIdle();
+  }
+  ["keydown", "pointerdown", "wheel", "touchstart", "scroll"].forEach(function (ev) {
+    window.addEventListener(ev, function () { if (!document.getElementById("adm-idle")) touch(); }, { passive: true, capture: true });
+  });
+  window.GIQ_IDLE = { tick: tick, IDLE_MS: IDLE_MS, WARN_MS: WARN_MS, KEY: KEY };   // for tests
+  touch();
+  setInterval(tick, 1000);
+  ready(drawAccount);
+
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })
     .then(function (d) {
@@ -175,9 +253,9 @@
       if (!d || !d.pages) { root.classList.remove("adm-nav-pending"); return; }
       info = d;
       window.GIQ_ADMIN = d;
-      ready(function () { run(); showCovering(); });
+      ready(function () { run(); showCovering(); drawAccount(); });
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); if (document.getElementById("adm-idle")) tick(); });
 })();

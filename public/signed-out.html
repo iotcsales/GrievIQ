@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title data-i18n="adm.so_page_title">Signed out — GrievIQ Admin</title>
+<style>
+  :root { --bg: #0f1218; --panel: #161b24; --text: #e6e8eb; --muted: #9aa3ae; --border: #2a3140; --accent: #3b6ff0; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f4f5f7; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470; --border: #d9dde3; --accent: #2f5bd0; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  main { width: 100%; max-width: 460px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px 26px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .brand { font-weight: 700; }
+  .brand span { color: var(--accent); }
+  .lang-toggle { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; cursor: pointer; min-height: 30px; }
+  .lang-toggle:hover, .lang-toggle:focus-visible { color: var(--text); border-color: var(--text); outline: none; }
+  h1 { font-size: 1.35rem; margin: 0 0 10px; }
+  p { line-height: 1.55; margin: 0 0 14px; color: var(--muted); }
+  p.lead { color: var(--text); }
+  a.btn { display: inline-block; margin-top: 6px; padding: 9px 16px; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  a.btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+    <button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button>
+  </div>
+  <div id="working" role="status">
+    <h1 data-i18n="adm.so_working_title">Signing you out…</h1>
+  </div>
+  <div id="done" hidden>
+    <h1 data-i18n="adm.so_title" tabindex="-1" id="done-h">You have signed out</h1>
+    <p class="lead" id="idle-note" data-i18n="adm.so_idle" hidden>For security, you were signed out after 60 minutes without activity.</p>
+    <p data-i18n="adm.so_text">To use the admin panel again, sign in with a new code sent to your email.</p>
+    <p data-i18n="adm.so_shared">On a shared computer, also close this browser window.</p>
+    <a class="btn" href="/admin-dashboard.html" data-i18n="adm.so_again">Sign in again</a>
+  </div>
+</main>
+<script src="/i18n.js?v=10e"></script>
+<script>
+// Ends the Cloudflare Access session (it covers every GrievIQ admin page),
+// then checks it really ended. If it didn't, falls back to Cloudflare's own
+// sign-out page, which always works.
+(function () {
+  try { localStorage.removeItem("giq-admin-last-active"); } catch (e) {}
+  if (/[?&]reason=idle\b/.test(location.search)) document.getElementById("idle-note").hidden = false;
+  function done() {
+    document.getElementById("working").hidden = true;
+    document.getElementById("done").hidden = false;
+    document.getElementById("done-h").focus();
+  }
+  function fallback() { location.replace("/cdn-cgi/access/logout"); }
+  fetch("/cdn-cgi/access/logout", { credentials: "same-origin", cache: "no-store" })
+    .catch(function () { return null; })
+    .then(function () { return fetch("/api/admin/whoami", { credentials: "same-origin", cache: "no-store", redirect: "manual", headers: { Accept: "application/json" } }); })
+    .then(function (r) {
+      // Signed out: Cloudflare now redirects (or refuses) instead of answering.
+      if (r.type === "opaqueredirect" || r.status === 401 || r.status === 403 || r.status === 302) { done(); return; }
+      var ct = r.headers.get("Content-Type") || "";
+      if (r.ok && ct.indexOf("application/json") >= 0) { fallback(); return; }   // still signed in
+      done();
+    })
+    .catch(done);
+})();
+</script>
+</body>
+</html>
