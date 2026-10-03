@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.d_page_title">Dashboard — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=11a"></script><script src="/admin-nav.js?v=r4"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=12a"></script><script src="/admin-nav.js?v=r4"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -563,7 +563,9 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     document.getElementById("rti-btn").disabled = false;
 
     document.getElementById("content").innerHTML =
-      renderBanner(wards) + renderCards(wards) + renderCoverage(wards) + renderTableSection();
+      renderBanner(wards) + renderCards(wards) + renderCoverage(wards) +
+      (data.canSeeDemand ? '<div class="panel" id="demand-area"></div>' : '') +
+      renderTableSection();
 
     document.getElementById("f-gap").value = filters.gap;
     document.getElementById("f-type").value = filters.type;
@@ -575,6 +577,78 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     if (editBtn) editBtn.addEventListener("click", openNote);
 
     renderTable();
+    if (data.canSeeDemand) renderDemand();
+  }
+
+  // ---- Where people want GrievIQ next -----------------------------------
+  // Loaded once from /api/admin/demand; redrawn on language change.
+  let demand = null, demandState = "idle", demandAll = false;
+  const DEMAND_TOP = 20;
+  function dayOnly(s) {
+    if (!s) return "";
+    const d = new Date(String(s).replace(" ", "T") + (/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? "" : "Z"));
+    return isNaN(d) ? String(s) : d.toLocaleDateString(loc(), { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
+  }
+  async function loadDemand() {
+    demandState = "loading";
+    try {
+      const res = await fetch("/api/admin/demand", { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      demand = await res.json();
+      demandState = "ready";
+    } catch (e) { demandState = "error"; }
+    renderDemand();
+  }
+  function renderDemand() {
+    const box = document.getElementById("demand-area");
+    if (!box) return;
+    if (demandState === "idle") { loadDemand(); }
+    let body;
+    if (demandState === "idle" || demandState === "loading") body = '<p class="section-sub">' + escapeHtml(T("adm.dm_loading")) + '</p>';
+    else if (demandState === "error") body = '<div class="error-msg">' + escapeHtml(T("adm.dm_err")) + '</div>';
+    else if (!demand.rows.length) body = '<p class="section-sub">' + escapeHtml(T("adm.dm_none")) + '</p>';
+    else {
+      const rows = demandAll ? demand.rows : demand.rows.slice(0, DEMAND_TOP);
+      body = '<div class="result-bar"><span>' + escapeHtml(T("adm.dm_summary", { total: demand.total, cities: demand.cities })) + '</span>' +
+          '<button type="button" class="small" id="demand-csv">' + escapeHtml(T("adm.dm_csv")) + '</button></div>' +
+        '<div class="table-wrap"><table><thead><tr>' +
+          '<th scope="col">' + escapeHtml(T("adm.dm_city")) + '</th>' +
+          '<th scope="col">' + escapeHtml(T("adm.dm_state")) + '</th>' +
+          '<th scope="col" class="num">' + escapeHtml(T("adm.dm_count")) + '</th>' +
+          '<th scope="col">' + escapeHtml(T("adm.dm_first")) + '</th>' +
+          '<th scope="col">' + escapeHtml(T("adm.dm_last")) + '</th>' +
+        '</tr></thead><tbody>' +
+        rows.map((r) => '<tr><td>' + escapeHtml(r.city) + '</td><td>' + escapeHtml(r.state || "—") + '</td>' +
+          '<td class="num">' + escapeHtml(String(r.count)) + '</td><td>' + escapeHtml(dayOnly(r.first_at)) + '</td><td>' + escapeHtml(dayOnly(r.last_at)) + '</td></tr>').join("") +
+        '</tbody></table></div>' +
+        (demand.rows.length > DEMAND_TOP
+          ? '<p style="margin-top:10px"><button type="button" class="small" id="demand-more">' +
+              escapeHtml(demandAll ? T("adm.dm_show_less") : T("adm.dm_show_all", { n: demand.rows.length })) + '</button></p>'
+          : '');
+    }
+    box.innerHTML = '<h2>' + escapeHtml(T("adm.dm_title")) + '</h2><p class="section-sub">' + escapeHtml(T("adm.dm_sub")) + '</p>' + body;
+    const csv = document.getElementById("demand-csv");
+    if (csv) csv.addEventListener("click", downloadDemand);
+    const more = document.getElementById("demand-more");
+    if (more) more.addEventListener("click", () => { demandAll = !demandAll; renderDemand(); document.getElementById("demand-more").focus(); });
+  }
+  // A cell that a spreadsheet could read as a formula is prefixed with '.
+  function safeCsvCell(v) {
+    let s = String(v == null ? "" : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function downloadDemand() {
+    if (!demand) return;
+    const lines = [["City", "State", "Requests", "First asked (UTC)", "Last asked (UTC)"]]
+      .concat(demand.rows.map((r) => [r.city, r.state || "", r.count, r.first_at, r.last_at]))
+      .map((row) => row.map(safeCsvCell).join(","));
+    const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "grieviq-demand-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   function showNotice(kind, text) {

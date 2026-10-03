@@ -240,8 +240,8 @@
 "GrievIQ — नागरिक समस्या दर्ज करें और उसकी स्थिति देखें"
 ],
 "home.title": [
-"Get civic problems in Lucknow fixed",
-"लखनऊ की नागरिक समस्याओं का समाधान कराएँ"
+"Get civic problems in your area fixed",
+"अपने क्षेत्र की नागरिक समस्याओं का समाधान कराएँ"
 ],
 "home.intro": [
 "Report a problem like no water, garbage, broken roads or street lights. GrievIQ sends it to your ward's elected representative. If it isn't dealt with in time, it moves up to the next level automatically, and stays visible to everyone it has reached.",
@@ -2728,6 +2728,20 @@
 "adm.d_rti": ["Download RTI tracker (CSV)", "RTI ट्रैकर डाउनलोड करें (CSV, अंग्रेज़ी में)"],
 "adm.d_refresh": ["Refresh", "रीफ़्रेश करें"],
 "adm.d_as_of": ["Figures as of {date}", "आँकड़े {date} तक के"],
+"adm.dm_title": ["Where people want GrievIQ next", "लोग GrievIQ आगे कहाँ चाहते हैं"],
+"adm.dm_sub": ["From the home page button \"I want GrievIQ in my city\", shown when someone looks up a place GrievIQ doesn't cover yet. Each city counts once per connection per day. No personal details are kept.", "होम पेज के बटन \"मुझे अपने शहर में GrievIQ चाहिए\" से, जो तब दिखता है जब कोई ऐसी जगह खोजता है जहाँ GrievIQ अभी नहीं है। हर शहर एक कनेक्शन से दिन में एक बार गिना जाता है। कोई व्यक्तिगत जानकारी नहीं रखी जाती।"],
+"adm.dm_summary": ["{total} requests from {cities} places", "{cities} जगहों से {total} अनुरोध"],
+"adm.dm_city": ["City", "शहर"],
+"adm.dm_state": ["State", "राज्य"],
+"adm.dm_count": ["Requests", "अनुरोध"],
+"adm.dm_first": ["First asked", "पहली बार"],
+"adm.dm_last": ["Last asked", "पिछली बार"],
+"adm.dm_none": ["No requests yet.", "अभी तक कोई अनुरोध नहीं।"],
+"adm.dm_err": ["Couldn't load this list. Refresh the page to try again.", "यह सूची लोड नहीं हो सकी। फिर से कोशिश करने के लिए पेज रीफ़्रेश करें।"],
+"adm.dm_csv": ["Download CSV", "CSV डाउनलोड करें"],
+"adm.dm_show_all": ["Show all {n}", "सभी {n} दिखाएँ"],
+"adm.dm_show_less": ["Show top 20", "शीर्ष 20 दिखाएँ"],
+"adm.dm_loading": ["Loading…", "लोड हो रहा है…"],
 "adm.d_all_email": ["All {n} wards and villages have a ward representative email on file.", "सभी {n} वार्डों/गाँवों के जनप्रतिनिधि का ईमेल दर्ज है।"],
 "adm.d_no_email": ["{n} of {total} wards and villages have no ward representative email on file, so citizens can't file complaints there yet.", "{total} में से {n} वार्डों/गाँवों के जनप्रतिनिधि का ईमेल दर्ज नहीं है, इसलिए वहाँ के नागरिक अभी शिकायत दर्ज नहीं कर सकते।"],
 "adm.d_no_note": ["No data-collection note.", "आँकड़ा-संग्रह संबंधी कोई टिप्पणी नहीं।"],

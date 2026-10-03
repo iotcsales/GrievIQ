@@ -61,6 +61,10 @@ export const PERMISSIONS = {
   // auditor reads the register (records of what was removed and why).
   view_retention: ["super_admin", "auditor"],
   manage_retention: ["super_admin"],
+  // "Where people want GrievIQ next": anonymous city totals from the home
+  // page's "I want GrievIQ in my city" button. Planning information for the
+  // two senior roles; the auditor reads it.
+  view_demand: ["super_admin", "operations_admin", "auditor"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page

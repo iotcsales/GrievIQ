@@ -235,6 +235,8 @@ export async function onRequestGet(context) {
       ? { value: noteRow.value || "", updatedBy: noteRow.updated_by, updatedAt: noteRow.updated_at }
       : { value: "", updatedBy: null, updatedAt: null },
     canEditNote: can(role, "run_import"),
+    // "Where people want GrievIQ next" (loaded separately from /api/admin/demand).
+    canSeeDemand: can(role, "view_demand"),
     // Card links follow the same page list as the menu (pagesFor), so a
     // card never leads to a page the role can't use.
     links: (() => {
