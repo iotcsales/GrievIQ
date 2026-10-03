@@ -75,6 +75,18 @@ function isPlausiblePhone(phone) {
 // text the citizen agreed to.
 export const NOTICE_VERSION = "2026-10-03";
 
+// "What happens next, and by when" for the confirmation page, from the
+// category's own time limits (the same ones the status page uses).
+function nextSteps(category) {
+  const now = Date.now(), H = 3600000;
+  const ack = Number(category && category.ack_sla_hours) || 0;
+  const act = Number(category && category.resolution_sla_hours) || 0;
+  return {
+    ackBy: ack ? new Date(now + ack * H).toISOString() : null,
+    actBy: act ? new Date(now + act * H).toISOString() : null,
+  };
+}
+
 export async function onRequestPost({ request, env }) {
   let body;
   try {
@@ -110,7 +122,7 @@ export async function onRequestPost({ request, env }) {
 
   if (website || tookTooLittleTime) {
     return new Response(
-      JSON.stringify({ success: true, tracking_ref: generateTrackingRef() }),
+      JSON.stringify({ success: true, tracking_ref: generateTrackingRef(), next: nextSteps({ ack_sla_hours: 48, resolution_sla_hours: 72 }) }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -163,7 +175,7 @@ export async function onRequestPost({ request, env }) {
   try {
     // Confirm category and local unit actually exist (FK safety)
     const category = await env.DB.prepare(
-      `SELECT id FROM grievance_categories WHERE id = ?`
+      `SELECT id, ack_sla_hours, resolution_sla_hours FROM grievance_categories WHERE id = ?`
     )
       .bind(category_id)
       .first();
@@ -284,7 +296,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     return new Response(
-      JSON.stringify({ success: true, tracking_ref: trackingRef }),
+      JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category) }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

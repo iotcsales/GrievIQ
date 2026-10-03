@@ -119,6 +119,19 @@
     display: none; font-size: 12.5px; color: var(--ink-soft); background: #FBF3E4;
     border: 1px solid #E6D5AE; border-radius: 10px; padding: 10px 12px; margin: 4px 0 18px;
   }
+  .similar-note { font-size: 12.5px; color: var(--ink); background: #EAF4F1; border: 1px solid #BFDCD4; border-radius: 10px; padding: 10px 12px; margin: -6px 0 18px; line-height: 1.5; }
+  .similar-note:empty { display: none; }
+  .voice-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -2px 0 8px; }
+  .voice-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .voice-btn[aria-pressed="true"] { background: var(--teal); color: #fff; }
+  .voice-btn svg { width: 16px; height: 16px; }
+  .voice-status { font-size: 12.5px; color: var(--ink-soft); }
+  .voice-status.err { color: var(--brick, #A33B2B); }
+  .voice-note { font-size: 11px; color: var(--ink-soft); margin: 0 0 10px; }
+  .voice-row[hidden], .voice-note[hidden] { display: none; }
+  .next-box { text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-top: 14px; }
+  .next-box h3 { font-size: 14px; margin: 0 0 6px; }
+  .next-box ol { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.55; }
   .manual-area-toggle { font-size: 12.5px; color: var(--ink-soft); margin: 4px 0 16px; }
 
   .area-suggestions {
@@ -138,6 +151,7 @@
     display: none; align-items: center; justify-content: space-between; background: var(--teal-tint);
     border-radius: 10px; padding: 10px 12px; margin: 8px 0 18px; font-size: 13.5px;
   }
+  .area-selected .where-k { color: var(--ink-soft); font-weight: 500; }
   .area-selected .label { color: var(--teal-dark); font-weight: 600; }
   .area-selected .change-link {
     color: var(--ink-soft); text-decoration: underline; cursor: pointer; font-size: 12.5px;
@@ -200,7 +214,7 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=12a"></script>
+<script src="/i18n.js?v=13a"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=11a" defer></script>
 </head>
@@ -222,6 +236,10 @@
         <p data-i18n="submit.done_keep">Keep this reference number to check on your complaint later.</p>
         <div class="tracking-ref" id="trackingRefDisplay"></div>
         <p id="trackHint"></p>
+        <div class="next-box" id="nextBox" hidden>
+          <h3 data-i18n="submit.next_h">What happens next</h3>
+          <ol id="nextList"></ol>
+        </div>
       </div>
 
       <div class="status-box error" id="errorBox">
@@ -237,12 +255,21 @@
         <input type="hidden" id="category" />
 
         <label for="description" data-i18n="submit.describe">Describe the problem</label>
-        <div class="hint" data-i18n="submit.describe_hint">Be specific — location details, how long it's been going on, anything that helps.</div>
+        <div class="hint" data-i18n="submit.describe_hint">What is wrong, and since when? For example: no water for 5 days.</div>
+        <div class="voice-row" id="voiceRow" hidden>
+          <button type="button" class="voice-btn" id="voiceBtn" aria-pressed="false" aria-describedby="voiceNote">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+            <span id="voiceBtnText" data-i18n="submit.voice_start">Speak instead of typing</span>
+          </button>
+          <span class="voice-status" id="voiceStatus" role="status" aria-live="polite"></span>
+        </div>
+        <p class="voice-note" id="voiceNote" hidden data-i18n="submit.voice_note">Your phone's browser turns your voice into text (Chrome uses Google's speech service). Check the text before sending. GrievIQ receives only the text, never the recording.</p>
         <textarea id="description" required minlength="15" placeholder="For example: There has been no water supply in our lane for the past 5 days..." data-i18n-ph="submit.describe_ph"></textarea>
         <div class="field-error" id="descriptionError" data-i18n="submit.describe_err">Please write at least 15 characters.</div>
 
         <h2 class="section-title" data-i18n="submit.sec_where">Where is this happening?</h2>
 
+        <div id="whereSearch">
         <label for="addressSearchContainer" data-i18n="submit.address">Search your address</label>
         <div class="hint" data-i18n="submit.address_hint">Start typing your street or landmark and pick a match — we'll try to match it to your ward automatically.</div>
         <div class="address-search-wrap" id="addressSearchContainer"></div>
@@ -259,11 +286,12 @@
         <div class="manual-area-toggle" data-i18n="submit.or_manual">Or select your area manually:</div>
 
         <label for="localUnitSearch" data-i18n="submit.area">Your area</label>
+        </div>
         <input type="text" id="localUnitSearch" autocomplete="off" placeholder="Start typing your area..." data-i18n-ph="submit.area_ph" />
         <input type="hidden" id="localUnitId" />
         <div class="area-suggestions" id="areaSuggestions"></div>
         <div class="area-selected" id="areaSelected">
-          <span class="label" id="areaSelectedLabel"></span>
+          <span><span class="where-k" data-i18n="submit.where_k">Where:</span> <span class="label" id="areaSelectedLabel"></span></span>
           <button type="button" class="change-link" id="areaChangeBtn" data-i18n="submit.change">Change</button>
         </div>
         <div class="pin-note" id="pinNote" hidden>
@@ -271,6 +299,7 @@
           <button type="button" class="change-link" id="pinRemoveBtn" data-i18n="submit.pin_remove">Remove this spot</button>
         </div>
         <div class="pin-status" id="pinStatus" role="status" aria-live="polite"></div>
+        <div class="similar-note" id="similarNote" role="status" aria-live="polite"></div>
         <div class="field-error" id="areaError" data-i18n="submit.area_err">Please select your area from the list.</div>
         <div class="area-open-error" id="areaOpenError" role="alert"></div>
 
@@ -294,7 +323,7 @@
 
         <label for="email"><span data-i18n="submit.email_label">Email address</span> <span style="font-weight:400;color:var(--ink-soft);" data-i18n="common.optional">(optional)</span></label>
         <input type="email" id="email" placeholder="you@example.com" />
-        <div class="hint" data-i18n="submit.email_hint">If you want to check regular updates on your complaint's status, please provide your email as well.</div>
+        <div class="hint" data-i18n="submit.email_hint">Add your email to get updates and track your complaint online.</div>
         <div class="field-error" id="emailError" data-i18n="submit.email_err">Please enter a valid email address, or leave it blank.</div>
 
         <details class="rep-ask" id="repAsk" style="display:none;">
@@ -379,6 +408,7 @@
           categoryChipRow.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
           chip.classList.add('selected');
           categoryField.value = cat.id;
+          checkSimilar();
         });
         categoryChipRow.appendChild(chip);
       });
@@ -397,6 +427,9 @@
     if (typeof renderPhotoGrid === 'function') renderPhotoGrid();
     if (areaOpenErrKey) document.getElementById('areaOpenError').textContent = GIQ.t(areaOpenErrKey);
     if (pinStatusKey) document.getElementById('pinStatus').textContent = GIQ.t(pinStatusKey);
+    if (typeof drawSelectedLabel === 'function') drawSelectedLabel();
+    if (typeof drawSimilar === 'function') drawSimilar();
+    if (typeof drawNext === 'function') drawNext();
   });
 
   function isPlausiblePhone(value) {
@@ -496,15 +529,29 @@
     areaError.style.display = 'none';
     activeSuggestionIndex = -1;
 
-    document.getElementById('areaSelectedLabel').textContent =
-      unit.name + (unit.unit_type ? ' (' + unitTypeLabel(unit) + ')' : '');
+    selectedUnit = unit;
+    drawSelectedLabel();
     areaSelected.style.display = 'flex';
     localUnitSearch.style.display = 'none';
+    // Ask once: with the area known, the search tools fold away behind
+    // "Change" (GOV.UK: only ask for information once).
+    document.getElementById('whereSearch').hidden = true;
+    document.getElementById('matchConfirm').style.display = 'none';
     updateRepQuestion(unit.id);
     renderPinNote();
+    checkSimilar();
   }
 
+  let selectedUnit = null;
+  function drawSelectedLabel() {
+    const u = selectedUnit;
+    document.getElementById('areaSelectedLabel').textContent =
+      u ? u.name + (u.unit_type ? ' (' + unitTypeLabel(u) + ')' : '') : '';
+  }
   function clearSelection() {
+    selectedUnit = null;
+    document.getElementById('similarNote').textContent = '';
+    document.getElementById('whereSearch').hidden = false;
     localUnitIdField.value = '';
     updateRepQuestion(null);
     renderPinNote();
@@ -725,15 +772,118 @@
       sessionStorage.removeItem(HANDOFF_KEY);
       if (raw) h = JSON.parse(raw);
     } catch (e) { return; }
-    if (!h || typeof h !== 'object' || !h.wardId) return;
+    if (!h || typeof h !== 'object' || !h.wardId) { applyRemembered(); return; }
     const at = typeof h.at === 'number' ? h.at : Date.parse(h.at);
     const age = Date.now() - at;
-    if (!Number.isFinite(at) || age > HANDOFF_MAX_MS || age < -5 * 60 * 1000) return;
+    if (!Number.isFinite(at) || age > HANDOFF_MAX_MS || age < -5 * 60 * 1000) { applyRemembered(); return; }
     const unit = localUnitsData.find(u => u.id === h.wardId);
-    if (!unit) return;
+    if (!unit) { applyRemembered(); return; }
     const lat = Number(h.lat), lng = Number(h.lng);
     const p = (h.lat != null && h.lng != null && Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
     selectUnit(unit, p);
+  }
+
+  // "Already reported?": once both the kind of problem and the area are
+  // known, say how many such complaints are already open there. Only a
+  // count comes back; nothing about the other complaints or who filed them.
+  let similarData = null, similarSeq = 0;
+  function drawSimilar() {
+    const box = document.getElementById('similarNote');
+    const d = similarData;
+    if (!d || !d.open || !selectedUnit) { box.textContent = ''; return; }
+    const chip = document.querySelector('#categoryChipRow .chip.selected');
+    const kind = chip ? GIQ.category(chip.dataset.value, chip.dataset.name) : '';
+    const key = d.open === 1 ? 'submit.similar_one' : 'submit.similar_many';
+    box.textContent = GIQ.t(key, { n: d.open, kind: kind, area: selectedUnit.name }) + ' ' +
+      (d.oldestDays === 1 ? GIQ.t('submit.similar_oldest_one') + ' ' : d.oldestDays > 1 ? GIQ.t('submit.similar_oldest', { days: d.oldestDays }) + ' ' : '') +
+      GIQ.t('submit.similar_still');
+  }
+  async function checkSimilar() {
+    const unitId = localUnitIdField.value;
+    const cat = document.getElementById('category').value;
+    const seq = ++similarSeq;
+    similarData = null; drawSimilar();
+    if (!unitId || !cat) return;
+    try {
+      const r = await fetch('/api/similar?unit=' + encodeURIComponent(unitId) + '&category=' + encodeURIComponent(cat));
+      if (!r.ok || seq !== similarSeq) return;
+      similarData = await r.json();
+      drawSimilar();
+    } catch (e) { /* only a hint; never blocks filing */ }
+  }
+
+  // Voice input (Web Speech API, where the browser offers it). The text
+  // lands in the description box, where the citizen can correct it.
+  (function setupVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;   // not offered: the button never shows
+    const row = document.getElementById('voiceRow');
+    const btn = document.getElementById('voiceBtn');
+    const btnText = document.getElementById('voiceBtnText');
+    const statusEl = document.getElementById('voiceStatus');
+    const box = document.getElementById('description');
+    row.hidden = false;
+    document.getElementById('voiceNote').hidden = false;
+    let rec = null, listening = false, base = '', statusKey = '', statusErr = false;
+    function setStatus(key, err) {
+      statusKey = key; statusErr = !!err;
+      statusEl.textContent = key ? GIQ.t(key) : '';
+      statusEl.className = 'voice-status' + (err ? ' err' : '');
+    }
+    function setListening(on) {
+      listening = on;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btnText.textContent = GIQ.t(on ? 'submit.voice_stop' : 'submit.voice_start');
+    }
+    function stop() { if (rec) { try { rec.stop(); } catch (e) {} } }
+    btn.addEventListener('click', () => {
+      if (listening) { stop(); return; }
+      rec = new SR();
+      rec.lang = GIQ.lang === 'hi' ? 'hi-IN' : 'en-IN';
+      rec.interimResults = true;
+      rec.continuous = true;
+      base = box.value ? box.value.replace(/\s*$/, ' ') : '';
+      let finalText = '';
+      rec.onresult = (ev) => {
+        let interim = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) finalText += t + ' '; else interim += t;
+        }
+        box.value = base + finalText + interim;
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      rec.onerror = (ev) => {
+        if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') setStatus('submit.voice_denied', true);
+        else if (ev.error === 'no-speech') setStatus('submit.voice_nothing', true);
+        else if (ev.error === 'network') setStatus('submit.voice_offline', true);
+        else if (ev.error !== 'aborted') setStatus('submit.voice_failed', true);
+      };
+      rec.onend = () => {
+        setListening(false);
+        box.value = box.value.replace(/\s+$/, '');
+        if (!statusErr) setStatus(box.value ? 'submit.voice_done' : '');
+      };
+      try {
+        rec.start();
+        setListening(true);
+        setStatus('submit.voice_listening');
+      } catch (e) { setStatus('submit.voice_failed', true); }
+    });
+    // Leaving the page or sending the form ends listening.
+    window.addEventListener('pagehide', stop);
+    document.getElementById('intakeForm').addEventListener('submit', stop);
+    document.addEventListener('giq:lang', () => { setListening(listening); if (statusKey) setStatus(statusKey, statusErr); });
+  })();
+
+  // No hand-over (e.g. a bookmark or the menu): use the area the citizen
+  // saved on Home ("Remember this area"), if it can take complaints.
+  function applyRemembered() {
+    let r = null;
+    try { r = JSON.parse(localStorage.getItem('griq-place') || 'null'); } catch (e) { return; }
+    if (!r || !r.id || localUnitIdField.value) return;
+    const unit = localUnitsData.find(u => u.id === r.id);
+    if (unit) selectUnit(unit);
   }
 
   function showAddressNote(message) {
@@ -792,6 +942,28 @@
       // search below still works fully, so just hide the search box area.
       document.getElementById('addressSearchContainer').style.display = 'none';
     }
+  }
+
+  // "What happens next, and by when" on the confirmation (GOV.UK
+  // confirmation pattern), from the category's own time limits.
+  let lastNext = null;
+  function nextDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString(GIQ.locale(), { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  }
+  function drawNext() {
+    const boxEl = document.getElementById('nextBox');
+    if (!lastNext) { boxEl.hidden = true; return; }
+    const n = lastNext.next;
+    const items = [GIQ.t('submit.next_sent')];
+    if (n.ackBy) items.push(GIQ.t('submit.next_ack', { date: nextDate(n.ackBy) }));
+    if (n.actBy) items.push(GIQ.t('submit.next_act', { date: nextDate(n.actBy) }));
+    else items.push(GIQ.t('submit.next_legal'));
+    items.push(GIQ.t(lastNext.email ? 'submit.next_confirm_email' : 'submit.next_confirm_phone'));
+    const ol = document.getElementById('nextList');
+    ol.innerHTML = '';
+    items.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ol.appendChild(li); });
+    boxEl.hidden = false;
   }
 
   const MAX_PHOTOS = 3;
@@ -1061,6 +1233,8 @@
       } else {
         hint.textContent = GIQ.t('submit.done_noemail');
       }
+      lastNext = { next: data.next || {}, email: !!email };
+      drawNext();
       successBox.style.display = 'block';
       form.style.display = 'none';
       window.scrollTo({ top: 0, behavior: 'smooth' });

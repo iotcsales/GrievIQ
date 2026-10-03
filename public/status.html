@@ -257,6 +257,9 @@
   .tier-status { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
   .tier-status.breached { color: var(--brick); font-weight: 600; }
 
+  .next-box { background: var(--teal-tint); border: 1px solid var(--teal); border-radius: 12px; padding: 12px 14px; margin: 14px 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+  .next-box .next-k { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--teal-dark); margin-bottom: 2px; }
+  .next-box[hidden] { display: none; }
   .confirm-card {
     background: var(--teal-tint);
     border-radius: 16px;
@@ -350,7 +353,7 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js?v=12a"></script>
+<script src="/i18n.js?v=13a"></script>
 <script src="/site.js?v=11a" defer></script>
 </head>
 <body>
@@ -430,14 +433,11 @@
       </div>
     </div>
 
-    <div id="status-banners"></div>
-    <div id="status-followup" class="followup-section" style="display:none;"></div>
-
-    <section id="status-resolution" class="res-section" hidden aria-labelledby="res-title"></section>
-
+    <div class="next-box" id="status-next" role="status" hidden></div>
     <div id="confirm-card" class="confirm-card" style="display:none;">
       <h2 class="section-title" data-i18n="status.confirm_title">Has this been fixed?</h2>
       <p class="section-note" data-i18n="status.confirm_lede">The representative handling this case marked it resolved. Let us know if that's right.</p>
+      <p class="section-note" id="confirm-see-below" data-i18n="status.confirm_see_below" hidden>What they say was done, with photos, is shown below this box.</p>
       <div id="confirm-error"></div>
       <p class="confirm-note" id="confirm-deadline"></p>
       <p class="confirm-note" id="confirm-done" style="display:none;"></p>
@@ -459,6 +459,11 @@
         </div>
       </div>
     </div>
+
+    <div id="status-banners"></div>
+    <div id="status-followup" class="followup-section" style="display:none;"></div>
+
+    <section id="status-resolution" class="res-section" hidden aria-labelledby="res-title"></section>
 
     <!-- Item 7d: reopen a resolved case (once, within 30 days of closing). -->
     <div id="reopen-card" class="confirm-card" style="display:none;">
@@ -811,6 +816,8 @@
     pill.className = 'status-pill' + (resolved ? ' resolved' : '');
 
     showConfirmCard(c.status === 'PENDING_CONFIRMATION');
+    document.getElementById('confirm-see-below').hidden = !(c.status === 'PENDING_CONFIRMATION' && c.resolution);
+    renderNext(c);
     // Item 7a: when the case closes if the citizen doesn't reply.
     document.getElementById('confirm-deadline').textContent =
       c.status === 'PENDING_CONFIRMATION' && c.confirmBy ? GIQ.t('status.confirm_by', { date: formatDue(c.confirmBy) }) : '';
@@ -928,6 +935,38 @@
       if (doneShown) showConfirmDone(lastCase.status === 'RESOLVED' ? GIQ.t('status.confirmed') : GIQ.t('status.disputed'));
     }
   });
+
+  // "What happens next, and by when": one plain sentence at the top, from
+  // the same levels and deadlines as the ladder below.
+  function renderNext(c) {
+    const box = document.getElementById('status-next');
+    const finished = c.status === 'RESOLVED' || c.status === 'CLOSED';
+    let text = '';
+    if (finished || c.needsLegalReview) text = '';
+    // Waiting for the citizen: the "Has this been fixed?" card right below
+    // already says what to do and by when.
+    else if (c.status === 'PENDING_CONFIRMATION') text = '';
+    else {
+      const i = (c.tiers || []).findIndex((t) => t.current);
+      const t = i >= 0 ? c.tiers[i] : null;
+      const nextTier = t ? c.tiers[i + 1] : null;
+      if (t) {
+        const level = GIQ.level(t.label);
+        const up = nextTier ? GIQ.level(nextTier.label) : '';
+        if (t.slaBreached && !t.dueAt) {
+          text = up ? GIQ.t('status.next_late_up', { level, up }) : GIQ.t('status.next_late_top', { level });
+        } else if (t.slaBreached && t.dueAt && new Date(t.dueAt) <= new Date()) {
+          text = up ? GIQ.t('status.next_late_up', { level, up }) : GIQ.t('status.next_late_top', { level });
+        } else if (t.dueAt) {
+          const ack = c.ackDueAt && !c.ackOverdue ? GIQ.t('status.next_ack', { level, date: formatDue(c.ackDueAt) }) + ' ' : '';
+          const late = c.ackOverdue ? GIQ.t('status.next_ack_late', { level }) + ' ' : '';
+          text = late + ack + GIQ.t(up ? 'status.next_act_up' : 'status.next_act_top', { level, up, date: formatDue(t.dueAt) });
+        }
+      }
+    }
+    box.innerHTML = text ? '<span class="next-k">' + escapeHtml(GIQ.t('status.next_k')) + '</span>' + escapeHtml(text) : '';
+    box.hidden = !text;
+  }
 
   function formatDue(iso) {
     const d = new Date(iso);

@@ -54,6 +54,7 @@
 "priv.s_cloudflare": ["<strong>Cloudflare</strong>: hosts GrievIQ and its data, and signs GrievIQ staff in.", "<strong>Cloudflare</strong>: GrievIQ और उसके डेटा को होस्ट करता है, और GrievIQ कर्मचारियों का साइन इन करवाता है।"],
 "priv.s_google": ["<strong>Google</strong>: shows the map and finds addresses on the complaint page (what you type in the map search goes to Google), and signs representatives in.", "<strong>Google</strong>: शिकायत पृष्ठ पर मानचित्र दिखाता है और पते खोजता है (मानचित्र खोज में आप जो लिखते हैं वह Google को जाता है), और प्रतिनिधियों का साइन इन करवाता है।"],
 "priv.s_resend": ["<strong>Resend</strong>: sends GrievIQ's emails, such as tracking codes and updates.", "<strong>Resend</strong>: GrievIQ के ईमेल भेजता है, जैसे ट्रैकिंग कोड और अपडेट।"],
+"priv.voice": ["If you choose to speak your complaint instead of typing it, your own browser turns your voice into text (Chrome sends the sound to Google for this). GrievIQ receives only the text you then send, never the recording.", "यदि आप शिकायत टाइप करने के बजाय बोलकर लिखते हैं, तो आपका अपना ब्राउज़र आपकी आवाज़ को लिखे हुए शब्दों में बदलता है (Chrome इसके लिए आवाज़ Google को भेजता है)। GrievIQ को केवल वह लिखा हुआ मिलता है जो आप भेजते हैं, रिकॉर्डिंग कभी नहीं।"],
 "priv.services_where": ["These services may process data outside India. They act on our instructions and may not use your data for their own purposes.", "ये सेवाएँ भारत के बाहर डेटा प्रोसेस कर सकती हैं। ये हमारे निर्देशों पर काम करती हैं और आपके डेटा का अपने उद्देश्यों के लिए उपयोग नहीं कर सकतीं।"],
 "priv.h_officer": ["Grievance Officer", "शिकायत अधिकारी"],
 "priv.officer": ["For questions or complaints about how we handle your personal data, or to use your rights, write to our Grievance Officer, IOTC (Indus Overseas Tech. Corp.), at <a href=\"mailto:grievance@grieviq.in\">grievance@grieviq.in</a>. We acknowledge every request within 7 days and resolve it within 30 days.", "आपके व्यक्तिगत डेटा के साथ हम कैसा व्यवहार करते हैं, इस बारे में प्रश्न या शिकायत के लिए, या अपने अधिकारों का उपयोग करने के लिए, हमारे शिकायत अधिकारी, IOTC (Indus Overseas Tech. Corp.) को <a href=\"mailto:grievance@grieviq.in\">grievance@grieviq.in</a> पर लिखें। हम हर अनुरोध की 7 दिनों के भीतर पावती देते हैं और 30 दिनों के भीतर समाधान करते हैं।"],
@@ -320,8 +321,8 @@
 "समस्या का विवरण"
 ],
 "submit.describe_hint": [
-"Be specific — location details, how long it's been going on, anything that helps.",
-"स्पष्ट लिखें — स्थान, समस्या कब से है, और अन्य उपयोगी जानकारी।"
+"What is wrong, and since when? For example: no water for 5 days.",
+"क्या समस्या है, और कब से? जैसे: 5 दिन से पानी नहीं आ रहा।"
 ],
 "submit.describe_ph": [
 "For example: There has been no water supply in our lane for the past 5 days...",
@@ -367,6 +368,36 @@
 "Start typing your area...",
 "अपना क्षेत्र लिखना शुरू करें..."
 ],
+"submit.where_k": ["Where:", "कहाँ:"],
+"status.next_k": ["What happens next", "आगे क्या होगा"],
+"status.next_ack": ["{level} should acknowledge it by {date}.", "{level} को {date} तक इसे स्वीकार करना चाहिए।"],
+"status.next_ack_late": ["{level} has not acknowledged it in time.", "{level} ने इसे समय पर स्वीकार नहीं किया है।"],
+"status.next_act_up": ["{level} should act on it by {date}. If not, it moves up to {up} automatically.", "{level} को {date} तक कार्यवाही करनी चाहिए। ऐसा न होने पर यह अपने-आप {up} के पास चली जाएगी।"],
+"status.next_act_top": ["{level} should act on it by {date}.", "{level} को {date} तक कार्यवाही करनी चाहिए।"],
+"status.next_late_up": ["{level} has missed its deadline, so it is moving up to {up}.", "{level} ने समय-सीमा पार कर दी है, इसलिए यह {up} के पास जा रही है।"],
+"status.next_late_top": ["{level} has missed its deadline. The case stays open and visible to every level, and GrievIQ keeps following it up.", "{level} ने समय-सीमा पार कर दी है। शिकायत खुली रहेगी और हर स्तर को दिखती रहेगी, और GrievIQ इस पर नज़र रखता रहेगा।"],
+"status.confirm_see_below": ["What they say was done, with photos, is shown below this box.", "उनके अनुसार क्या किया गया, फ़ोटो सहित, इस बॉक्स के नीचे दिखाया गया है।"],
+"submit.voice_start": ["Speak instead of typing", "टाइप करने के बजाय बोलें"],
+"submit.voice_stop": ["Stop", "रोकें"],
+"submit.voice_listening": ["Listening… speak now. Tap Stop when done.", "सुन रहे हैं… अब बोलिए। हो जाने पर रोकें दबाएँ।"],
+"submit.voice_done": ["Done. Check the text and correct it if needed.", "हो गया। लिखे हुए को जाँचें और ज़रूरत हो तो ठीक करें।"],
+"submit.voice_denied": ["Microphone access was not allowed. You can type instead.", "माइक्रोफ़ोन की अनुमति नहीं मिली। आप टाइप कर सकते हैं।"],
+"submit.voice_nothing": ["We didn't hear anything. Try again, or type instead.", "कुछ सुनाई नहीं दिया। फिर से कोशिश करें, या टाइप करें।"],
+"submit.voice_offline": ["Speaking needs an internet connection. You can type instead.", "बोलने के लिए इंटरनेट चाहिए। आप टाइप कर सकते हैं।"],
+"submit.voice_failed": ["Speaking didn't work on this phone. You can type instead.", "इस फ़ोन पर बोलकर लिखना नहीं चला। आप टाइप कर सकते हैं।"],
+"submit.voice_note": ["Your phone's browser turns your voice into text (Chrome uses Google's speech service). Check the text before sending. GrievIQ receives only the text, never the recording.", "आपके फ़ोन का ब्राउज़र आपकी आवाज़ को लिखे हुए शब्दों में बदलता है (Chrome इसके लिए Google की सेवा का उपयोग करता है)। भेजने से पहले लिखा हुआ जाँच लें। GrievIQ को केवल लिखा हुआ मिलता है, रिकॉर्डिंग कभी नहीं।"],
+"submit.similar_one": ["1 {kind} complaint is already open in {area}.", "{area} में {kind} की 1 शिकायत पहले से खुली है।"],
+"submit.similar_many": ["{n} {kind} complaints are already open in {area}.", "{area} में {kind} की {n} शिकायतें पहले से खुली हैं।"],
+"submit.similar_oldest": ["The oldest was filed {days} days ago.", "सबसे पुरानी {days} दिन पहले दर्ज हुई थी।"],
+"submit.similar_oldest_one": ["The oldest was filed yesterday.", "सबसे पुरानी कल दर्ज हुई थी।"],
+"submit.similar_still": ["If yours is a different spot or a new problem, please still file it. Each complaint is followed up on its own.", "यदि आपकी समस्या किसी दूसरी जगह की है या नई है, तो भी ज़रूर दर्ज करें। हर शिकायत पर अलग से कार्रवाई होती है।"],
+"submit.next_h": ["What happens next", "आगे क्या होगा"],
+"submit.next_sent": ["Your complaint has been sent to your local representative now.", "आपकी शिकायत अभी आपके स्थानीय प्रतिनिधि को भेज दी गई है।"],
+"submit.next_ack": ["They should acknowledge it by {date}.", "उन्हें {date} तक इसे स्वीकार करना चाहिए।"],
+"submit.next_act": ["They should act on it by {date}. If they don't, it moves up to the next level automatically.", "उन्हें {date} तक इस पर कार्यवाही करनी चाहिए। ऐसा न होने पर यह अपने-आप अगले स्तर पर चली जाएगी।"],
+"submit.next_legal": ["This kind of problem is reviewed separately, so there is no fixed date to act on it.", "इस प्रकार की समस्या की अलग से समीक्षा होती है, इसलिए इस पर कार्यवाही की कोई तय तिथि नहीं है।"],
+"submit.next_confirm_email": ["When it is marked fixed, we'll email you to ask if it really was.", "जब इसे ठीक हुआ बताया जाएगा, तो हम ईमेल से पूछेंगे कि क्या सच में ठीक हुआ।"],
+"submit.next_confirm_phone": ["When it is marked fixed, GrievIQ checks it, which may include a call to your number.", "जब इसे ठीक हुआ बताया जाएगा, तो GrievIQ इसकी जाँच करेगा, जिसमें आपके नंबर पर कॉल भी हो सकती है।"],
 "submit.change": [
 "Change",
 "बदलें"
@@ -456,8 +487,8 @@
 "ईमेल पता (वैकल्पिक)"
 ],
 "submit.email_hint": [
-"If you want to check regular updates on your complaint's status, please provide your email as well.",
-"यदि आप अपनी शिकायत की स्थिति ऑनलाइन देखना और सूचनाएँ पाना चाहते हैं, तो अपना ईमेल भी दें।"
+"Add your email to get updates and track your complaint online.",
+"अपडेट पाने और शिकायत ऑनलाइन देखने के लिए अपना ईमेल दें।"
 ],
 "submit.email_err": [
 "Please enter a valid email address, or leave it blank.",

@@ -50,9 +50,11 @@ export const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   // Location only for GrievIQ's own pages (pin "use my location", proof
-  // photos); camera, microphone and the rest are not used. Taking a photo
-  // through the file picker needs no camera permission.
-  "Permissions-Policy": "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=()",
+  // photos); microphone only for GrievIQ's own pages (speaking a complaint
+  // instead of typing it, asked for only when the citizen taps the button).
+  // Camera and the rest are not used: taking a photo through the file
+  // picker needs no camera permission.
+  "Permissions-Policy": "geolocation=(self), camera=(), microphone=(self), payment=(), usb=(), serial=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=()",
   "Cross-Origin-Opener-Policy": "same-origin",
 };
 
