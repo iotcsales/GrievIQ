@@ -237,6 +237,7 @@ export async function onRequestGet(context) {
     canEditNote: can(role, "run_import"),
     // "Where people want GrievIQ next" (loaded separately from /api/admin/demand).
     canSeeDemand: can(role, "view_demand"),
+    visitorsToday: can(role, "view_visitors") ? await visitorsToday(env) : null,
     // Card links follow the same page list as the menu (pagesFor), so a
     // card never leads to a page the role can't use.
     links: (() => {
@@ -250,6 +251,15 @@ export async function onRequestGet(context) {
     })(),
     generatedAt: new Date().toISOString(),
   });
+}
+
+// Today's visitor count for the dashboard card (null if not set up yet).
+async function visitorsToday(env) {
+  try {
+    const day = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const r = await env.DB.prepare("SELECT visitors FROM visit_daily WHERE day = ?").bind(day).first();
+    return r ? Number(r.visitors) || 0 : 0;
+  } catch (e) { return null; }
 }
 
 export async function onRequestPost({ request, env }) {

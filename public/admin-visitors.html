@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.vs_page_title">GrievIQ Admin — Visitors</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=13a"></script><script src="/admin-nav.js?v=r4"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  .req { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .req-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .req-head input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .req-title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+  .req-meta { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .status-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-PENDING { background: #3a3423; color: #d8c26f; } .st-APPROVED { background: #233a2b; color: #7fce8f; }
+  .st-REJECTED { background: #3a2323; color: #e2564f; } .st-WITHDRAWN, .st-OUT_OF_DATE { background: #2c3543; color: #9aa4b2; }
+  html.light-theme .st-PENDING { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-APPROVED { background: #e6f4ea; color: #1f7a3a; }
+  html.light-theme .st-REJECTED { background: #fbe7e5; color: #b23a30; } html.light-theme .st-WITHDRAWN, html.light-theme .st-OUT_OF_DATE { background: #eef0f3; color: #5b6472; }
+  table.cmp { margin-top: 10px; }
+  table.cmp td.changed { font-weight: 600; }
+  table.cmp .was { color: var(--admin-muted); text-decoration: line-through; }
+  .ood { margin-top: 8px; font-size: 13px; color: var(--admin-danger); }
+  .why { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .why b { color: var(--admin-muted); font-weight: 600; }
+  .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .reject-box { display: none; width: 100%; }
+  .reject-box.open { display: block; }
+  .reject-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); margin-top: 6px; }
+  html.light-theme .reject-box textarea { background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .row-msg { font-size: 13px; margin-top: 8px; } .row-msg:empty { display: none; }
+  .row-msg.error, #summary.error { color: var(--admin-danger); } .row-msg.success, #summary.success { color: #7fce8f; }
+  html.light-theme .row-msg.success, html.light-theme #summary.success { color: #1f7a3a; }
+  #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
+  .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
+  a.src { color: var(--admin-accent); word-break: break-all; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  main { max-width: 980px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .card { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 26px; font-weight: 700; }
+  .card .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.4; }
+  .panel p.sub { color: var(--admin-muted); font-size: 13px; margin: -8px 0 14px; line-height: 1.5; }
+  .form-row label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .form-row input[type=text], .form-row textarea { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=text], html.light-theme .form-row textarea { background: #fff; }
+  .form-row [aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  .hint { color: var(--admin-muted); font-size: 12.5px; margin: 0 0 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .msg { font-size: 14px; margin-top: 12px; padding: 10px 12px; border-radius: 6px; }
+  .msg:empty { display: none; }
+  .msg.ok { background: #1f3326; color: #a6e0b4; } .msg.err { background: var(--admin-danger-bg); color: var(--admin-danger); }
+  html.light-theme .msg.ok { background: #e6f4ea; color: #1f5f32; }
+  td .sub { display: block; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); }
+  details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+
+  main { max-width: 1100px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; display: flex; align-items: center; gap: 8px; }
+  .card .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.4; }
+  .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #2fbf71; box-shadow: 0 0 0 0 rgba(47,191,113,.6); animation: vs-pulse 1.8s infinite; }
+  .map-wrap { position: relative; border: 1px solid var(--admin-border); border-radius: 10px; overflow: hidden; background: #0e1116; }
+  #map { height: 460px; width: 100%; }
+  .map-msg { padding: 40px 20px; text-align: center; color: var(--admin-muted); font-size: 14px; }
+  .map-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .seg button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .updated { font-size: 12.5px; color: var(--admin-muted); }
+  .vdot { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: auto; cursor: default; }
+  .vdot.live { background: rgba(47,191,113,.9); border: 2px solid #fff; animation: vs-pulse 1.8s infinite; }
+  .vdot.past { background: rgba(76,124,240,.55); border: 1.5px solid rgba(255,255,255,.85); }
+  @keyframes vs-pulse { 0% { box-shadow: 0 0 0 0 rgba(47,191,113,.55); } 70% { box-shadow: 0 0 0 14px rgba(47,191,113,0); } 100% { box-shadow: 0 0 0 0 rgba(47,191,113,0); } }
+  @media (prefers-reduced-motion: reduce) { .vdot.live, .live-dot { animation: none; } }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--admin-muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } #map { height: 360px; } }
+  .chart svg { width: 100%; height: 160px; display: block; }
+  .chart .bar { fill: var(--admin-accent); }
+  .chart .bar.today { fill: #2fbf71; }
+  .chart .axis { fill: var(--admin-muted); font-size: 10px; }
+  td.num, th.num { text-align: right; }
+  .privacy { font-size: 12.5px; color: var(--admin-muted); line-height: 1.55; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--admin-accent); margin-top: 8px; }
+</style>
+<script>
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+    key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
+    v: "weekly",
+    language: "en",
+    // India's own view of its borders (Google shows boundaries as the
+    // region's law requires; GrievIQ is an Indian service).
+    region: "IN",
+  });
+</script>
+
+</head>
+<body>
+<header>
+  <div class="brand">GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors" class="active" aria-current="page">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main id="main">
+  <h1 data-i18n="adm.vs_title">Visitors</h1>
+  <p class="subtitle" data-i18n="adm.vs_sub">Who is using GrievIQ's citizen pages right now, and where from. City level only; no personal details are kept.</p>
+  <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
+
+  <div class="panel" id="map-panel" hidden>
+    <div class="map-bar">
+      <div class="seg" role="group" aria-label="Map view" data-i18n-aria="adm.vs_view">
+        <button type="button" data-view="lucknow" data-i18n="adm.vs_v_lucknow">Lucknow</button>
+        <button type="button" data-view="india" aria-pressed="true" data-i18n="adm.vs_v_india">India</button>
+        <button type="button" data-view="world" data-i18n="adm.vs_v_world">World</button>
+      </div>
+      <div class="seg" role="group" aria-label="Show" data-i18n-aria="adm.vs_show">
+        <button type="button" data-layer="live" aria-pressed="true" data-i18n="adm.vs_l_live">Last 30 minutes</button>
+        <button type="button" data-layer="month" data-i18n="adm.vs_l_month">Last 30 days</button>
+      </div>
+    </div>
+    <div class="map-wrap"><div id="map" aria-hidden="true"></div></div>
+    <div class="legend" id="legend"></div>
+    <p class="updated" id="updated" role="status"></p>
+  </div>
+
+  <div class="grid2" id="lists" hidden>
+    <div class="panel"><h2 data-i18n="adm.vs_live_h">In the last 30 minutes</h2><div id="live-list"></div></div>
+    <div class="panel"><h2 data-i18n="adm.vs_top_h">Top places, last 30 days</h2><div id="top-list"></div></div>
+  </div>
+  <div class="panel chart" id="chart-panel" hidden><h2 data-i18n="adm.vs_chart_h">Visitors per day, last 30 days</h2><div id="chart"></div></div>
+  <p class="privacy" id="privacy" hidden data-i18n="adm.vs_privacy">How this is counted: each citizen page sends one anonymous signal when it opens. There are no cookies and nothing is stored on the visitor's device. Network addresses are never stored: a visitor is recognised for one day only, by a one-way code made with that day's secret, which is deleted when the day ends. Places are city level, as reported by Cloudflare. Browsers set to "Do Not Track" or "Global Privacy Control" are not counted. Staff pages are not counted.</p>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function num(n) { return Number(n || 0).toLocaleString(loc()); }
+function toDate(s) { if (!s) return null; const t = String(s); const d = new Date(t.indexOf("T") !== -1 ? t : t.replace(" ", "T") + "Z"); return isNaN(d) ? null : d; }
+function placeName(r) {
+  let name = r.city || r.region || "";
+  let country = "";
+  try { country = r.country ? new Intl.DisplayNames([loc()], { type: "region" }).of(r.country) : ""; } catch (e) { country = r.country || ""; }
+  if (!name) return country || T("adm.vs_unknown");
+  if (r.country && r.country !== "IN") return name + ", " + country;
+  return r.region && r.region !== name ? name + ", " + r.region : name;
+}
+function ago(s) {
+  const d = toDate(s); if (!d) return "";
+  const m = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  return m < 1 ? T("adm.vs_just_now") : T("adm.vs_min_ago", { n: m });
+}
+
+let data = null, view = "india", layer = "live", map = null, overlays = [], mapFailed = false, timer = null;
+const VIEWS = { lucknow: { c: { lat: 26.85, lng: 80.95 }, z: 10 }, india: { c: { lat: 22.5, lng: 80.5 }, z: 4 }, world: { c: { lat: 20, lng: 15 }, z: 2 } };
+
+async function load() {
+  let res, body;
+  try { res = await fetch("/api/admin/visitors", { cache: "no-store" }); body = await res.json(); }
+  catch (e) { if (!data) document.getElementById("content").innerHTML = '<div class="msg err">' + esc(T("adm.network")) + "</div>"; return; }
+  if (!res.ok) { document.getElementById("content").innerHTML = '<div class="msg err">' + esc(T("adm.err_detail", { msg: body.error || res.status })) + "</div>"; return; }
+  data = body;
+  render();
+}
+
+function card(n, label, live) {
+  return '<div class="card"><div class="num">' + (live ? '<span class="live-dot" aria-hidden="true"></span>' : "") + esc(num(n)) + '</div><div class="label">' + esc(label) + "</div></div>";
+}
+
+function render() {
+  if (!data) return;
+  const content = document.getElementById("content");
+  if (!data.ready) {
+    content.innerHTML = '<div class="note">' + esc(T("adm.vs_not_ready")) + "</div>";
+    return;
+  }
+  content.innerHTML = '<div class="cards">' +
+    card(data.liveNow, T("adm.vs_now"), true) +
+    card(data.today.visitors, T("adm.vs_today", { views: num(data.today.pageviews) })) +
+    card(data.yesterday.visitors, T("adm.vs_yesterday", { views: num(data.yesterday.pageviews) })) +
+    card(data.last30.visitors, T("adm.vs_30", { countries: data.countries })) +
+  "</div>";
+  ["map-panel", "lists", "chart-panel", "privacy"].forEach((id) => { document.getElementById(id).hidden = false; });
+  document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view ? "true" : "false"));
+  document.querySelectorAll("[data-layer]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.layer === layer ? "true" : "false"));
+  document.getElementById("legend").innerHTML =
+    '<span><i style="background:#2fbf71"></i>' + esc(T("adm.vs_leg_live")) + '</span><span><i style="background:#4c7cf0"></i>' + esc(T("adm.vs_leg_month")) + "</span>";
+  const at = toDate(data.generatedAt);
+  document.getElementById("updated").textContent = at ? T("adm.vs_updated", { time: at.toLocaleTimeString(loc(), { hour: "numeric", minute: "2-digit", second: "2-digit" }) }) : "";
+  renderLists();
+  renderChart();
+  drawDots();
+}
+
+function table(rows, cols) {
+  if (!rows.length) return '<p class="empty">' + esc(T("adm.vs_none")) + "</p>";
+  return '<div class="table-wrap"><table><thead><tr>' + cols.map((c) => '<th scope="col"' + (c.num ? ' class="num"' : "") + ">" + esc(c.h) + "</th>").join("") + "</tr></thead><tbody>" +
+    rows.map((r) => "<tr>" + cols.map((c) => "<td" + (c.num ? ' class="num"' : "") + ">" + esc(c.v(r)) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>";
+}
+function renderLists() {
+  document.getElementById("live-list").innerHTML = table(data.recent, [
+    { h: T("adm.vs_place"), v: placeName }, { h: T("adm.vs_visitors"), v: (r) => num(r.visitors), num: true }, { h: T("adm.vs_last_seen"), v: (r) => ago(r.lastAt) }]);
+  document.getElementById("top-list").innerHTML = table(data.topCities.slice(0, 15), [
+    { h: T("adm.vs_place"), v: placeName }, { h: T("adm.vs_visitors"), v: (r) => num(r.visitors), num: true }]);
+}
+
+function renderChart() {
+  const s = data.series, W = 600, H = 150, pad = 18, bw = (W - 2) / s.length;
+  const max = Math.max(1, ...s.map((d) => d.visitors));
+  const dayLabel = (d) => new Date(d + "T00:00:00+05:30").toLocaleDateString(loc(), { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+  let bars = "";
+  s.forEach((d, i) => {
+    const h = Math.round((H - pad - 4) * d.visitors / max);
+    bars += '<rect class="bar' + (i === s.length - 1 ? " today" : "") + '" x="' + (1 + i * bw + 1).toFixed(1) + '" y="' + (H - pad - h) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h + '" rx="2"><title>' + esc(dayLabel(d.day) + ": " + num(d.visitors)) + "</title></rect>";
+  });
+  const peak = s.reduce((a, d) => (d.visitors > a.visitors ? d : a), s[0]);
+  const label = T("adm.vs_chart_alt", { total: num(data.last30.visitors), peak: num(peak.visitors), day: dayLabel(peak.day) });
+  document.getElementById("chart").innerHTML =
+    '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(label) + '" preserveAspectRatio="none">' + bars +
+      '<text class="axis" x="2" y="' + (H - 4) + '">' + esc(dayLabel(s[0].day)) + '</text><text class="axis" x="' + (W - 2) + '" y="' + (H - 4) + '" text-anchor="end">' + esc(T("adm.vs_today_short")) + "</text></svg>" +
+    "<details><summary>" + esc(T("adm.vs_as_table")) + "</summary>" +
+      table(s.slice().reverse(), [{ h: T("adm.vs_day"), v: (d) => dayLabel(d.day) }, { h: T("adm.vs_visitors"), v: (d) => num(d.visitors), num: true }, { h: T("adm.vs_views"), v: (d) => num(d.pageviews), num: true }]) +
+    "</details>";
+}
+
+// ---- Map (Google Maps, India view of borders) ----
+async function initMap() {
+  try {
+    const { Map } = await google.maps.importLibrary("maps");
+    map = new Map(document.getElementById("map"), {
+      center: VIEWS[view].c, zoom: VIEWS[view].z, minZoom: 2,
+      mapTypeControl: false, streetViewControl: false, fullscreenControl: true, clickableIcons: false,
+      gestureHandling: "cooperative",
+    });
+    drawDots();
+  } catch (e) {
+    mapFailed = true;
+    document.getElementById("map").outerHTML = '<div class="map-msg" role="status">' + esc(T("adm.vs_map_failed")) + "</div>";
+  }
+}
+function makeDot(r, kind, maxV) {
+  const size = Math.round(10 + 22 * Math.sqrt((r.visitors || 1) / maxV));
+  const ov = new google.maps.OverlayView();
+  ov.onAdd = function () {
+    const el = document.createElement("div");
+    el.className = "vdot " + kind;
+    el.style.width = el.style.height = size + "px";
+    el.title = placeName(r) + " · " + T("adm.vs_n_visitors", { n: num(r.visitors) });
+    this.el = el;
+    this.getPanes().overlayMouseTarget.appendChild(el);
+  };
+  ov.draw = function () {
+    const p = this.getProjection().fromLatLngToDivPixel(new google.maps.LatLng(r.lat, r.lng));
+    if (p && this.el) { this.el.style.left = p.x + "px"; this.el.style.top = p.y + "px"; }
+  };
+  ov.onRemove = function () { if (this.el) this.el.remove(); this.el = null; };
+  ov.setMap(map);
+  return ov;
+}
+function drawDots() {
+  if (!map || !data || !data.ready) return;
+  overlays.forEach((o) => o.setMap(null));
+  overlays = [];
+  const rows = (layer === "live" ? data.recent : data.topCities).filter((r) => r.lat != null && r.lng != null);
+  const maxV = Math.max(1, ...rows.map((r) => r.visitors || 1));
+  rows.forEach((r) => overlays.push(makeDot(r, layer === "live" ? "live" : "past", maxV)));
+}
+
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => {
+  view = b.dataset.view; render();
+  if (map) { map.setCenter(VIEWS[view].c); map.setZoom(VIEWS[view].z); }
+}));
+document.querySelectorAll("[data-layer]").forEach((b) => b.addEventListener("click", () => { layer = b.dataset.layer; render(); }));
+
+// Live: refresh every 30 seconds while the page is on screen.
+function schedule() { clearInterval(timer); timer = setInterval(() => { if (document.visibilityState === "visible") load(); }, 30000); }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+}
+let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  let cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  const next = cur === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", () => {
+  let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (data) render();
+});
+load().then(initMap);
+schedule();
+</script>
+</body>
+</html>

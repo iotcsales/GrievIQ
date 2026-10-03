@@ -65,6 +65,8 @@ export const PERMISSIONS = {
   // page's "I want GrievIQ in my city" button. Planning information for the
   // two senior roles; the auditor reads it.
   view_demand: ["super_admin", "operations_admin", "auditor"],
+  // Visitor count and live visitor map (anonymous, city level only).
+  view_visitors: ["super_admin", "operations_admin", "auditor"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -84,6 +86,7 @@ export const PAGES = {
   "admin-photos": "manage_photos",
   "admin-retention": "view_retention",
   "admin-audit": null,   // everyone: the observations they own
+  "admin-visitors": "view_visitors",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

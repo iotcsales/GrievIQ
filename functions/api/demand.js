@@ -22,23 +22,8 @@ function clean(v) {
   return /^[\p{L}\p{M} .'\-]{2,60}$/u.test(s) ? s : null;
 }
 
-function hex(buf) {
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export async function fingerprint(salt, parts) {
-  const data = new TextEncoder().encode([salt].concat(parts).join("\u001f"));
-  return hex(await crypto.subtle.digest("SHA-256", data));
-}
-
-// Today's secret, created on first use. Two simultaneous first presses may
-// both try to create it; INSERT OR IGNORE keeps exactly one.
-async function todaysSalt(DB, day) {
-  const fresh = hex(crypto.getRandomValues(new Uint8Array(32)));
-  await DB.prepare("INSERT OR IGNORE INTO demand_salts (day, salt) VALUES (?, ?)").bind(day, fresh).run();
-  const row = await DB.prepare("SELECT salt FROM demand_salts WHERE day = ?").bind(day).first();
-  return row ? row.salt : fresh;
-}
+import { fingerprint, todaysSalt, istDay } from "../_shared/daily-salt.js";
+export { fingerprint };
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -48,13 +33,12 @@ export async function onRequestPost({ request, env }) {
   if (!city) return Response.json({ error: "A city name is required." }, { status: 400 });
 
   const DB = env.DB;
-  const day = new Date().toISOString().slice(0, 10);   // UTC day
+  const day = istDay();   // India's date, shared with the visitor count
 
   let counted = true;
   try {
     // Forget earlier days first (secrets and fingerprints alike).
     await DB.prepare("DELETE FROM demand_presses WHERE day < ?").bind(day).run();
-    await DB.prepare("DELETE FROM demand_salts WHERE day < ?").bind(day).run();
 
     const ip = request.headers.get("CF-Connecting-IP") || "";
     const ua = (request.headers.get("User-Agent") || "").slice(0, 300);

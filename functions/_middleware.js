@@ -11,8 +11,8 @@
 // Two content security policies:
 //  - STRICT, for every page and response that doesn't show a map: only
 //    GrievIQ itself, plus Google Fonts for the citizen pages' typefaces.
-//  - MAPS, only for the three pages that show a Google map (home, the
-//    complaint form, the representatives' console): Google's own published
+//  - MAPS, only for the pages that show a Google map (home, the
+//    complaint form, the representatives' console, the admin visitor map): Google's own published
 //    allowlist for the Maps JavaScript API, including the 'unsafe-eval' it
 //    requires (developers.google.com/maps/documentation/javascript/content-security-policy),
 //    plus cdnjs for the console's PDF export.
@@ -41,7 +41,7 @@ export const CSP_MAPS = [
 ].concat(COMMON).join("; ");
 // Kept for anything that imported the old name.
 export const CSP = CSP_STRICT;
-const MAP_PAGES = /^\/(index(\.html)?|submit(\.html)?|rep(\.html)?)?$/;
+const MAP_PAGES = /^\/(index(\.html)?|submit(\.html)?|rep(\.html)?|admin-visitors(\.html)?)?$/;
 export function cspFor(pathname) { return MAP_PAGES.test(pathname || "/") ? CSP_MAPS : CSP_STRICT; }
 
 export const SECURITY_HEADERS = {

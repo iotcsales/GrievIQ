@@ -8,7 +8,8 @@
 //  - the same footer links on every page, as GIGW 3.0 expects (help and
 //    contact, privacy, terms, accessibility statement, website policies,
 //    sitemap), and the page's "last updated" date from
-//    <meta name="last-updated" content="YYYY-MM-DD">.
+//    <meta name="last-updated" content="YYYY-MM-DD">;
+//  - an anonymous visit count (see countVisit below and functions/api/visit.js).
 // Load it with `defer` after i18n.js.
 (function () {
   function t(key, fallback, vars) {
@@ -79,5 +80,18 @@
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", draw); else draw();
+
+  // Visitor count for GrievIQ's admin map: one anonymous ping per page view,
+  // no cookies, nothing stored on the device. Not sent at all if the
+  // browser asks not to be tracked (Global Privacy Control / Do Not Track).
+  (function countVisit() {
+    try {
+      if (navigator.globalPrivacyControl === true || navigator.doNotTrack === "1" || window.doNotTrack === "1") return;
+      if (/^\/(admin|rep)/.test(location.pathname)) return;
+      var body = JSON.stringify({ path: location.pathname });
+      if (navigator.sendBeacon) navigator.sendBeacon("/api/visit", new Blob([body], { type: "application/json" }));
+      else fetch("/api/visit", { method: "POST", headers: { "Content-Type": "application/json" }, body: body, keepalive: true, credentials: "omit" });
+    } catch (e) {}
+  })();
   document.addEventListener("giq:lang", draw);
 })();
