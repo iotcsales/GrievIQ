@@ -582,6 +582,10 @@
   function render() {
     const box = $('loc-result');
     setTitle();
+    // One "Report" button at a time: when the area card already offers
+    // "Report a problem here", the general card below would only repeat it.
+    const p0 = current && current.place;
+    $('report-task').style.display = (!outside && p0 && p0.openForFiling) ? 'none' : '';
     if (outside) return renderOutside();
     if (!current) { box.hidden = true; box.innerHTML = ''; $('loc-ask').hidden = false; return; }
     const p = current.place;
