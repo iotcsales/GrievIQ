@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="last-updated" content="2026-10-03">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title data-i18n="submit.page_title">File a complaint — GrievIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,6 +62,16 @@
   textarea:focus, input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14,124,107,0.15); }
   textarea { resize: vertical; min-height: 100px; }
   .field-error { color: var(--brick); font-size: 12.5px; margin: -14px 0 16px; display: none; }
+  /* Readiness review, gap 5: the privacy notice and consent before filing (DPDP Act s.5-6). */
+  .notice-box { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 6px 0 14px; background: #FBFAF7; }
+  .notice-box h2 { font-size: 13.5px; margin: 0 0 8px; color: var(--ink); font-weight: 700; }
+  .notice-box ul { margin: 0 0 8px; padding-left: 18px; }
+  .notice-box li, .notice-box p { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 6px; }
+  .notice-box a { color: var(--teal-dark); }
+  .consent-row { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 16px; }
+  .consent-row input { width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--teal); }
+  .consent-row label { margin: 0; font-weight: 500; color: var(--ink); font-size: 13px; line-height: 1.5; }
+  #consentError { margin: -8px 0 16px; }
   .hp-field { position: absolute; left: -9999px; top: -9999px; }
   details.rep-ask {
     border: 1.5px solid var(--border); border-radius: 12px; padding: 0; margin: 4px 0 20px;
@@ -189,8 +200,9 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=7c"></script>
+<script src="/i18n.js?v=11a"></script>
 <script src="/photo-tools.js?v=7c"></script>
+<script src="/site.js?v=11a" defer></script>
 </head>
 <body>
   <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -302,6 +314,22 @@
             <div class="field-error" id="repSuggestPhoneError" data-i18n="submit.rep_phone_err">Please enter a valid phone number, or leave it blank.</div>
           </div>
         </details>
+
+        <section class="notice-box" aria-labelledby="noticeH">
+          <h2 id="noticeH" data-i18n="submit.n_h">Before you file: how your details are used</h2>
+          <ul>
+            <li data-i18n-html="submit.n_mobile"><strong>Mobile number:</strong> so your complaint can be identified and, if needed, someone can call you about it. Representatives never see it; GrievIQ staff see it partly hidden.</li>
+            <li data-i18n-html="submit.n_email"><strong>Email (optional):</strong> to send you updates and let you confirm the problem is fixed.</li>
+            <li data-i18n-html="submit.n_report"><strong>Your complaint, place and photos:</strong> to send it to the right representative and track it until it is resolved.</li>
+          </ul>
+          <p data-i18n="submit.n_keep">We keep these for 3 years from filing, or 1 year after the complaint is closed if that is later, then remove your personal details.</p>
+          <p data-i18n-html="submit.n_rights">You can ask to see, correct or delete your details, or withdraw your consent, by writing to our Grievance Officer at <a href="mailto:grievance@grieviq.in">grievance@grieviq.in</a>. Full details: <a href="/privacy">Privacy policy</a>.</p>
+        </section>
+        <div class="consent-row">
+          <input type="checkbox" id="consent" aria-describedby="consentError" />
+          <label for="consent" data-i18n="submit.n_agree">I am 18 or older, and I agree to my details being used for this complaint as described above. If you are under 18, please ask a parent or guardian to file it.</label>
+        </div>
+        <div class="field-error" id="consentError" role="alert" data-i18n="submit.n_agree_err">Please tick this box to confirm you are 18 or older and agree, so we can file your complaint.</div>
 
         <!-- Honeypot field: real users never see or fill this -->
         <div class="hp-field" aria-hidden="true">
@@ -883,6 +911,7 @@
     document.getElementById('descriptionError').style.display = 'none';
     document.getElementById('phoneError').style.display = 'none';
     document.getElementById('emailError').style.display = 'none';
+    document.getElementById('consentError').style.display = 'none';
     areaError.style.display = 'none';
     setAreaOpenError('');
 
@@ -937,6 +966,16 @@
       }
     }
 
+    const consentBox = document.getElementById('consent');
+    if (!consentBox.checked) {
+      document.getElementById('consentError').style.display = 'block';
+      consentBox.setAttribute('aria-invalid', 'true');
+      if (!hasError) consentBox.focus();
+      hasError = true;
+    } else {
+      consentBox.removeAttribute('aria-invalid');
+    }
+
     if (hasError) return;
 
     submitBtn.disabled = true;
@@ -974,6 +1013,7 @@
           website,
           form_loaded_at: formLoadedAt,
           lang: GIQ.lang,
+          consent: true,
         }),
       });
 

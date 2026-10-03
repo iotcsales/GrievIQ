@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="last-updated" content="2026-10-03">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title data-i18n="about.page_title">About us — GrievIQ</title>
+<title data-i18n="help.page_title">Help & contact — GrievIQ</title>
+<meta name="last-updated" content="2026-10-03">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -50,6 +50,10 @@
   .footer-links a { color: inherit; text-decoration: none; }
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+  ul.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 6px; }
+  p a, li a { color: var(--teal-dark); }
 </style>
 <script src="/i18n.js?v=11a"></script>
 <script src="/site.js?v=11a" defer></script>
@@ -57,24 +61,38 @@
 <body>
   <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
-    <div class="app-card">
+    <main class="app-card" id="main" tabindex="-1">
       <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
       <header class="brand">
-        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true" focusable="false"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
         <span class="brand-name">GrievIQ</span>
       </header>
-      <h1 data-i18n="about.title">About us</h1>
-      <p data-i18n="about.p1">GrievIQ is an independent civic-tech platform that helps citizens track grievances filed with their elected representatives — corporators, mayors, MLAs, and MPs — and see exactly where a case stands as it moves up the chain when it isn't addressed in time.</p>
-      <p data-i18n="about.p2">Every grievance is matched to the correct ward, so you're not complaining to a general city queue — you're routed to the specific representative accountable for your area, with a clear, transparent escalation path if they don't respond in time.</p>
-      <div class="note-box" data-i18n="about.note">GrievIQ is not officially operated by, endorsed by, or affiliated with any government body, including Lucknow Nagar Nigam or the Government of Uttar Pradesh.</div>
-      <p data-i18n="about.p3">GrievIQ is built and maintained by IOTC (Indus Overseas Tech. Corp.) as an independent tool to make civic accountability more visible. We're currently piloting in Lucknow, Uttar Pradesh, with a goal of expanding coverage and, in time, working directly with local governments to make this a recognized part of how citizens engage with their representatives.</p>
-      <h2 data-i18n="about.q">Questions or feedback?</h2>
-      <p data-i18n-html="about.reach">Reach us at <a href="mailto:support@grieviq.in" style="color:var(--teal-dark);">support@grieviq.in</a>.</p>
+      <h1 data-i18n="help.title">Help & contact</h1>
+      <p data-i18n="help.intro">Answers to common questions, and how to reach us.</p>
+      <h2 data-i18n="help.h_faq">Common questions</h2>
+      <h3 data-i18n="help.q1">How do I file a complaint?</h3>
+      <p data-i18n="help.a1">Go to “File a complaint”, choose your area and the type of problem, describe it and add your mobile number. Photos and email are optional.</p>
+      <h3 data-i18n="help.q2">How do I track my complaint?</h3>
+      <p data-i18n="help.a2">Use “Track complaint” with your tracking number, or with your email if you gave one, to see every complaint you have filed.</p>
+      <h3 data-i18n="help.q3">Who handles my complaint?</h3>
+      <p data-i18n="help.a3">Your ward representative first. If it isn't dealt with in time, it moves up to your MLA and then your MP.</p>
+      <h3 data-i18n="help.q4">Is GrievIQ a government service?</h3>
+      <p data-i18n="help.a4">No. GrievIQ is an independent platform run by IOTC. It sends your complaint to your elected representatives' public contact details.</p>
+      <h3 data-i18n="help.q5">Is this for emergencies?</h3>
+      <p data-i18n="help.a5">No. In an emergency, call 112.</p>
+      <h2 data-i18n="help.h_contact">Contact us</h2>
+      <ul class="plain">
+      <li data-i18n-html="help.c_support">General help: <a href="mailto:support@grieviq.in">support@grieviq.in</a></li>
+      <li data-i18n-html="help.c_grievance">Questions or complaints about how we handle your personal data: our Grievance Officer at <a href="mailto:grievance@grieviq.in">grievance@grieviq.in</a>. We acknowledge within 7 days and resolve within 30 days.</li>
+      <li data-i18n-html="help.c_security">Report a security problem: <a href="mailto:security@grieviq.in">security@grieviq.in</a></li>
+      <li data-i18n-html="help.c_feedback">Suggestions about the website: the <a href="/feedback">Feedback</a> page.</li>
+      </ul>
+      <p data-i18n="help.c_reply">We aim to reply to every message within 7 days.</p>
       <div class="footer-block">
-        <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+        <div class="footer-links"></div>
         <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
       </div>
-    </div>
+    </main>
   </div>
 </body>
 </html>

@@ -23,6 +23,7 @@
     "adm.nav_paused_title": "Your access is paused while you are on leave",
     "adm.nav_paused": "Welcome back on {date}. Your access starts again automatically after that date.",
     "adm.nav_covering": "You are covering for {name} ({role}) until {date}. What you do for them is recorded in your name, on their behalf.",
+    "common.skip": "Skip to main content",
     "adm.nav_signed_in_as": "Signed in as {who}",
     "adm.nav_signout": "Sign out",
     "adm.idle_title": "Are you still there?",
@@ -244,6 +245,22 @@
   setInterval(tick, 1000);
   ready(drawAccount);
 
+  // "Skip to main content" for keyboard and screen reader users (WCAG 2.4.1).
+  function drawSkip() {
+    var a = document.getElementById("skip-link");
+    if (!a) {
+      a = document.createElement("a"); a.id = "skip-link"; a.className = "skip-link"; a.href = "#main";
+      a.addEventListener("click", function (e) {
+        var m = document.querySelector("main"); if (!m) return;
+        e.preventDefault(); if (!m.id) m.id = "main"; m.setAttribute("tabindex", "-1"); m.focus(); m.scrollIntoView();
+      });
+      document.body.insertBefore(a, document.body.firstChild);
+    }
+    a.textContent = t("common.skip");
+  }
+  style.textContent += ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:var(--admin-accent,#3b6ff0);color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}.skip-link:focus{top:10px;outline:3px solid #fff;outline-offset:2px}";
+  ready(drawSkip);
+
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })
     .then(function (d) {
@@ -257,5 +274,5 @@
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); if (document.getElementById("adm-idle")) tick(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); drawSkip(); if (document.getElementById("adm-idle")) tick(); });
 })();

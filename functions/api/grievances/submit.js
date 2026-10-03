@@ -70,6 +70,11 @@ function isPlausiblePhone(phone) {
   return digits.length >= 10 && digits.length <= 13;
 }
 
+// The version of the privacy notice shown on the complaint form. Change it
+// whenever that notice's wording changes, so each consent record says which
+// text the citizen agreed to.
+export const NOTICE_VERSION = "2026-10-03";
+
 export async function onRequestPost({ request, env }) {
   let body;
   try {
@@ -92,6 +97,7 @@ export async function onRequestPost({ request, env }) {
     rep_suggestion, // optional { tier, name, phone } — citizen's unverified guess at a missing rep
     pin_lat, pin_lng, // optional: where the problem is, from a map pin, current location or address search
     lang, // "hi" or "en": the language the citizen used, for emails about this complaint
+    consent, // true: 18 or older, and agrees to the notice on the form (DPDP Act s.5-6)
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
     form_loaded_at, // ms timestamp from when the form rendered
@@ -118,6 +124,9 @@ export async function onRequestPost({ request, env }) {
   }
   if (!isPlausiblePhone(citizen_phone)) {
     errors.push("A valid phone number is required.");
+  }
+  if (consent !== true) {
+    errors.push("Please confirm you are 18 or older and agree to how your details are used.");
   }
   const trimmedEmail = (citizen_email || "").trim();
   if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
@@ -218,25 +227,35 @@ export async function onRequestPost({ request, env }) {
       ? Array.from(new Set(photo_ids.filter((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))).slice(0, 3)
       : [];
 
-    await env.DB.prepare(
-      `INSERT INTO grievances
-        (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng)
-       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', NULL, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        id,
-        trackingRef,
-        normalizedPhone,
-        description.trim(),
-        category_id,
-        local_unit_id,
-        (location_detail || "").trim() || null,
-        trimmedEmail || null,
-        lang === "hi" ? "hi" : "en",
-        pin ? pin.lat : null,
-        pin ? pin.lng : null
-      )
-      .run();
+    const values = [
+      id,
+      trackingRef,
+      normalizedPhone,
+      description.trim(),
+      category_id,
+      local_unit_id,
+      (location_detail || "").trim() || null,
+      trimmedEmail || null,
+      lang === "hi" ? "hi" : "en",
+      pin ? pin.lat : null,
+      pin ? pin.lng : null,
+    ];
+    try {
+      // The consent record: when, and which notice version they agreed to.
+      await env.DB.prepare(
+        `INSERT INTO grievances
+          (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng, consent_at, consent_notice)
+         VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', NULL, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(...values, new Date().toISOString(), NOTICE_VERSION).run();
+    } catch (e) {
+      // Consent columns not added yet (part11-consent.sql): never lose a complaint.
+      if (!/no such column|no column named/i.test(String(e && e.message))) throw e;
+      await env.DB.prepare(
+        `INSERT INTO grievances
+          (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng)
+         VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', NULL, ?, ?, ?, ?, ?)`
+      ).bind(...values).run();
+    }
 
     // Attach the photos (only ones not attached to anything yet). A failure
     // here must not lose the complaint; unattached photos are cleaned up.

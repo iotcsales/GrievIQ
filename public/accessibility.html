@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="last-updated" content="2026-10-03">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title data-i18n="about.page_title">About us — GrievIQ</title>
+<title data-i18n="a11y.page_title">Accessibility statement — GrievIQ</title>
+<meta name="last-updated" content="2026-10-03">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -50,6 +50,10 @@
   .footer-links a { color: inherit; text-decoration: none; }
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+  ul.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 6px; }
+  p a, li a { color: var(--teal-dark); }
 </style>
 <script src="/i18n.js?v=11a"></script>
 <script src="/site.js?v=11a" defer></script>
@@ -57,24 +61,38 @@
 <body>
   <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
-    <div class="app-card">
+    <main class="app-card" id="main" tabindex="-1">
       <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
       <header class="brand">
-        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true" focusable="false"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
         <span class="brand-name">GrievIQ</span>
       </header>
-      <h1 data-i18n="about.title">About us</h1>
-      <p data-i18n="about.p1">GrievIQ is an independent civic-tech platform that helps citizens track grievances filed with their elected representatives — corporators, mayors, MLAs, and MPs — and see exactly where a case stands as it moves up the chain when it isn't addressed in time.</p>
-      <p data-i18n="about.p2">Every grievance is matched to the correct ward, so you're not complaining to a general city queue — you're routed to the specific representative accountable for your area, with a clear, transparent escalation path if they don't respond in time.</p>
-      <div class="note-box" data-i18n="about.note">GrievIQ is not officially operated by, endorsed by, or affiliated with any government body, including Lucknow Nagar Nigam or the Government of Uttar Pradesh.</div>
-      <p data-i18n="about.p3">GrievIQ is built and maintained by IOTC (Indus Overseas Tech. Corp.) as an independent tool to make civic accountability more visible. We're currently piloting in Lucknow, Uttar Pradesh, with a goal of expanding coverage and, in time, working directly with local governments to make this a recognized part of how citizens engage with their representatives.</p>
-      <h2 data-i18n="about.q">Questions or feedback?</h2>
-      <p data-i18n-html="about.reach">Reach us at <a href="mailto:support@grieviq.in" style="color:var(--teal-dark);">support@grieviq.in</a>.</p>
+      <h1 data-i18n="a11y.title">Accessibility statement</h1>
+      <p data-i18n="a11y.intro">We want everyone to be able to use GrievIQ, including people with disabilities and people on older phones or slow connections. We aim to meet India's accessibility standard IS 17802 and the international WCAG 2.1 guidelines at level AA.</p>
+      <h2 data-i18n="a11y.h_features">What you can do</h2>
+      <ul class="plain">
+      <li data-i18n="a11y.f1">Use the whole site with a keyboard alone, starting with the “Skip to main content” link.</li>
+      <li data-i18n="a11y.f2">Use a screen reader: form fields have labels, and photos have descriptions.</li>
+      <li data-i18n="a11y.f3">Switch between English and Hindi on any page.</li>
+      <li data-i18n="a11y.f4">Zoom text up to 200% without losing content.</li>
+      <li data-i18n="a11y.f5">Choose your area from a list instead of using the map.</li>
+      <li data-i18n="a11y.f6">Use the site with animations reduced, if your device asks for that.</li>
+      </ul>
+      <h2 data-i18n="a11y.h_limits">Known limitations</h2>
+      <ul class="plain">
+      <li data-i18n="a11y.l1">The map on the complaint page can be hard to use with a screen reader. You can choose your area from the list and type a landmark instead.</li>
+      <li data-i18n="a11y.l2">PDF reports downloaded from the representatives' console may not be fully readable by screen readers.</li>
+      </ul>
+      <h2 data-i18n="a11y.h_check">How we check</h2>
+      <p data-i18n="a11y.check">We test pages with a keyboard and a screen reader while building them. An independent accessibility audit is planned.</p>
+      <h2 data-i18n="a11y.h_contact">Tell us about a problem</h2>
+      <p data-i18n-html="a11y.contact">If something is hard to use, write to <a href="mailto:support@grieviq.in?subject=Accessibility">support@grieviq.in</a> with “Accessibility” in the subject and the page you were on. We reply within 7 days, and can help you file your complaint another way in the meantime.</p>
+      <p data-i18n="a11y.reviewed">This statement was last reviewed on 3 October 2026.</p>
       <div class="footer-block">
-        <div class="footer-links"><a href="/about" data-i18n="common.about">About us</a><a href="/privacy" data-i18n="common.privacy">Privacy policy</a><a href="/terms" data-i18n="common.terms">Terms</a><a href="mailto:support@grieviq.in" data-i18n="common.contact">Contact</a></div>
+        <div class="footer-links"></div>
         <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
       </div>
-    </div>
+    </main>
   </div>
 </body>
 </html>
