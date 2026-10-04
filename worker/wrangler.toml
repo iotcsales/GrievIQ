@@ -16,7 +16,7 @@ SITE_ORIGIN = "https://grieviq.in"
 [[d1_databases]]
 binding = "DB"
 database_name = "grieviq-db"
-database_id = "PASTE_YOUR_DATABASE_ID_HERE"
+database_id = "c8f69b35-d431-4cff-aae5-c2543b2f72ef"
 
 # Optional: lets the hourly retention batch also remove photos of cases
 # whose retention has ended (otherwise the admin Dashboard does it).
