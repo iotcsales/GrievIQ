@@ -238,6 +238,7 @@ export async function onRequestGet(context) {
     // "Where people want GrievIQ next" (loaded separately from /api/admin/demand).
     canSeeDemand: can(role, "view_demand"),
     visitorsToday: can(role, "view_visitors") ? await visitorsToday(env) : null,
+    feedbackNew: can(role, "view_feedback") ? await feedbackNew(env) : null,
     // Card links follow the same page list as the menu (pagesFor), so a
     // card never leads to a page the role can't use.
     links: (() => {
@@ -251,6 +252,14 @@ export async function onRequestGet(context) {
     })(),
     generatedAt: new Date().toISOString(),
   });
+}
+
+// New (not yet read) citizen feedback, for the dashboard card.
+async function feedbackNew(env) {
+  try {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM feedback WHERE status = 'NEW'").first();
+    return r ? Number(r.n) || 0 : 0;
+  } catch (e) { return null; }
 }
 
 // Today's visitor count for the dashboard card (null if not set up yet).

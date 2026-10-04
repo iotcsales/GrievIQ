@@ -73,6 +73,10 @@ export const PERMISSIONS = {
   // the auditor reads.
   view_areas: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
   manage_areas: ["super_admin", "operations_admin"],
+  // Citizen feedback about the app: read and handled by the two senior
+  // roles; the auditor reads (with citizens' emails partly hidden).
+  view_feedback: ["super_admin", "operations_admin", "auditor"],
+  manage_feedback: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -94,6 +98,7 @@ export const PAGES = {
   "admin-audit": null,   // everyone: the observations they own
   "admin-visitors": "view_visitors",
   "admin-areas": "view_areas",
+  "admin-feedback": "view_feedback",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

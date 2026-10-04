@@ -92,7 +92,7 @@
   .screen { display: none; }
   .screen.active { display: block; }
 </style>
-<script src="/i18n.js?v=15b"></script>
+<script src="/i18n.js?v=16a"></script>
 <script src="/site.js?v=14a" defer></script>
 </head>
 <body>
@@ -123,7 +123,7 @@
 
         <div class="field">
           <label for="fb-message" data-i18n="fb.more">Tell us more (optional)</label>
-          <textarea id="fb-message" placeholder="What happened, or what would you like to see?" data-i18n-ph="fb.more_ph"></textarea>
+          <textarea id="fb-message" maxlength="2000" placeholder="What happened, or what would you like to see?" data-i18n-ph="fb.more_ph"></textarea>
         </div>
 
         <div class="field">
@@ -131,6 +131,11 @@
           <input type="email" id="fb-email" placeholder="you@example.com">
           <div class="hint" data-i18n="fb.email_hint">Only if you'd like us to follow up with you.</div>
         </div>
+        <!-- Left empty by people; filled only by spam robots. -->
+        <div style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+          <label for="fb-website">Website</label><input type="text" id="fb-website" tabindex="-1" autocomplete="off">
+        </div>
+        <p class="hint" style="margin:0 0 14px" data-i18n-html="fb.keep">We keep feedback for one year, then delete it. See our <a href="/privacy">privacy policy</a>.</p>
 
         <button class="primary" id="btn-submit" data-i18n="fb.send">Send feedback</button>
       </section>
@@ -153,6 +158,8 @@
 (function () {
   const API_BASE = ''; // same-origin: served from grieviq.pages.dev itself
   let selectedCategory = null;
+  const loadedAt = Date.now();
+  document.querySelectorAll('#chip-row .chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
 
   const chipRow = document.getElementById('chip-row');
   const errorBanner = document.getElementById('error-banner');
@@ -179,6 +186,7 @@
       chipRow.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
       chip.classList.add('selected');
       selectedCategory = chip.dataset.value;
+      chipRow.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
       clearError();
     });
   });
@@ -206,12 +214,16 @@
           message: document.getElementById('fb-message').value.trim(),
           email: document.getElementById('fb-email').value.trim(),
           trackingRef,
+          lang: GIQ.lang,
+          website: document.getElementById('fb-website').value,
+          form_loaded_at: loadedAt,
         }),
       });
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        showError(GIQ.lang === 'hi' || !data.error ? GIQ.t('common.generic_error') : data.error);
+        showError(res.status === 429 ? GIQ.t('fb.too_many') : data.fields && data.fields.email ? GIQ.t('fb.email_err') : (GIQ.lang === 'hi' || !data.error ? GIQ.t('common.generic_error') : data.error));
+        if (data.fields && data.fields.email) document.getElementById('fb-email').focus();
         btnSubmit.disabled = false;
         btnSubmit.textContent = GIQ.t('fb.send');
         return;
