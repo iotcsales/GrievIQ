@@ -32,9 +32,12 @@
 
   var style = document.createElement("style");
   style.textContent =
-    ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:#0A5A4E;color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}" +
+    ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:#13233F;color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}" +
     ".skip-link:focus{top:10px;outline:3px solid #F2B705;outline-offset:2px}" +
-    "a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #0E7C6B;outline-offset:2px}" +
+    "a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #1F4A8A;outline-offset:2px}" +
+    "header.brand .logo-mark{box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}" +
+    "header.brand .brand-text{display:flex;flex-direction:column;line-height:1.15}" +
+    "header.brand .brand-tag{font-size:11.5px;font-weight:500;color:var(--ink-soft,#746E63);font-family:inherit}" +
     ".footer-updated{font-size:10.5px;color:var(--ink-soft,#746E63);margin-top:6px}" +
     "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}";
   document.head.appendChild(style);

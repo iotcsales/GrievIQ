@@ -35,6 +35,7 @@
 "common.accessibility": ["Accessibility", "सुगम्यता"],
 "common.policies": ["Website policies", "वेबसाइट नीतियाँ"],
 "common.sitemap": ["Sitemap", "साइटमैप"],
+"common.tagline": ["From complaint to resolution.", "शिकायत से समाधान तक।"],
 "common.skip": ["Skip to main content", "मुख्य सामग्री पर जाएँ"],
 "common.last_updated": ["Page last updated: {date}", "पृष्ठ अंतिम बार अपडेट: {date}"],
 "submit.n_h": ["Before you file: how your details are used", "शिकायत दर्ज करने से पहले: आपकी जानकारी का उपयोग कैसे होता है"],

@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
 <meta name="last-updated" content="2026-10-03">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title data-i18n="submit.page_title">File a complaint — GrievIQ</title>
@@ -18,7 +24,7 @@
 <style>
   :root {
     --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
-    --teal: #0E7C6B; --teal-dark: #0A5A4E; --teal-tint: #E4F3EF;
+    --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7;
     --brick: #C23B2C; --brick-dim: #FBE8E5;
     --grey-line: #D8D3C6; --grey-fill: #EDEAE0; --border: #E7E4DC; --radius: 14px;
     --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
@@ -40,10 +46,10 @@
   }
   header.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   header.brand .logo-mark {
-    width: 32px; height: 32px; border-radius: 9px; background: var(--teal);
+    width: 32px; height: 32px; border-radius: 9px; background: #13233F;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  header.brand .logo-mark svg { width: 17px; height: 17px; }
+  header.brand .logo-mark svg { width: 24px; height: 24px; }
   header.brand span.brand-name { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; }
   h1 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 22px; line-height: 1.3; margin: 18px 0 6px; }
   p.lede { color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; margin: 0 0 22px; }
@@ -59,7 +65,7 @@
     border: 1.5px solid var(--border); border-radius: 11px; background: var(--paper);
     color: var(--ink); margin-bottom: 18px; outline: none;
   }
-  textarea:focus, input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14,124,107,0.15); }
+  textarea:focus, input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(31,74,138,0.15); }
   textarea { resize: vertical; min-height: 100px; }
   .field-error { color: var(--brick); font-size: 12.5px; margin: -14px 0 16px; display: none; }
   /* Readiness review, gap 5: the privacy notice and consent before filing (DPDP Act s.5-6). */
@@ -84,7 +90,7 @@
   details.rep-ask summary::-webkit-details-marker { display: none; }
   details.rep-ask summary::before { content: "+"; display: inline-block; width: 16px; font-weight: 700; }
   details.rep-ask[open] summary::before { content: "\2212"; }
-  details.rep-ask summary:focus-visible { outline: 3px solid rgba(14,124,107,0.35); outline-offset: 2px; border-radius: 10px; }
+  details.rep-ask summary:focus-visible { outline: 3px solid rgba(31,74,138,0.35); outline-offset: 2px; border-radius: 10px; }
   details.rep-ask .rep-ask-body { padding: 0 16px 6px; }
   details.rep-ask .rep-ask-body .hint { margin: 0 0 14px; }
 
@@ -119,7 +125,7 @@
     display: none; font-size: 12.5px; color: var(--ink-soft); background: #FBF3E4;
     border: 1px solid #E6D5AE; border-radius: 10px; padding: 10px 12px; margin: 4px 0 18px;
   }
-  .similar-note { font-size: 12.5px; color: var(--ink); background: #EAF4F1; border: 1px solid #BFDCD4; border-radius: 10px; padding: 10px 12px; margin: -6px 0 18px; line-height: 1.5; }
+  .similar-note { font-size: 12.5px; color: var(--ink); background: #EEF2F9; border: 1px solid #C9D6EC; border-radius: 10px; padding: 10px 12px; margin: -6px 0 18px; line-height: 1.5; }
   .similar-note:empty { display: none; }
   .voice-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -2px 0 8px; }
   .voice-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -167,7 +173,7 @@
     color: var(--teal-dark); text-decoration: underline; cursor: pointer; font: inherit; font-weight: 600;
     background: none; border: none; padding: 0; margin-left: 4px;
   }
-  .pin-note .change-link:focus-visible, .area-selected .change-link:focus-visible { outline: 3px solid rgba(14,124,107,0.35); outline-offset: 2px; border-radius: 4px; }
+  .pin-note .change-link:focus-visible, .area-selected .change-link:focus-visible { outline: 3px solid rgba(31,74,138,0.35); outline-offset: 2px; border-radius: 4px; }
   .pin-status { font-size: 12.5px; color: var(--ink-soft); margin: -10px 0 18px; }
   .area-open-error { color: var(--brick); font-size: 12.5px; margin: -10px 0 16px; }
   .area-open-error:empty { display: none; }
@@ -190,7 +196,7 @@
   button.submit {
     width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 11px;
     padding: 14px; font-size: 14.5px; font-weight: 600; font-family: inherit; cursor: pointer;
-    box-shadow: 0 2px 8px rgba(14,124,107,0.25); margin-top: 24px;
+    box-shadow: 0 2px 8px rgba(31,74,138,0.25); margin-top: 24px;
   }
   button.submit:hover { background: var(--teal-dark); }
   button.submit:disabled { background: var(--grey-line); cursor: not-allowed; box-shadow: none; }
@@ -214,17 +220,17 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=13a"></script>
+<script src="/i18n.js?v=14a"></script>
 <script src="/photo-tools.js?v=7c"></script>
-<script src="/site.js?v=13b" defer></script>
+<script src="/site.js?v=14a" defer></script>
 </head>
 <body>
   <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
   <div class="card-shell">
     <div class="app-card">
       <header class="brand">
-        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <span class="brand-name">GrievIQ</span>
+        <div class="logo-mark"><svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></div>
+        <span class="brand-text"><span class="brand-name">GrievIQ</span><span class="brand-tag" data-i18n="common.tagline">From complaint to resolution.</span></span>
       </header>
 
       <a href="/" style="display:inline-block;font-size:13px;color:var(--teal-dark);text-decoration:none;margin-top:6px;" data-i18n="common.back_home">← Back to home</a>

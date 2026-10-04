@@ -2,6 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GrievIQ">
+<meta property="og:title" content="GrievIQ — From complaint to resolution">
+<meta property="og:description" content="Report a civic problem in your area. GrievIQ sends it to your ward's elected representative and moves it up if it isn't dealt with in time.">
+<meta property="og:image" content="https://grieviq.in/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="GrievIQ logo. From complaint to resolution. शिकायत से समाधान तक।">
+<meta name="twitter:card" content="summary_large_image">
+
 <meta name="last-updated" content="2026-10-03">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="home.page_title">GrievIQ — Report a civic problem and track it</title>
@@ -15,9 +30,9 @@
     --card: #FFFFFF;
     --ink: #22201C;
     --ink-soft: #746E63;
-    --teal: #0E7C6B;
-    --teal-dark: #0A5A4E;
-    --teal-tint: #E4F3EF;
+    --teal: #1F4A8A;
+    --teal-dark: #13233F;
+    --teal-tint: #E9EEF7;
     --brick: #C23B2C;
     --brick-dim: #FBE8E5;
     --grey-line: #D8D3C6;
@@ -29,14 +44,14 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #17191B; --card: #1F2224; --ink: #EDEBE4; --ink-soft: #A7A79D;
-      --teal: #35A78F; --teal-dark: #7FDCC4; --teal-tint: #163832;
+      --teal: #3D6DB5; --teal-dark: #C3D5F3; --teal-tint: #1B2A44;
       --brick: #E08585; --brick-dim: #3A2323;
       --grey-line: #3A3D3C; --grey-fill: #262927; --border: #34383C;
     }
   }
   :root[data-theme="dark"] {
     --paper: #17191B; --card: #1F2224; --ink: #EDEBE4; --ink-soft: #A7A79D;
-    --teal: #35A78F; --teal-dark: #7FDCC4; --teal-tint: #163832;
+    --teal: #3D6DB5; --teal-dark: #C3D5F3; --teal-tint: #1B2A44;
     --brick: #E08585; --brick-dim: #3A2323;
     --grey-line: #3A3D3C; --grey-fill: #262927; --border: #34383C;
   }
@@ -86,10 +101,10 @@
     margin-bottom: 6px;
   }
   header.brand .logo-mark {
-    width: 32px; height: 32px; border-radius: 9px; background: var(--teal);
+    width: 32px; height: 32px; border-radius: 9px; background: #13233F;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  header.brand .logo-mark svg { width: 17px; height: 17px; }
+  header.brand .logo-mark svg { width: 24px; height: 24px; }
   header.brand span.brand-name {
     font-family: 'Source Serif 4', serif;
     font-weight: 700;
@@ -131,7 +146,7 @@
   }
   input[type=text]:focus, input[type=email]:focus {
     border-color: var(--teal);
-    box-shadow: 0 0 0 3px rgba(14,124,107,0.15);
+    box-shadow: 0 0 0 3px rgba(31,74,138,0.15);
   }
   input[type=text]::placeholder, input[type=email]::placeholder { color: var(--grey-line); }
 
@@ -146,7 +161,7 @@
     border: none;
     border-radius: 11px;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(14,124,107,0.25);
+    box-shadow: 0 2px 8px rgba(31,74,138,0.25);
     transition: background 0.15s ease, transform 0.1s ease;
   }
   button.primary:hover { background: var(--teal-dark); }
@@ -198,7 +213,7 @@
     font-size: 12.5px;
     color: var(--ink-soft);
     padding: 7px 0;
-    border-top: 1px solid rgba(14,124,107,0.15);
+    border-top: 1px solid rgba(31,74,138,0.15);
   }
   .followup-entry:first-child { border-top: none; }
   .followup-entry strong { color: var(--ink); }
@@ -320,7 +335,7 @@
     background: var(--card); border: 1.5px solid var(--border); border-radius: 16px;
     padding: 16px; margin-bottom: 12px; transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .task-card:hover, .task-card:focus-visible { border-color: var(--teal); box-shadow: 0 2px 10px rgba(14,124,107,0.12); outline: none; }
+  .task-card:hover, .task-card:focus-visible { border-color: var(--teal); box-shadow: 0 2px 10px rgba(31,74,138,0.12); outline: none; }
   .task-card.primary-task { background: var(--teal); border-color: var(--teal); color: #fff; }
   .task-card.primary-task:hover, .task-card.primary-task:focus-visible { background: var(--teal-dark); border-color: var(--teal-dark); }
   .task-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--teal-tint); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -381,7 +396,7 @@
   [hidden] { display: none !important; }
   #loc-result:focus { outline: none; }   /* focused only to move screen readers to the result */
 </style>
-<script src="/i18n.js?v=13a"></script>
+<script src="/i18n.js?v=14a"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
@@ -393,15 +408,15 @@
     language: "en",
   });
 </script>
-<script src="/site.js?v=13b" defer></script>
+<script src="/site.js?v=14a" defer></script>
 </head>
 <body>
 <div class="trust-strip"><span><span class="emblem"></span><span data-i18n="common.strip">Independent citizen grievance escalation &amp; redressal platform</span></span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
 <div class="card-shell">
 
   <header class="brand">
-    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-    <span class="brand-name">GrievIQ</span>
+    <div class="logo-mark"><svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></div>
+    <span class="brand-text"><span class="brand-name">GrievIQ</span><span class="brand-tag" data-i18n="common.tagline">From complaint to resolution.</span></span>
   </header>
 
   <div class="app-card">

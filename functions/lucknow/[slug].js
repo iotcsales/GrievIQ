@@ -36,6 +36,9 @@ function adjustHead(html, { title, description, canonical, noindex }) {
     out = out.replace(/<meta\s+name=["']description["'][^>]*>/i,
       '<meta name="description" content="' + escAttr(description) + '">');
   }
+  // The home page carries general link-preview tags; this ward's own
+  // replace them (crawlers read the first of each).
+  if (title && canonical) out = out.replace(/<meta\s+(?:property=["']og:[^"']*["']|name=["']twitter:[^"']*["'])[^>]*>\s*/gi, "");
   const tags = [];
   if (canonical) tags.push('<link rel="canonical" href="' + escAttr(canonical) + '">');
   if (title && canonical) {
@@ -46,7 +49,10 @@ function adjustHead(html, { title, description, canonical, noindex }) {
       '<meta property="og:title" content="' + escAttr(title) + '">',
       '<meta property="og:description" content="' + escAttr(description || "") + '">',
       '<meta property="og:url" content="' + escAttr(canonical) + '">',
-      '<meta name="twitter:card" content="summary">'
+      '<meta property="og:image" content="' + escAttr(new URL("/og-image.png", canonical).toString()) + '">',
+      '<meta property="og:image:width" content="1200">',
+      '<meta property="og:image:height" content="630">',
+      '<meta name="twitter:card" content="summary_large_image">'
     );
   }
   if (noindex) tags.push('<meta name="robots" content="noindex">');
