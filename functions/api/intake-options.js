@@ -23,7 +23,8 @@ export async function onRequestGet({ env }) {
     const ready = await areasReady(env);
     const join = await liveJoin(env);
     const categoriesResult = await env.DB.prepare(
-      `SELECT id, name FROM grievance_categories ORDER BY name ASC`
+      // Time limits are public (shown before filing, and on /time-limits).
+      `SELECT id, name, ack_sla_hours, resolution_sla_hours FROM grievance_categories ORDER BY name ASC`
     ).all();
 
     const unitsResult = await env.DB.prepare(

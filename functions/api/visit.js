@@ -16,7 +16,7 @@ import { fingerprint, todaysSalt, istDay } from "../_shared/daily-salt.js";
 
 const BOT = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|headless|lighthouse|pingdom|uptime|monitor|curl|wget|python|java\/|go-http|axios|node-fetch|okhttp/i;
 // Only GrievIQ's own citizen pages are counted.
-const PAGE = /^\/(index(\.html)?|submit(\.html)?|status(\.html)?|feedback(\.html)?|about(\.html)?|privacy(\.html)?|terms(\.html)?|help(\.html)?|accessibility(\.html)?|policies(\.html)?|sitemap(\.html)?|lucknow\/[a-z0-9\-]{1,80})?$/;
+const PAGE = /^\/(index(\.html)?|submit(\.html)?|status(\.html)?|feedback(\.html)?|about(\.html)?|privacy(\.html)?|terms(\.html)?|help(\.html)?|accessibility(\.html)?|policies(\.html)?|sitemap(\.html)?|time-limits(\.html)?|lucknow\/[a-z0-9\-]{1,80})?$/;
 
 const none = () => new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 const text = (v, n) => String(v == null ? "" : v).normalize("NFC").replace(/[\u0000-\u001f]/g, "").trim().slice(0, n);

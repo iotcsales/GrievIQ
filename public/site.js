@@ -28,6 +28,7 @@
     ["/accessibility", "common.accessibility", "Accessibility"],
     ["/policies", "common.policies", "Website policies"],
     ["/sitemap", "common.sitemap", "Sitemap"],
+    ["/time-limits", "common.time_limits", "Time limits"],
   ];
 
   var style = document.createElement("style");
@@ -40,7 +41,37 @@
     "header.brand .brand-tag{font-size:11.5px;font-weight:500;color:var(--ink-soft,#746E63);font-family:inherit}" +
     ".footer-updated{font-size:10.5px;color:var(--ink-soft,#746E63);margin-top:6px}" +
     "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}";
+  // ---- Every screen size (WCAG 2.2 1.4.10 Reflow; GIGW 3.0) ----
+  // Phones keep each page's own single column. From 1024 px (laptops) the
+  // header and footer use the full width; forms stay one comfortable column
+  // (about 680 px) and reading pages about 760 px. The home page lays itself
+  // out in two columns (its own CSS).
+  var path = location.pathname.replace(/\.html$/, "").replace(/\/$/, "") || "/";
+  var layout = (path === "/" || /^\/[a-z0-9-]+\/[^\/]+$/.test(path) && !/^\/(admin|rep|api)/.test(path)) ? "home"
+    : /^\/(submit|status|feedback)$/.test(path) ? "form" : "text";
+  document.documentElement.setAttribute("data-layout", layout);
+  style.textContent +=
+    ".site-nav{display:none}" +
+    "@media (min-width:1024px){" +
+      ".card-shell{max-width:1120px!important;padding:22px 32px 56px!important}" +
+      "header.brand{justify-content:flex-start}" +
+      "header.brand .site-nav{display:flex;gap:4px;margin-left:auto;align-items:center}" +
+      ".site-nav a{font-size:14.5px;font-weight:500;color:var(--ink,#22201C);text-decoration:none;padding:10px 14px;border-radius:10px;min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center}" +
+      ".site-nav a:hover{background:var(--grey-fill,#EDEAE0)}.site-nav a[aria-current=page]{font-weight:700;color:var(--teal-dark,#13233F)}" +
+      "html[data-layout=form] .app-card{max-width:680px;margin-left:auto;margin-right:auto;box-sizing:border-box}" +
+      "html[data-layout=text] .app-card{max-width:760px;margin-left:auto;margin-right:auto;box-sizing:border-box}" +
+      ".footer-block{text-align:center}.footer-links{justify-content:center;font-size:13px!important;gap:10px 20px!important}.footer-note{max-width:680px;margin-left:auto;margin-right:auto}" +
+    "}";
   document.head.appendChild(style);
+
+  // Time limits shown to citizens: hours as hours, whole days as days.
+  window.GIQ_TAT = function (hours) {
+    var h = Number(hours) || 0;
+    if (!h) return "";
+    if (h < 24 || h % 24 !== 0) return t(h === 1 ? "common.hour1" : "common.hours", h === 1 ? "1 hour" : "{n} hours", { n: h });
+    var d = h / 24;
+    return t(d === 1 ? "common.day1" : "common.days", d === 1 ? "1 day" : "{n} days", { n: d });
+  };
 
   function mainTarget() {
     var m = document.querySelector("main") || document.querySelector(".app-card") || document.querySelector(".card-shell");
@@ -65,6 +96,19 @@
     if (skip) skip.textContent = t("common.skip", "Skip to main content");
 
     var here = location.pathname.replace(/\.html$/, "").replace(/\/$/, "") || "/";
+    // Laptop header links (hidden on phones, where the page itself has them).
+    var hb = document.querySelector("header.brand");
+    if (hb) {
+      var sn = hb.querySelector(".site-nav");
+      if (!sn) { sn = document.createElement("nav"); sn.className = "site-nav"; hb.appendChild(sn); }
+      sn.setAttribute("aria-label", t("common.site_nav", "Main"));
+      sn.innerHTML = "";
+      [["/status", "common.nav_track", "Track my reports"], ["/time-limits", "common.time_limits", "Time limits"], ["/help", "common.help", "Help & contact"]].forEach(function (l) {
+        var a = document.createElement("a"); a.href = l[0]; a.textContent = t(l[1], l[2]);
+        if (here === l[0]) a.setAttribute("aria-current", "page");
+        sn.appendChild(a);
+      });
+    }
     document.querySelectorAll(".footer-links").forEach(function (box) {
       box.innerHTML = "";
       LINKS.forEach(function (l) {

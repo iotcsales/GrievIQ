@@ -35,6 +35,12 @@
     "adm.role_data_moderator": "Data moderator",
     "adm.role_auditor": "Auditor",
     "adm.role_data_entry_operator": "Data entry operator",
+    "adm.nav_menu": "Menu",
+    "adm.nav_close": "Close",
+    "adm.nav_g_daily": "Daily work",
+    "adm.nav_g_data": "Areas & data",
+    "adm.nav_g_people": "People & audit",
+    "adm.nav_main": "Admin pages",
   };
   var PAGE_NAMES = {
     "admin-dashboard": "Dashboard", "admin-cases": "Cases", "admin-checks": "Checks", "admin-audit": "Audit",
@@ -123,6 +129,7 @@
   function run() {
     if (!info) return;
     applyMenu();
+    tidyGroups();
     applyPage();
     clearTimeout(failSafe);
     root.classList.remove("adm-nav-pending");
@@ -155,6 +162,7 @@
     box.innerHTML = "<h1>" + esc(t(paused ? "adm.nav_paused_title" : "adm.nav_left_title")) + "</h1><p>" +
       esc(paused ? t("adm.nav_paused", { date: dayText(blocked.leaveUntil) }) : t("adm.nav_left")) + "</p><p>" + esc(t("adm.nav_denied_help")) + "</p>";
     document.querySelectorAll("nav a[href]").forEach(function (a) { a.style.display = "none"; });
+    tidyGroups();
   }
   function showCovering() {
     if (!info || !info.covering || !info.covering.length || document.getElementById("adm-covering")) return;
@@ -173,6 +181,131 @@
   }
   style.textContent += ".adm-covering{margin:0 0 18px;padding:10px 14px;border-radius:8px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px}";
 
+  // ---- The menu, on every screen size (WCAG 2.2: 1.4.10 Reflow, 2.5.8 Target size) ----
+  // The pages' own header markup lists every admin page in one row. Here it
+  // is rebuilt into: Dashboard, three groups (Daily work / Areas & data /
+  // People & audit) and Visitors. On a laptop (1024 px and wider) each group
+  // opens a small list; on phones and tablets a single "Menu" button opens all
+  // groups as large buttons. The links themselves are the page's own (moved,
+  // not copied), so translations and the role rules above keep working.
+  var GROUPS = [
+    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback"] },
+    { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
+    { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
+  ];
+  var TOP = ["admin-dashboard"], TAIL = ["admin-visitors"];
+  style.textContent +=
+    "header.adm-nav2{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;justify-content:flex-start!important;gap:6px 14px!important;padding:10px 20px!important;position:relative}" +
+    "header.adm-nav2 .brand{display:block;margin-right:6px;white-space:nowrap}header.adm-nav2 .brand .service-tag{display:block;font-size:12px;white-space:normal}" +
+    "header.adm-nav2 .header-right{display:contents}" +
+    "#adm-menu{display:flex;align-items:center;gap:2px;flex:1 1 auto;min-width:0}" +
+    "#adm-menu a{margin:0!important;display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:8px;text-decoration:none;white-space:nowrap}" +
+    "#adm-menu a[aria-current=page],#adm-menu a.active{color:var(--admin-text,#fff);font-weight:600;background:rgba(127,127,127,.14)}" +
+    ".adm-grp{position:relative}" +
+    ".adm-grp>button{font:inherit;font-size:14px;min-height:40px;padding:0 12px;border-radius:8px;border:1px solid transparent;background:none;color:var(--admin-muted,#9aa4b2);cursor:pointer;white-space:nowrap}" +
+    ".adm-grp>button::after{content:'';display:inline-block;margin-left:7px;border:4px solid transparent;border-top-color:currentColor;transform:translateY(2px)}" +
+    ".adm-grp>button:hover,.adm-grp>button[aria-expanded=true],.adm-grp.has-active>button{color:var(--admin-text,#fff);background:rgba(127,127,127,.14)}" +
+    ".adm-grp>button:focus-visible,#adm-menu a:focus-visible,#adm-menu-btn:focus-visible{outline:3px solid #FFDD00;outline-offset:1px}" +
+    ".adm-drop{position:absolute;left:0;top:calc(100% + 6px);min-width:220px;z-index:50;display:none;flex-direction:column;gap:2px;padding:6px;border-radius:10px;border:1px solid var(--admin-border,#2c3543);background:var(--admin-panel,#1c222c);box-shadow:0 12px 28px rgba(0,0,0,.35)}" +
+    "html.light-theme .adm-drop{background:#fff;box-shadow:0 12px 28px rgba(0,0,0,.12)}" +
+    ".adm-grp>button[aria-expanded=true]+.adm-drop{display:flex}" +
+    ".adm-drop a{width:100%;box-sizing:border-box;color:var(--admin-text,#e6e9ee)!important}" +
+    ".adm-drop-h{display:none}" +
+    "#adm-tools{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}" +
+    "#adm-tools button{margin:0!important;min-height:36px}#adm-tools .adm-acct{margin-left:0}" +
+    "#adm-menu-btn{display:none;margin-left:auto;font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--admin-border,#2c3543);background:var(--admin-panel,#1c222c);color:var(--admin-text,#e6e9ee);cursor:pointer;align-items:center;gap:8px}" +
+    "html.light-theme #adm-menu-btn{background:#eef0f3;color:#14181f}" +
+    "#adm-menu-btn svg{width:18px;height:18px}" +
+    // Phones and tablets: one Menu button; everything inside it.
+    "@media (max-width:1023px){" +
+      "header.adm-nav2{padding:8px 14px!important}" +
+      "header.adm-nav2 .brand .service-tag{display:none}" +
+      "#adm-menu-btn{display:inline-flex}" +
+      "#adm-menu,#adm-tools{display:none;flex-basis:100%;width:100%}" +
+      "header.adm-open #adm-menu{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:8px 0 4px}" +
+      "header.adm-open #adm-tools{display:flex;gap:8px;padding:12px 0 6px;border-top:1px solid var(--admin-border,#2c3543);margin-left:0}" +
+      "#adm-menu .adm-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}" +
+      ".adm-grp>button{display:none}" +
+      ".adm-drop{display:grid!important;position:static;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0;border:0;background:none!important;box-shadow:none!important;min-width:0}" +
+      ".adm-drop-h{display:block;grid-column:1/-1;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--admin-muted,#9aa4b2);margin:2px 0 0}" +
+      "#adm-menu a{min-height:44px;background:rgba(127,127,127,.12);white-space:normal;line-height:1.25;padding:6px 12px}" +
+      "#adm-menu a[aria-current=page],#adm-menu a.active{background:var(--admin-accent,#4c7cf0);color:#fff!important}" +
+      "#adm-tools button{min-height:44px}#adm-tools .adm-acct{width:100%;justify-content:space-between;margin-top:0}" +
+      "main{padding-left:14px!important;padding-right:14px!important}" +
+    "}" +
+    "@media (min-width:1024px){#adm-menu .adm-top{display:contents}}" +
+    // Screen-reader-only text inside a scrolling table must not widen the page.
+    ".table-wrap{position:relative}";
+  function buildNav() {
+    var header = document.querySelector("header");
+    var nav = header && header.querySelector("nav");
+    if (!header || !nav || document.getElementById("adm-menu")) return;
+    var links = {};
+    nav.querySelectorAll("a[href]").forEach(function (a) { var k = pageKey(a.getAttribute("href")); if (k) links[k] = a; if (a.classList.contains("active")) a.setAttribute("aria-current", "page"); });
+    var tools = document.createElement("div"); tools.id = "adm-tools";
+    nav.querySelectorAll("button").forEach(function (b) { tools.appendChild(b); });
+    var menu = document.createElement("nav"); menu.id = "adm-menu";
+    menu.setAttribute("aria-label", t("adm.nav_main"));
+    var top = document.createElement("div"); top.className = "adm-top";
+    TOP.forEach(function (k) { if (links[k]) top.appendChild(links[k]); });
+    menu.appendChild(top);
+    GROUPS.forEach(function (g) {
+      var wrap = document.createElement("div"); wrap.className = "adm-grp"; wrap.dataset.grp = g.id;
+      var btn = document.createElement("button"); btn.type = "button"; btn.setAttribute("aria-expanded", "false");
+      btn.setAttribute("aria-controls", "adm-drop-" + g.id); btn.dataset.key = g.key; btn.textContent = t(g.key);
+      var drop = document.createElement("div"); drop.className = "adm-drop"; drop.id = "adm-drop-" + g.id;
+      var h = document.createElement("div"); h.className = "adm-drop-h"; h.dataset.key = g.key; h.textContent = t(g.key); h.setAttribute("aria-hidden", "true");
+      drop.appendChild(h);
+      g.pages.forEach(function (k) { if (links[k]) { drop.appendChild(links[k]); if (links[k].getAttribute("aria-current") === "page") wrap.classList.add("has-active"); } });
+      wrap.appendChild(btn); wrap.appendChild(drop); menu.appendChild(wrap);
+      btn.addEventListener("click", function () { var open = btn.getAttribute("aria-expanded") === "true"; closeDrops(); if (!open) btn.setAttribute("aria-expanded", "true"); });
+    });
+    var tail = document.createElement("div"); tail.className = "adm-top";
+    TAIL.forEach(function (k) { if (links[k]) tail.appendChild(links[k]); });
+    // Any page link not in a group (a future page) stays reachable.
+    Object.keys(links).forEach(function (k) { if (!links[k].parentNode || links[k].parentNode === nav) tail.appendChild(links[k]); });
+    menu.appendChild(tail);
+    var mb = document.createElement("button"); mb.type = "button"; mb.id = "adm-menu-btn"; mb.setAttribute("aria-expanded", "false"); mb.setAttribute("aria-controls", "adm-menu");
+    nav.parentNode.insertBefore(menu, nav);
+    nav.parentNode.insertBefore(tools, nav);
+    nav.remove();
+    var brand = header.querySelector(".brand");
+    if (brand && brand.nextSibling) header.insertBefore(mb, brand.nextSibling); else header.appendChild(mb);
+    header.classList.add("adm-nav2");
+    drawMenuBtn();
+    mb.addEventListener("click", function () { var open = !header.classList.contains("adm-open"); header.classList.toggle("adm-open", open); drawMenuBtn(); });
+    document.addEventListener("click", function (e) { if (!e.target.closest || !e.target.closest(".adm-grp")) closeDrops(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var openBtn = document.querySelector('.adm-grp>button[aria-expanded="true"]');
+      if (openBtn) { closeDrops(); openBtn.focus(); }
+      else if (header.classList.contains("adm-open")) { header.classList.remove("adm-open"); drawMenuBtn(); mb.focus(); }
+    });
+    menu.addEventListener("focusout", function (e) { var g = e.target.closest && e.target.closest(".adm-grp"); if (g && !g.contains(e.relatedTarget)) { var b = g.querySelector("button"); if (b) b.setAttribute("aria-expanded", "false"); } });
+    tidyGroups();
+  }
+  function closeDrops() { document.querySelectorAll('.adm-grp>button[aria-expanded="true"]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); }); }
+  function drawMenuBtn() {
+    var mb = document.getElementById("adm-menu-btn"), header = document.querySelector("header");
+    if (!mb) return;
+    var open = header.classList.contains("adm-open");
+    mb.setAttribute("aria-expanded", open ? "true" : "false");
+    mb.innerHTML = (open ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>') + "<span></span>";
+    mb.lastChild.textContent = t(open ? "adm.nav_close" : "adm.nav_menu");
+  }
+  // A group whose pages the role can't use disappears entirely.
+  function tidyGroups() {
+    document.querySelectorAll(".adm-grp").forEach(function (g) {
+      var any = Array.prototype.some.call(g.querySelectorAll("a"), function (a) { return a.style.display !== "none" && !a.hidden; });
+      g.style.display = any ? "" : "none";
+    });
+    document.querySelectorAll(".adm-grp>button, .adm-drop-h").forEach(function (el) { el.textContent = t(el.dataset.key); });
+    var m = document.getElementById("adm-menu"); if (m) m.setAttribute("aria-label", t("adm.nav_main"));
+    drawMenuBtn();
+  }
+  ready(buildNav);
+
   // ---- Sign out, and automatic sign-out after an hour without activity ----
   // Signing out ends the Cloudflare Access session (for all GrievIQ admin
   // pages), so getting back in needs a new code. The idle limit follows the
@@ -183,10 +316,11 @@
   function drawAccount() {
     var box = document.getElementById("adm-acct");
     if (!box) {
+      var tools = document.getElementById("adm-tools");
       var nav = document.querySelector("header nav");
-      if (!nav) return;
+      if (!tools && !nav) return;
       box = document.createElement("div"); box.id = "adm-acct"; box.className = "adm-acct";
-      nav.parentNode.insertBefore(box, nav.nextSibling);
+      if (tools) tools.appendChild(box); else nav.parentNode.insertBefore(box, nav.nextSibling);
     }
     var who = info ? (info.name ? info.name + (info.employeeId ? " (" + info.employeeId + ")" : "") : info.email) : "";
     box.innerHTML = (who ? '<span class="adm-who">' + esc(t("adm.nav_signed_in_as", { who: who })) + "</span> " : "") +
@@ -274,5 +408,5 @@
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); drawSkip(); if (document.getElementById("adm-idle")) tick(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
 })();

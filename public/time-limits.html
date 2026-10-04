@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="tl.page_title">Time limits — GrievIQ</title>
+<meta name="last-updated" content="2026-10-04">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
+    --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7;
+    --border: #E7E4DC; --radius: 14px;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .trust-strip {
+    background: var(--ink); color: #C7C2B8; font-size: 11px; padding: 7px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-shell { max-width: 560px; margin: 0 auto; padding: 20px 20px 60px; min-height: 100vh; }
+  .app-card {
+    background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); padding: 28px 24px 26px; margin-top: 20px;
+  }
+  header.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  header.brand .logo-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: #13233F;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  header.brand .logo-mark svg { width: 24px; height: 24px; }
+  header.brand span.brand-name { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; }
+  .back-link { display: inline-block; font-size: 12.5px; color: var(--teal-dark); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+  h1 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 23px; line-height: 1.3; margin: 18px 0 8px; }
+  h2 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
+  p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 14px; }
+  .note-box {
+    background: var(--teal-tint); border-radius: 12px; padding: 14px 16px;
+    font-size: 13px; color: var(--teal-dark); margin: 18px 0;
+  }
+  .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: 11.5px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+  ul.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 6px; }
+  p a, li a { color: var(--teal-dark); }
+
+  .tl-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0 18px; }
+  .tl-table th, .tl-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .tl-table th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-soft); font-weight: 600; }
+  .tl-table td:first-child { font-weight: 600; color: var(--ink); }
+  .tl-wrap { overflow-x: auto; }
+  .tl-steps { list-style: none; padding: 0; margin: 0 0 18px; counter-reset: s; }
+  .tl-steps li { position: relative; padding: 0 0 12px 34px; font-size: 14px; line-height: 1.55; color: var(--ink-soft); }
+  .tl-steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .tl-note { font-size: 13px; color: var(--ink-soft); background: var(--teal-tint); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 0 0 16px; line-height: 1.5; }
+  @media (max-width: 560px) { .tl-table thead { display: none; } .tl-table tr { display: block; border-bottom: 1px solid var(--border); padding: 8px 0; } .tl-table td { display: block; border: 0; padding: 3px 0; } .tl-table td::before { content: attr(data-label) ": "; color: var(--ink-soft); font-weight: 500; } .tl-table td:first-child::before { content: ""; } }
+</style>
+<script src="/i18n.js?v=17a"></script>
+<script src="/site.js?v=17a" defer></script>
+</head>
+<body>
+  <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
+  <div class="card-shell">
+    <main class="app-card" id="main" tabindex="-1">
+      <a href="/" class="back-link" data-i18n="common.back_home">← Back to home</a>
+      <header class="brand">
+        <div class="logo-mark"><svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></div>
+        <span class="brand-text"><span class="brand-name">GrievIQ</span><span class="brand-tag" data-i18n="common.tagline">From complaint to resolution.</span></span>
+      </header>
+      <h1 data-i18n="tl.title">Time limits</h1>
+      <p data-i18n="tl.intro">How long each level has to deal with your complaint, so you know what to expect before you file.</p>
+      <h2 data-i18n="tl.h_how">How it works</h2>
+      <ol class="tl-steps">
+        <li data-i18n="tl.s1">When you file, your complaint goes straight to the representative of your ward or village.</li>
+        <li data-i18n="tl.s2">They must first acknowledge it, then act on it, within the time limits below for that type of problem.</li>
+        <li data-i18n="tl.s3">If they don't act in time, it moves up automatically to the next level (for example your MLA, then your MP) and that level gets the same time again. The level below can still see it.</li>
+        <li data-i18n="tl.s4">When it is marked fixed, you are asked to confirm. If it isn't really fixed, you can say so and it is reopened.</li>
+      </ol>
+      <p class="tl-note" data-i18n="tl.note">Time is counted in hours from the moment you file, including weekends and holidays. Your exact dates are shown after you file and on the Track page.</p>
+      <h2 data-i18n="tl.h_table">Time limits by type of problem</h2>
+      <div class="tl-wrap" id="tl-area"><p data-i18n="tl.loading">Loading…</p></div>
+      <p data-i18n="tl.legal">Some problems, such as land disputes, need a legal review first. They have no fixed time to act; you can follow them on the Track page.</p>
+      <p data-i18n-html="tl.more">These limits are set by GrievIQ for each type of problem and are the same for every ward. Questions? See <a href="/help">Help &amp; contact</a>.</p>
+      <div class="footer-block">
+        <div class="footer-links"></div>
+        <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  function T(k, v) { return window.GIQ ? GIQ.t(k, v) : k; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  var cats = null;
+  function fmt(h) { return window.GIQ_TAT ? GIQ_TAT(h) : h + " h"; }
+  function draw() {
+    var box = document.getElementById("tl-area");
+    if (!cats) return;
+    if (!cats.length) { box.innerHTML = "<p>" + esc(T("tl.none")) + "</p>"; return; }
+    var rows = cats.map(function (c) {
+      var name = window.GIQ && GIQ.category ? GIQ.category(c.id, c.name) : c.name;
+      var act = c.resolution_sla_hours ? fmt(c.resolution_sla_hours) : T("tl.legal_short");
+      return "<tr><td>" + esc(name) + '</td><td data-label="' + esc(T("tl.col_ack")) + '">' + esc(c.ack_sla_hours ? fmt(c.ack_sla_hours) : "—") + '</td><td data-label="' + esc(T("tl.col_act")) + '">' + esc(act) + "</td></tr>";
+    }).join("");
+    box.innerHTML = '<table class="tl-table"><thead><tr><th scope="col">' + esc(T("tl.col_problem")) + '</th><th scope="col">' + esc(T("tl.col_ack")) + '</th><th scope="col">' + esc(T("tl.col_act")) + "</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+      '<p class="tl-note">' + esc(T("tl.top_note")) + "</p>";
+  }
+  fetch("/api/intake-options").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    cats = d && Array.isArray(d.categories) ? d.categories : [];
+    draw();
+  }).catch(function () { document.getElementById("tl-area").innerHTML = "<p>" + esc(T("common.generic_error")) + "</p>"; });
+  document.addEventListener("giq:lang", draw);
+})();
+</script>
+</body>
+</html>
