@@ -1,0 +1,26 @@
+# GrievIQ scheduler. Set up once (steps in the grieviq-19 instructions):
+#   1. Put your database id below (from: npx wrangler d1 list).
+#   2. From this folder: npx wrangler deploy
+#   3. Add the secrets: RESEND_API_KEY, OTP_FROM_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+name = "grieviq-scheduler"
+main = "index.js"
+compatibility_date = "2026-09-01"
+
+[triggers]
+# Minute 30 of every hour in UTC = on the hour in India (9:30 UTC is 3:00 pm IST).
+crons = ["30 * * * *"]
+
+[vars]
+SITE_ORIGIN = "https://grieviq.in"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "grieviq-db"
+database_id = "PASTE_YOUR_DATABASE_ID_HERE"
+
+# Optional: lets the hourly retention batch also remove photos of cases
+# whose retention has ended (otherwise the admin Dashboard does it).
+# Put your private photo bucket's name (from: npx wrangler r2 bucket list).
+# [[r2_buckets]]
+# binding = "PRIVATE_PHOTOS"
+# bucket_name = "PASTE_BUCKET_NAME"

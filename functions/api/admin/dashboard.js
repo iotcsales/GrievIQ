@@ -23,6 +23,7 @@
 // "Needs attention" uses the same shared logic as the Exceptions page.
 // All queries are aggregate JOINs -- no long IN (?,?,...) lists.
 
+import { deliveryHealth } from "../../_shared/notify.js";
 import { getVerifiedAdmin, PERMISSIONS, pagesFor } from "../../_shared/get-verified-admin.js";
 import { shapeObservation, todayIst } from "../../_shared/audit.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
@@ -239,6 +240,10 @@ export async function onRequestGet(context) {
     canSeeDemand: can(role, "view_demand"),
     visitorsToday: can(role, "view_visitors") ? await visitorsToday(env) : null,
     feedbackNew: can(role, "view_feedback") ? await feedbackNew(env) : null,
+    // Notifications (Oct 2026): replies from offices waiting, and whether
+    // notices are getting through (backup emails, phone alerts).
+    messagesUnread: can(role, "view_messages") ? await messagesUnread(env) : null,
+    delivery: can(role, "view_messages") ? await deliveryHealth(env) : null,
     // Card links follow the same page list as the menu (pagesFor), so a
     // card never leads to a page the role can't use.
     links: (() => {
@@ -252,6 +257,13 @@ export async function onRequestGet(context) {
     })(),
     generatedAt: new Date().toISOString(),
   });
+}
+
+async function messagesUnread(env) {
+  try {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM announcement_replies WHERE side = 'OFFICE' AND read_by_giq_at IS NULL").first();
+    return r ? Number(r.n) || 0 : 0;
+  } catch (e) { return null; }
 }
 
 // New (not yet read) citizen feedback, for the dashboard card.

@@ -31,10 +31,10 @@ import { teamMandates, ROLE } from "./team.js";
  *   | { ok: false, status: number, error: string }
  * >}
  */
-export async function getVerifiedRep(request, env) {
+export async function getVerifiedRep(request, env, opts) {
   let email = null, via = null;
   try {
-    email = await sessionEmail(request, env);
+    email = await sessionEmail(request, env, opts);
     if (email) via = "google";
   } catch (e) {
     email = null; // sessions table not there yet: fall back to Access

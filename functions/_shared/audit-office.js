@@ -155,6 +155,11 @@ function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").r
 // audit page, "office" = the rep console).
 export async function notifyAudit(env, request, toList, subject, lines, obsId, link) {
   const to = Array.from(new Set((toList || []).filter(Boolean).map((x) => String(x).toLowerCase())));
+  // Notifications (Oct 2026): observations for an office also appear under
+  // the bell and on phones (this email still goes, as before).
+  if (link === "office" && to.length) {
+    try { const N = await import("./notify.js"); await N.notifyObservation(env, env.SITE_ORIGIN || new URL(request.url).origin, to, obsId, null, subject); } catch (e) { /* ignore */ }
+  }
   if (!env.RESEND_API_KEY || !to.length) return false;
   const origin = new URL(request.url).origin;
   const url = link === "office" ? origin + "/rep.html#audit=" + encodeURIComponent(obsId) : origin + "/admin-audit.html#obs=" + encodeURIComponent(obsId);

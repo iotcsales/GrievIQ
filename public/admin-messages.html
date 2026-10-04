@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#13233F">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title data-i18n="adm.fb_page_title">GrievIQ Admin — Feedback</title>
+<title data-i18n="adm.ms_page_title">GrievIQ Admin — Messages</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=19"></script><script src="/admin-nav.js?v=r6"></script><style>
   :root {
     --admin-bg: #14181f;
@@ -225,13 +225,33 @@
   .st { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
   .st-NEW { background: #3a3423; color: #e8d38c; } .st-IN_PROGRESS { background: #1f3040; color: #8cc4ee; } .st-DONE { background: #1f3326; color: #a6e0b4; }
   html.light-theme .st-NEW { background: #fbf1d6; color: #6b4f12; } html.light-theme .st-IN_PROGRESS { background: #e3eefa; color: #1d4f80; } html.light-theme .st-DONE { background: #e6f4ea; color: #1f5f32; }
+
+  .ms-tiers { border: 0; padding: 0; margin: 10px 0 0; }
+  .ms-tiers legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; padding: 0; }
+  .ms-tiers label { display: flex; gap: 8px; align-items: center; font-size: 14px; min-height: 36px; font-weight: 400; margin: 0; }
+  .ms-tiers input { width: 20px; height: 20px; }
+  .form-row select { min-height: 36px; min-width: 220px; }
+  .ms-item { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .ms-item h3 { margin: 0; font-size: 15px; }
+  .ms-badge { display: inline-block; background: var(--admin-accent); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 700; padding: 1px 8px; margin-left: 6px; }
+  .ms-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; padding: 10px 12px; border-radius: 8px; background: rgba(127,127,127,.08); margin: 10px 0; }
+  .ms-thread { border-top: 1px solid var(--admin-border); padding-top: 12px; margin-top: 14px; }
+  .ms-thread h3 { font-size: 14px; margin: 0 0 8px; }
+  .ms-rep { border: 1px solid var(--admin-border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; font-size: 14px; }
+  .ms-rep.giq { border-left: 3px solid var(--admin-accent); }
+  .ms-rep .who { font-size: 12px; color: var(--admin-muted); margin-bottom: 3px; }
+  .ms-rep .txt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+  .linkbtn { background: none !important; border: 0 !important; color: var(--admin-accent) !important; text-decoration: underline; padding: 6px 0 !important; min-height: 36px; }
+  .dl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 6px 0 12px; }
+  .dl-cards .card .num { font-size: 22px; }
+  .form-row textarea { min-height: 110px; }
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback" class="active" aria-current="page">Feedback</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages" class="active" aria-current="page">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
     <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
     <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
@@ -240,8 +260,8 @@
 </header>
 
 <main id="main">
-  <h1 data-i18n="adm.fb_title">Feedback</h1>
-  <p class="subtitle" data-i18n="adm.fb_sub">What citizens tell us about the GrievIQ app through the "Send feedback" form. Each item is kept for one year, then deleted automatically.</p>
+  <h1 data-i18n="adm.ms_title">Messages</h1>
+  <p class="subtitle" data-i18n="adm.ms_sub">Send a message to representatives' offices and answer their replies. Each office's replies are a private conversation with GrievIQ. Case work stays on the case itself.</p>
   <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
 </main>
 
@@ -253,60 +273,151 @@ function esc(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function toDate(s) { if (!s) return null; const t = String(s); const d = new Date(t.indexOf("T") !== -1 ? t : t.replace(" ", "T") + "Z"); return isNaN(d) ? null : d; }
-function when(s) { const d = toDate(s); return d ? d.toLocaleString(loc(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : ""; }
+function when(s) { const d = toDate(s); return d ? d.toLocaleString(loc(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: !(window.GIQ && window.GIQ.lang === "hi") }) : ""; }
 async function api(url, opts) {
   try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
   catch (e) { return { ok: false, status: 0, body: {} }; }
 }
-let data = null, tab = "NEW", msg = null;
-const CAT = { BUG: "adm.fb_c_bug", CONFUSING: "adm.fb_c_confusing", SUGGESTION: "adm.fb_c_suggestion", OTHER: "adm.fb_c_other" };
-const ST = { NEW: "adm.fb_s_new", IN_PROGRESS: "adm.fb_s_progress", DONE: "adm.fb_s_done" };
+const post = (body) => api("/api/admin/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const TIER_KEYS = { LOCAL: "adm.ms_t_local", MAYOR: "adm.ms_t_mayor", MLA: "adm.ms_t_mla", MP: "adm.ms_t_mp" };
+const LEVEL = (label) => window.GIQ ? window.GIQ.level(label) : label;
+let data = null, detail = null, msg = null, form = { title: "", body: "", tiers: [], area: "" }, errs = {}, preview = null, replyErr = {};
+
+function audienceText(a) {
+  const t = (a.tiers || []).map((x) => T(TIER_KEYS[x])).join(", ");
+  const area = a.area ? ((data && data.areas || []).find((x) => x.id === a.area) || { name: a.area }).name : T("adm.ms_all_areas");
+  return t + " · " + area;
+}
 
 async function load() {
-  const r = await api("/api/admin/feedback?status=" + tab);
-  if (!r.ok) {
-    data = null;
-    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.fb_not_set_up") : T("adm.err_detail", { msg: r.body.error || r.status })) + "</div>";
-    return;
-  }
-  data = r.body; render();
+  const r = await api("/api/admin/messages");
+  if (!r.ok) { document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status })) + "</div>"; return; }
+  data = r.body;
+  if (location.hash.indexOf("#m=") === 0) return openDetail(decodeURIComponent(location.hash.slice(3)));
+  render();
+  if (location.hash === "#delivery") { const d = document.getElementById("delivery"); if (d) { d.scrollIntoView(); d.querySelector("h2").focus(); } }
 }
+
+function fieldErr(k) { return errs[k] ? '<p class="field-err" id="e-' + k + '">' + esc(T("adm.ms_err_" + k + "_" + errs[k])) + "</p>" : ""; }
+function inv(k) { return errs[k] ? ' aria-invalid="true" aria-describedby="e-' + k + '"' : ""; }
+
+function composeHtml() {
+  if (!data.canSend) return '<p class="note">' + esc(T("adm.ms_readonly")) + "</p>";
+  return '<section class="panel" aria-labelledby="c-h"><h2 id="c-h">' + esc(T("adm.ms_new")) + '</h2><p class="sub">' + esc(T("adm.ms_new_sub")) + "</p>" +
+    '<form id="compose" novalidate><div class="form-row">' +
+    '<label for="f-title">' + esc(T("adm.ms_f_title")) + '</label><input type="text" id="f-title" maxlength="120" value="' + esc(form.title) + '"' + inv("title") + ">" + fieldErr("title") +
+    '<label for="f-body">' + esc(T("adm.ms_f_body")) + '</label><p class="hint" id="h-body">' + esc(T("adm.ms_f_body_h")) + '</p><textarea id="f-body" maxlength="2000" aria-describedby="h-body' + (errs.body ? " e-body" : "") + '"' + (errs.body ? ' aria-invalid="true"' : "") + ">" + esc(form.body) + "</textarea>" + fieldErr("body") +
+    '<fieldset class="ms-tiers"' + (errs.tiers ? ' aria-describedby="e-tiers"' : "") + "><legend>" + esc(T("adm.ms_f_to")) + "</legend>" +
+      ["LOCAL", "MAYOR", "MLA", "MP"].map((t) => '<label><input type="checkbox" name="tier" value="' + t + '"' + (form.tiers.indexOf(t) !== -1 ? " checked" : "") + "> " + esc(T(TIER_KEYS[t])) + "</label>").join("") + "</fieldset>" + fieldErr("tiers") +
+    '<label for="f-area">' + esc(T("adm.ms_f_area")) + '</label><select id="f-area"' + inv("area") + '><option value="">' + esc(T("adm.ms_all_areas")) + "</option>" +
+      (data.areas || []).map((a) => '<option value="' + esc(a.id) + '"' + (form.area === a.id ? " selected" : "") + ">" + esc(a.name) + "</option>").join("") + "</select>" + fieldErr("area") +
+    '</div><p class="hint" id="preview" role="status">' + (preview ? esc(T("adm.ms_preview", { offices: preview.offices, people: preview.people })) : "") + "</p>" +
+    '<div class="actions"><button type="button" id="b-preview">' + esc(T("adm.ms_check")) + '</button><button type="submit" class="primary">' + esc(T("adm.ms_send")) + "</button></div></form></section>";
+}
+
+function deliveryHtml() {
+  const d = data.delivery || {};
+  if (d.missing) return "";
+  const fails = (d.recentFailures || []).length ? '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.ms_dl_when")) + '</th><th scope="col">' + esc(T("adm.ms_dl_to")) + '</th><th scope="col">' + esc(T("adm.ms_dl_why")) + "</th></tr></thead><tbody>" +
+    d.recentFailures.map((f) => "<tr><td>" + esc(when(f.at)) + "</td><td>" + esc(f.to) + "</td><td>" + esc(f.error) + "</td></tr>").join("") + "</tbody></table></div>" : "";
+  return '<section class="panel" id="delivery" aria-labelledby="d-h"><h2 id="d-h" tabindex="-1">' + esc(T("adm.ms_dl_title")) + '</h2><p class="sub">' + esc(T("adm.ms_dl_sub")) + "</p>" +
+    (d.configured ? "" : '<p class="note">' + esc(T("adm.ms_dl_off")) + "</p>") +
+    '<div class="dl-cards">' +
+      '<div class="card"><div class="num">' + d.emailsToday + ' <small style="font-size:13px;font-weight:400">/ 100</small></div><div class="label">' + esc(T("adm.ms_dl_today")) + "</div></div>" +
+      '<div class="card"><div class="num">' + d.failed7d + '</div><div class="label">' + esc(T("adm.ms_dl_failed")) + "</div></div>" +
+      '<div class="card"><div class="num">' + d.pending + '</div><div class="label">' + esc(T("adm.ms_dl_pending")) + "</div></div>" +
+      '<div class="card"><div class="num">' + d.people + '</div><div class="label">' + esc(T("adm.ms_dl_people", { devices: d.devices })) + "</div></div>" +
+    "</div>" + (d.emailsToday >= d.limitWarn ? '<p class="msg err" role="alert">' + esc(T("adm.ms_dl_warn")) + "</p>" : "") + fails + "</section>";
+}
+
 function render() {
   if (!data) return;
-  const c = data.counts;
-  const tabs = '<div class="tabs" role="group" aria-label="' + esc(T("adm.fb_show")) + '">' +
-    [["NEW", T("adm.fb_s_new") + " (" + c.NEW + ")"], ["IN_PROGRESS", T("adm.fb_s_progress") + " (" + c.IN_PROGRESS + ")"], ["DONE", T("adm.fb_s_done") + " (" + c.DONE + ")"], ["ALL", T("adm.fb_all")]]
-      .map((t) => '<button type="button" data-tab="' + t[0] + '" aria-pressed="' + (tab === t[0]) + '">' + esc(t[1]) + "</button>").join("") + "</div>";
+  detail = null;
   const top = msg ? '<div class="msg ' + (msg.err ? "err" : "ok") + '" role="' + (msg.err ? "alert" : "status") + '" id="top-msg" tabindex="-1">' + esc(msg.text) + "</div>" : "";
-  const items = data.items.length ? data.items.map(card).join("") : '<p class="empty">' + esc(T(tab === "NEW" ? "adm.fb_none_new" : "adm.fb_none")) + "</p>";
-  document.getElementById("content").innerHTML = top + tabs + items;
-  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; msg = null; load(); }));
-  document.querySelectorAll("form.fb-edit").forEach((f) => f.addEventListener("submit", save));
+  const list = (data.messages || []).length ? data.messages.map((m) =>
+    '<article class="ms-item" aria-labelledby="mh-' + esc(m.id) + '"><h3 id="mh-' + esc(m.id) + '">' + esc(m.title) + (m.unread ? '<span class="ms-badge">' + esc(T("adm.ms_unread_n", { n: m.unread })) + "</span>" : "") + "</h3>" +
+    '<div class="fb-meta">' + esc(T("adm.ms_sent_meta", { when: when(m.at), who: m.by })) + "</div>" +
+    '<div class="fb-meta">' + esc(audienceText(m.audience)) + " · " + esc(T("adm.ms_reach", { offices: m.offices, people: m.recipients })) + " · " + esc(T(m.replies === 1 ? "adm.ms_replies1" : "adm.ms_replies", { n: m.replies })) + "</div>" +
+    '<button type="button" class="linkbtn" data-open="' + esc(m.id) + '">' + esc(T("adm.ms_open")) + "</button></article>").join("")
+    : '<p class="empty">' + esc(T("adm.ms_none")) + "</p>";
+  document.getElementById("content").innerHTML = top + composeHtml() + '<section aria-labelledby="l-h"><h2 id="l-h" style="font-size:16px">' + esc(T("adm.ms_sent")) + "</h2>" + list + "</section>" + deliveryHtml();
+  document.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openDetail(b.dataset.open)));
+  const f = document.getElementById("compose");
+  if (f) {
+    f.addEventListener("submit", send);
+    document.getElementById("b-preview").addEventListener("click", doPreview);
+    f.addEventListener("input", () => { readForm(); preview = null; const p = document.getElementById("preview"); if (p) p.textContent = ""; });
+  }
 }
-function card(it) {
-  const ref = it.trackingRef ? '<div class="fb-row"><b>' + esc(T("adm.fb_ref")) + "</b> " + esc(it.trackingRef) + "</div>" : "";
-  const email = it.email
-    ? '<div class="fb-row"><b>' + esc(T("adm.fb_email")) + "</b> " + (it.emailMasked ? esc(it.email) + ' <span class="muted">' + esc(T("adm.fb_email_hidden")) + "</span>" : '<a href="mailto:' + esc(it.email) + '">' + esc(it.email) + "</a>") + "</div>"
-    : '<div class="fb-row"><b>' + esc(T("adm.fb_email")) + "</b> " + esc(T("adm.fb_no_email")) + "</div>";
-  const handled = it.updatedBy ? '<div class="fb-meta">' + esc(T("adm.fb_updated", { who: it.updatedBy, when: when(it.updatedAt) })) + "</div>" : "";
-  const note = !data.canManage && it.note ? '<div class="fb-row"><b>' + esc(T("adm.fb_note")) + "</b> " + esc(it.note) + "</div>" : "";
-  const edit = data.canManage ? '<form class="fb-edit" data-id="' + esc(it.id) + '" novalidate>' +
-      '<div><label for="s-' + esc(it.id) + '">' + esc(T("adm.fb_status")) + '</label><select id="s-' + esc(it.id) + '">' +
-        ["NEW", "IN_PROGRESS", "DONE"].map((s) => '<option value="' + s + '"' + (s === it.status ? " selected" : "") + ">" + esc(T(ST[s])) + "</option>").join("") + "</select></div>" +
-      '<div><label for="n-' + esc(it.id) + '">' + esc(T("adm.fb_note")) + ' <span class="muted">' + esc(T("adm.fb_note_hint")) + '</span></label><textarea id="n-' + esc(it.id) + '" maxlength="1000" rows="1">' + esc(it.note || "") + "</textarea></div>" +
-      '<div><button type="submit" class="primary">' + esc(T("adm.fb_save")) + "</button></div></form>" : "";
-  return '<article class="fb" aria-labelledby="h-' + esc(it.id) + '"><div class="fb-head"><div><div class="fb-cat" id="h-' + esc(it.id) + '">' + esc(T(CAT[it.category] || "adm.fb_c_other")) + '</div><div class="fb-meta">' + esc(when(it.createdAt)) + (it.lang === "hi" ? " · " + esc(T("adm.fb_in_hindi")) : "") + "</div></div>" +
-    '<span class="st st-' + esc(it.status) + '">' + esc(T(ST[it.status])) + "</span></div>" +
-    (it.message ? '<div class="fb-msg">' + esc(it.message) + "</div>" : '<div class="fb-msg none">' + esc(T("adm.fb_no_message")) + "</div>") +
-    ref + email + note + handled + edit + "</article>";
+function readForm() {
+  form.title = document.getElementById("f-title").value;
+  form.body = document.getElementById("f-body").value;
+  form.tiers = Array.from(document.querySelectorAll('input[name="tier"]:checked')).map((x) => x.value);
+  form.area = document.getElementById("f-area").value;
 }
-async function save(ev) {
-  ev.preventDefault();
-  const f = ev.target, id = f.dataset.id;
-  const r = await api("/api/admin/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: document.getElementById("s-" + id).value, note: document.getElementById("n-" + id).value }) });
-  msg = r.ok ? { text: T("adm.fb_saved") } : { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
-  await load();
-  const m = document.getElementById("top-msg"); if (m) m.focus();
+function focusFirstErr() { const k = ["title", "body", "tiers", "area"].find((x) => errs[x]); if (!k) return; const el = k === "tiers" ? document.querySelector('input[name="tier"]') : document.getElementById("f-" + k); if (el) el.focus(); }
+async function doPreview() {
+  readForm(); errs = {};
+  if (!form.tiers.length) { errs.tiers = "REQUIRED"; render(); focusFirstErr(); return; }
+  const r = await post({ action: "preview", tiers: form.tiers, area: form.area || null });
+  if (!r.ok) { errs = r.body.fields || {}; msg = r.body.fields ? null : { err: true, text: r.body.error || T("adm.network") }; render(); focusFirstErr(); return; }
+  preview = r.body; render(); document.getElementById("b-preview").focus();
+}
+async function send(ev) {
+  ev.preventDefault(); readForm(); errs = {};
+  if (form.title.trim().length < 3) errs.title = "REQUIRED";
+  if (form.body.trim().length < 3) errs.body = "REQUIRED";
+  if (!form.tiers.length) errs.tiers = "REQUIRED";
+  if (Object.keys(errs).length) { render(); focusFirstErr(); return; }
+  const pv = await post({ action: "preview", tiers: form.tiers, area: form.area || null });
+  if (!pv.ok) { errs = pv.body.fields || {}; render(); focusFirstErr(); return; }
+  if (!pv.body.offices) { errs.tiers = "NO_OFFICES"; render(); focusFirstErr(); return; }
+  if (!confirm(T("adm.ms_confirm", { offices: pv.body.offices, people: pv.body.people }))) return;
+  const r = await post({ action: "send", title: form.title, body: form.body, tiers: form.tiers, area: form.area || null });
+  if (!r.ok) { errs = r.body.fields || {}; msg = r.body.fields ? null : { err: true, text: r.body.error || T("adm.network") }; render(); focusFirstErr(); return; }
+  form = { title: "", body: "", tiers: [], area: "" }; preview = null;
+  msg = { text: T("adm.ms_sent_ok", { offices: r.body.offices, people: r.body.people }) };
+  await load(); const m = document.getElementById("top-msg"); if (m) m.focus();
+}
+
+async function openDetail(id) {
+  const r = await api("/api/admin/messages?id=" + encodeURIComponent(id));
+  if (!r.ok) { msg = { err: true, text: r.body.error || T("adm.network") }; render(); return; }
+  detail = r.body;
+  if (location.hash !== "#m=" + encodeURIComponent(id)) history.replaceState(null, "", "#m=" + encodeURIComponent(id));
+  drawDetail();
+  const h = document.getElementById("dh"); if (h) h.focus();
+  // Opening the message counts as reading the offices' replies (senders only).
+  if (detail.canSend) for (const t of detail.threads) if (t.unread) post({ action: "read", id: detail.message.id, office: t.office });
+}
+function drawDetail(focusId, live) {
+  const d = detail, m = d.message;
+  const threads = d.threads.length ? d.threads.map((t, i) => {
+    const e = replyErr[t.office];
+    return '<section class="ms-thread" aria-labelledby="th-' + i + '"><h3 id="th-' + i + '">' + esc(LEVEL(t.label) + " – " + t.name) + (t.unread ? '<span class="ms-badge">' + esc(T("adm.ms_new_reply")) + "</span>" : "") + "</h3>" +
+      t.replies.map((x) => '<div class="ms-rep' + (x.side === "GRIEVIQ" ? " giq" : "") + '"><div class="who">' + esc((x.side === "GRIEVIQ" ? T("adm.ms_giq") + " (" + x.author + ")" : x.author) + " · " + when(x.at)) + '</div><div class="txt">' + esc(x.body) + "</div></div>").join("") +
+      (d.canSend ? '<div class="form-row"><label for="r-' + i + '">' + esc(T("adm.ms_reply_label")) + '</label><textarea id="r-' + i + '" maxlength="2000" data-office="' + esc(t.office) + '"' + (e ? ' aria-invalid="true" aria-describedby="re-' + i + '"' : "") + "></textarea>" +
+        (e ? '<p class="field-err" id="re-' + i + '">' + esc(e) + "</p>" : "") + '<div class="actions"><button type="button" class="primary" data-reply="' + i + '">' + esc(T("adm.ms_reply_send")) + "</button></div></div>" : "") + "</section>";
+  }).join("") : '<p class="empty">' + esc(T("adm.ms_no_replies")) + "</p>";
+  document.getElementById("content").innerHTML =
+    '<p><button type="button" class="linkbtn" id="back">‹ ' + esc(T("adm.ms_back")) + "</button></p>" +
+    '<article class="panel"><h2 id="dh" tabindex="-1" style="font-size:18px">' + esc(m.title) + "</h2>" +
+    '<div class="fb-meta">' + esc(T("adm.ms_sent_meta", { when: when(m.at), who: m.by })) + " · " + esc(audienceText(m.audience)) + " · " + esc(T("adm.ms_reach", { offices: m.offices, people: m.recipients })) + "</div>" +
+    '<div class="ms-body">' + esc(m.body) + "</div>" +
+    '<h2 style="font-size:15px;margin-top:18px">' + esc(T("adm.ms_replies_h")) + "</h2>" + threads + '<p class="visually-hidden" role="status" id="d-live">' + esc(live || "") + "</p></article>";
+  document.getElementById("back").addEventListener("click", () => { history.replaceState(null, "", location.pathname); msg = null; load(); });
+  document.querySelectorAll("[data-reply]").forEach((b) => b.addEventListener("click", async () => {
+    const ta = document.getElementById("r-" + b.dataset.reply), office = ta.dataset.office, val = ta.value.trim();
+    if (val.length < 2) { replyErr[office] = T("adm.ms_err_body_REQUIRED"); drawDetail(ta.id); return; }
+    b.disabled = true;
+    const r = await post({ action: "reply", id: d.message.id, office, body: val });
+    if (!r.ok) { replyErr[office] = r.body.error || T("adm.network"); drawDetail(ta.id); return; }
+    delete replyErr[office];
+    const again = await api("/api/admin/messages?id=" + encodeURIComponent(d.message.id));
+    if (again.ok) detail = again.body;
+    drawDetail(ta.id, T("adm.ms_reply_sent"));
+  }));
+  if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
 }
 
 function applyTheme(theme) {
@@ -324,7 +435,7 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
 document.addEventListener("giq:lang", () => {
   let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
   applyTheme(th);
-  if (data) render();
+  if (detail) drawDetail(); else if (data) { if (document.getElementById("compose")) readForm(); render(); }
 });
 load();
 </script>

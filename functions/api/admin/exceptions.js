@@ -26,6 +26,7 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { findExceptionCases } from "../../_shared/exception-cases.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../../_shared/escalation.js";
+import { notifyNudge } from "../../_shared/notify.js";
 import { recipientName, greetingHtml, SAFETY_LINE } from "../../_shared/audit-office.js";
 
 const FINAL_OR_WAITING = ["RESOLVED", "CLOSED", "PENDING_CONFIRMATION"];
@@ -172,6 +173,10 @@ export async function onRequestPost({ request, env }) {
       recipients.push({ ...p, status, detail });
     }
   }
+
+  // 2b. Notifications (Oct 2026): the nudge also appears under each
+  //     office's bell and on their phones (the email above already went).
+  await notifyNudge(env, env.SITE_ORIGIN || new URL(request.url).origin, g, chain, category, result.currentTierIndex);
 
   // 3. Audit log.
   await logEvent(env, auth.email, "exception_nudged", g.id, {

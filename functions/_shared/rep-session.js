@@ -87,7 +87,9 @@ export async function createSession(env, request, email) {
 
 // The signed-in email for this request, or null. Ends the session if it
 // has been idle too long or reached its absolute limit.
-export async function sessionEmail(request, env) {
+// opts.noTouch: a background check (the notification bell) that must not
+// count as activity, so the 60-minute idle sign-out still happens.
+export async function sessionEmail(request, env, opts) {
   const token = readCookie(request, COOKIE);
   if (!token || token.length < 20 || token.length > 100) return null;
   const idHash = await sha256Hex(token);
@@ -104,7 +106,7 @@ export async function sessionEmail(request, env) {
       .bind(new Date(now).toISOString(), expired ? "ABSOLUTE_TIMEOUT" : "IDLE_TIMEOUT", idHash).run();
     return null;
   }
-  if (now - last >= TOUCH_EVERY_MS) {
+  if (!(opts && opts.noTouch) && now - last >= TOUCH_EVERY_MS) {
     await env.DB.prepare("UPDATE rep_sessions SET last_seen_at = ? WHERE id_hash = ?").bind(new Date(now).toISOString(), idHash).run();
   }
   return String(row.email).toLowerCase();

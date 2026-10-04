@@ -6,11 +6,12 @@
 // in the team activity log. Item 8c-1: the field worker must cover the
 // case's ward and not be on leave.
 
+import { notifyAssigned } from "../../../_shared/notify.js";
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { caseAccess, canManageCases, activeAssignment, logTeam, onBehalfOf, officeInfo, coversWard, ROLE } from "../../../_shared/team.js";
 
-export async function onRequestPost({ request, env, params }) {
+export async function onRequestPost({ request, env, params, waitUntil }) {
   const auth = await getVerifiedRep(request, env);
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
   let body;
@@ -63,5 +64,10 @@ export async function onRequestPost({ request, env, params }) {
   if (stmts.length) await env.DB.batch(stmts);
   await logTeam(env, { officeTier: m.tier, officeId: m.id, actor: auth.email, actorRole: access.role, onBehalf: onBehalfOf(m, auth),
     action: email ? "ASSIGNED" : "UNASSIGNED", grievanceId: g.id, detail: email ? { to: email, name: member.member_name, from: current ? current.assignee_email : null } : { from: current ? current.assignee_email : null } });
+  // Notifications (Oct 2026): the field worker hears about it.
+  if (email) {
+    const told = notifyAssigned(env, env.SITE_ORIGIN || new URL(request.url).origin, g, email, { tier: m.tier, id: m.id });
+    if (typeof waitUntil === "function") waitUntil(told); else await told;
+  }
   return Response.json({ ok: true });
 }

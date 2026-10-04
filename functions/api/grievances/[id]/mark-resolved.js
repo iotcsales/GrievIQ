@@ -29,6 +29,7 @@
 //     approves it (review-report.js).
 // Every action goes in the team activity log.
 
+import { notifyFixReport } from "../../../_shared/notify.js";
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
@@ -126,6 +127,9 @@ export async function onRequestPost(context) {
 
   if (isFieldWorker) {
     await logTeam(env, { ...teamBase, action: "FIX_REPORT_SUBMITTED", detail: { reportId, photos: photoIds.length } });
+    // Notifications (Oct 2026): those who approve fix reports hear about it.
+    const told = notifyFixReport(env, env.SITE_ORIGIN || new URL(request.url).origin, grievance, access.mandate, reportId, auth.email);
+    if (typeof context.waitUntil === "function") context.waitUntil(told); else await told;
     return Response.json({ status: "SUBMITTED_FOR_APPROVAL", reportId });
   }
 

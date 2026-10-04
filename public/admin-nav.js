@@ -189,7 +189,7 @@
   // groups as large buttons. The links themselves are the page's own (moved,
   // not copied), so translations and the role rules above keep working.
   var GROUPS = [
-    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback"] },
+    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
   ];

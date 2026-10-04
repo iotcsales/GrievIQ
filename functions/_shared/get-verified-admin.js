@@ -77,6 +77,10 @@ export const PERMISSIONS = {
   // roles; the auditor reads (with citizens' emails partly hidden).
   view_feedback: ["super_admin", "operations_admin", "auditor"],
   manage_feedback: ["super_admin", "operations_admin"],
+  // Notifications (Oct 2026): messages from GrievIQ to representatives'
+  // offices and the replies. The auditor reads (independent oversight).
+  view_messages: ["super_admin", "operations_admin", "auditor"],
+  send_messages: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -99,6 +103,7 @@ export const PAGES = {
   "admin-visitors": "view_visitors",
   "admin-areas": "view_areas",
   "admin-feedback": "view_feedback",
+  "admin-messages": "view_messages",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

@@ -5,7 +5,9 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
+<link rel="manifest" href="/rep.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GrievIQ Rep">
 <meta name="theme-color" content="#13233F">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,8 +18,9 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=18b"></script>
+<script src="/i18n.js?v=19"></script>
 <script src="/photo-tools.js?v=7c"></script>
+<script src="/rep-notify.js?v=19"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -2712,6 +2715,20 @@ function showCaseFromAudit(caseId) {
   if (row) { row.setAttribute('tabindex', '-1'); row.scrollIntoView({ block: 'center' }); row.focus(); row.classList.add('au-flash'); }
 }
 
+// Used by the notification bell (rep-notify.js): open a case, or the Cases tab.
+window.GIQ_REP = {
+  showCase: function(caseId) {
+    var cs = currentCases.filter(function(x) { return x.id === caseId; })[0];
+    if (!cs) { activeTab = 'cases'; renderShell(); renderFilters(); renderContent(); var st = document.getElementById('resolve-status'); if (st) st.textContent = T('rn.case_gone'); return; }
+    showCaseFromAudit(caseId);
+  },
+  showCases: function() {
+    activeTab = 'cases'; activeMandateId = null; activeWardId = null; activeCatId = null; ovJump = null; filterKey = '';
+    renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
+    var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+  },
+};
+
 function renderShell() {
   document.getElementById('app').innerHTML =
     '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
@@ -2721,7 +2738,7 @@ function renderShell() {
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
         '<div><p class="console-title">' + esc(T('rep.title')) + '</p><p class="console-subtitle">' + esc(T('rep.subtitle')) + '</p></div>' +
       '</div>' +
-      '<div class="console-header-right">' +
+      '<div class="console-header-right"><span id="notif-slot"></span>' +
         (currentMe && currentMe.via === 'google' ? '<div class="who-signed">' + esc(currentMe.email) + ' &middot; <button type="button" class="signout-btn" id="signout-btn">' + esc(T('rep.signout')) + '</button></div>' : '') +
       '</div>' +
     '</div></div>' +
@@ -2742,6 +2759,7 @@ function renderShell() {
   renderViewingControl();
   updateSummary();
   updateTabs();
+  if (window.GIQN) window.GIQN.mount();   // the notification bell (rep-notify.js)
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var tab = btn.getAttribute('data-tab');
@@ -3336,7 +3354,7 @@ async function init() {
   // Item 9c: the Audit tab appears once the office has an observation; a
   // link from an audit email (#audit=<id>) opens it directly.
   await fetchAuditList();
-  var auHash = /^#audit=(.+)$/.exec(location.hash);
+  var auHash = /^#audit=([^&]+)/.exec(location.hash);
   if (auHash && hasAuditTab()) { activeTab = 'audit'; auditId = decodeURIComponent(auHash[1]); }
   if (activeTab === 'audit' && !hasAuditTab()) activeTab = 'cases';
   // Item 8b: tabs this person can't use fall back to Cases.
@@ -3348,6 +3366,14 @@ async function init() {
   else if (activeTab === 'overview') { renderFilters(); loadOverview(); }
   else if (activeTab === 'audit') { renderContent(); if (auditId) loadAuditDetail(); }
   else { renderFilters(); renderContent(); }
+  // Links from notifications: #case=<id>, #msg=<message id>, with &n=<notice> to mark it read.
+  var nHash = /[#&]n=([^&]+)/.exec(location.hash);
+  var caseHash = /^#case=([^&]+)/.exec(location.hash);
+  var msgHash = /^#msg=([^&]+)/.exec(location.hash);
+  if (nHash && window.GIQN) window.GIQN.markRead(decodeURIComponent(nHash[1]));
+  if (caseHash) window.GIQ_REP.showCase(decodeURIComponent(caseHash[1]));
+  if (msgHash && window.GIQN) window.GIQN.openMessage(decodeURIComponent(msgHash[1]));
+  if (caseHash || msgHash || (nHash && !auHash)) history.replaceState(null, '', location.pathname + location.search);
 }
 
 // Switching हिन्दी / English redraws the console from the data already

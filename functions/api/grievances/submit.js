@@ -18,6 +18,7 @@
 // only if they are not already attached to another. photo_url is no longer
 // written (it held public links before 7c).
 
+import { notifyNewCase } from "../../_shared/notify.js";
 import { pointInGeometry } from "../../_shared/geo.js";
 
 // 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
@@ -89,7 +90,7 @@ function nextSteps(category) {
   };
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost({ request, env, waitUntil }) {
   let body;
   try {
     body = await request.json();
@@ -297,6 +298,15 @@ export async function onRequestPost({ request, env }) {
         // Ignore -- the grievance is already saved.
       }
     }
+
+    // Notifications (Oct 2026): the ward's office hears about it at once
+    // (bell, phone, or backup email) and the citizen gets their reference
+    // by email. After the reply where the platform allows; never blocks.
+    const told = notifyNewCase(env, env.SITE_ORIGIN || new URL(request.url).origin, {
+      id, tracking_ref: trackingRef, category_id, local_unit_id, created_at: new Date().toISOString(),
+      citizen_email: trimmedEmail || null, lang: lang === "hi" ? "hi" : "en", status: "OPEN",
+    });
+    if (typeof waitUntil === "function") waitUntil(told); else await told;
 
     return new Response(
       JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category) }),
