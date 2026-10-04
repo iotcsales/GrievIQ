@@ -292,6 +292,8 @@
 "Wards reachable",
 "उपलब्ध वार्ड"
 ],
+"home.stat_wards_in": ["Wards reachable in {place}", "{place} में उपलब्ध वार्ड"],
+"home.stat_wards_areas": ["Wards reachable across {n} cities and districts", "{n} शहरों और ज़िलों में उपलब्ध वार्ड"],
 "home.stat_levels_value": [
 "Up to 4",
 "अधिकतम 4"

@@ -423,7 +423,7 @@
     .home-main .emergency, .home-main .need-box { font-size: 13.5px; }
   }
 </style>
-<script src="/i18n.js?v=17a"></script>
+<script src="/i18n.js?v=18b"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
@@ -460,7 +460,7 @@
 
 
     <div class="stats" aria-label="GrievIQ at a glance" data-i18n-aria="home.glance">
-      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label" data-i18n="home.stat_wards">Wards reachable</div></div>
+      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label" id="stat-wards-label">Wards reachable</div></div>
       <div class="stat"><div class="stat-value" data-i18n="home.stat_levels_value">Up to 4</div><div class="stat-label" data-i18n="home.stat_levels">Escalation levels</div></div>
       <div class="stat"><div class="stat-value" id="stat-device">0</div><div class="stat-label" data-i18n="home.stat_device">Reports on this device</div></div>
     </div>
@@ -581,7 +581,33 @@
   function forget() { try { localStorage.removeItem(PLACE_KEY); } catch (e) {} }
   function remembered() { try { const v = JSON.parse(localStorage.getItem(PLACE_KEY) || 'null'); return v && v.id ? v : null; } catch (e) { return null; } }
 
+  // "Wards reachable" follows the place, like the heading: once Home knows
+  // the city or district (a ward found, or a covered city picked), it
+  // counts only that area's wards; otherwise it counts every live area
+  // and says how many cities/districts that covers.
+  function drawWardStat() {
+    const d = window.GIQ_INTAKE, num = $('stat-wards'), lab = $('stat-wards-label');
+    if (!d || !Array.isArray(d.localUnits) || !num || !lab) return;
+    const areas = Array.isArray(d.areas) ? d.areas : [];
+    let area = null;
+    if (current && current.place) {
+      const u = d.localUnits.find((x) => String(x.id) === String(current.place.id));
+      if (u && u.area_id) area = areas.find((a) => a.id === u.area_id) || null;
+    } else if (outside && coveredArea(outside)) area = coveredArea(outside).area;
+    if (!area && areas.length === 1) area = areas[0];
+    if (area) {
+      num.textContent = d.localUnits.filter((u) => !u.area_id || u.area_id === area.id).length;
+      lab.textContent = T('home.stat_wards_in', { place: area.name });
+    } else {
+      num.textContent = d.localUnits.length;
+      lab.textContent = areas.length > 1 ? T('home.stat_wards_areas', { n: areas.length }) : T('home.stat_wards');
+    }
+  }
+  document.addEventListener('giq:intake', drawWardStat);
+  document.addEventListener('giq:lang', drawWardStat);
+
   function setTitle() {
+    drawWardStat();
     const h1 = document.querySelector('h1');
     if (current && current.place) h1.textContent = T('home.loc_title', { place: current.place.name });
     else if (outside && coveredArea(outside)) h1.textContent = T('home.loc_title', { place: coveredArea(outside).area.name });
