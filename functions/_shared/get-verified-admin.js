@@ -67,6 +67,12 @@ export const PERMISSIONS = {
   view_demand: ["super_admin", "operations_admin", "auditor"],
   // Visitor count and live visitor map (anonymous, city level only).
   view_visitors: ["super_admin", "operations_admin", "auditor"],
+  // Areas (cities and districts): adding one, adding wards and villages by
+  // hand, and switching an area on for citizens are senior decisions; data
+  // entry operators see the areas (and request changes on Jurisdiction);
+  // the auditor reads.
+  view_areas: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
+  manage_areas: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -87,6 +93,7 @@ export const PAGES = {
   "admin-retention": "view_retention",
   "admin-audit": null,   // everyone: the observations they own
   "admin-visitors": "view_visitors",
+  "admin-areas": "view_areas",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

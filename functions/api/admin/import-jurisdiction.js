@@ -11,6 +11,13 @@
 // rejected before any database work happens.
 
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { validateContact } from "../../_shared/contact-validation.js";
+import { areasReady, getArea } from "../../_shared/areas.js";
+
+// Areas (cities and districts): every file is imported INTO one area,
+// chosen on the page (areaId), so its wards and villages are matched and
+// created there. dryRun: true only checks the file and says what would
+// happen -- nothing is saved -- so the page can show a preview first.
 
 function slugify(text) {
   return String(text)
@@ -105,6 +112,54 @@ async function findOrCreateByName(env, table, name, extraFieldsOnCreate, extraFi
   return { id, created: true };
 }
 
+// Problems with one row that mean it is skipped (null = fine).
+function rowProblem(get, row) {
+  const mpName = get(row, "mp_constituency_name");
+  const mlaName = get(row, "mla_constituency_name");
+  const unitName = get(row, "local_unit_name");
+  const unitType = (get(row, "unit_type") || "").toUpperCase();
+  if (!mpName || !mlaName || !unitName) return "missing MP constituency, MLA constituency, or ward/village name";
+  if (unitType !== "RURAL" && unitType !== "URBAN") return `unit_type must be RURAL or URBAN, got "${unitType}"`;
+  for (const [who, n, ph, em] of [["MP", "mp_name", "mp_phone", "mp_email"], ["MLA", "mla_name", "mla_phone", "mla_email"],
+    ["Mayor", "mayor_name", "mayor_phone", "mayor_email"], ["Representative", "rep_name", "rep_phone", "rep_email"]]) {
+    const v = validateContact({ name: get(row, n) || undefined, phone: get(row, ph) || undefined, email: get(row, em) || undefined });
+    if (!v.ok) return `${who} ${v.field}: ${v.error}`;
+  }
+  return null;
+}
+
+// What an import would do, without saving anything.
+async function preview(env, rows, get, area) {
+  const out = { rowsOk: 0, mpCreated: 0, mlaCreated: 0, municipalBodyCreated: 0, localUnitsCreated: 0, localUnitsUpdated: 0, withoutEmail: 0, errors: [] };
+  const seen = { mp: new Map(), mla: new Map(), mb: new Set(), unit: new Set() };
+  const byName = async (table, name) => env.DB.prepare(`SELECT id FROM ${table} WHERE LOWER(name) = LOWER(?)`).bind(name).first();
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r], rowNum = r + 1;
+    const problem = rowProblem(get, row);
+    if (problem) { out.errors.push(`Row ${rowNum}: ${problem} — would be skipped.`); continue; }
+    const mpName = get(row, "mp_constituency_name").toLowerCase();
+    const mlaName = get(row, "mla_constituency_name").toLowerCase();
+    const unitName = get(row, "local_unit_name").toLowerCase();
+    if (!seen.mp.has(mpName)) { const e = await byName("mp_constituencies", mpName); seen.mp.set(mpName, e ? e.id : null); if (!e) out.mpCreated++; }
+    let mlaId = seen.mla.get(mlaName);
+    if (mlaId === undefined) { const e = await byName("mla_constituencies", mlaName); mlaId = e ? e.id : null; seen.mla.set(mlaName, mlaId); if (!e) out.mlaCreated++; }
+    const mbName = (get(row, "municipal_body_name") || "").toLowerCase();
+    if (mbName && !seen.mb.has(mbName)) { seen.mb.add(mbName); if (!(await byName("municipal_bodies", mbName))) out.municipalBodyCreated++; }
+    const key = unitName + "|" + mlaName;
+    if (seen.unit.has(key)) { out.errors.push(`Row ${rowNum}: "${get(row, "local_unit_name")}" appears twice in this file under the same MLA constituency — the later row would update the earlier one.`); }
+    seen.unit.add(key);
+    const existing = mlaId ? await env.DB.prepare(`SELECT id${area ? ", area_id" : ""} FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?`).bind(unitName, mlaId).first() : null;
+    if (existing && area && existing.area_id && existing.area_id !== area.id) {
+      out.errors.push(`Row ${rowNum}: "${get(row, "local_unit_name")}" already exists in another area (${existing.area_id}) — would be skipped.`);
+      continue;
+    }
+    if (existing) out.localUnitsUpdated++; else if (!seen.unit.has(key + "#counted")) { out.localUnitsCreated++; seen.unit.add(key + "#counted"); }
+    if (!get(row, "rep_email")) out.withoutEmail++;
+    out.rowsOk++;
+  }
+  return out;
+}
+
 export async function onRequestPost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "run_import");
   if (!auth.ok) {
@@ -147,6 +202,20 @@ export async function onRequestPost({ request, env }) {
   header.forEach((col, i) => (colIndex[col] = i));
   const get = (row, col) => (colIndex[col] !== undefined ? clean(row[colIndex[col]]) : null);
 
+  // Which area the file is for (required once areas are set up).
+  const ready = await areasReady(env);
+  let area = null;
+  if (ready) {
+    area = body.areaId ? await getArea(env, body.areaId) : null;
+    if (!area) return Response.json({ error: "Choose the area (city or district) this file is for.", fields: { areaId: "REQUIRED" } }, { status: 400 });
+  }
+  if (rows.length > 5001) {
+    return Response.json({ error: "This file has more than 5,000 rows. Please split it into smaller files." }, { status: 400 });
+  }
+  if (body.dryRun === true) {
+    return Response.json({ preview: true, area: area ? { id: area.id, name: area.name } : null, summary: await preview(env, rows, get, area) });
+  }
+
   const summary = {
     rowsProcessed: 0,
     mpCreated: 0,
@@ -167,12 +236,9 @@ export async function onRequestPost({ request, env }) {
       const localUnitName = get(row, "local_unit_name");
       const unitType = (get(row, "unit_type") || "").toUpperCase();
 
-      if (!mpName || !mlaName || !localUnitName) {
-        summary.errors.push(`Row ${rowNum}: missing MP, MLA, or local unit name — skipped.`);
-        continue;
-      }
-      if (unitType !== "RURAL" && unitType !== "URBAN") {
-        summary.errors.push(`Row ${rowNum}: unit_type must be RURAL or URBAN, got "${unitType}" — skipped.`);
+      const problem = rowProblem(get, row);
+      if (problem) {
+        summary.errors.push(`Row ${rowNum}: ${problem} — skipped.`);
         continue;
       }
 
@@ -215,13 +281,13 @@ export async function onRequestPost({ request, env }) {
           env,
           "municipal_bodies",
           municipalBodyName,
-          {
+          Object.assign(area ? { area_id: area.id } : {}, {
             mla_constituency_id: mla.id,
             has_mayor: hasMayor,
             mayor_name: get(row, "mayor_name"),
             mayor_phone: get(row, "mayor_phone"),
             mayor_email: get(row, "mayor_email"),
-          },
+          }),
           {
             has_mayor: hasMayor,
             mayor_name: get(row, "mayor_name"),
@@ -237,10 +303,16 @@ export async function onRequestPost({ request, env }) {
       // Matched by name + MLA constituency, since ward names/numbers can
       // repeat across different cities/constituencies.
       const existingUnit = await env.DB.prepare(
-        `SELECT id FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?`
+        `SELECT id${area ? ", area_id" : ""} FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?`
       )
         .bind(localUnitName, mla.id)
         .first();
+      // Never move a ward or village between areas by accident.
+      if (existingUnit && area && existingUnit.area_id && existingUnit.area_id !== area.id) {
+        summary.errors.push(`Row ${rowNum}: "${localUnitName}" already exists in another area (${existingUnit.area_id}) — skipped.`);
+        continue;
+      }
+      const block = unitType === "RURAL" ? get(row, "block") : null;
 
       const repName = get(row, "rep_name");
       const repPhone = get(row, "rep_phone");
@@ -252,20 +324,20 @@ export async function onRequestPost({ request, env }) {
           `UPDATE local_units
              SET unit_type = ?, municipal_body_id = ?, rep_name = COALESCE(?, rep_name),
                  rep_phone = COALESCE(?, rep_phone), rep_email = COALESCE(?, rep_email),
-                 localities = COALESCE(?, localities)
+                 localities = COALESCE(?, localities)${area ? ", area_id = ?, block = COALESCE(?, block)" : ""}
            WHERE id = ?`
         )
-          .bind(unitType, municipalBodyId, repName, repPhone, repEmail, localities, existingUnit.id)
+          .bind(...[unitType, municipalBodyId, repName, repPhone, repEmail, localities].concat(area ? [area.id, block] : []), existingUnit.id)
           .run();
         summary.localUnitsUpdated++;
       } else {
         const id = `lu-${slugify(localUnitName)}-${slugify(mlaName)}`;
         await env.DB.prepare(
           `INSERT INTO local_units
-             (id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email, localities)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             (id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email, localities${area ? ", area_id, block" : ""})
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?${area ? ", ?, ?" : ""})`
         )
-          .bind(id, localUnitName, unitType, mla.id, municipalBodyId, repName, repPhone, repEmail, localities)
+          .bind(...[id, localUnitName, unitType, mla.id, municipalBodyId, repName, repPhone, repEmail, localities].concat(area ? [area.id, block] : []))
           .run();
         summary.localUnitsCreated++;
       }
@@ -283,8 +355,8 @@ export async function onRequestPost({ request, env }) {
       crypto.randomUUID(),
       auth.email,
       "import_jurisdiction",
-      "local_units",
-      JSON.stringify(summary)
+      area ? area.id : "local_units",
+      JSON.stringify(Object.assign({ area: area ? area.id : null }, summary))
     ).run();
 
     return Response.json({ success: true, summary });

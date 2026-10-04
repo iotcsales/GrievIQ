@@ -148,8 +148,16 @@
   html.light-theme .summary-box.err { border-color: #e8c3bf; }
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  .area-row { margin-bottom: 12px; }
+  .area-row label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .area-row select { min-width: 280px; max-width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 38px; }
+  html.light-theme .area-row select { background: #fff; }
+  .area-row select[aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; } .field-err:empty { display: none; }
+  .area-help { font-size: 13px; color: var(--admin-muted); margin: 6px 0; } .area-help a { color: var(--admin-accent); }
+  .import-btn[hidden] { display: none; }
 </style>
-<script src="/i18n.js?v=14a"></script>
+<script src="/i18n.js?v=15a"></script>
 <script src="/admin-nav.js?v=r4"></script>
 </head>
 <body>
@@ -157,7 +165,7 @@
 <header>
   <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import" class="active">Import</a>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import" class="active">Import</a>
     <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
     <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
@@ -175,15 +183,25 @@
       <li data-i18n="adm.im_rule_once">MP, MLA, and municipal body rows that repeat across many wards are only created once — matched by name.</li>
       <li data-i18n="adm.im_rule_reupload">Re-uploading the same CSV updates existing rows instead of duplicating them.</li>
       <li data-i18n-html="adm.im_rule_localities"><code>localities</code> should be a semicolon-separated list, e.g. <code>Hazratganj; Ashok Marg</code>.</li>
+      <li data-i18n-html="adm.im_rule_block">For villages, an optional <code>block</code> column helps citizens find them.</li>
+      <li data-i18n="adm.im_rule_preview">You see what will happen before anything is saved: check the file first, then import.</li>
     </ul>
   </div>
 
   <div class="panel">
     <h2 data-i18n="adm.im_upload_h">Upload CSV</h2>
+    <div class="area-row">
+      <label for="areaSelect" data-i18n="adm.im_area">Which area (city or district) is this file for?</label>
+      <select id="areaSelect" aria-describedby="areaErr"><option value="" data-i18n="adm.loading">Loading…</option></select>
+      <div class="field-err" id="areaErr" role="alert"></div>
+      <p class="area-help"><span data-i18n="adm.im_area_help">Not in the list?</span> <a href="/admin-areas.html" data-i18n="adm.im_area_add">Add it on the Areas page</a></p>
+    </div>
+    <p class="area-help"><a href="/jurisdiction-template.csv" download data-i18n="adm.im_template">Download the template (CSV)</a></p>
     <div class="drop-zone" id="dropZone" data-i18n="adm.im_choose">Click to choose a CSV file</div>
     <input type="file" id="fileInput" accept=".csv,text/csv" />
     <div class="file-name" id="fileName"></div>
-    <button class="import-btn" id="importBtn" disabled data-i18n="adm.im_run">Run import</button>
+    <button class="import-btn" id="importBtn" disabled data-i18n="adm.im_check">Check the file</button>
+    <button class="import-btn" id="confirmBtn" hidden data-i18n="adm.im_confirm">Import now</button>
 
     <div class="summary-box" id="summaryBox"></div>
   </div>
@@ -214,6 +232,24 @@
     } else if (r.kind === 'network') {
       summaryBox.className = 'summary-box err';
       summaryBox.innerHTML = T('adm.im_network');
+    } else if (r.kind === 'preview') {
+      const s = r.summary;
+      let html = '<b>' + esc(T('adm.im_preview_h', { area: r.area ? r.area.name : '' })) + '</b>';
+      html += '<div class="stat-row"><span>' + T('adm.im_p_rows') + '</span><b>' + s.rowsOk + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.im_mp_created') + '</span><b>' + s.mpCreated + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.im_mla_created') + '</span><b>' + s.mlaCreated + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.im_mb_created') + '</span><b>' + s.municipalBodyCreated + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.im_units_created') + '</span><b>' + s.localUnitsCreated + '</b></div>';
+      html += '<div class="stat-row"><span>' + T('adm.im_units_updated') + '</span><b>' + s.localUnitsUpdated + '</b></div>';
+      if (s.withoutEmail) html += '<p>' + esc(T('adm.im_p_no_email', { n: s.withoutEmail })) + '</p>';
+      if (s.errors && s.errors.length > 0) {
+        html += '<div class="error-list"><b>' + T('adm.im_row_issues', { n: s.errors.length }) + '</b><ul>';
+        s.errors.forEach((e) => { html += '<li>' + esc(e) + '</li>'; });
+        html += '</ul></div>';
+      }
+      html += '<p>' + esc(T(s.rowsOk > 0 ? 'adm.im_p_next' : 'adm.im_p_nothing')) + '</p>';
+      summaryBox.className = 'summary-box ' + (s.errors && s.errors.length ? 'err' : 'ok');
+      summaryBox.innerHTML = html;
     } else {
       const s = r.summary;
       let html = '<b>' + T('adm.im_complete') + '</b>';
@@ -248,39 +284,70 @@
     reader.readAsText(file);
   });
 
-  importBtn.addEventListener('click', async () => {
+  // ---- Areas (city or district) ----
+  const areaSelect = document.getElementById('areaSelect');
+  const areaErr = document.getElementById('areaErr');
+  const confirmBtn = document.getElementById('confirmBtn');
+  let areas = null, areasMissing = false;
+  async function loadAreas() {
+    try {
+      const r = await fetch('/api/admin/areas');
+      const b = await r.json();
+      if (r.status === 503 && b.code === 'NOT_SET_UP') { areasMissing = true; document.querySelector('.area-row').hidden = true; return; }
+      areas = b.areas || [];
+    } catch (e) { areas = []; }
+    drawAreas();
+  }
+  function drawAreas() {
+    if (!areas) return;
+    const want = (location.search.match(/[?&]area=([^&]+)/) || [])[1];
+    const cur = areaSelect.value || (want ? decodeURIComponent(want) : '');
+    areaSelect.innerHTML = '<option value="">' + esc(T('adm.im_area_choose')) + '</option>' +
+      areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === cur ? ' selected' : '') + '>' + esc(a.name + ' (' + a.state + ')' + (a.live ? '' : ' — ' + T('adm.ar_setup'))) + '</option>').join('');
+  }
+  areaSelect.addEventListener('change', () => { areaErr.textContent = ''; areaSelect.removeAttribute('aria-invalid'); resetPreview(); });
+  function resetPreview() { confirmBtn.hidden = true; lastResult = null; summaryBox.style.display = 'none'; }
+  fileInput.addEventListener('change', resetPreview);
+
+  async function send(dryRun) {
     if (!csvText) return;
-    importBtn.disabled = true;
-    busy = true;
-    importBtn.textContent = T('adm.im_importing');
+    if (!areasMissing && !areaSelect.value) {
+      areaErr.textContent = T('adm.im_area_required'); areaSelect.setAttribute('aria-invalid', 'true'); areaSelect.focus(); return;
+    }
+    const btn = dryRun ? importBtn : confirmBtn;
+    btn.disabled = true; busy = true;
+    btn.textContent = T(dryRun ? 'adm.im_checking' : 'adm.im_importing');
     summaryBox.style.display = 'none';
     lastResult = null;
-
     try {
       const res = await fetch('/api/admin/import-jurisdiction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csv: csvText }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csv: csvText, areaId: areaSelect.value || null, dryRun }),
       });
       const data = await res.json();
-
       if (!res.ok) {
-        lastResult = { kind: 'failed', error: data.error || '' };
-        renderResult();
+        if (data.fields && data.fields.areaId) { areaErr.textContent = T('adm.im_area_required'); areaSelect.setAttribute('aria-invalid', 'true'); areaSelect.focus(); }
+        else { lastResult = { kind: 'failed', error: data.error || '' }; renderResult(); }
         return;
       }
-
-      lastResult = { kind: 'ok', summary: data.summary };
+      lastResult = dryRun ? { kind: 'preview', summary: data.summary, area: data.area } : { kind: 'ok', summary: data.summary };
+      confirmBtn.hidden = !dryRun || !(data.summary.rowsOk > 0);
       renderResult();
+      summaryBox.focus();
     } catch (err) {
       lastResult = { kind: 'network' };
       renderResult();
     } finally {
-      importBtn.disabled = false;
-      busy = false;
-      importBtn.textContent = T('adm.im_run');
+      btn.disabled = false; busy = false;
+      importBtn.textContent = T('adm.im_check');
+      confirmBtn.textContent = T('adm.im_confirm');
     }
-  });
+  }
+  importBtn.addEventListener('click', () => send(true));
+  confirmBtn.addEventListener('click', () => send(false));
+  summaryBox.setAttribute('tabindex', '-1');
+  loadAreas();
+
   function applyTheme(theme) {
     document.documentElement.classList.toggle("light-theme", theme === "light");
     document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
@@ -300,7 +367,9 @@
   document.addEventListener("giq:lang", () => {
     let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
     applyTheme(th);
-    importBtn.textContent = busy ? T('adm.im_importing') : T('adm.im_run');
+    importBtn.textContent = T('adm.im_check');
+    confirmBtn.textContent = T('adm.im_confirm');
+    drawAreas();
     renderResult();
   });
 </script>

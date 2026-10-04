@@ -8,6 +8,24 @@
 // follow different rules.
 
 import { validateContact, emailDomainCanReceive, EMAIL_RE } from "./contact-validation.js";
+import { areasReady } from "./areas.js";
+
+// Which area (city or district) a new ward or village goes in: the one
+// given, else the area most of its MLA constituency's wards are in, else
+// null (the caller asks the person to choose). Always null before the
+// areas update (there are no areas then).
+export async function areaForNewUnit(env, areaId, mlaId) {
+  if (!(await areasReady(env))) return { ok: true, areaId: null };
+  if (areaId) {
+    const a = await env.DB.prepare("SELECT id FROM areas WHERE id = ?").bind(String(areaId)).first();
+    return a ? { ok: true, areaId: a.id } : { ok: false, status: 400, error: "That area (city or district) was not found." };
+  }
+  const r = await env.DB.prepare(
+    "SELECT area_id, COUNT(*) AS n FROM local_units WHERE mla_constituency_id = ? AND area_id IS NOT NULL GROUP BY area_id ORDER BY n DESC LIMIT 1"
+  ).bind(String(mlaId || "")).first();
+  if (r && r.area_id) return { ok: true, areaId: r.area_id };
+  return { ok: false, status: 400, error: "Choose the area (city or district) this ward or village is in." };
+}
 
 // Which table and columns hold each kind of contact.
 export const CONTACT_TABLES = {
@@ -56,6 +74,7 @@ export async function checkNewUnit(env, input) {
   const repPhone = cleanField(input.repPhone, 40);
   const repEmail = cleanField(input.repEmail, 200);
   const localities = cleanField(input.localities, 1000);
+  const block = cleanField(input.block, 80);
 
   if (!mlaId) return { ok: false, status: 400, error: "Choose an MLA constituency." };
   if (!name) return { ok: false, status: 400, error: "Enter a name for the ward or village.", field: "name" };
@@ -84,6 +103,9 @@ export async function checkNewUnit(env, input) {
     if (!mb) return { ok: false, status: 400, error: "Municipal body not found." };
   }
 
+  const where = await areaForNewUnit(env, input.areaId, mla.id);
+  if (!where.ok) return { ok: false, status: where.status, error: where.error, field: "areaId" };
+
   // Same duplicate rule as the CSV importer: name + MLA constituency.
   const duplicate = await env.DB.prepare(
     "SELECT id FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?"
@@ -101,6 +123,7 @@ export async function checkNewUnit(env, input) {
       name, unitType, mlaId: mla.id, mlaName: mla.name || mla.id,
       mlaLabel: (mla.mla_name || "unnamed MLA") + (mla.name ? " (" + mla.name + ")" : ""),
       municipalBodyId, repName, repPhone, repEmail, localities,
+      areaId: where.areaId, block: unitType === "RURAL" ? block : null,
     },
   };
 }
@@ -117,10 +140,22 @@ export async function insertUnit(env, unit) {
     if (!taken) break;
     id = `${baseId}-${n}`;
   }
-  await env.DB.prepare(
-    `INSERT INTO local_units
-       (id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email, localities)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(id, unit.name, unit.unitType, unit.mlaId, unit.municipalBodyId, unit.repName, unit.repPhone, unit.repEmail, unit.localities).run();
+  await env.DB.prepare(insertUnitSql(unit)).bind(...insertUnitBinds(id, unit)).run();
   return id;
+}
+
+// The INSERT for a new ward/village (with its area and block once the
+// areas update has run; areaId is null before it).
+export function insertUnitSql(unit) {
+  return unit.areaId
+    ? `INSERT INTO local_units
+         (id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email, localities, area_id, block)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    : `INSERT INTO local_units
+         (id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email, localities)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+}
+export function insertUnitBinds(id, unit) {
+  const b = [id, unit.name, unit.unitType, unit.mlaId, unit.municipalBodyId, unit.repName, unit.repPhone, unit.repEmail, unit.localities];
+  return unit.areaId ? b.concat([unit.areaId, unit.block || null]) : b;
 }

@@ -73,6 +73,8 @@ function isPlausiblePhone(phone) {
 // The version of the privacy notice shown on the complaint form. Change it
 // whenever that notice's wording changes, so each consent record says which
 // text the citizen agreed to.
+import { liveJoin } from "../../_shared/areas.js";
+
 export const NOTICE_VERSION = "2026-10-03";
 
 // "What happens next, and by when" for the confirmation page, from the
@@ -180,8 +182,9 @@ export async function onRequestPost({ request, env }) {
       .bind(category_id)
       .first();
 
+    // Only wards and villages in an area that is live (switched on).
     const localUnit = await env.DB.prepare(
-      `SELECT id, rep_email, ward_boundary_geojson FROM local_units WHERE id = ?`
+      `SELECT lu.id, lu.rep_email, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.id = ?`
     )
       .bind(local_unit_id)
       .first();

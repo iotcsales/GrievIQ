@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.ar_page_title">GrievIQ Admin — Areas</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=15a"></script><script src="/admin-nav.js?v=r4"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  .req { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .req-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .req-head input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .req-title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+  .req-meta { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .status-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-PENDING { background: #3a3423; color: #d8c26f; } .st-APPROVED { background: #233a2b; color: #7fce8f; }
+  .st-REJECTED { background: #3a2323; color: #e2564f; } .st-WITHDRAWN, .st-OUT_OF_DATE { background: #2c3543; color: #9aa4b2; }
+  html.light-theme .st-PENDING { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-APPROVED { background: #e6f4ea; color: #1f7a3a; }
+  html.light-theme .st-REJECTED { background: #fbe7e5; color: #b23a30; } html.light-theme .st-WITHDRAWN, html.light-theme .st-OUT_OF_DATE { background: #eef0f3; color: #5b6472; }
+  table.cmp { margin-top: 10px; }
+  table.cmp td.changed { font-weight: 600; }
+  table.cmp .was { color: var(--admin-muted); text-decoration: line-through; }
+  .ood { margin-top: 8px; font-size: 13px; color: var(--admin-danger); }
+  .why { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .why b { color: var(--admin-muted); font-weight: 600; }
+  .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .reject-box { display: none; width: 100%; }
+  .reject-box.open { display: block; }
+  .reject-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); margin-top: 6px; }
+  html.light-theme .reject-box textarea { background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .row-msg { font-size: 13px; margin-top: 8px; } .row-msg:empty { display: none; }
+  .row-msg.error, #summary.error { color: var(--admin-danger); } .row-msg.success, #summary.success { color: #7fce8f; }
+  html.light-theme .row-msg.success, html.light-theme #summary.success { color: #1f7a3a; }
+  #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
+  .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
+  a.src { color: var(--admin-accent); word-break: break-all; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  main { max-width: 980px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .card { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 26px; font-weight: 700; }
+  .card .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.4; }
+  .panel p.sub { color: var(--admin-muted); font-size: 13px; margin: -8px 0 14px; line-height: 1.5; }
+  .form-row label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .form-row input[type=text], .form-row textarea { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=text], html.light-theme .form-row textarea { background: #fff; }
+  .form-row [aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  .hint { color: var(--admin-muted); font-size: 12.5px; margin: 0 0 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .msg { font-size: 14px; margin-top: 12px; padding: 10px 12px; border-radius: 6px; }
+  .msg:empty { display: none; }
+  .msg.ok { background: #1f3326; color: #a6e0b4; } .msg.err { background: var(--admin-danger-bg); color: var(--admin-danger); }
+  html.light-theme .msg.ok { background: #e6f4ea; color: #1f5f32; }
+  td .sub { display: block; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); }
+  details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+
+  main { max-width: 1060px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.live { background: #1f3326; color: #a6e0b4; } .pill.setup { background: #3a3423; color: #e8d38c; }
+  html.light-theme .pill.live { background: #e6f4ea; color: #1f5f32; } html.light-theme .pill.setup { background: #fbf1d6; color: #6b4f12; }
+  .checklist { list-style: none; padding: 0; margin: 0 0 14px; }
+  .checklist li { padding: 6px 0 6px 28px; position: relative; font-size: 14px; line-height: 1.45; }
+  .checklist li::before { position: absolute; left: 0; top: 5px; width: 20px; text-align: center; font-weight: 700; }
+  .checklist li.ok::before { content: "✓"; color: #7fce8f; } .checklist li.no::before { content: "✗"; color: var(--admin-danger); } .checklist li.opt::before { content: "○"; color: var(--admin-muted); }
+  html.light-theme .checklist li.ok::before { color: #1f7a3a; }
+  .ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .way { display: block; background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; color: var(--admin-text); text-decoration: none; text-align: left; font: inherit; cursor: pointer; min-height: 44px; }
+  .way:hover, .way:focus-visible { border-color: var(--admin-accent); }
+  .way b { display: block; font-size: 15px; margin-bottom: 4px; } .way span { display: block; font-size: 13px; color: var(--admin-muted); line-height: 1.45; }
+  fieldset { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; }
+  legend { font-weight: 600; font-size: 14px; padding: 0 6px; }
+  .grid2f { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; }
+  .form-row select { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 38px; }
+  html.light-theme .form-row select { background: #fff; }
+  .form-row input[type=email], .form-row input[type=tel] { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=email], html.light-theme .form-row input[type=tel] { background: #fff; }
+  .radios { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 6px; } .radios label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500 !important; margin: 0 !important; min-height: 32px; cursor: pointer; }
+  .radios input { width: 18px; height: 18px; }
+  .new-box { border-left: 3px solid var(--admin-accent); padding: 4px 0 4px 12px; margin: 8px 0 4px; }
+  .err-summary { border: 2px solid var(--admin-danger); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  .err-summary h3 { margin: 0 0 6px; font-size: 15px; color: var(--admin-danger); } .err-summary ul { margin: 0; padding-left: 18px; } .err-summary a { color: var(--admin-text); }
+  .back { display: inline-block; margin-bottom: 12px; color: var(--admin-accent); text-decoration: none; font-size: 14px; }
+  td.c, th.c { text-align: center; }
+  .yes { color: #7fce8f; font-weight: 700; } html.light-theme .yes { color: #1f7a3a; } .no { color: var(--admin-danger); font-weight: 700; }
+  @media (max-width: 640px) { td, th { padding: 8px 6px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas" class="active" aria-current="page">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main id="main">
+  <h1 data-i18n="adm.ar_title">Areas</h1>
+  <p class="subtitle" data-i18n="adm.ar_sub">The cities and districts GrievIQ covers. Add one, then its wards and villages, typed in one at a time or from a spreadsheet. Switch it on when it is ready: until then citizens don't see it.</p>
+  <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+async function api(url, opts) {
+  try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
+  catch (e) { return { ok: false, status: 0, body: {} }; }
+}
+const post = (b) => api("/api/admin/areas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+function selected() { const m = location.search.match(/[?&]id=([^&]+)/); return m ? decodeURIComponent(m[1]) : null; }
+
+let data = null;          // list, or one area's detail
+let msg = null;           // { err, text } shown at the top
+let createForm = { name: "", state: "Uttar Pradesh", kind: "CITY", errors: {} };
+let unitForm = null;      // the "type in one ward or village" form, when open
+let offForm = null;       // the "switch off" reason box, when open
+
+function newUnitForm() {
+  return { open: true, unitType: "URBAN", name: "", block: "", localities: "",
+    mpId: "", mpNew: { constituency: "", name: "", phone: "", email: "" },
+    mlaId: "", mlaNew: { constituency: "", name: "", phone: "", email: "" },
+    mbId: "", mbNew: { name: "", hasMayor: false, name2: "", phone: "", email: "" },
+    rep: { name: "", phone: "", email: "" }, errors: {}, busy: false };
+}
+
+async function load() {
+  const id = selected();
+  const r = await api("/api/admin/areas" + (id ? "?id=" + encodeURIComponent(id) : ""));
+  if (!r.ok) {
+    data = null;
+    const t = r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.ar_not_set_up") : r.body.code === "NOT_FOUND" ? T("adm.ar_not_found") : T("adm.err_detail", { msg: r.body.error || r.status });
+    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(t) + "</div>" + (id ? '<a class="back" href="/admin-areas.html">' + esc(T("adm.ar_back")) + "</a>" : "");
+    return;
+  }
+  data = r.body;
+  render();
+}
+
+function fieldErr(id, code, map) {
+  if (!code) return "";
+  return '<div class="field-err" id="' + id + '-err">' + esc(T((map && map[code]) || "adm.ar_e_" + code.toLowerCase())) + "</div>";
+}
+function inv(code, id) { return code ? ' aria-invalid="true" aria-describedby="' + id + '-err"' : ""; }
+function stateOptions(sel) { return (data.states || []).map((s) => '<option' + (s === sel ? " selected" : "") + ">" + esc(s) + "</option>").join(""); }
+function kindLabel(k) { return T(k === "DISTRICT" ? "adm.ar_kind_district" : "adm.ar_kind_city"); }
+
+function render() {
+  if (!data) return;
+  const box = document.getElementById("content");
+  const top = msg ? '<div class="msg ' + (msg.err ? "err" : "ok") + '" id="top-msg" tabindex="-1" role="' + (msg.err ? "alert" : "status") + '">' + esc(msg.text) + "</div>" : "";
+  box.innerHTML = top + (data.area ? renderArea() : renderList());
+  wire();
+}
+
+// ---- All areas ----
+function renderList() {
+  const rows = data.areas.map((a) =>
+    "<tr><td class=\"name\"><a href=\"?id=" + encodeURIComponent(a.id) + "\" style=\"color:inherit\">" + esc(a.name) + "</a><span class=\"sub\">" + esc(kindLabel(a.kind) + " · " + a.state) + "</span></td>" +
+    "<td>" + (a.live ? '<span class="pill live">' + esc(T("adm.ar_live")) + "</span>" : '<span class="pill setup">' + esc(T("adm.ar_setup")) + "</span>") + "</td>" +
+    "<td class=\"c\">" + a.urban + "</td><td class=\"c\">" + a.rural + "</td>" +
+    "<td class=\"c\">" + esc(T("adm.ar_x_of_y", { x: a.withEmail, y: a.units })) + "</td>" +
+    "<td class=\"c\">" + (a.urban ? esc(T("adm.ar_x_of_y", { x: a.withBoundary, y: a.urban })) : "—") + "</td></tr>").join("");
+  const table = data.areas.length
+    ? '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.ar_col_area")) + '</th><th scope="col">' + esc(T("adm.ar_col_status")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_col_wards")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_col_villages")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_col_email")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_col_maps")) + "</th></tr></thead><tbody>" + rows + "</tbody></table></div>"
+    : '<p class="empty">' + esc(T("adm.ar_none")) + "</p>";
+  const f = createForm, e = f.errors;
+  const create = data.canManage ? '<div class="panel"><h2>' + esc(T("adm.ar_add_h")) + '</h2><p class="sub">' + esc(T("adm.ar_add_p")) + "</p>" +
+    '<form id="create-form" novalidate>' +
+      '<div class="form-row"><label for="c-name">' + esc(T("adm.ar_f_name")) + '</label><p class="hint" id="c-name-hint">' + esc(T("adm.ar_f_name_h")) + '</p><input type="text" id="c-name" maxlength="80" value="' + esc(f.name) + '"' + inv(e.name, "c-name") + ">" + fieldErr("c-name", e.name) + "</div>" +
+      '<div class="form-row"><label for="c-state">' + esc(T("adm.ar_f_state")) + '</label><select id="c-state"' + inv(e.state, "c-state") + ">" + stateOptions(f.state) + "</select>" + fieldErr("c-state", e.state) + "</div>" +
+      '<div class="form-row"><fieldset style="border:0;padding:0;margin:10px 0 0"><legend style="padding:0;font-size:13px">' + esc(T("adm.ar_f_kind")) + '</legend><div class="radios">' +
+        '<label><input type="radio" name="c-kind" value="CITY"' + (f.kind === "CITY" ? " checked" : "") + "> " + esc(T("adm.ar_kind_city_long")) + "</label>" +
+        '<label><input type="radio" name="c-kind" value="DISTRICT"' + (f.kind === "DISTRICT" ? " checked" : "") + "> " + esc(T("adm.ar_kind_district_long")) + "</label></div></fieldset></div>" +
+      '<div class="actions"><button type="submit" class="primary" id="c-save">' + esc(T("adm.ar_add_btn")) + "</button></div></form></div>" : "";
+  return '<div class="panel"><h2>' + esc(T("adm.ar_list_h")) + "</h2>" + table + "</div>" + create;
+}
+
+// ---- One area ----
+function renderArea() {
+  const a = data.area, r = a.readiness, M = data.canManage;
+  const checks = '<ul class="checklist">' +
+    '<li class="' + (r.hasUnits ? "ok" : "no") + '">' + esc(T("adm.ar_chk_units", { w: a.urban, v: a.rural })) + "</li>" +
+    '<li class="' + (r.allHaveEmail ? "ok" : r.someHaveEmail ? "opt" : "no") + '">' + esc(T("adm.ar_chk_email", { x: a.withEmail, y: a.units })) + "</li>" +
+    (a.urban ? '<li class="' + (a.withBoundary === a.urban ? "ok" : "opt") + '">' + esc(T("adm.ar_chk_maps", { x: a.withBoundary, y: a.urban })) + "</li>" : "") +
+  "</ul>";
+  let liveBox = "";
+  if (M && !a.live) {
+    liveBox = '<button type="button" class="primary" id="go-live"' + (r.canGoLive ? "" : " disabled") + ">" + esc(T("adm.ar_go_live")) + "</button>" + (r.canGoLive ? "" : ' <span class="muted">' + esc(T("adm.ar_go_live_need")) + "</span>");
+  } else if (M && a.live) {
+    liveBox = offForm
+      ? '<form id="off-form" novalidate><div class="form-row"><label for="off-reason">' + esc(T("adm.ar_off_why")) + '</label><textarea id="off-reason" maxlength="300"' + inv(offForm.error, "off-reason") + ">" + esc(offForm.reason) + "</textarea>" + fieldErr("off-reason", offForm.error ? "LENGTH" : null, { LENGTH: "adm.ar_e_reason" }) + '</div><div class="actions"><button type="submit" class="danger">' + esc(T("adm.ar_off_btn")) + '</button><button type="button" id="off-cancel">' + esc(T("adm.ar_cancel")) + "</button></div></form>"
+      : '<button type="button" class="danger" id="go-off">' + esc(T("adm.ar_go_off")) + "</button>";
+  }
+  const status = a.live ? '<span class="pill live">' + esc(T("adm.ar_live")) + "</span>" : '<span class="pill setup">' + esc(T("adm.ar_setup")) + "</span>";
+  const ways = M ? '<div class="panel"><h2>' + esc(T("adm.ar_ways_h")) + '</h2><div class="ways">' +
+      '<button type="button" class="way" id="open-unit"><b>' + esc(T("adm.ar_way_type")) + "</b><span>" + esc(T("adm.ar_way_type_p")) + "</span></button>" +
+      '<a class="way" href="/admin-import.html?area=' + encodeURIComponent(a.id) + '"><b>' + esc(T("adm.ar_way_csv")) + "</b><span>" + esc(T("adm.ar_way_csv_p")) + "</span></a>" +
+      '<a class="way" href="/admin-import-wards.html?area=' + encodeURIComponent(a.id) + '"><b>' + esc(T("adm.ar_way_map")) + "</b><span>" + esc(T("adm.ar_way_map_p")) + "</span></a>" +
+    "</div>" + (unitForm ? renderUnitForm() : "") + "</div>" : "";
+  const units = data.units.length
+    ? '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.ar_u_name")) + '</th><th scope="col">' + esc(T("adm.ar_u_mla")) + '</th><th scope="col">' + esc(T("adm.ar_u_rep")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_u_email")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_u_map")) + "</th></tr></thead><tbody>" +
+      data.units.map((u) => "<tr><td class=\"name\">" + esc(u.name) + '<span class="sub">' + esc(T(u.type === "RURAL" ? "adm.ar_village" : "adm.ar_ward") + (u.block ? " · " + (/\bblock$/i.test(u.block) ? u.block : T("adm.ar_block_of", { b: u.block })) : "")) + "</span></td><td>" + esc(u.mla || "—") + "</td><td>" + esc(u.repName || "—") + "</td>" +
+        '<td class="c">' + (u.hasEmail ? '<span class="yes" aria-label="' + esc(T("adm.ar_yes")) + '">✓</span>' : '<span class="no" aria-label="' + esc(T("adm.ar_no")) + '">✗</span>') + "</td>" +
+        '<td class="c">' + (u.type === "RURAL" ? "—" : u.hasBoundary ? '<span class="yes" aria-label="' + esc(T("adm.ar_yes")) + '">✓</span>' : '<span class="muted">' + esc(T("adm.ar_no")) + "</span>") + "</td></tr>").join("") +
+      "</tbody></table></div>"
+    : '<p class="empty">' + esc(T("adm.ar_no_units")) + "</p>";
+  return '<a class="back" href="/admin-areas.html">' + esc(T("adm.ar_back")) + "</a>" +
+    '<div class="panel"><h2 style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + esc(a.name) + " " + status + '</h2><p class="sub">' + esc(kindLabel(a.kind) + " · " + a.state) + "</p>" +
+      '<h3 style="font-size:14px;margin:0 0 6px">' + esc(T("adm.ar_ready_h")) + "</h3>" + checks + liveBox + "</div>" +
+    ways +
+    '<div class="panel"><h2>' + esc(T("adm.ar_units_h", { n: data.units.length })) + "</h2>" + units + "</div>";
+}
+
+// ---- Type in one ward or village ----
+const SUMMARY_ORDER = ["unitType", "name", "block", "mp", "mpConstituency", "mpName", "mpPhone", "mpEmail", "mla", "mlaConstituency", "mlaName", "mlaPhone", "mlaEmail", "municipalBody", "mbName", "mayorName", "mayorPhone", "mayorEmail", "repName", "repPhone", "repEmail"];
+const FIELD_ID = { unitType: "u-type-urban", name: "u-name", block: "u-block", mp: "u-mp", mpConstituency: "u-mp-c", mpName: "u-mp-n", mpPhone: "u-mp-p", mpEmail: "u-mp-e", mla: "u-mla", mlaConstituency: "u-mla-c", mlaName: "u-mla-n", mlaPhone: "u-mla-p", mlaEmail: "u-mla-e", municipalBody: "u-mb", mbName: "u-mb-n", mayorName: "u-my-n", mayorPhone: "u-my-p", mayorEmail: "u-my-e", repName: "u-rep-n", repPhone: "u-rep-p", repEmail: "u-rep-e" };
+function fieldLabel(k) { return T("adm.ar_lbl_" + k); }
+function errText(k, code) {
+  const special = { mla: { WRONG_MP: "adm.ar_e_wrong_mp" }, name: { TAKEN: "adm.ar_e_unit_taken" } };
+  if (special[k] && special[k][code]) return T(special[k][code]);
+  if (/Phone$/.test(k) && code === "FORMAT") return T("adm.ar_e_phone");
+  if (/Email$/.test(k) && code === "FORMAT") return T("adm.ar_e_email");
+  if (/Email$/.test(k) && code === "DOMAIN") return T("adm.ar_e_domain");
+  return T("adm.ar_e_" + code.toLowerCase());
+}
+function input(id, key, value, opts) {
+  opts = opts || {};
+  const e = unitForm.errors[key];
+  return '<div class="form-row"><label for="' + id + '">' + esc(fieldLabel(key)) + (opts.optional ? ' <span class="muted">' + esc(T("adm.ar_optional")) + "</span>" : "") + "</label>" +
+    (opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + "</p>" : "") +
+    '<input type="' + (opts.type || "text") + '" id="' + id + '" data-k="' + esc(opts.path) + '" value="' + esc(value) + '"' + (opts.type === "tel" ? ' inputmode="tel" autocomplete="off"' : "") + (opts.type === "email" ? ' autocomplete="off"' : "") +
+    (e ? ' aria-invalid="true" aria-describedby="' + id + '-err"' : opts.hint ? ' aria-describedby="' + id + '-hint"' : "") + ">" +
+    (e ? '<div class="field-err" id="' + id + '-err">' + esc(errText(key, e)) + "</div>" : "") + "</div>";
+}
+function sel(id, key, path, options, value) {
+  const e = unitForm.errors[key];
+  return '<div class="form-row"><label for="' + id + '">' + esc(fieldLabel(key)) + '</label><select id="' + id + '" data-k="' + path + '"' + (e ? ' aria-invalid="true" aria-describedby="' + id + '-err"' : "") + ">" +
+    options.map((o) => '<option value="' + esc(o.v) + '"' + (o.v === value ? " selected" : "") + ">" + esc(o.t) + "</option>").join("") + "</select>" +
+    (e ? '<div class="field-err" id="' + id + '-err">' + esc(errText(key, e)) + "</div>" : "") + "</div>";
+}
+function renderUnitForm() {
+  const f = unitForm, e = f.errors;
+  const keys = SUMMARY_ORDER.filter((k) => e[k]);
+  const summary = keys.length ? '<div class="err-summary" id="u-summary" tabindex="-1" role="alert"><h3>' + esc(T("adm.ar_fix_h")) + "</h3><ul>" + keys.map((k) => '<li><a href="#' + FIELD_ID[k] + '">' + esc(fieldLabel(k) + ": " + errText(k, e[k])) + "</a></li>").join("") + "</ul></div>" : "";
+  const mpOpts = [{ v: "", t: T("adm.ar_choose") }].concat(data.mps.map((m) => ({ v: m.id, t: m.name + (m.mp_name ? " — " + m.mp_name : "") }))).concat([{ v: "__new", t: T("adm.ar_add_new_mp") }]);
+  const mlaList = f.mpId && f.mpId !== "__new" ? data.mlas.filter((m) => m.mp_constituency_id === f.mpId) : [];
+  const mlaOpts = [{ v: "", t: T("adm.ar_choose") }].concat(mlaList.map((m) => ({ v: m.id, t: m.name + (m.mla_name ? " — " + m.mla_name : "") }))).concat([{ v: "__new", t: T("adm.ar_add_new_mla") }]);
+  const mbs = data.municipalBodies.slice().sort((x, y) => (y.inThisArea - x.inThisArea) || x.name.localeCompare(y.name));
+  const mbOpts = [{ v: "", t: T("adm.ar_mb_none") }].concat(mbs.map((m) => ({ v: m.id, t: m.name }))).concat([{ v: "__new", t: T("adm.ar_add_new_mb") }]);
+  const urban = f.unitType === "URBAN";
+  return '<form id="unit-form" novalidate style="margin-top:16px">' + summary +
+    '<h3 style="font-size:16px;margin:0 0 12px">' + esc(T("adm.ar_way_type")) + "</h3>" +
+    "<fieldset><legend>" + esc(T("adm.ar_fs_place")) + "</legend>" +
+      '<div class="form-row"><fieldset style="border:0;padding:0;margin:0"><legend style="padding:0;font-size:13px;font-weight:600">' + esc(fieldLabel("unitType")) + '</legend><div class="radios">' +
+        '<label><input type="radio" name="u-type" id="u-type-urban" value="URBAN"' + (urban ? " checked" : "") + "> " + esc(T("adm.ar_type_ward")) + "</label>" +
+        '<label><input type="radio" name="u-type" value="RURAL"' + (!urban ? " checked" : "") + "> " + esc(T("adm.ar_type_village")) + "</label></div></fieldset></div>" +
+      '<div class="grid2f">' + input("u-name", "name", f.name, { path: "name", hint: T(urban ? "adm.ar_h_ward_name" : "adm.ar_h_village_name") }) +
+      (urban ? "" : input("u-block", "block", f.block, { path: "block", optional: true, hint: T("adm.ar_h_block") })) + "</div>" +
+      input("u-loc", "localities", f.localities, { path: "localities", optional: true, hint: T("adm.ar_h_localities") }) +
+    "</fieldset>" +
+    "<fieldset><legend>" + esc(T("adm.ar_fs_mp")) + "</legend>" + sel("u-mp", "mp", "mpId", mpOpts, f.mpId) +
+      (f.mpId === "__new" ? '<div class="new-box grid2f">' + input("u-mp-c", "mpConstituency", f.mpNew.constituency, { path: "mpNew.constituency" }) + input("u-mp-n", "mpName", f.mpNew.name, { path: "mpNew.name", optional: true }) + input("u-mp-p", "mpPhone", f.mpNew.phone, { path: "mpNew.phone", type: "tel", optional: true }) + input("u-mp-e", "mpEmail", f.mpNew.email, { path: "mpNew.email", type: "email", optional: true }) + "</div>" : "") +
+    "</fieldset>" +
+    "<fieldset><legend>" + esc(T("adm.ar_fs_mla")) + "</legend>" +
+      (f.mpId ? sel("u-mla", "mla", "mlaId", f.mpId === "__new" ? [{ v: "__new", t: T("adm.ar_add_new_mla") }] : mlaOpts, f.mpId === "__new" ? "__new" : f.mlaId) : '<p class="hint">' + esc(T("adm.ar_mla_after_mp")) + "</p>") +
+      ((f.mlaId === "__new" || f.mpId === "__new") ? '<div class="new-box grid2f">' + input("u-mla-c", "mlaConstituency", f.mlaNew.constituency, { path: "mlaNew.constituency" }) + input("u-mla-n", "mlaName", f.mlaNew.name, { path: "mlaNew.name", optional: true }) + input("u-mla-p", "mlaPhone", f.mlaNew.phone, { path: "mlaNew.phone", type: "tel", optional: true }) + input("u-mla-e", "mlaEmail", f.mlaNew.email, { path: "mlaNew.email", type: "email", optional: true }) + "</div>" : "") +
+    "</fieldset>" +
+    (urban ? "<fieldset><legend>" + esc(T("adm.ar_fs_mb")) + "</legend>" + sel("u-mb", "municipalBody", "mbId", mbOpts, f.mbId) +
+      (f.mbId === "__new" ? '<div class="new-box">' + input("u-mb-n", "mbName", f.mbNew.name, { path: "mbNew.name", hint: T("adm.ar_h_mb") }) +
+        '<div class="form-row"><label style="font-weight:500;display:inline-flex;gap:8px;align-items:center"><input type="checkbox" id="u-mb-mayor"' + (f.mbNew.hasMayor ? " checked" : "") + "> " + esc(T("adm.ar_has_mayor")) + "</label></div>" +
+        (f.mbNew.hasMayor ? '<div class="grid2f">' + input("u-my-n", "mayorName", f.mbNew.name2, { path: "mbNew.name2", optional: true }) + input("u-my-p", "mayorPhone", f.mbNew.phone, { path: "mbNew.phone", type: "tel", optional: true }) + input("u-my-e", "mayorEmail", f.mbNew.email, { path: "mbNew.email", type: "email", optional: true }) + "</div>" : "") + "</div>" : "") +
+    "</fieldset>" : "") +
+    "<fieldset><legend>" + esc(T(urban ? "adm.ar_fs_rep_ward" : "adm.ar_fs_rep_village")) + '</legend><p class="hint">' + esc(T("adm.ar_h_rep")) + '</p><div class="grid2f">' +
+      input("u-rep-n", "repName", f.rep.name, { path: "rep.name", optional: true }) + input("u-rep-p", "repPhone", f.rep.phone, { path: "rep.phone", type: "tel", optional: true }) + input("u-rep-e", "repEmail", f.rep.email, { path: "rep.email", type: "email" }) +
+    "</div></fieldset>" +
+    '<div class="actions"><button type="submit" class="primary" id="u-save"' + (f.busy ? " disabled" : "") + ">" + esc(T(f.busy ? "adm.ar_saving" : "adm.ar_save_unit")) + '</button><button type="button" id="u-cancel">' + esc(T("adm.ar_cancel")) + "</button></div></form>";
+}
+function setPath(obj, path, v) { const p = path.split("."); let o = obj; for (let i = 0; i < p.length - 1; i++) o = o[p[i]]; o[p[p.length - 1]] = v; }
+
+function wire() {
+  const cf = document.getElementById("create-form");
+  if (cf) cf.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    createForm.name = document.getElementById("c-name").value.trim();
+    createForm.state = document.getElementById("c-state").value;
+    const k = document.querySelector('input[name="c-kind"]:checked'); createForm.kind = k ? k.value : "";
+    createForm.errors = {};
+    if (!createForm.name) createForm.errors.name = "REQUIRED";
+    if (createForm.errors.name) { render(); document.getElementById("c-name").focus(); return; }
+    const r = await post({ action: "create", name: createForm.name, state: createForm.state, kind: createForm.kind });
+    if (!r.ok) {
+      createForm.errors = r.body.fields || {};
+      if (!Object.keys(createForm.errors).length) msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+      render(); const el = document.querySelector('#create-form [aria-invalid="true"]') || document.getElementById("top-msg"); if (el) el.focus(); return;
+    }
+    location.href = "/admin-areas.html?id=" + encodeURIComponent(r.body.area.id) + "&created=1";
+  });
+  const gl = document.getElementById("go-live");
+  if (gl) gl.addEventListener("click", async () => {
+    if (!confirm(T("adm.ar_live_confirm", { name: data.area.name }))) return;
+    const r = await post({ action: "set_live", id: data.area.id, live: true });
+    msg = r.ok ? { text: T("adm.ar_now_live", { name: data.area.name }) } : { err: true, text: r.body.code === "NOT_READY" ? T("adm.ar_go_live_need") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+    await load(); const m = document.getElementById("top-msg"); if (m) m.focus();
+  });
+  const go = document.getElementById("go-off");
+  if (go) go.addEventListener("click", () => { offForm = { reason: "", error: false }; render(); document.getElementById("off-reason").focus(); });
+  const oc = document.getElementById("off-cancel");
+  if (oc) oc.addEventListener("click", () => { offForm = null; render(); document.getElementById("go-off").focus(); });
+  const of = document.getElementById("off-form");
+  if (of) of.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    offForm.reason = document.getElementById("off-reason").value.trim();
+    if (offForm.reason.length < 10) { offForm.error = true; render(); document.getElementById("off-reason").focus(); return; }
+    const r = await post({ action: "set_live", id: data.area.id, live: false, reason: offForm.reason });
+    if (!r.ok) { offForm.error = !!(r.body.fields && r.body.fields.reason); if (!offForm.error) msg = { err: true, text: T("adm.err_detail", { msg: r.body.error || r.status }) }; render(); return; }
+    offForm = null; msg = { text: T("adm.ar_now_off", { name: data.area.name }) };
+    await load(); const m = document.getElementById("top-msg"); if (m) m.focus();
+  });
+  const ou = document.getElementById("open-unit");
+  if (ou) ou.addEventListener("click", () => { unitForm = unitForm || newUnitForm(); render(); document.getElementById("u-name").focus(); });
+  const uf = document.getElementById("unit-form");
+  if (!uf) return;
+  // Keep what is typed; redraw only when a choice changes what is shown.
+  uf.querySelectorAll("[data-k]").forEach((el) => {
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+      setPath(unitForm, el.dataset.k, el.value);
+      if (el.tagName === "SELECT") { if (el.dataset.k === "mpId") unitForm.mlaId = ""; const id = el.id; render(); document.getElementById(id).focus(); }
+    });
+  });
+  uf.querySelectorAll('input[name="u-type"]').forEach((el) => el.addEventListener("change", () => { unitForm.unitType = el.value; render(); document.querySelector('input[name="u-type"]:checked').focus(); }));
+  const mm = document.getElementById("u-mb-mayor");
+  if (mm) mm.addEventListener("change", () => { unitForm.mbNew.hasMayor = mm.checked; render(); document.getElementById("u-mb-mayor").focus(); });
+  document.getElementById("u-cancel").addEventListener("click", () => { unitForm = null; render(); document.getElementById("open-unit").focus(); });
+  uf.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = unitForm; f.errors = {};
+    // Quick checks here; the server checks everything again.
+    if (!f.name.trim()) f.errors.name = "REQUIRED";
+    if (!f.mpId) f.errors.mp = "REQUIRED";
+    if (f.mpId === "__new" && !f.mpNew.constituency.trim()) f.errors.mpConstituency = "REQUIRED";
+    const mlaNew = f.mpId === "__new" || f.mlaId === "__new";
+    if (f.mpId && !mlaNew && !f.mlaId) f.errors.mla = "REQUIRED";
+    if (mlaNew && !f.mlaNew.constituency.trim()) f.errors.mlaConstituency = "REQUIRED";
+    if (f.mbId === "__new" && f.unitType === "URBAN" && !f.mbNew.name.trim()) f.errors.mbName = "REQUIRED";
+    if (!f.rep.email.trim()) f.errors.repEmail = "REQUIRED";
+    if (Object.keys(f.errors).length) { render(); document.getElementById("u-summary").focus(); return; }
+    f.busy = true; render();
+    const payload = {
+      action: "add_unit", areaId: data.area.id, unitType: f.unitType, name: f.name, block: f.block, localities: f.localities,
+      mp: f.mpId === "__new" ? { new: f.mpNew } : { id: f.mpId },
+      mla: mlaNew ? { new: f.mlaNew } : { id: f.mlaId },
+      municipalBody: f.unitType !== "URBAN" || !f.mbId ? null : f.mbId === "__new" ? { new: { name: f.mbNew.name, hasMayor: f.mbNew.hasMayor, mayor: f.mbNew.name2, phone: f.mbNew.phone, email: f.mbNew.email } } : { id: f.mbId },
+      rep: f.rep,
+    };
+    const r = await post(payload);
+    f.busy = false;
+    if (!r.ok) {
+      f.errors = r.body.fields || {};
+      if (!Object.keys(f.errors).length) msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+      render(); const s = document.getElementById("u-summary") || document.getElementById("top-msg"); if (s) s.focus(); return;
+    }
+    const added = f.name, type = f.unitType;
+    // Keep the type and constituency choices for the next one: most areas
+    // add many wards under the same MP, MLA and municipal body.
+    unitForm = newUnitForm();
+    unitForm.unitType = type; unitForm.mpId = r.body.mpId || ""; unitForm.mlaId = r.body.mlaId || ""; unitForm.mbId = r.body.municipalBodyId || "";
+    msg = { text: T("adm.ar_unit_added", { name: added }) };
+    await load();
+    const m = document.getElementById("top-msg"); if (m) m.focus();
+  });
+}
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+}
+let savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  let cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  const next = cur === "light" ? "dark" : "light";
+  try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", () => {
+  let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (data) render();
+});
+if (/[?&]created=1/.test(location.search)) msg = { text: T("adm.ar_created") };
+load();
+</script>
+</body>
+</html>

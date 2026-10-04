@@ -11,22 +11,30 @@
 // nothing about who the representatives are.
 //
 // Only wards with a representative email on file are offered, so every
-// complaint filed can reach someone.
+// complaint filed can reach someone -- and only in areas (cities and
+// districts) that are live. Each ward carries its area's name and link
+// name, and the list of live areas comes too (Home uses it to recognise a
+// covered city that has no ward map yet).
+
+import { liveJoin, areasReady, PILOT_AREA } from "../_shared/areas.js";
 
 export async function onRequestGet({ env }) {
   try {
+    const ready = await areasReady(env);
+    const join = await liveJoin(env);
     const categoriesResult = await env.DB.prepare(
       `SELECT id, name FROM grievance_categories ORDER BY name ASC`
     ).all();
 
     const unitsResult = await env.DB.prepare(
-      `SELECT lu.id, lu.name, lu.unit_type, lu.localities,
+      `SELECT lu.id, lu.name, lu.unit_type, lu.localities,${ready ? " lu.block, ar.id AS area_id, ar.name AS area_name, ar.slug AS area_slug," : ""}
               CASE WHEN COALESCE(TRIM(lu.rep_name), '') = '' OR COALESCE(TRIM(lu.rep_phone), '') = '' THEN 1 ELSE 0 END AS rep_missing,
               CASE WHEN mla.id IS NULL OR COALESCE(TRIM(mla.mla_name), '') = '' OR COALESCE(TRIM(mla.mla_phone), '') = '' THEN 1 ELSE 0 END AS mla_missing,
               CASE WHEN mp.id IS NULL OR COALESCE(TRIM(mp.mp_name), '') = '' OR COALESCE(TRIM(mp.mp_phone), '') = '' THEN 1 ELSE 0 END AS mp_missing
        FROM local_units lu
        LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id
        LEFT JOIN mp_constituencies mp ON mp.id = mla.mp_constituency_id
+       ${join}
        WHERE lu.rep_email IS NOT NULL
        ORDER BY lu.name ASC`
     ).all();
@@ -35,6 +43,9 @@ export async function onRequestGet({ env }) {
       JSON.stringify({
         categories: categoriesResult.results || [],
         localUnits: unitsResult.results || [],
+        areas: ready
+          ? ((await env.DB.prepare("SELECT id, name, state, slug FROM areas WHERE live = 1 ORDER BY name").all()).results || [])
+          : [{ id: PILOT_AREA.id, name: PILOT_AREA.name, state: PILOT_AREA.state, slug: PILOT_AREA.slug }],
       }),
       {
         status: 200,

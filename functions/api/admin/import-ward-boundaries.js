@@ -16,6 +16,23 @@
 // Protected by Cloudflare Access, same as import-jurisdiction.js.
 
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { areasReady, getArea } from "../../_shared/areas.js";
+
+// Areas: a boundary file is for one area (city or district), chosen on the
+// page, and ward names are matched only within it -- so "Ward 1" in one
+// city can never receive another city's shape.
+//
+// Ward maps from different sources name their columns differently; the
+// ward name and number are read from the first of these that is present
+// (any capitalisation).
+const NAME_KEYS = ["ward name", "ward_name", "wardname", "ward", "name", "ward_name_en", "wardname_en"];
+const NUM_KEYS = ["ward num", "ward_num", "ward_no", "wardno", "ward number", "ward_number", "number", "no"];
+function pick(props, keys) {
+  const lower = {};
+  for (const k of Object.keys(props || {})) lower[k.toLowerCase().trim()] = props[k];
+  for (const k of keys) if (lower[k] != null && String(lower[k]).trim() !== "") return lower[k];
+  return null;
+}
 
 export async function onRequestPost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "run_import");
@@ -28,6 +45,13 @@ export async function onRequestPost({ request, env }) {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const ready = await areasReady(env);
+  let area = null;
+  if (ready) {
+    area = body.areaId ? await getArea(env, body.areaId) : null;
+    if (!area) return Response.json({ error: "Choose the area (city or district) this file is for.", fields: { areaId: "REQUIRED" } }, { status: 400 });
   }
 
   const geojsonText = body.geojson;
@@ -57,8 +81,9 @@ export async function onRequestPost({ request, env }) {
   for (const feature of features) {
     try {
       const props = feature.properties || {};
-      const wardName = String(props["Ward Name"] || "").trim();
-      const wardNum = props["Ward Num"];
+      const wardName = String(pick(props, NAME_KEYS) || "").trim();
+      const wardNumRaw = pick(props, NUM_KEYS);
+      const wardNum = wardNumRaw == null || isNaN(Number(wardNumRaw)) ? null : Number(wardNumRaw);
 
       if (!wardName) {
         errors.push("A feature is missing a Ward Name — skipped.");
@@ -66,9 +91,9 @@ export async function onRequestPost({ request, env }) {
       }
 
       const existing = await env.DB.prepare(
-        `SELECT id FROM local_units WHERE LOWER(name) = LOWER(?)`
+        `SELECT id FROM local_units WHERE LOWER(name) = LOWER(?)${area ? " AND area_id = ?" : ""}`
       )
-        .bind(wardName)
+        .bind(...[wardName].concat(area ? [area.id] : []))
         .first();
 
       if (!existing) {
@@ -86,7 +111,7 @@ export async function onRequestPost({ request, env }) {
 
       matched.push(wardName);
     } catch (featErr) {
-      errors.push(`"${feature?.properties?.["Ward Name"] || "unknown"}": ${featErr.message || "unknown error"}`);
+      errors.push(`"${pick(feature && feature.properties, NAME_KEYS) || "unknown"}": ${featErr.message || "unknown error"}`);
     }
   }
 
@@ -97,8 +122,9 @@ export async function onRequestPost({ request, env }) {
     crypto.randomUUID(),
     auth.email,
     "import_ward_boundaries",
-    "local_units",
+    area ? area.id : "local_units",
     JSON.stringify({
+      area: area ? area.id : null,
       featuresInFile: features.length,
       matchedCount: matched.length,
       unmatchedCount: unmatched.length,

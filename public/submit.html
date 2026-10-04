@@ -220,7 +220,7 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=14a"></script>
+<script src="/i18n.js?v=15a"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=14a" defer></script>
 </head>
@@ -483,7 +483,7 @@
     const results = [];
     localUnitsData.forEach(unit => {
       const localities = parseLocalities(unit);
-      const nameMatch = unit.name.toLowerCase().includes(q);
+      const nameMatch = unit.name.toLowerCase().includes(q) || (unit.block && unit.block.toLowerCase().includes(q));
       const matchedLocality = localities.find(loc => loc.toLowerCase().includes(q));
 
       if (nameMatch || matchedLocality) {
@@ -552,7 +552,7 @@
   function drawSelectedLabel() {
     const u = selectedUnit;
     document.getElementById('areaSelectedLabel').textContent =
-      u ? u.name + (u.unit_type ? ' (' + unitTypeLabel(u) + ')' : '') : '';
+      u ? u.name + (u.unit_type ? ' (' + unitTypeLabel(u) + ')' : '') + (u.area_name && manyAreas() ? ', ' + u.area_name : '') : '';
   }
   function clearSelection() {
     selectedUnit = null;
@@ -566,6 +566,11 @@
     localUnitSearch.style.display = 'block';
     localUnitSearch.value = '';
     localUnitSearch.focus();
+  }
+
+  function manyAreas() {
+    const seen = new Set(localUnitsData.map((u) => u.area_id).filter(Boolean));
+    return seen.size > 1;
   }
 
   function renderSuggestions(results, query) {
@@ -593,6 +598,15 @@
       nameLine.className = 'match-name';
       nameLine.innerHTML = highlightMatch(unit.name, query) + ' (' + unitTypeLabel(unit) + ')';
       item.appendChild(nameLine);
+      // With more than one city or district, say which one (and the block
+      // for a village), so two wards with the same name can be told apart.
+      const where = [unit.block, manyAreas() ? unit.area_name : null].filter(Boolean).join(', ');
+      if (where) {
+        const whereLine = document.createElement('div');
+        whereLine.className = 'match-context';
+        whereLine.textContent = where;
+        item.appendChild(whereLine);
+      }
       if (matchedLocality) {
         const contextLine = document.createElement('div');
         contextLine.className = 'match-context';

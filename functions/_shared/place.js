@@ -1,7 +1,8 @@
 // functions/_shared/place.js
 //
 // Public information about ONE ward/village, for the citizen Home page's
-// "Where is the problem?" card and for ward links (grieviq.in/lucknow/<ward>).
+// "Where is the problem?" card and for ward links (grieviq.in/<area>/<ward>,
+// e.g. grieviq.in/lucknow/hazratganj-ramtirth).
 //
 // Returns only what is public and useful before filing:
 //   - the ward's name, type, municipal body, city
@@ -12,9 +13,20 @@
 
 import { resolveChain } from "./jurisdiction.js";
 import { settleOverdueConfirmations } from "./confirmation.js";
+import { PILOT_AREA, areasReady } from "./areas.js";
 
-// Pilot city. Phase 2 moves this into a city settings record.
-export const PILOT_CITY = { slug: "lucknow", name: "Lucknow", state: "Uttar Pradesh" };
+// Kept for anything that imported the old name.
+export const PILOT_CITY = PILOT_AREA;
+
+// The area (city or district) a ward belongs to; PILOT_AREA before the
+// areas update. Areas not yet live are not public: null.
+async function areaOf(env, localUnitId) {
+  if (!(await areasReady(env))) return PILOT_AREA;
+  const a = await env.DB.prepare(
+    "SELECT a.id, a.name, a.state, a.kind, a.slug, a.live FROM local_units lu JOIN areas a ON a.id = lu.area_id WHERE lu.id = ?"
+  ).bind(localUnitId).first();
+  return a && a.live ? a : null;
+}
 
 // Readable ward link part, e.g. "Hazratganj - Ramtirth" -> "hazratganj-ramtirth".
 // Names in Devanagari give an empty slug; those wards use their id instead.
@@ -28,6 +40,8 @@ export async function placeInfo(env, localUnitId) {
   const chain = await resolveChain(env, localUnitId);
   if (!chain) return null;
   const lu = chain.localUnit;
+  const area = await areaOf(env, lu.id);
+  if (!area) return null;
   // Close any case whose confirmation time has run out, so the 30-day
   // "resolved" count includes it (item 7a).
   await settleOverdueConfirmations(env);
@@ -40,10 +54,14 @@ export async function placeInfo(env, localUnitId) {
      FROM grievances WHERE local_unit_id = ?`
   ).bind(lu.id).first();
 
-  // Use the readable name in the link only if no other ward shares it.
+  // Use the readable name in the link only if no other ward in the same
+  // area shares it.
   let slug = wardSlug(lu.name);
   if (slug) {
-    const { results: all } = await env.DB.prepare("SELECT id, name FROM local_units").all();
+    const ready = await areasReady(env);
+    const { results: all } = ready
+      ? await env.DB.prepare("SELECT id, name FROM local_units WHERE area_id = ?").bind(area.id).all()
+      : await env.DB.prepare("SELECT id, name FROM local_units").all();
     if ((all || []).some((r) => r.id !== lu.id && wardSlug(r.name) === slug)) slug = "";
   }
   return {
@@ -51,9 +69,11 @@ export async function placeInfo(env, localUnitId) {
     name: lu.name,
     type: lu.unit_type,                                   // URBAN / RURAL
     slug: slug || null,
-    link: "/" + PILOT_CITY.slug + "/" + (slug || encodeURIComponent(lu.id)),
-    city: PILOT_CITY.name,
-    state: PILOT_CITY.state,
+    link: "/" + area.slug + "/" + (slug || encodeURIComponent(lu.id)),
+    areaSlug: area.slug,
+    city: area.name,
+    state: area.state,
+    block: lu.block || null,
     municipalBody: chain.municipalBody ? chain.municipalBody.name : null,
     mlaConstituency: chain.mla ? chain.mla.name : null,
     mpConstituency: chain.mp ? chain.mp.name : null,
@@ -65,17 +85,23 @@ export async function placeInfo(env, localUnitId) {
   };
 }
 
-// Finds a ward from a link part: its readable slug, or its id.
+// Finds a ward from a link part: its readable slug, or its id, within one
+// live area (areaSlug; any live area if not given).
 // Returns { id } or { ambiguous: [{id,name}] } or null.
-export async function findWardBySlug(env, part) {
+export async function findWardBySlug(env, part, areaSlugPart) {
   const p = String(part || "").trim().toLowerCase();
   if (!p) return null;
-  const byId = await env.DB.prepare("SELECT id FROM local_units WHERE id = ?").bind(decodeURIComponent(p)).first();
+  const ready = await areasReady(env);
+  const a = String(areaSlugPart || "").trim().toLowerCase();
+  const scope = ready ? " JOIN areas ar ON ar.id = lu.area_id AND ar.live = 1" + (a ? " AND ar.slug = ?" : "") : "";
+  const scopeBinds = ready && a ? [a] : [];
+  if (!ready && a && a !== PILOT_AREA.slug) return null;
+  const byId = await env.DB.prepare("SELECT lu.id FROM local_units lu" + scope + " WHERE lu.id = ?").bind(...scopeBinds, decodeURIComponent(p)).first();
   if (byId) return { id: byId.id };
   const { results } = await env.DB.prepare(
     `SELECT lu.id, lu.name, lu.unit_type, mla.name AS mla_name
-     FROM local_units lu LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id`
-  ).all();
+     FROM local_units lu LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id` + scope
+  ).bind(...scopeBinds).all();
   const hits = (results || []).filter((r) => wardSlug(r.name) === p);
   if (hits.length === 1) return { id: hits[0].id };
   // Same name in more than one place: let the person choose, with enough

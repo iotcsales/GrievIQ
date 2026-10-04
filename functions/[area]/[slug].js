@@ -1,6 +1,9 @@
-// functions/lucknow/[slug].js
+// functions/[area]/[slug].js
 //
-// Readable ward links: grieviq.in/lucknow/<ward-name> (or /lucknow/<ward-id>).
+// Readable ward links: grieviq.in/<area>/<ward-name> (or /<area>/<ward-id>),
+// e.g. grieviq.in/lucknow/hazratganj-ramtirth. <area> is a live area's link
+// name (see _shared/areas.js); any other two-part address is not ours and
+// passes straight through to the site's files.
 // Serves the normal Home page (public/index.html), whose script already reads
 // the link and shows the ward. Before sending it, the page head is adjusted
 // so the link behaves properly when shared or searched (approved Sept 2026):
@@ -18,7 +21,8 @@
 // is stored on their device); the page itself still switches to Hindi.
 // If the database can't be reached, Home is served unchanged (it copes).
 
-import { findWardBySlug, placeInfo, PILOT_CITY } from "../_shared/place.js";
+import { findWardBySlug, placeInfo } from "../_shared/place.js";
+import { getArea } from "../_shared/areas.js";
 
 function escAttr(s) {
   return String(s == null ? "" : s)
@@ -79,17 +83,21 @@ function page(html, type, status, method) {
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
-  if (method !== "GET" && method !== "HEAD") {
-    return new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
-  }
+  if (method !== "GET" && method !== "HEAD") return context.next();
   const url = new URL(request.url);
   const part = String(params.slug || "");
+  const areaPart = String(params.area || "").toLowerCase();
+
+  // Not one of our live areas (a file, an unknown address): not ours.
+  let area = null;
+  try { area = /^[a-z0-9-]{1,40}$/.test(areaPart) ? await getArea(env, areaPart) : null; } catch (e) { area = null; }
+  if (!area || !area.live || area.slug !== areaPart) return context.next();
 
   let found = null;
   let info = null;
   let lookupFailed = false;
   try {
-    found = await findWardBySlug(env, part);
+    found = await findWardBySlug(env, part, area.slug);
     if (found && found.id) info = await placeInfo(env, found.id);
   } catch (e) {
     // Bad encoding in the link (e.g. a lone "%") is an unknown link;
@@ -99,7 +107,7 @@ export async function onRequest(context) {
 
   // Old id link, or different capitals: send to the one readable address.
   if (info && info.slug && part !== info.slug) {
-    return Response.redirect(new URL("/" + PILOT_CITY.slug + "/" + info.slug, url).toString(), 301);
+    return Response.redirect(new URL(info.link, url).toString(), 301);
   }
 
   const { html, type } = await homeHtml(env, url);

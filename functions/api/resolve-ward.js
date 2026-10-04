@@ -21,6 +21,7 @@
 // logged in when they submit a grievance.
 
 import { pointInGeometry } from "../_shared/geo.js";
+import { liveJoin } from "../_shared/areas.js";
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -41,7 +42,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const rows = await env.DB.prepare(
-    `SELECT id, name, localities, rep_email, ward_boundary_geojson FROM local_units WHERE ward_boundary_geojson IS NOT NULL`
+    // Only wards in areas that are live (switched on for citizens).
+    `SELECT lu.id, lu.name, lu.localities, lu.rep_email, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.ward_boundary_geojson IS NOT NULL`
   ).all();
 
   for (const row of rows.results || []) {

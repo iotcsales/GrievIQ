@@ -149,8 +149,15 @@
   html.light-theme .summary-box.err { border-color: #e8c3bf; }
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  .area-row { margin-bottom: 12px; }
+  .area-row label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .area-row select { min-width: 280px; max-width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 38px; }
+  html.light-theme .area-row select { background: #fff; }
+  .area-row select[aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; } .field-err:empty { display: none; }
+  .area-help { font-size: 13px; color: var(--admin-muted); margin: 6px 0; }
 </style>
-<script src="/i18n.js?v=14a"></script>
+<script src="/i18n.js?v=15a"></script>
 <script src="/admin-nav.js?v=r4"></script>
 </head>
 <body>
@@ -158,7 +165,7 @@
 <header>
   <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
     <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries" class="active">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
     <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a> <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
@@ -171,7 +178,7 @@
 
   <div class="panel">
     <h2 data-i18n="adm.iw_format_h">GeoJSON format</h2>
-    <p data-i18n-html="adm.iw_format_p">Upload a ward-boundary GeoJSON file (e.g. from bharatlas.com). Each feature's <code>Ward Name</code> property is matched, case-insensitively, against an existing <code>local_units</code> row.</p>
+    <p data-i18n-html="adm.iw_format_p2">Upload a ward map (a GeoJSON file, e.g. from bharatlas.com or the municipal corporation). Each ward's name in the file (a property such as <code>Ward Name</code>, <code>ward_name</code> or <code>name</code>) is matched, ignoring capitals, to a ward already added in the chosen area.</p>
     <ul>
       <li data-i18n="adm.iw_rule_existing">This only updates wards that already exist — it never creates new ones. Add the ward first via the jurisdiction CSV importer.</li>
       <li data-i18n="adm.iw_rule_unmatched">A ward name in the file with no matching local unit is reported as "unmatched," not an error.</li>
@@ -181,6 +188,12 @@
 
   <div class="panel">
     <h2 data-i18n="adm.iw_upload_h">Upload GeoJSON</h2>
+    <div class="area-row">
+      <label for="areaSelect" data-i18n="adm.iw_area">Which area (city or district) is this map for?</label>
+      <select id="areaSelect" aria-describedby="areaErr"><option value="" data-i18n="adm.loading">Loading…</option></select>
+      <div class="field-err" id="areaErr" role="alert"></div>
+      <p class="area-help" data-i18n="adm.iw_area_help">Ward names are matched only within this area.</p>
+    </div>
     <div class="drop-zone" id="dropZone" data-i18n="adm.iw_choose">Click to choose a .geojson file</div>
     <input type="file" id="fileInput" accept=".geojson,application/geo+json,application/json" />
     <div class="file-name" id="fileName"></div>
@@ -249,7 +262,31 @@
     reader.readAsText(file);
   });
 
+  const areaSelect = document.getElementById('areaSelect');
+  const areaErr = document.getElementById('areaErr');
+  let areas = null, areasMissing = false;
+  async function loadAreas() {
+    try {
+      const r = await fetch('/api/admin/areas');
+      const b = await r.json();
+      if (r.status === 503 && b.code === 'NOT_SET_UP') { areasMissing = true; document.querySelector('.area-row').hidden = true; return; }
+      areas = b.areas || [];
+    } catch (e) { areas = []; }
+    drawAreas();
+  }
+  function drawAreas() {
+    if (!areas) return;
+    const want = (location.search.match(/[?&]area=([^&]+)/) || [])[1];
+    const cur = areaSelect.value || (want ? decodeURIComponent(want) : '');
+    areaSelect.innerHTML = '<option value="">' + esc(T('adm.im_area_choose')) + '</option>' +
+      areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === cur ? ' selected' : '') + '>' + esc(a.name + ' (' + a.state + ')') + '</option>').join('');
+  }
+  areaSelect.addEventListener('change', () => { areaErr.textContent = ''; areaSelect.removeAttribute('aria-invalid'); });
+  loadAreas();
+  document.addEventListener('giq:lang', drawAreas);
+
   importBtn.addEventListener('click', async () => {
+    if (!areasMissing && !areaSelect.value) { areaErr.textContent = T('adm.im_area_required'); areaSelect.setAttribute('aria-invalid', 'true'); areaSelect.focus(); return; }
     if (!geojsonText) return;
     importBtn.disabled = true;
     busy = true;
@@ -261,7 +298,7 @@
       const res = await fetch('/api/admin/import-ward-boundaries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ geojson: geojsonText }),
+        body: JSON.stringify({ geojson: geojsonText, areaId: areaSelect.value || null }),
       });
       const data = await res.json();
 

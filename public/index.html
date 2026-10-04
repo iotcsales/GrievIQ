@@ -395,8 +395,9 @@
   .loc-warn a { color: var(--teal-dark); }
   [hidden] { display: none !important; }
   #loc-result:focus { outline: none; }   /* focused only to move screen readers to the result */
+  .loc-select { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card); color: var(--ink); font: inherit; font-size: 15px; margin: 6px 0 4px; }
 </style>
-<script src="/i18n.js?v=14a"></script>
+<script src="/i18n.js?v=15a"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
@@ -510,7 +511,7 @@
   // Live count of wards citizens can file in (same list the complaint form uses).
   fetch('/api/intake-options')
     .then(r => r.ok ? r.json() : null)
-    .then(d => { if (d && Array.isArray(d.localUnits)) document.getElementById('stat-wards').textContent = d.localUnits.length; })
+    .then(d => { if (d && Array.isArray(d.localUnits)) { window.GIQ_INTAKE = d; document.getElementById('stat-wards').textContent = d.localUnits.length; document.dispatchEvent(new Event('giq:intake')); } })
     .catch(() => {});
 })();
 
@@ -545,6 +546,7 @@
   function setTitle() {
     const h1 = document.querySelector('h1');
     if (current && current.place) h1.textContent = T('home.loc_title', { place: current.place.name });
+    else if (outside && coveredArea(outside)) h1.textContent = T('home.loc_title', { place: coveredArea(outside).area.name });
     else if (outside) h1.textContent = outside.city ? T('home.loc_title_outside', { place: outside.city }) : T('home.loc_outside');
     else h1.textContent = T('home.title');
     // Browser tab title follows the ward too, in the chosen language
@@ -569,7 +571,7 @@
     opts = opts || {};
     status(T('home.loc_finding'));
     try {
-      const q = opts.bySlug ? 'slug=' + encodeURIComponent(idOrSlug) : 'ward=' + encodeURIComponent(idOrSlug);
+      const q = opts.bySlug ? 'slug=' + encodeURIComponent(idOrSlug) + (opts.area ? '&area=' + encodeURIComponent(opts.area) : '') : 'ward=' + encodeURIComponent(idOrSlug);
       const res = await fetch('/api/place?' + q);
       const data = await res.json();
       if (res.status === 409 && data.candidates) return showChoices(data.candidates);
@@ -654,9 +656,42 @@
     try { sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ wardId: p.id, wardName: p.name, lat: current.lat, lng: current.lng, at: Date.now() })); } catch (e) {}
   });
 
+  // A city or district GrievIQ covers, but whose ward map isn't loaded
+  // yet: the place was found by name, so offer its wards and villages to
+  // choose from instead of saying it isn't covered.
+  function norm(t) { return String(t || '').toLowerCase().replace(/[^a-z\u0900-\u097f]+/g, ''); }
+  function coveredArea(o) {
+    const d = window.GIQ_INTAKE;
+    if (!d || !o || !o.city || !Array.isArray(d.areas)) return null;
+    const a = d.areas.find((x) => norm(x.name) === norm(o.city) && (!o.state || !x.state || norm(x.state) === norm(o.state)));
+    if (!a) return null;
+    const units = d.localUnits.filter((u) => u.area_id === a.id);
+    return units.length ? { area: a, units } : null;
+  }
+  function renderCovered(c) {
+    const box = $('loc-result');
+    box.hidden = false;
+    box.innerHTML =
+      '<div class="loc-result-head"><div class="loc-place">' + esc(c.area.name) + '</div><button type="button" class="loc-link" id="loc-change">' + esc(T('home.loc_change')) + '</button></div>' +
+      '<p class="loc-snap">' + esc(T('home.loc_covered', { city: c.area.name })) + '</p>' +
+      '<label class="loc-label" for="loc-pick-unit">' + esc(T('home.loc_pick_unit')) + '</label>' +
+      '<select id="loc-pick-unit" class="loc-select"><option value="">' + esc(T('home.loc_pick_choose')) + '</option>' +
+        c.units.map((u) => '<option value="' + esc(u.id) + '">' + esc(u.name + (u.block ? ' (' + u.block + ')' : '')) + '</option>').join('') + '</select>' +
+      '<div class="loc-links"><button type="button" class="loc-small primary" id="loc-pick-go">' + esc(T('home.loc_pick_go')) + '</button></div>';
+    $('loc-change').addEventListener('click', () => { outside = null; current = null; render(); $('loc-gps').focus(); });
+    $('loc-pick-go').addEventListener('click', () => {
+      const v = $('loc-pick-unit').value;
+      if (!v) { status(T('home.loc_pick_need'), true); $('loc-pick-unit').focus(); return; }
+      showWard(v, outside && outside.lat != null ? { lat: outside.lat, lng: outside.lng } : null);
+    });
+    box.focus();
+  }
+
   function renderOutside() {
     $('loc-ask').hidden = true;
     setTitle();
+    const covered = coveredArea(outside);
+    if (covered) return renderCovered(covered);
     const box = $('loc-result');
     const o = outside;
     let asked = [];
@@ -706,7 +741,7 @@
         if (r && r.results && r.results[0]) info = readComponents(r.results[0].address_components);
       } catch (e) {}
     }
-    outside = info;
+    outside = Object.assign(info, { lat, lng });
     current = null;
     render();
   }
@@ -783,10 +818,10 @@
     } catch (e) { const el = $('loc-mini'); if (el) el.hidden = true; }
   }
 
-  // ---- Start: a ward link (/lucknow/<ward> or ?ward=), else the remembered ward ----
-  const m = location.pathname.match(/^\/lucknow\/([^\/?#]+)\/?$/i);
+  // ---- Start: a ward link (/<area>/<ward> or ?ward=), else the remembered ward ----
+  const m = location.pathname.match(/^\/([a-z0-9-]{1,40})\/([^\/?#]+)\/?$/i);
   const qp = new URLSearchParams(location.search);
-  if (m) showWard(decodeURIComponent(m[1]), null, { bySlug: true, fromLink: true, quiet: true });
+  if (m) showWard(decodeURIComponent(m[2]), null, { bySlug: true, area: m[1].toLowerCase(), fromLink: true, quiet: true });
   else if (qp.get('ward')) showWard(qp.get('ward'), null, { fromLink: true, quiet: true });
   else { const r = remembered(); if (r) showWard(r.id, null, { fromSaved: true, quiet: true }); }
 
