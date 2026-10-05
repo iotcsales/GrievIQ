@@ -7,6 +7,7 @@
 // marked it; the citizen is emailed what was done and the deadline.
 
 import { CONFIRM_DAYS, confirmDeadline } from "./confirmation.js";
+import { pushCitizen } from "./citizen-push.js";
 
 function escHtml(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -40,6 +41,9 @@ export async function finalizeResolution(env, request, grievance, currentTier, n
     `INSERT INTO grievance_events (id, grievance_id, event_type, actor, created_at)
      VALUES (?, ?, 'MARKED_RESOLVED', ?, ?)`
   ).bind(crypto.randomUUID(), grievanceId, actorEmail, now).run();
+
+  // Citizen phone updates (Oct 2026), if the citizen turned them on.
+  await pushCitizen(env, grievance, "FIXED", { hasEmail }, "FIX:" + grievanceId + ":" + now);
 
   if (hasEmail) {
     const statusUrl = new URL(request.url).origin + "/status?ref=" + encodeURIComponent(grievance.tracking_ref);

@@ -359,7 +359,8 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js?v=19b"></script>
+<script src="/i18n.js?v=20"></script>
+<script src="/citizen-updates.js?v=20"></script>
 <script src="/site.js?v=17a" defer></script>
 </head>
 <body>
@@ -440,6 +441,7 @@
     </div>
 
     <div class="next-box" id="status-next" role="status" hidden></div>
+    <div id="cu-slot"></div>
     <div id="confirm-card" class="confirm-card" style="display:none;">
       <h2 class="section-title" data-i18n="status.confirm_title">Has this been fixed?</h2>
       <p class="section-note" data-i18n="status.confirm_lede">The representative handling this case marked it resolved. Let us know if that's right.</p>
@@ -824,6 +826,8 @@
     showConfirmCard(c.status === 'PENDING_CONFIRMATION');
     document.getElementById('confirm-see-below').hidden = !(c.status === 'PENDING_CONFIRMATION' && c.resolution);
     renderNext(c);
+    // Optional phone updates for this complaint (signed in with the email code).
+    if (window.GIQU) window.GIQU.mount(document.getElementById('cu-slot'), { ref: c.trackingRef, email: state.email, hasEmail: true, closed: resolved });
     // Item 7a: when the case closes if the citizen doesn't reply.
     document.getElementById('confirm-deadline').textContent =
       c.status === 'PENDING_CONFIRMATION' && c.confirmBy ? GIQ.t('status.confirm_by', { date: formatDue(c.confirmBy) }) : '';

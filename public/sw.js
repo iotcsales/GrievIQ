@@ -1,5 +1,6 @@
-// GrievIQ service worker: shows phone/computer notifications for the rep
-// console and opens the right page when one is tapped. It does nothing
+// GrievIQ service worker: shows phone/computer notifications (rep console,
+// and citizens' optional complaint updates) and opens the right page when
+// one is tapped. It does nothing
 // else (no offline copies of pages or data).
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
@@ -26,7 +27,8 @@ self.addEventListener('notificationclick', function (e) {
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
-      if (c.url.indexOf(self.location.origin + '/rep') === 0 && 'focus' in c) {
+      var section = self.location.origin + '/' + (path.split(/[/?#]/)[1] || '');
+      if (c.url.indexOf(section) === 0 && 'focus' in c) {
         return c.focus().then(function (w) { return w && 'navigate' in w ? w.navigate(url) : null; });
       }
     }

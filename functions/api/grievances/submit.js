@@ -19,6 +19,7 @@
 // written (it held public links before 7c).
 
 import { notifyNewCase } from "../../_shared/notify.js";
+import { makeFilingPass } from "../../_shared/citizen-push.js";
 import { pointInGeometry } from "../../_shared/geo.js";
 
 // 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
@@ -307,9 +308,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
       citizen_email: trimmedEmail || null, lang: lang === "hi" ? "hi" : "en", status: "OPEN",
     });
     if (typeof waitUntil === "function") waitUntil(told); else await told;
+    // "Get updates on this phone" (Oct 2026): a one-time pass, valid 24
+    // hours, so only the person who just filed can turn updates on here.
+    const updatesPass = await makeFilingPass(env, id);
 
     return new Response(
-      JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category) }),
+      JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category), updates_pass: updatesPass || undefined }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

@@ -223,7 +223,8 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=19b"></script>
+<script src="/i18n.js?v=20"></script>
+<script src="/citizen-updates.js?v=20"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=17a" defer></script>
 </head>
@@ -249,6 +250,7 @@
           <h3 data-i18n="submit.next_h">What happens next</h3>
           <ol id="nextList"></ol>
         </div>
+        <div id="cu-slot"></div>
       </div>
 
       <div class="status-box error" id="errorBox">
@@ -1276,6 +1278,8 @@
       }
       lastNext = { next: data.next || {}, email: !!email };
       drawNext();
+      // Optional phone updates for this complaint (one-time pass from filing).
+      if (window.GIQU && data.updates_pass) window.GIQU.mount(document.getElementById('cu-slot'), { ref: data.tracking_ref, pass: data.updates_pass, hasEmail: !!email });
       successBox.style.display = 'block';
       form.style.display = 'none';
       window.scrollTo({ top: 0, behavior: 'smooth' });

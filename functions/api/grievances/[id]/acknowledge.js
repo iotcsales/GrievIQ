@@ -14,6 +14,7 @@
 // responsible (the level it was sent to, or higher if it has escalated
 // since). A lower level can still see it, but can't acknowledge it.
 
+import { pushCitizen } from "../../../_shared/citizen-push.js";
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../../_shared/escalation.js";
@@ -81,5 +82,8 @@ export async function onRequestPost(context) {
 
   await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
     onBehalf: onBehalfOf(access.mandate, auth), action: "ACKNOWLEDGED", grievanceId });
+  // Citizen phone updates (Oct 2026), if the citizen turned them on.
+  const told = pushCitizen(env, grievance, "ACK", { label: access.mandate.label }, "ACK:" + grievanceId + ":" + (grievance.reopened_at || ""));
+  if (typeof context.waitUntil === "function") context.waitUntil(told); else await told;
   return Response.json({ acknowledgedAt: now });
 }

@@ -32,6 +32,7 @@ import { coversWard, ROLE } from "./team.js";
 import { sendPush, pushConfigured } from "./webpush.js";
 import { recipientName, greetingHtml, SAFETY_LINE } from "./audit-office.js";
 import { CATEGORY_HI } from "./category-names-hi.js";
+import { pushCitizen, citizenHourly } from "./citizen-push.js";
 
 export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
@@ -438,6 +439,7 @@ export async function notifyMovedUp(env, origin, g, chain, category, index, reas
     wardName: chain.localUnit.name, dueMs, data: { reason, level: o.tier },
   });
   await emailCitizen(env, origin, "MOVED_UP", g, { category, wardName: chain.localUnit.name, label: o.label, dueMs, reason, indexKey: index + ":" + marker });
+  await pushCitizen(env, g, "MOVED_UP", { label: o.label }, "UP:" + g.id + ":" + index + ":" + marker);
 }
 
 // A case was assigned to a field worker.
@@ -559,6 +561,7 @@ export async function runNotifications(env, origin, nowMs) {
     try { done.summaries = await dailySummaries(env, origin, list, now); } catch (e) { done.errors++; }
   }
   try { done.reminders = await reminderEmails(env, origin, now); } catch (e) { done.errors++; }
+  try { done.citizen = await citizenHourly(env, now); } catch (e) { done.errors++; }
   try { done.emails = await flushOutbox(env, 40); } catch (e) { done.errors++; }
   try {
     const a = await env.DB.prepare(`DELETE FROM notifications WHERE created_at < ?`).bind(new Date(now - KEEP_NOTICES_DAYS * 86400000).toISOString()).run();
