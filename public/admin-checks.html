@@ -330,7 +330,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=20c"></script>
+<script src="/i18n.js?v=20d"></script>
 <script src="/admin-nav.js?v=r6"></script>
 </head>
 <body>
@@ -401,8 +401,12 @@
       DATE_FUTURE: () => T("rep.ev_date_future", { date: dateTime(w.takenAt) }),
       FAR_FROM_PIN: () => T("rep.ev_far", { dist: dist(w.metres) }),
       DEVICE_FAR_FROM_PIN: () => T("adm.ck_ev_dev_far", { dist: dist(w.metres), acc: w.accuracy }),
-      DEVICE_OUTSIDE_WARD: () => T("adm.ck_ev_dev_outside", { acc: w.accuracy }),
-      PHOTO_OUTSIDE_WARD: () => T("rep.ev_photo_outside"),
+      DEVICE_OUTSIDE_WARD: () => w.metres != null ? T("adm.ev_dev_outside_d", { dist: dist(w.metres), acc: w.accuracy }) : T("adm.ck_ev_dev_outside", { acc: w.accuracy }),
+      PHOTO_OUTSIDE_WARD: () => w.metres != null ? T("rep.ev_photo_outside_d", { dist: dist(w.metres) }) : T("rep.ev_photo_outside"),
+      DEVICE_NEAR_PIN: () => "✓ " + T("adm.ev_dev_near", { dist: dist(w.metres), acc: w.accuracy }),
+      DEVICE_IN_WARD: () => "✓ " + T("adm.ev_dev_in_ward", { acc: w.accuracy }),
+      NEAR_PIN: () => "✓ " + T("rep.ev_near", { dist: dist(w.metres) }),
+      PHOTO_IN_WARD: () => "✓ " + T("rep.ev_photo_in_ward"),
       REUSED_OTHER_CASE: () => (w.kind === "similar" ? T("rep.ev_similar") : T("rep.ev_reused")),
       CITIZEN_PHOTO: () => T("rep.ev_citizen"),
       NO_DATE: () => T("rep.ev_no_date"),

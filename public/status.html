@@ -359,7 +359,7 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js?v=20c"></script>
+<script src="/i18n.js?v=20d"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=17a" defer></script>
 </head>
@@ -917,7 +917,7 @@
     const before = (c.beforePhotos || []).map((p, i) => `<figure>${img(typeof p === 'string' ? { url: p, thumbUrl: p } : p, GIQ.t('status.before_alt', { n: i + 1 }))}</figure>`).join('')
       || `<p class="none">${escapeHtml(GIQ.t('status.no_before'))}</p>`;
     const after = (r.photos || []).map((p, i) => `<figure>${img(p, GIQ.t('status.after_alt', { n: i + 1 }))}` +
-        (p.warnings || []).filter(w => CIT_EV[w.code]).map(w => `<div class="ba-warn">⚠ ${escapeHtml(GIQ.t(CIT_EV[w.code], { dist: GIQ.distance(w.metres) }))}</div>`).join('') + `</figure>`).join('')
+        (p.warnings || []).filter(w => CIT_EV[w.code]).map(w => `<div class="ba-warn">⚠ ${escapeHtml(GIQ.t(CIT_EV[w.code] + (w.metres != null && (w.code === 'DEVICE_OUTSIDE_WARD' || w.code === 'PHOTO_OUTSIDE_WARD') ? '_d' : ''), { dist: GIQ.distance(w.metres) }))}</div>`).join('') + `</figure>`).join('')
       || `<p class="none">${escapeHtml(r.noPhotoReason ? GIQ.t('status.no_after_reason', { reason: r.noPhotoReason }) : GIQ.t('status.no_after'))}</p>`;
     box.innerHTML =
       `<h2 class="section-title" id="res-title">${escapeHtml(GIQ.t('status.res_title'))}</h2>` +

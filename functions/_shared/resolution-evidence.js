@@ -21,10 +21,13 @@
 //                      FAR_FROM_PIN, PHOTO_OUTSIDE_WARD,
 //                      REUSED_OTHER_CASE, CITIZEN_PHOTO
 //   neutral ("info"):  NO_DATE, DEVICE_NOT_SHARED, DEVICE_ROUGH,
-//                      NO_LOCATION, NO_PIN
+//                      NO_LOCATION, NO_PIN,
+//                      DEVICE_NEAR_PIN, NEAR_PIN (with the distance, Oct 2026),
+//                      DEVICE_IN_WARD, PHOTO_IN_WARD
+//   Outside-the-ward warnings carry `metres`: how far outside the boundary.
 
 import { toUtcMs } from "./time-limits.js";
-import { pointInGeometry } from "./geo.js";
+import { pointInGeometry, metresToBoundary } from "./geo.js";
 
 export const FAR_METRES = 250;          // GPS error (~10 m typical, ~100 m worst) + pin error allowance
 export const ROUGH_METRES = 1000;       // a device fix this rough (e.g. Wi-Fi/IP only) can't be checked
@@ -99,8 +102,14 @@ export function photoWarnings(g, p, ward) {
     else if (hasPin) {
       const m = Math.round(metresBetween(Number(g.pin_lat), Number(g.pin_lng), Number(p.dev_lat), Number(p.dev_lng)));
       if (m - acc > FAR_METRES) out.push({ code: "DEVICE_FAR_FROM_PIN", level: "warn", metres: m, accuracy: acc });
-    } else if (ward && !pointInGeometry(Number(p.dev_lng), Number(p.dev_lat), ward)) {
-      out.push({ code: "DEVICE_OUTSIDE_WARD", level: "warn", accuracy: acc });
+      // Oct 2026: the distance is shown even when it's close, so the rep can see it.
+      else out.push({ code: "DEVICE_NEAR_PIN", level: "info", metres: m, accuracy: acc });
+    } else if (ward) {
+      // No pin (the citizen chose the ward from the list): say how far outside the ward.
+      if (!pointInGeometry(Number(p.dev_lng), Number(p.dev_lat), ward)) {
+        const out_m = metresToBoundary(Number(p.dev_lng), Number(p.dev_lat), ward);
+        out.push({ code: "DEVICE_OUTSIDE_WARD", level: "warn", accuracy: acc, metres: out_m == null ? null : Math.round(out_m) });
+      } else out.push({ code: "DEVICE_IN_WARD", level: "info", accuracy: acc });
     }
   }
   // The photo's own location, when the phone kept it.
@@ -109,8 +118,12 @@ export function photoWarnings(g, p, ward) {
   else if (hasPin) {
     const m = Math.round(metresBetween(Number(g.pin_lat), Number(g.pin_lng), Number(p.gps_lat), Number(p.gps_lng)));
     if (m > FAR_METRES) out.push({ code: "FAR_FROM_PIN", level: "warn", metres: m });
-  } else if (ward && !pointInGeometry(Number(p.gps_lng), Number(p.gps_lat), ward)) {
-    out.push({ code: "PHOTO_OUTSIDE_WARD", level: "warn" });
+    else out.push({ code: "NEAR_PIN", level: "info", metres: m });
+  } else if (ward) {
+    if (!pointInGeometry(Number(p.gps_lng), Number(p.gps_lat), ward)) {
+      const out_m = metresToBoundary(Number(p.gps_lng), Number(p.gps_lat), ward);
+      out.push({ code: "PHOTO_OUTSIDE_WARD", level: "warn", metres: out_m == null ? null : Math.round(out_m) });
+    } else out.push({ code: "PHOTO_IN_WARD", level: "info" });
   }
   if ((devOk || hasGps) && !canCompare) out.push({ code: "NO_PIN", level: "info" });
   if (p.dup_grievance_id) out.push({ code: "REUSED_OTHER_CASE", level: "warn", kind: p.dup_kind || "exact", otherCaseId: p.dup_grievance_id });

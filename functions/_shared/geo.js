@@ -49,3 +49,27 @@ export function pointInGeometry(x, y, geometry) {
 
   return false;
 }
+
+// How far a point is from the nearest edge of a ward boundary, in metres
+// (Oct 2026: so "outside the ward" can say by how much). Uses a flat
+// projection around the point, accurate to well under 1% at ward scale.
+// x = longitude, y = latitude, as above.
+export function metresToBoundary(x, y, geometry) {
+  if (!geometry) return null;
+  const polys = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
+  const R = 6371008.8, rad = Math.PI / 180;
+  const kx = Math.cos(y * rad) * rad * R, ky = rad * R;      // metres per degree here
+  let best = Infinity;
+  for (const poly of polys) for (const ring of poly) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const ax = (ring[j][0] - x) * kx, ay = (ring[j][1] - y) * ky;
+      const bx = (ring[i][0] - x) * kx, by = (ring[i][1] - y) * ky;
+      const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+      const t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+      const px = ax + t * dx, py = ay + t * dy;
+      const d = Math.sqrt(px * px + py * py);
+      if (d < best) best = d;
+    }
+  }
+  return best === Infinity ? null : best;
+}

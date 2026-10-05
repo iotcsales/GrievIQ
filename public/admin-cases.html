@@ -307,7 +307,7 @@
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
-<script src="/i18n.js?v=20c"></script>
+<script src="/i18n.js?v=20d"></script>
 <script src="/admin-nav.js?v=r6"></script>
 </head>
 <body>
@@ -666,8 +666,12 @@
     if (w.code === "NO_LOCATION") return T("adm.cs_w_no_location");
     if (w.code === "NO_PIN") return T("adm.cs_w_no_pin");
     if (w.code === "DEVICE_FAR_FROM_PIN") return T("adm.cs_w_dev_far", { dist: dist(w.metres), acc: w.accuracy });
-    if (w.code === "DEVICE_OUTSIDE_WARD") return T("adm.cs_w_dev_outside", { acc: w.accuracy });
-    if (w.code === "PHOTO_OUTSIDE_WARD") return T("adm.cs_w_photo_outside");
+    if (w.code === "DEVICE_OUTSIDE_WARD") return w.metres != null ? T("adm.ev_dev_outside_d", { dist: dist(w.metres), acc: w.accuracy }) : T("adm.cs_w_dev_outside", { acc: w.accuracy });
+    if (w.code === "PHOTO_OUTSIDE_WARD") return w.metres != null ? T("rep.ev_photo_outside_d", { dist: dist(w.metres) }) : T("adm.cs_w_photo_outside");
+    if (w.code === "DEVICE_NEAR_PIN") return "✓ " + T("adm.ev_dev_near", { dist: dist(w.metres), acc: w.accuracy });
+    if (w.code === "DEVICE_IN_WARD") return "✓ " + T("adm.ev_dev_in_ward", { acc: w.accuracy });
+    if (w.code === "NEAR_PIN") return "✓ " + T("rep.ev_near", { dist: dist(w.metres) });
+    if (w.code === "PHOTO_IN_WARD") return "✓ " + T("rep.ev_photo_in_ward");
     if (w.code === "DEVICE_NOT_SHARED") return T("adm.cs_w_dev_not_shared");
     if (w.code === "DEVICE_ROUGH") return T("adm.cs_w_dev_rough", { acc: w.accuracy });
     return w.code;
