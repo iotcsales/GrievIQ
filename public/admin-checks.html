@@ -330,7 +330,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=20d"></script>
+<script src="/i18n.js?v=21"></script>
 <script src="/admin-nav.js?v=r6"></script>
 </head>
 <body>
@@ -396,6 +396,9 @@
     m = Math.round(Number(m) || 0); return m < 1000 ? m + " m" : (m < 10000 ? Math.round(m / 100) / 10 : Math.round(m / 1000)).toLocaleString("en-IN") + " km";
   }
   function evText(w) {
+    // Oct 2026: checks on the citizen's own photos.
+    const cc = window.GIQ && GIQ.citizenPhotoCheck ? GIQ.citizenPhotoCheck(w) : null;
+    if (cc) return (cc.kind === "ok" ? "✓ " : "") + cc.text;
     const M = {
       DATE_BEFORE_FILING: () => T("rep.ev_date_before", { date: dateTime(w.takenAt) }),
       DATE_FUTURE: () => T("rep.ev_date_future", { date: dateTime(w.takenAt) }),

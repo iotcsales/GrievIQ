@@ -181,18 +181,31 @@
   .area-open-error { color: var(--brick); font-size: 12.5px; margin: -10px 0 16px; }
   .area-open-error:empty { display: none; }
 
-  .photo-input { display: none; }
+  /* Inputs stay focusable for keyboards (WCAG 2.1.1); the label is the visible button. */
+  .photo-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+  .photo-input:focus-visible + .photo-label { outline: 3px solid #1F4A8A; outline-offset: 2px; }
+  .photo-btns { display: grid; gap: 8px; }
+  .photo-label.secondary { border-style: solid; background: var(--card); }
+  .photo-count { font-size: 12px; color: var(--ink-soft); margin: 8px 0 0; }
+  .photo-count:empty { display: none; }
+  .photo-notes { list-style: none; padding: 0; margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; }
+  .photo-notes li { margin: 0 0 4px; }
+  .photo-notes li.ok { color: var(--green, #2F6B4F); }
+  .photo-notes li.far { color: #8A5A00; }
+  .photo-notes li.wait { color: var(--ink-soft); }
   .photo-label {
     display: inline-block; width: 100%; text-align: center; padding: 14px;
     border: 1.5px dashed var(--grey-line); border-radius: 11px; color: var(--ink-soft);
     font-weight: 600; font-size: 13.5px; cursor: pointer; background: var(--paper);
   }
   .photo-label:hover { border-color: var(--teal); color: var(--teal-dark); }
+  /* The camera is the main way to add a photo on phones (approved Oct 2026). */
+  #photoLabel { border: 1.5px solid var(--teal); background: var(--teal-tint, #E9EEF7); color: var(--teal-dark); }
   .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
   .photo-thumb { position: relative; aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
   .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .photo-thumb button {
-    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+    position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%;
     border: none; background: rgba(20,20,20,0.75); color: #fff; font-size: 13px; line-height: 1; cursor: pointer;
   }
 
@@ -223,7 +236,7 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=20d"></script>
+<script src="/i18n.js?v=21"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=17a" defer></script>
@@ -321,9 +334,16 @@
 
         <h2 class="section-title" data-i18n="submit.photos">Add photos (optional)</h2>
         <div class="hint" data-i18n="submit.photos_hint">Up to 3 photos. They help your representative understand the issue faster.</div>
-        <label for="photo" class="photo-label" id="photoLabel" data-i18n="submit.photos_btn">Take or choose photos</label>
-        <input type="file" id="photo" accept="image/*" capture="environment" multiple class="photo-input" />
+        <div class="hint" data-i18n="submit.ph_loc_hint">When you add a photo, we'll ask for your location once, to check it was taken near the spot. You can say no. We keep only the distance, not where you were.</div>
+        <div class="photo-btns" id="photoBtns">
+          <input type="file" id="photoCam" accept="image/*" capture="environment" class="photo-input" />
+          <label for="photoCam" class="photo-label" id="photoLabel" data-i18n="submit.ph_camera">Take a photo</label>
+          <input type="file" id="photo" accept="image/*" multiple class="photo-input" />
+          <label for="photo" class="photo-label secondary" id="photoGalleryLabel" data-i18n="submit.ph_gallery">Choose from gallery</label>
+        </div>
+        <p class="photo-count" id="photoCount" aria-live="polite"></p>
         <div class="photo-grid" id="photoGrid"></div>
+        <ul class="photo-notes" id="photoNotes" aria-live="polite"></ul>
         <div class="field-error" id="photoError" role="alert"></div>
 
         <h2 class="section-title" data-i18n="submit.sec_contact">Your contact number</h2>
@@ -511,6 +531,8 @@
   function renderPinNote() {
     const show = !!(pin && localUnitIdField.value && pin.wardId === localUnitIdField.value);
     document.getElementById('pinNote').hidden = !show;
+    // The photo notes follow the spot (photo checks, Oct 2026).
+    if (window.__giqPhotosReady) renderPhotoGrid();
   }
   function setPinStatus(key) {
     pinStatusKey = key;
@@ -1011,19 +1033,104 @@
 
   const MAX_PHOTOS = 3;
   const photoInput = document.getElementById('photo');
+  const photoCam = document.getElementById('photoCam');
   const photoGrid = document.getElementById('photoGrid');
   const photoLabel = document.getElementById('photoLabel');
+  const galleryLabel = document.getElementById('photoGalleryLabel');
+  const photoCount = document.getElementById('photoCount');
+  const photoNotes = document.getElementById('photoNotes');
   const photoError = document.getElementById('photoError');
   // Item 7c: each photo is shrunk on the phone as soon as it is chosen
   // (photo-tools.js): at most 1600 px plus a small preview, and its hidden
   // details (date, GPS) are removed. Uploaded privately when the form is sent.
-  let selectedPhotos = []; // array of { full, thumb, width, height, dhash, previewUrl }
+  // Oct 2026 (photo checks, flag never block): when a photo is added we ask
+  // for the phone's location once (it can be refused) and keep the original's
+  // camera-details block to send with it; the server works out how far that
+  // was from the spot and keeps only the distance.
+  let selectedPhotos = []; // { full, thumb, width, height, dhash, previewUrl, dev, exif, exifNone, check, checkKey }
   let preparing = 0;
   const MAX_ORIGINAL_BYTES = 25 * 1024 * 1024; // before shrinking
+  // Camera first on phones; on computers a single "Choose photos" button.
+  const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if (!touch) { photoCam.hidden = true; photoLabel.hidden = true; photoCam.disabled = true; }
 
   function showPhotoError(key) {
     photoError.textContent = GIQ.t(key);
     photoError.style.display = 'block';
+  }
+
+  // ---- where the phone is (asked once, reused for 2 minutes) ----
+  let lastLoc = null, locAsk = null;
+  function getLoc() {
+    if (lastLoc && Date.now() - lastLoc.at < 120000) return Promise.resolve(lastLoc);
+    if (locAsk) return locAsk;
+    if (!('geolocation' in navigator)) return Promise.resolve({ status: 'UNSUPPORTED', at: Date.now() });
+    locAsk = new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (done) return; done = true; locAsk = null; if (v.status === 'OK') lastLoc = v; resolve(v); };
+      setTimeout(() => finish({ status: 'TIMEOUT', at: Date.now() }), 15000);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => finish({ status: 'OK', lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy || 0), at: Date.now() }),
+        (err) => finish({ status: err && err.code === 1 ? 'DENIED' : 'UNAVAILABLE', at: Date.now() }),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+    });
+    return locAsk;
+  }
+
+  // ---- the original photo's camera-details block (read before shrinking) ----
+  async function exifBlock(file) {
+    try {
+      const head = new Uint8Array(await file.slice(0, 196608).arrayBuffer());
+      // HEIC/HEIF (an 'ftyp' box): can't be read here, so say nothing rather than flag it.
+      if (head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70) return { none: false, blob: null };
+      if (head[0] !== 0xff || head[1] !== 0xd8) return { none: true };      // not a JPEG (e.g. a PNG screenshot)
+      let i = 2;
+      while (i + 4 <= head.length) {
+        if (head[i] !== 0xff) break;
+        const marker = head[i + 1], len = (head[i + 2] << 8) | head[i + 3];
+        if (marker === 0xda || marker === 0xd9 || len < 2) break;
+        if (marker === 0xe1 && head[i + 4] === 0x45 && head[i + 5] === 0x78 && head[i + 6] === 0x69 && head[i + 7] === 0x66) {
+          const end = Math.min(head.length, i + 2 + len);
+          if (end - i > 69000) return { none: false, blob: null };
+          const out = new Uint8Array(2 + (end - i));
+          out[0] = 0xff; out[1] = 0xd8; out.set(head.subarray(i, end), 2);
+          return { none: false, blob: new Blob([out], { type: 'application/octet-stream' }) };
+        }
+        i += 2 + len;
+      }
+      return { none: true };
+    } catch (e) { return { none: false, blob: null }; }
+  }
+
+  // ---- the note under the photos ----
+  function placeKey() {
+    const ward = localUnitIdField.value;
+    if (!ward) return '';
+    return pin && pin.wardId === ward ? 'p:' + pin.lat + ',' + pin.lng : 'w:' + ward;
+  }
+  async function checkPhoto(p) {
+    const key = placeKey();
+    p.checkKey = key;
+    if (!p.dev || p.dev.status !== 'OK') { p.check = null; return; }
+    if (!key) { p.check = { where: 'WAIT' }; return; }
+    try {
+      const usePin = pin && pin.wardId === localUnitIdField.value;
+      const r = await fetch('/api/photo-place-check', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ local_unit_id: localUnitIdField.value, pin_lat: usePin ? pin.lat : null, pin_lng: usePin ? pin.lng : null, lat: p.dev.lat, lng: p.dev.lng, accuracy: p.dev.acc }) });
+      p.check = r.ok ? await r.json() : null;
+    } catch (e) { p.check = null; }
+  }
+  function noteFor(p, n) {
+    const c = p.check;
+    if (!c) return null;
+    const lead = GIQ.t('submit.ph_n', { n }) + ' ';
+    const dist = c.metres != null ? GIQ.distance(c.metres) : '';
+    if (c.where === 'NEAR') return { cls: 'ok', text: '✓ ' + lead + GIQ.t('submit.ph_near', { dist }) };
+    if (c.where === 'IN_WARD') return { cls: 'ok', text: '✓ ' + lead + GIQ.t('submit.ph_in') };
+    if (c.where === 'FAR') return { cls: 'far', text: lead + GIQ.t('submit.ph_far', { dist }) };
+    if (c.where === 'OUTSIDE_WARD') return { cls: 'far', text: lead + GIQ.t('submit.ph_out', { dist }) };
+    if (c.where === 'WAIT') return { cls: 'wait', text: lead + GIQ.t('submit.ph_wait_place') };
+    return null;   // too rough, or nothing to compare with: say nothing
   }
 
   function renderPhotoGrid() {
@@ -1040,7 +1147,7 @@
         const gone = selectedPhotos.splice(index, 1)[0];
         if (gone && gone.previewUrl) URL.revokeObjectURL(gone.previewUrl);
         renderPhotoGrid();
-        photoLabel.focus();
+        (touch ? photoCam : photoInput).focus();
       });
       img.src = photo.previewUrl;
       img.alt = GIQ.t('submit.photo_n', { n: index + 1 });
@@ -1048,10 +1155,11 @@
       thumb.appendChild(removeBtn);
       photoGrid.appendChild(thumb);
     });
-    photoLabel.textContent = selectedPhotos.length > 0
-      ? GIQ.t('submit.photos_more', { n: selectedPhotos.length, max: MAX_PHOTOS })
-      : GIQ.t('submit.photos_btn');
-    photoLabel.style.display = selectedPhotos.length + preparing >= MAX_PHOTOS ? 'none' : 'inline-block';
+    const full = selectedPhotos.length + preparing >= MAX_PHOTOS;
+    photoLabel.textContent = GIQ.t('submit.ph_camera');
+    galleryLabel.textContent = GIQ.t(touch ? 'submit.ph_gallery' : 'submit.ph_choose');
+    document.getElementById('photoBtns').hidden = full;
+    photoCount.textContent = selectedPhotos.length ? GIQ.t('submit.ph_count', { n: selectedPhotos.length, max: MAX_PHOTOS }) : '';
     if (preparing) {
       const note = document.createElement('div');
       note.className = 'hint';
@@ -1059,24 +1167,47 @@
       note.textContent = GIQ.t('submit.photo_preparing');
       photoGrid.appendChild(note);
     }
+    // Notes: re-checked when the spot changes.
+    const key = placeKey();
+    selectedPhotos.forEach((p) => {
+      if (p.dev && p.dev.status === 'OK' && p.checkKey !== key && !p.checking) {
+        p.checking = true;
+        checkPhoto(p).then(() => { p.checking = false; renderPhotoGrid(); });
+      }
+    });
+    photoNotes.innerHTML = '';
+    selectedPhotos.forEach((p, i) => {
+      const n = noteFor(p, i + 1);
+      if (!n) return;
+      const li = document.createElement('li');
+      li.className = n.cls;
+      li.textContent = n.text;
+      photoNotes.appendChild(li);
+    });
   }
 
-  photoInput.addEventListener('change', async () => {
+  async function addFiles(input) {
     photoError.style.display = 'none';
-    const newFiles = Array.from(photoInput.files);
-    photoInput.value = '';
+    const newFiles = Array.from(input.files);
+    input.value = '';
     const take = [];
     for (const file of newFiles) {
       if (selectedPhotos.length + preparing + take.length >= MAX_PHOTOS) { showPhotoError('submit.photo_max'); break; }
       if (file.size > MAX_ORIGINAL_BYTES) { showPhotoError('submit.photo_size'); continue; }
       take.push(file);
     }
+    if (!take.length) return;
     preparing += take.length;
     renderPhotoGrid();
+    const loc = getLoc();   // asked in parallel with shrinking the photos
     for (const file of take) {
       try {
-        const p = await GIQPhoto.prepare(file);
+        const [p, ex] = await Promise.all([GIQPhoto.prepare(file), exifBlock(file)]);
         p.previewUrl = URL.createObjectURL(p.thumb);
+        p.exif = ex.blob || null;
+        p.exifNone = !!ex.none;
+        p.dev = await loc;
+        await checkPhoto(p);
         selectedPhotos.push(p);
       } catch (err) {
         showPhotoError('submit.photo_unreadable');
@@ -1084,7 +1215,10 @@
       preparing--;
       renderPhotoGrid();
     }
-  });
+  }
+  photoInput.addEventListener('change', () => addFiles(photoInput));
+  photoCam.addEventListener('change', () => addFiles(photoCam));
+  window.__giqPhotosReady = true;
 
   // Uploads the prepared photos privately; returns their ids.
   async function uploadAllPhotos() {
@@ -1096,6 +1230,13 @@
       if (p.dhash) fd.append('dhash', p.dhash);
       fd.append('width', String(p.width));
       fd.append('height', String(p.height));
+      // Photo checks (Oct 2026): where the phone was, and the camera details.
+      if (p.dev) {
+        fd.append('dev_status', p.dev.status);
+        if (p.dev.status === 'OK') { fd.append('dev_lat', String(p.dev.lat)); fd.append('dev_lng', String(p.dev.lng)); fd.append('dev_accuracy', String(p.dev.acc)); }
+      }
+      if (p.exif) fd.append('exif', p.exif, 'exif.bin');
+      else if (p.exifNone) fd.append('exif_none', '1');
       const res = await fetch('/api/grievances/upload-photo', {
         method: 'POST',
         body: fd,

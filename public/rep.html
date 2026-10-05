@@ -18,7 +18,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=20d"></script>
+<script src="/i18n.js?v=21"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=20b"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -875,7 +875,20 @@ function renderPhotoThumbs(photos) {
       (p.removed ? ' title="' + esc(T('rep.photo_full_removed', { date: formatDateOnly(p.removedAt) })) + '"' : p.previewOnly ? ' title="' + esc(T('rep.photo_preview_only')) + '"' : '') + '>' +
       '<img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T('rep.photo_alt', { n: i + 1 })) + '" loading="lazy">' +
       '<span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a>';
-  }).join('') + '</div>';
+  }).join('') + '</div>' + citizenPhotoChecks(photos);
+}
+// Oct 2026: checks on the citizen's photos (distance from the spot, camera
+// details, same photo elsewhere). Flags for the office to verify; never blocks.
+function citizenPhotoChecks(photos) {
+  var items = [];
+  (photos || []).forEach(function(p, i) {
+    (p.warnings || []).forEach(function(w) {
+      var c = window.GIQ && GIQ.citizenPhotoCheck ? GIQ.citizenPhotoCheck(w) : null;
+      if (!c) return;
+      items.push('<li class="' + c.kind + '">' + (c.kind === 'warn' ? '⚠ ' : c.kind === 'ok' ? '✓ ' : '') + esc(T('ev.c_photo_n', { n: i + 1 }) + ' ' + c.text) + '</li>');
+    });
+  });
+  return items.length ? '<ul class="ev-list cit-checks">' + items.join('') + '</ul>' : '';
 }
 
 // Where the problem is: the pin saved with the complaint (reps only).

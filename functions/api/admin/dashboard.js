@@ -24,6 +24,7 @@
 // All queries are aggregate JOINs -- no long IN (?,?,...) lists.
 
 import { deliveryHealth } from "../../_shared/notify.js";
+import { WARN_SQL } from "../../_shared/citizen-photo-checks.js";
 import { getVerifiedAdmin, PERMISSIONS, pagesFor } from "../../_shared/get-verified-admin.js";
 import { shapeObservation, todayIst } from "../../_shared/audit.js";
 import { findExceptionCases } from "../../_shared/exception-cases.js";
@@ -243,6 +244,8 @@ export async function onRequestGet(context) {
     // Notifications (Oct 2026): replies from offices waiting, and whether
     // notices are getting through (backup emails, phone alerts).
     messagesUnread: can(role, "view_messages") ? await messagesUnread(env) : null,
+    // Oct 2026: complaints whose citizen photos carry a warning (last 7 days).
+    photoWarnings: can(role, "view_cases") ? await photoWarnings(env) : null,
     delivery: can(role, "view_messages") ? await deliveryHealth(env) : null,
     // Card links follow the same page list as the menu (pagesFor), so a
     // card never leads to a page the role can't use.
@@ -257,6 +260,16 @@ export async function onRequestGet(context) {
     })(),
     generatedAt: new Date().toISOString(),
   });
+}
+
+async function photoWarnings(env) {
+  try {
+    const r = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT cp.grievance_id) AS n FROM complaint_photos cp JOIN grievances g ON g.id = cp.grievance_id
+       WHERE cp.checked_at >= ? AND ${WARN_SQL}`
+    ).bind(new Date(Date.now() - 7 * 86400000).toISOString()).first();
+    return r ? Number(r.n) || 0 : 0;
+  } catch (e) { return null; }
 }
 
 async function messagesUnread(env) {

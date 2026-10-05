@@ -36,6 +36,7 @@
 // Photo storage page. Runs that remove something are logged (admin_events
 // "photos_purged").
 
+import { citizenPhotoWarnings } from "./citizen-photo-checks.js";
 import { photoLink } from "./photo-links.js";
 import { CONFIRM_DAYS } from "./confirmation.js";
 
@@ -80,10 +81,17 @@ export async function photoMedia(env, row, kind) {
 
 // The citizen's photos for a case, in order: private ones first, then any
 // old public links not moved yet.
-export async function complaintPhotoList(env, g, rows) {
+// staff = true (representatives and GrievIQ staff, Oct 2026): each photo
+// also carries its checks (distance from the spot, camera details, same
+// photo elsewhere). Never sent to the citizen's own view.
+export async function complaintPhotoList(env, g, rows, staff) {
   const out = [];
   const sorted = (rows || []).slice().sort((a, b) => (a.position - b.position) || (a.created_at < b.created_at ? -1 : 1));
-  for (const r of sorted) out.push(await photoMedia(env, r, "c"));
+  for (const r of sorted) {
+    const m = await photoMedia(env, r, "c");
+    if (staff) m.warnings = citizenPhotoWarnings(r, g && g.created_at);
+    out.push(m);
+  }
   for (const u of legacyUrls(g && g.photo_url)) out.push({ id: null, url: u, thumbUrl: u, removed: null, removedAt: null, legacy: true });
   return out.slice(0, 3);
 }

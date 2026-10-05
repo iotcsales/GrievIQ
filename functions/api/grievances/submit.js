@@ -20,6 +20,7 @@
 
 import { notifyNewCase } from "../../_shared/notify.js";
 import { makeFilingPass } from "../../_shared/citizen-push.js";
+import { checkAttachedPhotos } from "../../_shared/citizen-photo-checks.js";
 import { pointInGeometry } from "../../_shared/geo.js";
 
 // 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
@@ -284,6 +285,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
       } catch (photoErr) {
         // Ignore -- the grievance is already saved.
       }
+      // Oct 2026: photo checks against the final spot (flag, never block);
+      // the phone's position is deleted once the distance is worked out.
+      await checkAttachedPhotos(env, { id, local_unit_id, pin_lat: pin ? pin.lat : null, pin_lng: pin ? pin.lng : null });
     }
 
     // Saving the suggestion must never block the complaint itself.

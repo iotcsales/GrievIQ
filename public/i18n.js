@@ -2133,6 +2133,35 @@
 "adm.nav_g_data": ["Areas & data", "क्षेत्र और डेटा"],
 "adm.nav_g_people": ["People & audit", "लोग और ऑडिट"],
 "adm.nav_main": ["Admin pages", "एडमिन पेज"],
+"submit.ph_camera": ["Take a photo", "फ़ोटो खींचें"],
+"submit.ph_gallery": ["Choose from gallery", "गैलरी से चुनें"],
+"submit.ph_choose": ["Choose photos", "फ़ोटो चुनें"],
+"submit.ph_count": ["{n} of {max} photos added", "{max} में से {n} फ़ोटो जोड़ी गईं"],
+"submit.ph_loc_hint": ["When you add a photo, we'll ask for your location once, to check it was taken near the spot. You can say no. We keep only the distance, not where you were.", "फ़ोटो जोड़ते समय हम एक बार आपकी लोकेशन माँगेंगे, यह जाँचने के लिए कि फ़ोटो उसी स्थान के पास ली गई। आप मना कर सकते हैं। हम केवल दूरी रखते हैं, आप कहाँ थे यह नहीं।"],
+"submit.ph_n": ["Photo {n}:", "फ़ोटो {n}:"],
+"submit.ph_near": ["taken about {dist} from the spot you marked.", "आपके चिह्नित स्थान से लगभग {dist} दूर ली गई।"],
+"submit.ph_in": ["taken inside the ward you chose.", "आपके चुने गए वार्ड के अंदर ली गई।"],
+"submit.ph_far": ["added about {dist} from the spot you marked. That's fine if you took it there earlier; your representative may check it.", "आपके चिह्नित स्थान से लगभग {dist} दूर से जोड़ी गई। यदि आपने इसे पहले वहाँ खींचा था तो ठीक है; आपके जनप्रतिनिधि इसकी जाँच कर सकते हैं।"],
+"submit.ph_out": ["added about {dist} outside the ward you chose. That's fine if you took it there earlier; your representative may check it.", "आपके चुने गए वार्ड से लगभग {dist} बाहर से जोड़ी गई। यदि आपने इसे पहले वहाँ खींचा था तो ठीक है; आपके जनप्रतिनिधि इसकी जाँच कर सकते हैं।"],
+"submit.ph_wait_place": ["we'll check it against the spot once you choose where the problem is.", "समस्या का स्थान चुनने के बाद हम इसे उस स्थान से मिलाएँगे।"],
+"ev.c_dev_near": ["Citizen added this photo about {dist} from the complaint's spot (phone accuracy ±{acc} m)", "नागरिक ने यह फ़ोटो शिकायत के स्थान से लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"ev.c_dev_far": ["Citizen added this photo about {dist} away from the complaint's spot (phone accuracy ±{acc} m). Check before acting.", "नागरिक ने यह फ़ोटो शिकायत के स्थान से लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)। कार्यवाही से पहले जाँच लें।"],
+"ev.c_dev_in": ["Citizen added this photo from inside the complaint's ward (phone accuracy ±{acc} m)", "नागरिक ने यह फ़ोटो शिकायत के वार्ड के अंदर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
+"ev.c_dev_out": ["Citizen added this photo about {dist} outside the complaint's ward (phone accuracy ±{acc} m). Check before acting.", "नागरिक ने यह फ़ोटो शिकायत के वार्ड की सीमा से लगभग {dist} बाहर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)। कार्यवाही से पहले जाँच लें।"],
+"ev.c_dev_rough": ["Citizen's location was too rough to check (±{acc} m)", "नागरिक की लोकेशन जाँचने के लिए पर्याप्त सटीक नहीं थी (±{acc} मीटर)"],
+"ev.c_dev_not": ["Citizen didn't share their location when adding this photo", "फ़ोटो जोड़ते समय नागरिक ने अपनी लोकेशन साझा नहीं की"],
+"ev.c_gps_near": ["Photo's own location: about {dist} from the complaint's spot", "फ़ोटो की अपनी लोकेशन: शिकायत के स्थान से लगभग {dist} दूर"],
+"ev.c_gps_far": ["Photo's own location is about {dist} away from the complaint's spot", "फ़ोटो की अपनी लोकेशन शिकायत के स्थान से लगभग {dist} दूर है"],
+"ev.c_gps_in": ["Photo's own location is inside the complaint's ward", "फ़ोटो की अपनी लोकेशन शिकायत के वार्ड के अंदर है"],
+"ev.c_gps_out": ["Photo's own location is about {dist} outside the complaint's ward", "फ़ोटो की अपनी लोकेशन शिकायत के वार्ड की सीमा से लगभग {dist} बाहर है"],
+"ev.c_no_camera": ["No camera details: this may be a screenshot or a downloaded picture", "कैमरे का कोई विवरण नहीं: यह स्क्रीनशॉट या डाउनलोड की गई तस्वीर हो सकती है"],
+"ev.c_old": ["Photo taken on {date}, more than 30 days before the complaint was filed", "फ़ोटो {date} को ली गई, शिकायत दर्ज होने से 30 दिन से अधिक पहले"],
+"ev.c_dup": ["Same photo as on another complaint", "यही फ़ोटो किसी दूसरी शिकायत में भी है"],
+"ev.c_similar": ["Very similar to a photo on another complaint", "किसी दूसरी शिकायत की फ़ोटो से बहुत मिलती-जुलती"],
+"ev.c_photo_n": ["Citizen's photo {n}:", "नागरिक की फ़ोटो {n}:"],
+"adm.d_c_photo_warn": ["Complaints with photo warnings (7 days)", "फ़ोटो चेतावनी वाली शिकायतें (7 दिन)"],
+"adm.d_c_photo_warn_h": ["Photos added far from the spot, without camera details, old, or used on another complaint. Check before acting.", "स्थान से दूर से जोड़ी गई, बिना कैमरा विवरण, पुरानी, या दूसरी शिकायत में उपयोग की गई फ़ोटो। कार्यवाही से पहले जाँच लें।"],
+"priv.photo_checks": ["When you add a photo to a complaint, we ask your phone for its location once, with your permission, and read the photo's date and whether a camera took it. We use this only to check the photo was taken near the problem, and keep only the distance and its accuracy, never where you were. Saying no doesn't stop your complaint.", "शिकायत में फ़ोटो जोड़ते समय हम आपकी अनुमति से एक बार आपके फ़ोन की लोकेशन लेते हैं और फ़ोटो की तारीख तथा यह देखते हैं कि उसे कैमरे से खींचा गया या नहीं। इसका उपयोग केवल यह जाँचने के लिए होता है कि फ़ोटो समस्या के पास ली गई, और हम केवल दूरी व उसकी सटीकता रखते हैं, आप कहाँ थे यह कभी नहीं। मना करने से आपकी शिकायत नहीं रुकती।"],
 "rep.ev_dev_near": ["You added this photo about {dist} from the complaint's pin (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के पिन से लगभग {dist} दूर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_dev_in_ward": ["You added this photo from inside the complaint's ward (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के वार्ड के अंदर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
 "rep.ev_dev_outside_d": ["You added this photo about {dist} outside the complaint's ward (phone accuracy ±{acc} m)", "आपने यह फ़ोटो शिकायत के वार्ड की सीमा से लगभग {dist} बाहर से जोड़ी (फ़ोन की सटीकता ±{acc} मीटर)"],
@@ -4068,6 +4097,24 @@
     category: function (id, name) { return has('cat.' + id) ? t('cat.' + id) : (name || ''); },
     level: function (label) { return LEVELS[label] ? t(LEVELS[label]) : (label || ''); },
     dept: function (name) { return DEPTS[name] ? t(DEPTS[name]) : (name || ''); },
+    // Oct 2026: the checks on a citizen's complaint photo, for staff pages.
+    // Returns { text, kind: 'warn' | 'ok' | 'info' }, or null for an unknown code.
+    citizenPhotoCheck: function (w) {
+      if (!w || !w.code) return null;
+      var d = w.metres != null ? distance(w.metres) : '';
+      var acc = w.accuracy != null ? w.accuracy : '?';
+      var date = '';
+      if (w.takenAt) { try { date = new Date(w.takenAt).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }); } catch (e) { date = String(w.takenAt).slice(0, 10); } }
+      var M = {
+        C_DEV_NEAR: ['ev.c_dev_near', 'ok'], C_DEV_FAR: ['ev.c_dev_far', 'warn'], C_DEV_IN_WARD: ['ev.c_dev_in', 'ok'],
+        C_DEV_OUTSIDE_WARD: ['ev.c_dev_out', 'warn'], C_DEV_ROUGH: ['ev.c_dev_rough', 'info'], C_DEV_NOT_SHARED: ['ev.c_dev_not', 'info'],
+        C_GPS_NEAR: ['ev.c_gps_near', 'ok'], C_GPS_FAR: ['ev.c_gps_far', 'warn'], C_GPS_IN_WARD: ['ev.c_gps_in', 'ok'], C_GPS_OUTSIDE_WARD: ['ev.c_gps_out', 'warn'],
+        C_NO_CAMERA: ['ev.c_no_camera', 'warn'], C_OLD_PHOTO: ['ev.c_old', 'warn'], C_DUP: [w.kind === 'similar' ? 'ev.c_similar' : 'ev.c_dup', 'warn'],
+      };
+      var m = M[w.code];
+      if (!m) return null;
+      return { text: t(m[0], { dist: d, acc: acc, date: date }), kind: m[1] };
+    },
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(); });

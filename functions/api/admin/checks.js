@@ -102,7 +102,7 @@ export async function onRequestGet({ request, env }) {
       description: g.description || "",
       locationDetail: g.location_detail || "",
       pin: g.pin_lat != null && g.pin_lng != null ? { lat: Number(g.pin_lat), lng: Number(g.pin_lng) } : null,
-      beforePhotos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id)),
+      beforePhotos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id), true),
       createdAt: g.created_at,
       markedResolvedAt: g.resolved_at,
       closesAt: confirmDeadline(g.resolved_at),

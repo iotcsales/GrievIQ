@@ -239,7 +239,7 @@ export async function onRequestGet(context) {
     // plus any old public links not moved yet.
     // Item 8c-1: an office assistant gets previews only, never full size.
     const viewOnly = isViewOnly(myRole);
-    const photos = previewOnly(await complaintPhotoList(env, grievance, complaintPhotosByGrievance.get(grievance.id)), viewOnly);
+    const photos = previewOnly(await complaintPhotoList(env, grievance, complaintPhotosByGrievance.get(grievance.id), true), viewOnly);
 
     const report = reportByGrievance.get(grievance.id) || null;
     const resolution = report

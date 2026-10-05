@@ -212,7 +212,7 @@ async function caseDetail(env, auth, id) {
       // Item 9d: when the citizen's details were removed under the retention policy.
       retentionRemovedAt: g.retention_removed_at || null,
       onHold: (g.photo_hold || 0) === 1,
-      photos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id)),
+      photos: await complaintPhotoList(env, g, await loadComplaintPhotos(env, g.id), true),
       createdAt: g.created_at,
       acknowledgedAt: g.acknowledged_at || null,
       resolvedAt: g.resolved_at || null,

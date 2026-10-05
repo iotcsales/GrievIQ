@@ -16,11 +16,19 @@
 // 16-hex visual fingerprint, used to catch a citizen's photo being sent back
 // as an "after" photo), width, height.
 //
+// Oct 2026 (photo checks, flag never block): also dev_status / dev_lat /
+// dev_lng / dev_accuracy (where the phone was when the photo was added, if
+// the citizen allowed it) and exif (the original photo's camera-details
+// block, read here for its date, GPS and whether a camera made it, then
+// thrown away). Positions are kept only until the complaint is filed; see
+// _shared/citizen-photo-checks.js.
+//
 // Checks (OWASP file upload guidance): real type read from the first bytes
 // (JPEG, PNG or WEBP), size limits, file names chosen by us.
 
 import { sniffImage, sha256Hex, validDhash } from "../../_shared/resolution-evidence.js";
 import { FULL_MAX_BYTES, THUMB_MAX_BYTES, stripJpegMetadata } from "../../_shared/photo-store.js";
+import { readExif } from "../../_shared/exif.js";
 
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
@@ -55,6 +63,19 @@ export async function onRequestPost({ request, env }) {
     if (sniffImage(t.subarray(0, 16)) === "image/jpeg") thumb = stripJpegMetadata(t);
   }
 
+  // Oct 2026: photo checks (see the header). Nothing here can stop the upload.
+  const num = (v, max) => { const n = Number(v); return v != null && v !== "" && isFinite(n) && Math.abs(n) <= max ? n : null; };
+  const devStatus = ["OK", "DENIED", "UNAVAILABLE", "TIMEOUT", "UNSUPPORTED"].includes(String(form.get("dev_status") || "")) ? String(form.get("dev_status")) : null;
+  const devLat = devStatus === "OK" ? num(form.get("dev_lat"), 90) : null;
+  const devLng = devStatus === "OK" ? num(form.get("dev_lng"), 180) : null;
+  const devAcc = devStatus === "OK" ? Math.max(0, Math.min(100000, Math.round(Number(form.get("dev_accuracy")) || 0))) : null;
+  let ex = { takenAt: null, lat: null, lng: null, hasCamera: false }, exifSent = false;
+  const exifFile = form.get("exif");
+  if (exifFile && typeof exifFile !== "string" && exifFile.size > 0 && exifFile.size <= 70000) {
+    exifSent = true;
+    try { ex = readExif((await exifFile.arrayBuffer())); } catch (e) { /* unreadable: treated as no details */ }
+  } else if (String(form.get("exif_none") || "") === "1") exifSent = true;
+
   try {
     const id = crypto.randomUUID();
     const key = "complaint-photos/" + id + "." + EXT[type];
@@ -68,6 +89,11 @@ export async function onRequestPost({ request, env }) {
     ).bind(id, key, thumbKey, type, buf.byteLength, thumb ? thumb.byteLength : null,
       dim(form.get("width")), dim(form.get("height")), await sha256Hex(buf),
       validDhash(String(form.get("dhash") || "").toLowerCase()), new Date().toISOString()).run();
+    try {
+      await env.DB.prepare(
+        "UPDATE complaint_photos SET dev_status = ?, dev_lat = ?, dev_lng = ?, dev_accuracy = ?, gps_lat = ?, gps_lng = ?, taken_at = ?, has_camera = ? WHERE id = ?"
+      ).bind(devStatus, devLat, devLng, devAcc, ex.lat, ex.lng, ex.takenAt, exifSent ? (ex.hasCamera ? 1 : 0) : null, id).run();
+    } catch (e) { /* photo-check columns not added yet (part19): the photo is still saved */ }
     return reply(200, { success: true, photo_id: id });
   } catch (err) {
     return reply(500, { error: "Photo upload failed. Please try again.", code: "FAILED" });

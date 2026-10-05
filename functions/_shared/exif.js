@@ -1,8 +1,9 @@
 // functions/_shared/exif.js
 //
-// Reads the two facts GrievIQ uses from a JPEG photo's EXIF data: when it
-// was taken and where (GPS). Nothing else is read. Returns
-// { takenAt: ISO string | null, lat: number | null, lng: number | null }.
+// Reads the facts GrievIQ uses from a JPEG photo's EXIF data: when it was
+// taken, where (GPS), and whether a camera made it. Nothing else is read. Returns
+// { takenAt: ISO string | null, lat: number | null, lng: number | null,
+// hasCamera: boolean (camera maker/model present) }.
 //
 // Only JPEG is read; PNG, WEBP and HEIC give nulls. EXIF can be missing
 // (WhatsApp and many apps strip it) or edited, so callers use it only
@@ -12,7 +13,7 @@
 // Written defensively: every offset is bounds-checked and any surprise
 // returns nulls rather than throwing.
 
-const NONE = { takenAt: null, lat: null, lng: null };
+const NONE = { takenAt: null, lat: null, lng: null, hasCamera: false };
 
 export function readExif(buffer) {
   try {
@@ -100,7 +101,10 @@ function readTiff(b, start, end) {
       if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0)) { lat = null; lng = null; }
     }
   }
-  return { takenAt: toIso(dateStr, offsetStr), lat, lng };
+  // Oct 2026: whether a camera wrote this photo (maker or model present).
+  // Screenshots and downloaded pictures usually have neither.
+  const hasCamera = !!((ascii(main.get(0x010f)) || "").trim() || (ascii(main.get(0x0110)) || "").trim());
+  return { takenAt: toIso(dateStr, offsetStr), lat, lng, hasCamera };
 }
 
 // "2026:09:27 14:05:33" (+ "+05:30") -> ISO. Missing offset = India time.
