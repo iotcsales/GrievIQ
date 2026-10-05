@@ -184,7 +184,16 @@
     });
   }
   function redraw() { var had = document.activeElement && document.activeElement.id; drawBell(); if (had && document.getElementById(had)) document.getElementById(had).focus(); }
-  function show() { open = true; drawBell(); var h = document.getElementById('rn-h'); if (h) h.focus(); load(); }
+  function show() { open = true; drawBell(); var h = document.getElementById('rn-h'); if (h) h.focus(); load().then(markSeen); }
+  // Opening the list counts as seeing what is in it: no 6-hour reminder email
+  // for those (the automatic check every minute never counts).
+  function markSeen() {
+    if (!open) return;
+    var ids = (data.items || []).filter(function (n) { return !n.read && !n.seen; }).map(function (n) { return n.id; });
+    if (!ids.length) return;
+    (data.items || []).forEach(function (n) { if (ids.indexOf(n.id) !== -1) n.seen = true; });
+    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'seen', ids: ids }) }).catch(function () {});
+  }
   function close(focusBell) { if (!open) return; open = false; drawBell(); if (focusBell) { var b = document.getElementById('rn-bell'); if (b) b.focus(); } }
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
@@ -223,6 +232,7 @@
       lastUnread = j.unread;
       await checkPush();
       redraw();
+      if (open) markSeen();
     } catch (e) { /* try again next time */ }
   }
 
@@ -298,6 +308,8 @@
   window.GIQN = {
     mount: function () {
       drawBell();
+      // Link from the reminder email: /rep#bell opens the list.
+      if (location.hash === '#bell') { history.replaceState(null, '', location.pathname + location.search); setTimeout(show, 0); }
       if (!timer) {
         load();
         timer = setInterval(function () { if (document.visibilityState === 'visible') load(); }, 60000);

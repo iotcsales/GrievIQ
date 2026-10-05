@@ -7,8 +7,12 @@
 //      bell in the rep console (and kept for a year).
 //   2. Phone/computer: the notice is pushed to every device the person
 //      turned notifications on for (web push, _shared/webpush.js; free).
-//   3. Email, only as a backup: a person with no device that accepted the
-//      push gets an email instead (email_outbox, retried up to 3 times).
+//   3. Email, only as a reminder (Oct 2026): if a notice is still unseen
+//      6 hours later and no phone alert reached the person, the hourly job
+//      sends ONE short email for all of that person's waiting notices. It
+//      gives no details, only that messages are waiting and how to turn on
+//      phone alerts (email_outbox, retried up to 3 times). So reps learn to
+//      turn alerts on, and email stays rare.
 //
 // What a notice says (content-free, as for all staff emails): the
 // reference, the ward, the type of problem and the dates. Never the
@@ -33,12 +37,14 @@ export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
   OBSERVATION: "OBSERVATION", NUDGE: "NUDGE", ANNOUNCEMENT: "ANNOUNCEMENT", REPLY: "REPLY",
 };
-// Kinds that fall back to email when no device took the push. The others
-// already have their own email (audit observations, admin nudges).
+// Kinds that get the 6-hour reminder email. The others already have their
+// own email (audit observations, admin nudges).
 const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY]);
 
 export const SUMMARY_HOUR_IST = 9;          // daily summary at 9:00 am India time
-export const NEW_CASE_CATCHUP_HOURS = 6;    // a filing whose notice failed is caught up by the hourly job
+export const NEW_CASE_CATCHUP_HOURS = 6;
+export const REMIND_AFTER_HOURS = 6;          // reminder email when still unseen this long after
+export const REMIND_MAX_AGE_DAYS = 7;         // never remind about older notices    // a filing whose notice failed is caught up by the hourly job
 export const EMAIL_TRIES = 3;
 export const EMAIL_DAILY_WARN = 80;          // Resend free plan: 100 a day
 export const KEEP_NOTICES_DAYS = 365;
@@ -164,21 +170,74 @@ export function noticeUrl(n) {
   return "/rep#case=" + encodeURIComponent(n.grievance_id || "") + "&n=" + encodeURIComponent(n.id);
 }
 
-// Backup email: both languages, greeting by name, content-free.
-async function staffEmail(env, origin, n) {
-  const en = noticeText(n, "en"), hi = noticeText(n, "hi");
-  const url = origin + noticeUrl(n);
-  const who = await recipientName(env, n.recipient);
+// The 6-hour reminder: both languages, greeting by name, no details at all
+// (not even the reference), then how to turn on phone alerts.
+export async function reminderEmail(env, origin, recipient, count) {
+  const url = origin + "/rep#bell";
+  const who = await recipientName(env, recipient);
+  const n = Number(count) || 1;
   const html = greetingHtml(who) +
-    "<p><strong>" + esc(en.title) + "</strong></p><p>" + esc(en.body) + "</p>" +
-    `<p>Open GrievIQ: <a href="${esc(url)}">${esc(origin + "/rep")}</a></p>` +
-    "<p>Tip: turn on notifications in GrievIQ (the bell at the top) to get these alerts on your phone instead of by email.</p>" +
-    "<p>For security, the details are shown only after you sign in. " + SAFETY_LINE + "</p>" +
-    "<hr><p><strong>" + esc(hi.title) + "</strong></p><p>" + esc(hi.body) + "</p>" +
-    `<p>GrievIQ खोलें: <a href="${esc(url)}">${esc(origin + "/rep")}</a></p>` +
-    "<p>सुझाव: ये सूचनाएँ ईमेल के बजाय फ़ोन पर पाने के लिए GrievIQ में सूचनाएँ चालू करें (ऊपर घंटी)।</p>" +
-    "<p>सुरक्षा के लिए विवरण साइन इन करने के बाद ही दिखते हैं। GrievIQ कभी भी ईमेल या फ़ोन पर आपका साइन-इन कोड नहीं माँगता।</p>";
-  return { subject: "GrievIQ: " + en.title, html };
+    "<p>It's been 6 hours since " + (n === 1 ? "a message was" : n + " messages were") + " left for you on your GrievIQ app. Please see " + (n === 1 ? "it" : "them") + " and take the necessary action.</p>" +
+    `<p><a href="${esc(url)}">Open GrievIQ</a></p>` +
+    "<p><strong>To get your messages on your phone straight away, turn on notifications:</strong></p>" +
+    "<p><strong>Android phone or computer</strong> (Chrome or Edge)</p><ol>" +
+    `<li>Open <a href="${esc(origin + "/rep")}">${esc(origin.replace(/^https?:\/\//, "") + "/rep")}</a> and sign in.</li>` +
+    "<li>Tap the bell at the top.</li><li>Tap <strong>Turn on notifications</strong>, then <strong>Allow</strong>.</li>" +
+    "<li>Tap <strong>Send a test</strong> to check it works.</li></ol>" +
+    "<p><strong>iPhone</strong></p><ol>" +
+    `<li>Open <a href="${esc(origin + "/rep")}">${esc(origin.replace(/^https?:\/\//, "") + "/rep")}</a> in Safari.</li>` +
+    "<li>Tap the Share button, then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>" +
+    "<li>Open <strong>GrievIQ Rep</strong> from your Home Screen and sign in.</li>" +
+    "<li>Tap the bell, then <strong>Turn on notifications</strong>, then <strong>Allow</strong>.</li></ol>" +
+    "<p>Once notifications are on, you'll get these alerts on your phone instead of by email.</p>" +
+    "<p>For security, GrievIQ never puts details in emails. " + SAFETY_LINE + "</p>" +
+    "<hr><p>" + (who ? "प्रिय " + esc(who.name) + (who.id ? " (" + esc(who.id) + ")" : "") : "प्रिय सहयोगी") + ",</p>" +
+    "<p>आपके GrievIQ ऐप पर " + (n === 1 ? "एक संदेश" : n + " संदेश") + " छोड़े हुए 6 घंटे हो गए हैं। कृपया " + (n === 1 ? "इसे" : "इन्हें") + " देखें और आवश्यक कार्यवाही करें।</p>" +
+    `<p><a href="${esc(url)}">GrievIQ खोलें</a></p>` +
+    "<p><strong>संदेश तुरंत अपने फ़ोन पर पाने के लिए सूचनाएँ चालू करें:</strong></p>" +
+    "<p><strong>Android फ़ोन या कंप्यूटर</strong> (Chrome या Edge)</p><ol>" +
+    `<li><a href="${esc(origin + "/rep")}">${esc(origin.replace(/^https?:\/\//, "") + "/rep")}</a> खोलें और साइन इन करें।</li>` +
+    "<li>ऊपर घंटी दबाएँ।</li><li><strong>सूचनाएँ चालू करें</strong> दबाएँ, फिर <strong>अनुमति दें</strong>।</li>" +
+    "<li>जाँचने के लिए <strong>परीक्षण सूचना भेजें</strong> दबाएँ।</li></ol>" +
+    "<p><strong>iPhone</strong></p><ol>" +
+    `<li>Safari में <a href="${esc(origin + "/rep")}">${esc(origin.replace(/^https?:\/\//, "") + "/rep")}</a> खोलें।</li>` +
+    "<li>शेयर बटन दबाएँ, फिर <strong>होम स्क्रीन पर जोड़ें</strong>, फिर <strong>जोड़ें</strong>।</li>" +
+    "<li>होम स्क्रीन से <strong>GrievIQ Rep</strong> खोलें और साइन इन करें।</li>" +
+    "<li>घंटी दबाएँ, फिर <strong>सूचनाएँ चालू करें</strong>, फिर <strong>अनुमति दें</strong>।</li></ol>" +
+    "<p>सूचनाएँ चालू होने के बाद ये सूचनाएँ ईमेल के बजाय आपके फ़ोन पर आएँगी।</p>" +
+    "<p>सुरक्षा के लिए GrievIQ ईमेल में कोई विवरण नहीं भेजता। GrievIQ कभी भी ईमेल या फ़ोन पर आपका साइन-इन कोड नहीं माँगता।</p>";
+  return {
+    subject: (n === 1 ? "GrievIQ: a message is waiting for you" : "GrievIQ: " + n + " messages are waiting for you") + " · " + (n === 1 ? "आपके लिए एक संदेश प्रतीक्षा में है" : n + " संदेश प्रतीक्षा में हैं"),
+    html,
+  };
+}
+
+// The hourly job: one reminder per person for notices still unseen after
+// REMIND_AFTER_HOURS that no phone alert delivered. Each notice is counted
+// in at most one reminder.
+export async function reminderEmails(env, origin, nowMs) {
+  const now = nowMs || Date.now();
+  const kinds = JSON.stringify(Array.from(EMAIL_BACKUP));
+  let rows = [];
+  try {
+    rows = (await env.DB.prepare(
+      `SELECT id, recipient FROM notifications
+       WHERE read_at IS NULL AND seen_at IS NULL AND pushed_at IS NULL AND emailed_at IS NULL
+         AND kind IN (SELECT value FROM json_each(?)) AND created_at <= ? AND created_at >= ?
+       ORDER BY recipient, created_at`
+    ).bind(kinds, new Date(now - REMIND_AFTER_HOURS * 3600000).toISOString(), new Date(now - REMIND_MAX_AGE_DAYS * 86400000).toISOString()).all()).results || [];
+  } catch (e) { return 0; }
+  const by = new Map();
+  for (const r of rows) { if (!by.has(r.recipient)) by.set(r.recipient, []); by.get(r.recipient).push(r.id); }
+  let n = 0;
+  const stamp = new Date(now).toISOString();
+  for (const [who, ids] of by) {
+    const m = await reminderEmail(env, origin, who, ids.length);
+    await queueEmail(env, who, "STAFF_REMINDER", "REM:" + who + ":" + ids[0], m.subject, m.html, null);
+    await env.DB.prepare("UPDATE notifications SET emailed_at = ? WHERE id IN (SELECT value FROM json_each(?))").bind(stamp, JSON.stringify(ids)).run();
+    n++;
+  }
+  return n;
 }
 
 // ------------------------------------------------------------- creating
@@ -234,13 +293,9 @@ export async function deliver(env, origin, rows) {
         else await env.DB.prepare("UPDATE push_subscriptions SET fail_count = fail_count + 1, last_error = ? WHERE id = ?").bind(String(r.status || r.error || "error"), s.id).run();
       } catch (e) { /* ignore */ }
     }
-    try {
-      if (pushed) await env.DB.prepare("UPDATE notifications SET pushed_at = ? WHERE id = ?").bind(now, n.id).run();
-      else if (EMAIL_BACKUP.has(n.kind)) {
-        const m = await staffEmail(env, origin, n);
-        await queueEmail(env, n.recipient, "STAFF_" + n.kind, "EM:" + n.dedupe_key, m.subject, m.html, n.id);
-      }
-    } catch (e) { /* ignore */ }
+    // No email now: a notice no phone alert delivered gets the 6-hour
+    // reminder from the hourly job, only if it is still unseen by then.
+    try { if (pushed) await env.DB.prepare("UPDATE notifications SET pushed_at = ? WHERE id = ?").bind(now, n.id).run(); } catch (e) { /* ignore */ }
   }
   await flushOutbox(env, 10);
 }
@@ -281,7 +336,6 @@ export async function flushOutbox(env, limit) {
       if (ok) {
         sent++;
         await env.DB.prepare("UPDATE email_outbox SET status = 'SENT', sent_at = ?, attempts = attempts + 1, last_error = NULL WHERE id = ?").bind(now, e.id).run();
-        await env.DB.prepare("UPDATE notifications SET emailed_at = ? WHERE id = ?").bind(now, e.id).run();
       } else {
         await env.DB.prepare("UPDATE email_outbox SET attempts = attempts + 1, last_error = ?, status = CASE WHEN attempts + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END WHERE id = ?")
           .bind(err, EMAIL_TRIES, e.id).run();
@@ -470,7 +524,7 @@ async function openCasesWithChains(env) {
 // India). Returns what it did. Never throws.
 export async function runNotifications(env, origin, nowMs) {
   const now = nowMs || Date.now();
-  const done = { newCases: 0, movedUp: 0, baseline: 0, summaries: 0, emails: 0, cleaned: 0, errors: 0 };
+  const done = { newCases: 0, movedUp: 0, baseline: 0, summaries: 0, reminders: 0, emails: 0, cleaned: 0, errors: 0 };
   let list = [];
   try { list = await openCasesWithChains(env); } catch (e) { done.errors++; return done; }
   let states = new Map();
@@ -504,6 +558,7 @@ export async function runNotifications(env, origin, nowMs) {
   if (istHour(now) === SUMMARY_HOUR_IST) {
     try { done.summaries = await dailySummaries(env, origin, list, now); } catch (e) { done.errors++; }
   }
+  try { done.reminders = await reminderEmails(env, origin, now); } catch (e) { done.errors++; }
   try { done.emails = await flushOutbox(env, 40); } catch (e) { done.errors++; }
   try {
     const a = await env.DB.prepare(`DELETE FROM notifications WHERE created_at < ?`).bind(new Date(now - KEEP_NOTICES_DAYS * 86400000).toISOString()).run();

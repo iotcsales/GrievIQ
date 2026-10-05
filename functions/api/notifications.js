@@ -6,6 +6,9 @@
 //         Checking the bell doesn't count as activity, so the 60-minute
 //         idle sign-out still happens (NIST SP 800-63B).
 // POST { action: "read", ids: [...] | all: true }
+// POST { action: "seen", ids: [...] }  -> the person opened the bell list and saw
+//         these (no 6-hour reminder email for them); the automatic check
+//         every minute never counts as seen
 // POST { action: "subscribe", subscription: {endpoint, keys:{p256dh, auth}}, lang, device }
 // POST { action: "unsubscribe", endpoint }
 // POST { action: "test" }  -> sends a test notification to this person's devices
@@ -37,7 +40,7 @@ export async function onRequestGet({ request, env }) {
   try {
     const [items, unread, devices] = await env.DB.batch([
       env.DB.prepare(
-        `SELECT id, kind, office_tier, office_id, grievance_id, tracking_ref, ward_name, category_id, category_name, due_at, data, created_at, read_at
+        `SELECT *
          FROM notifications WHERE recipient = ? ORDER BY created_at DESC LIMIT 60`
       ).bind(auth.email),
       env.DB.prepare("SELECT COUNT(*) AS n FROM notifications WHERE recipient = ? AND read_at IS NULL").bind(auth.email),
@@ -49,7 +52,7 @@ export async function onRequestGet({ request, env }) {
         id: r.id, kind: r.kind, office: r.office_tier ? r.office_tier + ":" + r.office_id : null, caseId: r.grievance_id, ref: r.tracking_ref,
         ward: r.ward_name, catId: r.category_id, catName: r.category_name, dueAt: r.due_at,
         data: (() => { try { return r.data ? JSON.parse(r.data) : {}; } catch (e) { return {}; } })(),
-        at: r.created_at, read: !!r.read_at,
+        at: r.created_at, read: !!r.read_at, seen: !!r.seen_at,
       })),
       push: { configured: pushConfigured(env), key: env.VAPID_PUBLIC_KEY || null, devices: (devices.results[0] || {}).n || 0 },
     });
@@ -73,6 +76,17 @@ export async function onRequestPost({ request, env }) {
       if (!ids.length) return json({ error: "Nothing to mark." }, 400);
       await env.DB.prepare("UPDATE notifications SET read_at = ? WHERE recipient = ? AND read_at IS NULL AND id IN (SELECT value FROM json_each(?))")
         .bind(now, auth.email, JSON.stringify(ids)).run();
+    }
+    return json({ ok: true });
+  }
+
+  if (body.action === "seen") {
+    const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x) => x.length <= 64).slice(0, 100);
+    if (ids.length) {
+      try {
+        await env.DB.prepare("UPDATE notifications SET seen_at = ? WHERE recipient = ? AND seen_at IS NULL AND id IN (SELECT value FROM json_each(?))")
+          .bind(now, auth.email, JSON.stringify(ids)).run();
+      } catch (e) { /* seen_at not added yet (part17) */ }
     }
     return json({ ok: true });
   }
