@@ -147,15 +147,32 @@
     pushState = sub && Notification.permission === 'granted' ? 'on' : 'off';
   }
   function pstat(msg, err) { var el = document.getElementById('rn-pstat'); if (el) { el.textContent = msg || ''; el.className = 'rn-status' + (err ? ' err' : ''); } }
+  // Wait until this registration's worker is active. (navigator.serviceWorker.ready
+  // only resolves for a page inside the worker's scope, so it never resolved on
+  // the complaint form, whose address is outside /status.)
+  function waitActive(reg) {
+    return new Promise(function (resolve, reject) {
+      if (reg.active) return resolve(reg);
+      var w = reg.installing || reg.waiting;
+      var timer = setTimeout(function () { reg.active ? resolve(reg) : reject(new Error('SW_TIMEOUT')); }, 15000);
+      if (!w) { clearTimeout(timer); return reg.active ? resolve(reg) : reject(new Error('SW_MISSING')); }
+      w.addEventListener('statechange', function () {
+        if (w.state === 'activated') { clearTimeout(timer); resolve(reg); }
+        else if (w.state === 'redundant') { clearTimeout(timer); reject(new Error('SW_REDUNDANT')); }
+      });
+    });
+  }
+  // Never let the button hang: give up after a while and say so.
+  function withTimeout(p, ms) { return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('TIMEOUT')); }, ms); })]); }
   async function turnOn() {
     var btn = document.getElementById('rn-on'); if (btn) btn.disabled = true;
     try {
       var reg = await navigator.serviceWorker.register('/sw.js', { scope: '/rep' });
       var perm = await Notification.requestPermission();
       if (perm !== 'granted') { pstat(T('rn.push_denied'), true); if (btn) btn.disabled = false; return; }
-      await navigator.serviceWorker.ready;
+      await waitActive(reg);
       var sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(data.push.key) });
+      if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(data.push.key) }), 20000);
       var res = await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON(), lang: lang(), device: device() }) });
       if (!res.ok) { var j = {}; try { j = await res.json(); } catch (e) {} pstat(j.error || T('rn.push_failed'), true); if (btn) btn.disabled = false; return; }
       pushState = 'on'; redraw(); pstat(T('rn.push_done'));

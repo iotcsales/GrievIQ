@@ -72,6 +72,23 @@
 
   function say(m, text, err) { var el = document.getElementById('cu-m-' + m.id); if (el) { el.textContent = text; el.className = 'cu-msg' + (err ? ' err' : ''); el.setAttribute('role', err ? 'alert' : 'status'); } }
 
+  // Wait until this registration's worker is active. (navigator.serviceWorker.ready
+  // only resolves for a page inside the worker's scope, so it never resolved on
+  // the complaint form, whose address is outside /status.)
+  function waitActive(reg) {
+    return new Promise(function (resolve, reject) {
+      if (reg.active) return resolve(reg);
+      var w = reg.installing || reg.waiting;
+      var timer = setTimeout(function () { reg.active ? resolve(reg) : reject(new Error('SW_TIMEOUT')); }, 15000);
+      if (!w) { clearTimeout(timer); return reg.active ? resolve(reg) : reject(new Error('SW_MISSING')); }
+      w.addEventListener('statechange', function () {
+        if (w.state === 'activated') { clearTimeout(timer); resolve(reg); }
+        else if (w.state === 'redundant') { clearTimeout(timer); reject(new Error('SW_REDUNDANT')); }
+      });
+    });
+  }
+  // Never let the button hang: give up after a while and say so.
+  function withTimeout(p, ms) { return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('TIMEOUT')); }, ms); })]); }
   var CODES = { CLOSED: 'cu.closed', TOO_MANY: 'cu.too_many', VERIFY: 'cu.verify', NOT_CONFIGURED: 'cu.unsupported' };
   async function turnOn(m) {
     var btn = document.getElementById('cu-on-' + m.id); if (btn) btn.disabled = true;
@@ -80,9 +97,9 @@
       var reg = await navigator.serviceWorker.register('/sw.js', { scope: '/status' });
       var perm = await Notification.requestPermission();
       if (perm !== 'granted') { say(m, T('cu.denied'), true); if (btn) btn.disabled = false; return; }
-      await navigator.serviceWorker.ready;
+      await waitActive(reg);
       var sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.key) });
+      if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.key) }), 20000);
       var j = await post({ action: 'subscribe', ref: m.opts.ref, pass: m.opts.pass || undefined, email: m.opts.email || undefined, subscription: sub.toJSON(), lang: lang() });
       if (!j._ok) { say(m, T(CODES[j.code] || 'cu.failed'), true); if (btn) btn.disabled = false; return; }
       await draw(m, { text: T('cu.done') });
