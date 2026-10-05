@@ -412,6 +412,7 @@
 ],
 "submit.where_k": ["Where:", "कहाँ:"],
 "status.next_k": ["What happens next", "आगे क्या होगा"],
+"status.next_acked": ["{level} acknowledged it on {date}.", "{level} ने {date} को इसे स्वीकार कर लिया है।"],
 "status.next_ack": ["{level} should acknowledge it by {date}.", "{level} को {date} तक इसे स्वीकार करना चाहिए।"],
 "status.next_ack_late": ["{level} has not acknowledged it in time.", "{level} ने इसे समय पर स्वीकार नहीं किया है।"],
 "status.next_act_up": ["{level} should act on it by {date}. If not, it moves up to {up} automatically.", "{level} को {date} तक कार्यवाही करनी चाहिए। ऐसा न होने पर यह अपने-आप {up} के पास चली जाएगी।"],

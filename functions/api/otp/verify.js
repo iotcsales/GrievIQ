@@ -39,6 +39,8 @@ function json(body, status) {
   });
 }
 
+function toMs(v) { if (!v) return NaN; let t = String(v); if (!/[zZ]|[+-]\d\d:?\d\d$/.test(t)) t = t.replace(" ", "T") + "Z"; return Date.parse(t); }
+
 function isoMinutesAgo(minutes) {
   return new Date(Date.now() - minutes * 60 * 1000).toISOString();
 }
@@ -102,6 +104,38 @@ async function buildCaseDetail(env, grievance) {
   // console), so the two pages can never disagree.
   const limits = timeLimitStatus(grievance, category, chain.tiers, result);
   const ackDueAt = limits.ackDueAt;
+  // Which level acknowledged it (Oct 2026): the level the case was with at
+  // the moment of acknowledgement, from the same clock as escalation.
+  let acknowledgedBy = null;
+  // First choice: who pressed Acknowledge (the representative, or a team
+  // member of that office), from the case history.
+  if (grievance.acknowledged_at) {
+    try {
+      const ev = await env.DB.prepare(
+        "SELECT actor FROM grievance_events WHERE grievance_id = ? AND event_type = 'ACKNOWLEDGED' ORDER BY created_at DESC, rowid DESC LIMIT 1"
+      ).bind(grievance.id).first();
+      const who = String((ev && ev.actor) || "").toLowerCase();
+      if (who) {
+        const own = chain.tiers.find((t) => String(t.email || "").toLowerCase() === who);
+        if (own) acknowledgedBy = own.label;
+        else {
+          const ids = { LOCAL: chain.localUnit.id, MAYOR: chain.municipalBody && chain.municipalBody.id, MLA: chain.mla.id, MP: chain.mp.id };
+          const { results: teams } = await env.DB.prepare("SELECT office_tier, office_id FROM office_team WHERE LOWER(member_email) = ?").bind(who).all();
+          const hit = chain.tiers.find((t) => (teams || []).some((m) => m.office_tier === t.tier && String(m.office_id) === String(ids[t.tier])));
+          if (hit) acknowledgedBy = hit.label;
+        }
+      }
+    } catch (e) { /* fall back to the clock below */ }
+  }
+  if (!acknowledgedBy && grievance.acknowledged_at && result.clockStartMs != null) {
+    const ackMs = toMs(grievance.acknowledged_at);
+    let idx = result.startIndex || 0;
+    if (!isNaN(ackMs) && category.resolution_sla_hours) {
+      const h = Math.max(0, (ackMs - result.clockStartMs) / 3600000);
+      idx = Math.min(chain.tiers.length - 1, idx + Math.floor(h / category.resolution_sla_hours));
+    }
+    acknowledgedBy = chain.tiers[Math.min(idx, result.currentTierIndex)].label;
+  }
   const tiers = chain.tiers.map((t, i) => ({
     tier: t.tier,
     label: t.label,
@@ -119,6 +153,7 @@ async function buildCaseDetail(env, grievance) {
       localUnitName: chain.localUnit.name,
       createdAt: grievance.created_at,
       acknowledgedAt: grievance.acknowledged_at,
+      acknowledgedBy,
       resolvedAt: grievance.resolved_at,
       // Item 7a: when a case waiting for the citizen closes by itself, and
       // how a closed case was resolved (CONFIRMED / NOT_CONFIRMED / NO_EMAIL).
