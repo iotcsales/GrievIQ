@@ -1,0 +1,49 @@
+/* Dark-mode colours. Selectors are written as if inside dark mode; the build
+   script adds the dark-mode prefix. ":root" alone means the page root. */
+
+/* ---- citizen pages: shared tokens ---- */
+:root {
+  --paper: #131518; --card: #1C1F23; --ink: #ECEAE4; --ink-soft: #ABA89F;
+  --teal: #3A6DBB; --teal-dark: #A9C6F2; --teal-tint: #1A2A42;
+  --brick: #F08A7E; --brick-dim: #3A2220;
+  --grey-line: #3A3F45; --grey-fill: #24282D; --border: #2F343A;
+  --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
+  --green: #6FCB9A;
+}
+/* ---- rep console tokens ---- */
+:root {
+  --line: #343A42; --steel: #C3CAD3; --steel-2: #A4AEBC;
+  --red: #F08A7E; --red-tint: #3A2220; --green-tint: #16301F;
+  --gold: #E0B860; --gold-tint: #33291A; --brand: #8DB4F0; --brand-tint: #1A2A42;
+}
+body { background: var(--paper); color: var(--ink); }
+
+/* The top bar uses the text colour as its background in light mode. */
+.trust-strip, .top-strip { background: #0B0C0E; color: #C7C2B8; }
+
+/* Hover states that used the dark blue as a background. */
+button.primary:hover, .match-yes:hover, button.submit:hover { background: #2C5596; }
+.task-card.primary-task:hover, .task-card.primary-task:focus-visible { background: #2C5596; border-color: #2C5596; }
+
+/* Text box edges (3:1 on the dark card). */
+:root { --field-line: #6B727C; }
+.tl-note { color: var(--ink-soft); }
+
+/* Complaint form: the "how your details are used" box. */
+.notice-box { background: var(--grey-fill); }
+/* Home page: the main task card's small line, and the "how it works" numbers. */
+.primary-task .task-sub { color: #FFFFFF; }
+.how-n { color: var(--teal-dark); }
+
+/* Complaint form: photo notes and the "similar complaint" note. */
+.photo-notes li.far { color: #E0B860; }
+.similar-note { background: var(--teal-tint); border-color: #2F4A70; }
+
+/* Rep console: things drawn with white text on a coloured fill keep a deep
+   fill in dark mode (the light text colours would make them unreadable). */
+.auth-role, .export-pdf-btn, .rn-btn { background: #2F62B0; border-color: #2F62B0; color: #FFFFFF; }
+.apply-btn { background: #3A4552; color: #FFFFFF; }
+.resolve-btn:hover { background: #3A4552; color: #FFFFFF; }
+.rn-badge, .tab-count.late, .au-r-critical { background: #C23B2C; color: #FFFFFF; }
+.ladder-dot.current { background: #ECEEF1; }
+.report-tag.open { color: var(--red); }

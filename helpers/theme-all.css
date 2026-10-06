@@ -1,0 +1,10 @@
+/* Rules for both light and dark (copied as they are into theme.css). */
+/* WCAG 2.2 1.4.11: a text box's edge must stand out 3:1 from the page. */
+:root { --field-line: #8C8578; }
+:root :is(input:not([type]), input[type=text], input[type=email], input[type=tel], input[type=search], input[type=number], input[type=url], input[type=password], input[type=date], input[type=time], input[type=datetime-local], input[type=month], textarea, select):not(:focus):not([aria-invalid="true"]) { border-color: var(--field-line); }
+/* Time limits page note: 4.5:1 on its tinted box. */
+:root .tl-note { color: #5F594F; }
+/* Light mode: the soft grey text is a touch darker so it passes 4.5:1 on the
+   tinted boxes too (it was 4.2-4.3:1 there). Dark mode sets its own. */
+:root:root { --ink-soft: #69635A; }
+:root .report-tag.open { color: #A5301F; }

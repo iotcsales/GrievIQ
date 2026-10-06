@@ -1225,6 +1225,11 @@
 "(optional)",
 "(वैकल्पिक)"
 ],
+"theme.button": ["Display", "दिखावट"],
+"theme.title": ["Display", "दिखावट"],
+"theme.auto": ["Same as my phone", "फ़ोन के अनुसार"],
+"theme.light": ["Light", "हल्का"],
+"theme.dark": ["Dark", "गहरा"],
 "common.lang_aria_to_hi": [
 "Change language to Hindi",
 "भाषा बदलकर हिन्दी करें"
