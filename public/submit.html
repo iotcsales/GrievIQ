@@ -195,6 +195,7 @@
   .photo-notes li.ok { color: var(--green, #2F6B4F); }
   .photo-notes li.far { color: #8A5A00; }
   .photo-notes li.wait { color: var(--ink-soft); }
+  .photo-retry { min-height: 44px; margin-top: 4px; padding: 0 14px; border-radius: 9px; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
   .photo-label {
     display: inline-block; width: 100%; text-align: center; padding: 14px;
     border: 1.5px dashed var(--grey-line); border-radius: 11px; color: var(--ink-soft);
@@ -238,7 +239,7 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=22"></script>
+<script src="/i18n.js?v=23"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=17a" defer></script>
@@ -1063,8 +1064,12 @@
 
   // ---- where the phone is (asked once, reused for 2 minutes) ----
   let lastLoc = null, locAsk = null;
-  function getLoc() {
-    if (lastLoc && Date.now() - lastLoc.at < 120000) return Promise.resolve(lastLoc);
+  // Oct 2026 fix: also started when "Take a photo" / "Choose from gallery" is
+  // tapped, so the location is usually ready when the photo comes back (iPhone
+  // sometimes doesn't show the location question while the camera is closing).
+  function getLoc(opts) {
+    const fresh = !!(opts && opts.fresh);
+    if (!fresh && lastLoc && Date.now() - lastLoc.at < 120000) return Promise.resolve(lastLoc);
     if (locAsk) return locAsk;
     if (!('geolocation' in navigator)) return Promise.resolve({ status: 'UNSUPPORTED', at: Date.now() });
     locAsk = new Promise((resolve) => {
@@ -1122,17 +1127,42 @@
       p.check = r.ok ? await r.json() : null;
     } catch (e) { p.check = null; }
   }
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // Oct 2026 fix: a note in every case, so the citizen always knows whether
+  // the place could be checked and, if not, why. Nothing here blocks filing.
   function noteFor(p, n) {
-    const c = p.check;
-    if (!c) return null;
     const lead = GIQ.t('submit.ph_n', { n }) + ' ';
+    const st = p.dev ? p.dev.status : null;
+    if (st === 'PENDING') return { cls: 'wait', text: lead + GIQ.t('submit.ph_retrying') };
+    if (st === 'DENIED' || st === 'UNSUPPORTED') return { cls: 'wait', text: lead + GIQ.t('submit.ph_not_shared') + (isIos && st === 'DENIED' ? ' ' + GIQ.t('submit.ph_not_shared_ios') : '') };
+    if (st === 'TIMEOUT' || st === 'UNAVAILABLE') return { cls: 'wait', text: lead + GIQ.t('submit.ph_no_fix'), retry: true };
+    const c = p.check;
+    if (!c) return null;   // the check itself couldn't be reached; the server checks again at filing
     const dist = c.metres != null ? GIQ.distance(c.metres) : '';
     if (c.where === 'NEAR') return { cls: 'ok', text: '✓ ' + lead + GIQ.t('submit.ph_near', { dist }) };
     if (c.where === 'IN_WARD') return { cls: 'ok', text: '✓ ' + lead + GIQ.t('submit.ph_in') };
     if (c.where === 'FAR') return { cls: 'far', text: lead + GIQ.t('submit.ph_far', { dist }) };
     if (c.where === 'OUTSIDE_WARD') return { cls: 'far', text: lead + GIQ.t('submit.ph_out', { dist }) };
     if (c.where === 'WAIT') return { cls: 'wait', text: lead + GIQ.t('submit.ph_wait_place') };
-    return null;   // too rough, or nothing to compare with: say nothing
+    if (c.where === 'ROUGH') return { cls: 'wait', text: lead + GIQ.t('submit.ph_rough', { dist: GIQ.distance(c.accuracy || 0) }) };
+    if (c.where === 'NO_PLACE') return { cls: 'wait', text: lead + GIQ.t('submit.ph_no_place') };
+    return null;
+  }
+  // "Try again" after the location didn't come through: asked again now (a
+  // tap, so the phone shows its question), for every photo that missed it.
+  let retrying = false;
+  async function retryLocation() {
+    if (retrying) return;
+    retrying = true;
+    const miss = selectedPhotos.filter((x) => x.dev && (x.dev.status === 'TIMEOUT' || x.dev.status === 'UNAVAILABLE'));
+    miss.forEach((x) => { x.dev = { status: 'PENDING' }; });
+    renderPhotoGrid();
+    const d = await getLoc({ fresh: true });
+    for (const x of miss) { x.dev = d; x.checkKey = null; await checkPhoto(x); }
+    retrying = false;
+    renderPhotoGrid();
+    const first = photoNotes.querySelector('li');
+    if (first && d.status !== 'OK') { const b = photoNotes.querySelector('button'); if (b) b.focus(); }
   }
 
   function renderPhotoGrid() {
@@ -1178,12 +1208,23 @@
       }
     });
     photoNotes.innerHTML = '';
+    let retryShown = false;
     selectedPhotos.forEach((p, i) => {
       const n = noteFor(p, i + 1);
       if (!n) return;
       const li = document.createElement('li');
       li.className = n.cls;
       li.textContent = n.text;
+      if (n.retry && !retryShown) {
+        retryShown = true;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'photo-retry';
+        b.textContent = GIQ.t('submit.ph_retry');
+        b.addEventListener('click', retryLocation);
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(b);
+      }
       photoNotes.appendChild(li);
     });
   }
@@ -1201,23 +1242,34 @@
     if (!take.length) return;
     preparing += take.length;
     renderPhotoGrid();
-    const loc = getLoc();   // asked in parallel with shrinking the photos
+    // Usually already asked when the button was tapped. If that didn't come
+    // through (the camera was open), ask once more now the page is back.
+    const loc = getLoc().then((d) => (d.status === 'TIMEOUT' || d.status === 'UNAVAILABLE') ? getLoc({ fresh: true }) : d);
+    const capture = input === photoCam ? 'CAMERA' : 'GALLERY';
+    const added = [];
     for (const file of take) {
       try {
         const [p, ex] = await Promise.all([GIQPhoto.prepare(file), exifBlock(file)]);
         p.previewUrl = URL.createObjectURL(p.thumb);
         p.exif = ex.blob || null;
         p.exifNone = !!ex.none;
-        p.dev = await loc;
-        await checkPhoto(p);
+        p.capture = capture;
+        p.dev = { status: 'PENDING' };
         selectedPhotos.push(p);
+        added.push(p);
       } catch (err) {
         showPhotoError('submit.photo_unreadable');
       }
       preparing--;
       renderPhotoGrid();
     }
+    if (!added.length) return;
+    const d = await loc;
+    for (const p of added) { if (selectedPhotos.includes(p)) { p.dev = d; p.checkKey = null; await checkPhoto(p); } }
+    renderPhotoGrid();
   }
+  // Start asking for the location as soon as a photo button is used.
+  [photoCam, photoInput].forEach((el) => el.addEventListener('click', () => { getLoc(); }));
   photoInput.addEventListener('change', () => addFiles(photoInput));
   photoCam.addEventListener('change', () => addFiles(photoCam));
   window.__giqPhotosReady = true;
@@ -1233,7 +1285,8 @@
       fd.append('width', String(p.width));
       fd.append('height', String(p.height));
       // Photo checks (Oct 2026): where the phone was, and the camera details.
-      if (p.dev) {
+      if (p.capture) fd.append('capture', p.capture);
+      if (p.dev && p.dev.status !== 'PENDING') {
         fd.append('dev_status', p.dev.status);
         if (p.dev.status === 'OK') { fd.append('dev_lat', String(p.dev.lat)); fd.append('dev_lng', String(p.dev.lng)); fd.append('dev_accuracy', String(p.dev.acc)); }
       }

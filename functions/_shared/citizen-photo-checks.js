@@ -106,8 +106,15 @@ export function citizenPhotoWarnings(p, filedAt) {
     case "IN_WARD": out.push({ code: "C_DEV_IN_WARD", level: "info", accuracy: acc }); break;
     case "OUTSIDE_WARD": out.push({ code: "C_DEV_OUTSIDE_WARD", level: "warn", metres: p.dev_distance_m, accuracy: acc }); break;
     case "ROUGH": out.push({ code: "C_DEV_ROUGH", level: "info", accuracy: acc }); break;
-    default: if (p.dev_status && p.dev_status !== "OK") out.push({ code: "C_DEV_NOT_SHARED", level: "info" });
+    case "NO_PLACE": out.push({ code: "C_DEV_NO_PLACE", level: "info" }); break;
+    default:
+      if (p.dev_status === "TIMEOUT" || p.dev_status === "UNAVAILABLE") out.push({ code: "C_DEV_NO_FIX", level: "info" });
+      else if (p.dev_status && p.dev_status !== "OK") out.push({ code: "C_DEV_NOT_SHARED", level: "info" });
   }
+  // Taken with "Take a photo" while filing (Oct 2026 fix). iPhone removes the
+  // camera details from these, so the "no camera details" check doesn't apply.
+  const live = p.capture_kind === "CAMERA";
+  if (live) out.push({ code: "C_CAMERA_LIVE", level: "info" });
   switch (p.gps_where) {
     case "NEAR": out.push({ code: "C_GPS_NEAR", level: "info", metres: p.gps_distance_m }); break;
     case "FAR": out.push({ code: "C_GPS_FAR", level: "warn", metres: p.gps_distance_m }); break;
@@ -115,7 +122,7 @@ export function citizenPhotoWarnings(p, filedAt) {
     case "OUTSIDE_WARD": out.push({ code: "C_GPS_OUTSIDE_WARD", level: "warn", metres: p.gps_distance_m }); break;
     default: break;
   }
-  if (Number(p.has_camera) === 0 && !p.taken_at) out.push({ code: "C_NO_CAMERA", level: "warn" });
+  if (!live && Number(p.has_camera) === 0 && !p.taken_at) out.push({ code: "C_NO_CAMERA", level: "warn" });
   const taken = toMs(p.taken_at), filed = toMs(filedAt);
   if (!isNaN(taken) && !isNaN(filed) && taken < filed - OLD_PHOTO_DAYS * 86400000) out.push({ code: "C_OLD_PHOTO", level: "warn", takenAt: p.taken_at });
   if (p.dup_grievance_id) out.push({ code: "C_DUP", level: "warn", kind: p.dup_kind || "exact" });
@@ -125,5 +132,5 @@ export function citizenPhotoWarnings(p, filedAt) {
 // SQL condition (photos table alias cp, complaint alias g) for "this photo
 // has a warning", for the dashboard count.
 export const WARN_SQL = `(cp.dev_where IN ('FAR','OUTSIDE_WARD') OR cp.gps_where IN ('FAR','OUTSIDE_WARD') OR cp.dup_grievance_id IS NOT NULL
-  OR (cp.has_camera = 0 AND cp.taken_at IS NULL)
+  OR (cp.has_camera = 0 AND cp.taken_at IS NULL AND COALESCE(cp.capture_kind, '') <> 'CAMERA')
   OR (cp.taken_at IS NOT NULL AND datetime(cp.taken_at) < datetime(REPLACE(REPLACE(g.created_at, 'T', ' '), 'Z', ''), '-${OLD_PHOTO_DAYS} days')))`;

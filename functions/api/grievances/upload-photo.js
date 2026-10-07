@@ -23,6 +23,8 @@
 // thrown away). Positions are kept only until the complaint is filed; see
 // _shared/citizen-photo-checks.js.
 //
+// Oct 2026 fix: capture = CAMERA ("Take a photo") or GALLERY.
+//
 // Checks (OWASP file upload guidance): real type read from the first bytes
 // (JPEG, PNG or WEBP), size limits, file names chosen by us.
 
@@ -94,6 +96,13 @@ export async function onRequestPost({ request, env }) {
         "UPDATE complaint_photos SET dev_status = ?, dev_lat = ?, dev_lng = ?, dev_accuracy = ?, gps_lat = ?, gps_lng = ?, taken_at = ?, has_camera = ? WHERE id = ?"
       ).bind(devStatus, devLat, devLng, devAcc, ex.lat, ex.lng, ex.takenAt, exifSent ? (ex.hasCamera ? 1 : 0) : null, id).run();
     } catch (e) { /* photo-check columns not added yet (part19): the photo is still saved */ }
+    // Which button added it (part20). Only a hint for the checks: it can't
+    // block anything, so a faked value gains nothing beyond a missing warning.
+    const capture = ["CAMERA", "GALLERY"].includes(String(form.get("capture") || "")) ? String(form.get("capture")) : null;
+    if (capture) {
+      try { await env.DB.prepare("UPDATE complaint_photos SET capture_kind = ? WHERE id = ?").bind(capture, id).run(); }
+      catch (e) { /* part20 not run yet */ }
+    }
     return reply(200, { success: true, photo_id: id });
   } catch (err) {
     return reply(500, { error: "Photo upload failed. Please try again.", code: "FAILED" });
