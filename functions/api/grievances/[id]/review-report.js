@@ -14,6 +14,7 @@ import { getLocalUnitIdsForMandate, resolveChain } from "../../../_shared/jurisd
 import { computeEscalation } from "../../../_shared/escalation.js";
 import { finalizeResolution } from "../../../_shared/resolve-case.js";
 import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
+import { STEP, latestStep, addStep } from "../../../_shared/dept-steps.js";
 
 export async function onRequestPost({ request, env, params }) {
   const auth = await getVerifiedRep(request, env);
@@ -65,6 +66,13 @@ export async function onRequestPost({ request, env, params }) {
     "UPDATE resolution_reports SET review_status = 'APPROVED', reviewed_by = ?, reviewed_at = ?, review_note = ? WHERE id = ? AND review_status = 'PENDING'"
   ).bind(auth.email, now, note ? note.slice(0, 500) : null, report.id).run();
   const out = await finalizeResolution(env, request, g, result.currentTier.tier, report.note, auth.email);
+  // Departments stage 3: the field worker's report was the field check.
+  const lastStep = await latestStep(env, g.id);
+  if (lastStep && lastStep.kind === STEP.DONE_CLAIMED) {
+    await addStep(env, { grievance_id: g.id, kind: STEP.CHECK_FIXED, department: lastStep.department, office_id: lastStep.office_id,
+      office_name: lastStep.office_name, photo_report_id: report.id, actor: report.created_by, actor_role: report.submitted_role || "FIELD_WORKER",
+      by_office_tier: access.mandate.tier, by_office_id: access.mandate.id, created_at: now });
+  }
   await logTeam(env, { ...teamBase, action: "FIX_REPORT_APPROVED", detail: { reportId: report.id, submittedBy: report.created_by } });
   return Response.json({ ...out, decision });
 }

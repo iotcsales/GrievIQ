@@ -12,11 +12,16 @@
 // derive from the latest event, never trust a column that can go stale.
 //
 // Expects JSON body: { department: string, note?: string }
+// Departments stage 3 (grieviq-29): also { officeId?: directory office,
+// officeName?: an office not in the directory, channel: how it was contacted }.
+// Recorded as the case's FORWARDED department step (case_dept_steps), which
+// starts the department's target time. The FOLLOW_UP event stays as before.
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { activeDeptKeys } from "../../../_shared/departments.js";
 import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
+import { STEP, CHANNELS, addStep, stepsReady } from "../../../_shared/dept-steps.js";
 
 // The list is managed by admins (grieviq-25, _shared/departments.js); a
 // retired department can't be chosen for a new follow-up.
@@ -66,6 +71,29 @@ export async function onRequestPost(context) {
     return Response.json({ error: "Only the representative or office manager can forward a case.", code: "ROLE" }, { status: 403 });
   }
 
+  // Departments stage 3: which office, and how it was contacted.
+  const ready = await stepsReady(env);
+  let office = null;
+  const channel = String(body.channel || "").toUpperCase();
+  if (ready) {
+    const fields = {};
+    if (!CHANNELS.includes(channel)) fields.channel = "REQUIRED";
+    if (body.officeId) {
+      const o = await env.DB.prepare("SELECT id, name_en, departments, wards, area_id, retired_at FROM dept_offices WHERE id = ?").bind(String(body.officeId)).first();
+      const unit = await env.DB.prepare("SELECT area_id FROM local_units WHERE id = ?").bind(grievance.local_unit_id).first();
+      let depts = [], wards = null;
+      try { if (o) { depts = JSON.parse(o.departments) || []; wards = o.wards ? JSON.parse(o.wards) : null; } } catch (e) { depts = []; }
+      if (!o || o.retired_at || (unit && o.area_id !== (unit.area_id || "lucknow")) || !depts.includes(department) || (wards && !wards.includes(grievance.local_unit_id))) fields.office = "NOT_FOUND";
+      else office = { id: o.id, name: o.name_en };
+    } else if (body.officeName != null && String(body.officeName).trim() !== "") {
+      const nm = String(body.officeName).replace(/\s+/g, " ").trim();
+      if (nm.length < 3 || nm.length > 120) fields.officeName = "LENGTH";
+      else office = { id: null, name: nm };
+    }
+    if (Object.keys(fields).length) return Response.json({ error: "Please check the highlighted fields.", fields }, { status: 400 });
+  }
+  if (note && note.length > 500) return Response.json({ error: "Keep the note to 500 characters.", fields: { note: "LENGTH" } }, { status: 400 });
+
   const now = new Date().toISOString();
 
   await env.DB.prepare(
@@ -73,7 +101,12 @@ export async function onRequestPost(context) {
      VALUES (?, ?, 'FOLLOW_UP', ?, ?, ?, ?)`
   ).bind(crypto.randomUUID(), grievanceId, auth.email, department, note, now).run();
 
+  if (ready) {
+    await addStep(env, { grievance_id: grievanceId, kind: STEP.FORWARDED, department, office_id: office ? office.id : null,
+      office_name: office ? office.name : null, channel, note, actor: auth.email, actor_role: access.role,
+      by_office_tier: access.mandate.tier, by_office_id: access.mandate.id, created_at: now });
+  }
   await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
-    onBehalf: onBehalfOf(access.mandate, auth), action: "FORWARDED", grievanceId, detail: { department } });
+    onBehalf: onBehalfOf(access.mandate, auth), action: "FORWARDED", grievanceId, detail: { department, office: office ? office.name : null, channel: channel || null } });
   return Response.json({ department, note, createdAt: now });
 }

@@ -285,6 +285,120 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(none.offices.length === 0, "directory: no cases, nothing sent");
 }
 
+
+// ---- Departments stage 3: the department step ----
+{
+  const R = "r1@x.in", OM = "om@x.in", FW = "fw@x.in";
+  const fwd = (who, b) => call(who, "POST", "/api/grievances/g2/add-followup", b);
+  const step = (who, b) => call(who, "POST", "/api/grievances/g2/dept-step", b);
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const steps = () => sdb.prepare("SELECT * FROM case_dept_steps WHERE grievance_id = 'g2' ORDER BY created_at, rowid").all();
+  let r;
+  r = await step(R, { kind: "SCHEDULED", expectedDate: "2030-01-01" });
+  ok(r.status === 409 && r.body.code === "NOT_FORWARDED", "reply before forwarding refused", r.body);
+  r = await fwd(R, { department: "Water Supply" });
+  ok(r.status === 400 && r.body.fields.channel, "forwarding needs how the office was contacted", r.body);
+  const kesco = (await get(S, "kanpur")).body.offices[0];
+  r = await fwd(R, { department: "Water Supply", channel: "PHONE", officeId: kesco.id });
+  ok(r.status === 400 && r.body.fields.office === "NOT_FOUND", "office from another area refused", r.body);
+  const jal = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn === "Jal Kal Vibhag Lucknow");
+  r = await fwd(FW, { department: "Water Supply", channel: "PHONE", officeId: jal.id });
+  ok(r.status === 403, "field worker can't forward", r.body);
+  r = await fwd(OM, { department: "Water Supply", channel: "PHONE", officeId: jal.id, note: "Spoke to the duty clerk" });
+  ok(r.status === 200, "office manager forwards to a directory office", r.body);
+  let st = steps();
+  ok(st.length === 1 && st[0].kind === "FORWARDED" && st[0].office_name === "Jal Kal Vibhag Lucknow" && st[0].channel === "PHONE" && st[0].by_office_tier === "LOCAL", "FORWARDED step recorded with office and channel", st[0]);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM grievance_events WHERE grievance_id='g2' AND event_type='FOLLOW_UP'").get().n === 1, "old follow-up record still written");
+  r = await step(FW, { kind: "IN_PROGRESS" });
+  ok(r.status === 403 && r.body.code === "ROLE", "field worker can't record the department's reply", r.body);
+  r = await step(R, { kind: "SCHEDULED" });
+  ok(r.status === 400 && r.body.fields.expectedDate === "REQUIRED", "date needed", r.body);
+  r = await step(R, { kind: "SCHEDULED", expectedDate: "2020-01-01" });
+  ok(r.body.fields && r.body.fields.expectedDate === "PAST", "past date refused");
+  r = await step(R, { kind: "SCHEDULED", expectedDate: "2099-01-01" });
+  ok(r.body.fields && r.body.fields.expectedDate === "TOO_FAR", "far date refused");
+  const soon = new Date(Date.now() + 5.5 * 3600000 + 3 * 86400000).toISOString().slice(0, 10);
+  r = await step(R, { kind: "SCHEDULED", expectedDate: soon, note: "Plumber booked" });
+  ok(r.status === 200, "scheduled with a date", r.body);
+  r = await step(R, { kind: "CHECK_NOT_FIXED", note: "Still leaking badly", photoIds: ["ph1"] });
+  ok(r.status === 409 && r.body.code === "NO_CLAIM", "field check only after the department says done", r.body);
+  r = await step(R, { kind: "CANT_DO", note: "short" });
+  ok(r.status === 400 && r.body.fields.note === "REASON", "can't-do needs a reason", r.body);
+  r = await step(OM, { kind: "DONE_CLAIMED" });
+  ok(r.status === 200, "department says done", r.body);
+  r = await step(R, { kind: "IN_PROGRESS" });
+  ok(r.status === 200, "a later reply is still accepted", r.body);
+  r = await step(R, { kind: "DONE_CLAIMED", note: "They called back" });
+  r = await step(FW, { kind: "CHECK_NOT_FIXED", note: "Still leaking near the gate" });
+  ok(r.status === 400 && r.body.fields.photos === "PHOTO_REQUIRED", "field check needs photos", r.body);
+  r = await step(FW, { kind: "CHECK_NOT_FIXED", note: "short", photoIds: ["ph1"] });
+  ok(r.status === 400 && r.body.fields.note === "CHECK_NOTE", "field check needs a note");
+  r = await step(FW, { kind: "CHECK_NOT_FIXED", note: "Still leaking near the gate", photoIds: ["nope"] });
+  ok(r.status === 400 && r.body.fields.photos === "PHOTO_MISSING", "unknown photo refused");
+  r = await step(FW, { kind: "CHECK_NOT_FIXED", note: "Still leaking near the gate", photoIds: ["ph1"] });
+  ok(r.status === 200, "assigned field worker records a failed check", r.body);
+  st = steps();
+  const failed = st[st.length - 1];
+  const held = sdb.prepare("SELECT * FROM resolution_reports WHERE id = ?").get(failed.photo_report_id);
+  ok(held && held.review_status === "FIELD_CHECK" && sdb.prepare("SELECT report_id FROM resolution_photos WHERE id='ph1'").get().report_id === held.id, "photos kept as field-check evidence, not as a resolution");
+  // state after the failed check
+  const build = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/dept-steps.js";
+  const ds = await import(build);
+  let state = ds.deptState(st, { "Water Supply": 7 });
+  ok(state.phase === "WITH_DEPT" && state.sentBack && state.officeName === "Jal Kal Vibhag Lucknow" && state.days === 7 && !state.overdue, "back with the department, clock restarted", state);
+  // overdue maths
+  const t0 = Date.parse("2026-10-01T06:30:00Z");
+  const mk = (kind, at, extra) => Object.assign({ kind, created_at: new Date(at).toISOString(), department: "Water Supply", office_name: "X" }, extra || {});
+  state = ds.deptState([mk("FORWARDED", t0)], { "Water Supply": 7 }, t0 + 8 * 86400000);
+  ok(state.overdue && state.overdueDays === 1, "8 days after forwarding: 1 day overdue", state);
+  state = ds.deptState([mk("FORWARDED", t0), mk("SCHEDULED", t0 + 86400000, { expected_date: "2026-10-12" })], { "Water Supply": 7 }, t0 + 9 * 86400000);
+  ok(!state.overdue && state.expectedDate === "2026-10-12", "a later date given by the department moves the target", state);
+  state = ds.deptState([mk("FORWARDED", t0), mk("NOT_OURS", t0 + 86400000, { suggested_department: "Electricity" })], {}, t0);
+  ok(state.phase === "NEEDS_FORWARD" && state.suggestedDepartment === "Electricity", "not ours: needs forwarding");
+  // not ours, then replies refused until forwarded again
+  r = await step(R, { kind: "NOT_OURS", suggestedDepartment: "Electricity" });
+  ok(r.status === 200, "not ours recorded", r.body);
+  r = await step(R, { kind: "IN_PROGRESS" });
+  ok(r.status === 409 && r.body.code === "REFORWARD", "after 'not ours', forward again first", r.body);
+  r = await fwd(R, { department: "Electricity", channel: "WHATSAPP", officeName: "MVVNL sub-station Hazratganj" });
+  ok(r.status === 200 && steps().pop().office_name === "MVVNL sub-station Hazratganj", "forwarded to an office not in the directory", r.body);
+  r = await step(R, { kind: "DONE_CLAIMED" });
+  // resolving with a department involved needs photos
+  r = await call(R, "POST", "/api/grievances/g2/mark-resolved", { note: "Repaired by the department", noPhotoReason: "No camera available today" });
+  ok(r.status === 400 && r.body.fields.photos === "PHOTO_REQUIRED", "no 'no photo' option once a department is involved", r.body);
+  // targets per type
+  const wsT = (await get(S, "lucknow")).body.types.find((t) => t.key === "Water Supply");
+  r = await post(S, { action: "type_rename", key: "Water Supply", expectedUpdatedAt: wsT.updatedAt, type: { nameEn: wsT.nameEn, nameHi: wsT.nameHi, description: wsT.description, targetDays: 30 } });
+  ok(r.status === 400 && r.body.fields.typeTargetDays === "RANGE", "target over 21 days refused", r.body);
+  r = await post(S, { action: "type_rename", key: "Water Supply", expectedUpdatedAt: wsT.updatedAt, type: { nameEn: wsT.nameEn, nameHi: wsT.nameHi, description: wsT.description, targetDays: 3 } });
+  ok(r.status === 200 && (await get(S, "lucknow")).body.types.find((t) => t.key === "Water Supply").targetDays === 3, "target days saved", r.body);
+  const tg = await ds.targetDaysByType({ DB: { prepare: (sql) => ({ all: async () => ({ results: sdb.prepare(sql).all() }), bind: () => ({}) }) } });
+  ok(tg["Water Supply"] === 3 && tg["Health"] === 7, "targets: set value and default 7", tg);
+  // overdue reminder to the office that forwarded
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g3','GRV-TEST03','9000000003','lu-hazratganj','water-sanitation','OPEN','x','LOCAL','2026-09-01T00:00:00Z')").run();
+  sdb.prepare("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_name, channel, actor, actor_role, by_office_tier, by_office_id, created_at) VALUES ('s-old','g3','FORWARDED','Water Supply','Jal Kal','PHONE','r1@x.in','REPRESENTATIVE','LOCAL','lu-hazratganj','2026-09-01T00:00:00Z')").run();
+  const stmt = (sql, b) => ({ bind: (...x) => stmt(sql, x), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((r) => ({ ...r })) }),
+    first: async () => { const r = sdb.prepare(sql).get(...(b || [])); return r ? { ...r } : null; }, run: async () => { const r = sdb.prepare(sql).run(...(b || [])); return { meta: { changes: Number(r.changes) } }; } });
+  const env2 = { DB: { prepare: (sql) => stmt(sql, []) } };
+  const nt = await import((process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/notify.js");
+  const g3 = sdb.prepare("SELECT * FROM grievances WHERE id='g3'").get();
+  const list = [{ g: g3, category: { id: "water-sanitation", name: "Water Supply / Sanitation" }, chain: { localUnit: { id: "lu-hazratganj", name: "Hazratganj-Ramtirth" }, tiers: [{ tier: "LOCAL", email: "r1@x.in", label: "Corporator" }] } }];
+  let n1 = await nt.deptOverdueNotices(env2, "https://x", list, Date.now());
+  let n2 = await nt.deptOverdueNotices(env2, "https://x", list, Date.now());
+  const ns = sdb.prepare("SELECT recipient, kind FROM notifications WHERE grievance_id='g3'").all();
+  ok(n1 === 2 && n2 === 0 && ns.length === 2 && ns.every((x) => x.kind === "DEPT_OVERDUE") && ns.some((x) => x.recipient === "om@x.in"), "overdue reminder to the rep and office manager, once", { n1, n2, ns });
+  const txt = nt.noticeText({ kind: "DEPT_OVERDUE", tracking_ref: "GRV-TEST03", ward_name: "W", data: JSON.stringify({ dept: "Water Supply", office: "Jal Kal", days: 3 }) }, "hi");
+  ok(/Jal Kal/.test(txt.title) && /3/.test(txt.body), "reminder text (Hindi)", txt);
+  // field check passed: resolving with photos records CHECK_FIXED
+  r = await call(R, "POST", "/api/grievances/g2/mark-resolved", { note: "Department fixed the line; checked on site", photoIds: ["ph2"] });
+  ok(r.status === 200 && r.body.status === "PENDING_CONFIRMATION", "resolved after the field check", r.body);
+  const lastS = steps().pop();
+  ok(lastS.kind === "CHECK_FIXED" && lastS.photo_report_id && sdb.prepare("SELECT review_status FROM resolution_reports WHERE id=?").get(lastS.photo_report_id).review_status === null, "CHECK_FIXED step linked to the resolution report", lastS);
+  r = await step(R, { kind: "IN_PROGRESS" });
+  ok(r.status === 409 && r.body.code === "CLOSED", "no department steps once resolved", r.body);
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = new DatabaseSync(process.argv[2] || "test.db");

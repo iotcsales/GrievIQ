@@ -26,6 +26,8 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 // reason, shows the number for that one case, and is logged
 // (admin_events "citizen_phone_revealed", source "cases").
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
+import { loadSteps, shapeStepForRep } from "../../_shared/dept-steps.js";
+import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { reopenStatus, readReopenInput, reopenCase, loadReopen, shapeReopen, STAFF_REASON_MIN } from "../../_shared/reopen.js";
 
 function toMs(s) {
@@ -221,6 +223,9 @@ async function caseDetail(env, auth, id) {
       confirmBy: g.status === "PENDING_CONFIRMATION" ? confirmDeadline(g.resolved_at) : null,
       resolution,
       reports,
+      // Departments stage 3: the department steps (field-check photos are in reports, review status FIELD_CHECK).
+      deptSteps: ((await loadSteps(env, [g.id])).get(g.id) || []).map(shapeStepForRep),
+      deptNames: namesOf(await deptTypes(env)),
       awaitingCheck: awaitingStaffCheck(g),
       staffChecks: ((await env.DB.prepare(
         "SELECT method, outcome, note, checked_by, checked_at FROM resolution_checks WHERE grievance_id = ? ORDER BY checked_at ASC"

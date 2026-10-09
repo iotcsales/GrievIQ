@@ -14,6 +14,7 @@
 // of them.
 
 import { deptTypes, namesOf } from "../_shared/departments.js";
+import { loadSteps, deptState, shapeStepForRep, targetDaysByType } from "../_shared/dept-steps.js";
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
@@ -135,6 +136,7 @@ export async function onRequestGet(context) {
       if (!eventById.has(e.id)) eventById.set(e.id, e);
     }
     for (const r of batch[i + 2].results || []) {
+      if (r.review_status === "FIELD_CHECK") continue;   // a failed field check's photos (Departments stage 3), never a resolution
       if (r.review_status === "PENDING") { pendingByGrievance.set(r.grievance_id, r); continue; }
       if (r.review_status === "SENT_BACK") {
         const sb = sentBackByGrievance.get(r.grievance_id);
@@ -385,6 +387,23 @@ export async function onRequestGet(context) {
   // the cases shown, so each case can show "Who handles this". Official public
   // contacts only (and an officer's own number only where they agreed).
   const deptDirectory = await directoryFor(env, visible.map((c) => c.localUnit && c.localUnit.id).filter(Boolean));
+  // Departments stage 3: each case's department steps and current state.
+  const stepsBy = await loadSteps(env, visible.map((c) => c.id));
+  const targets = stepsBy.size ? await targetDaysByType(env) : {};
+  for (const c of visible) {
+    const steps = stepsBy.get(c.id) || [];
+    c.deptState = deptState(steps, targets);
+    c.deptSteps = [];
+    for (const st of steps) {
+      const sh = shapeStepForRep(st);
+      if (st.photo_report_id && (st.kind === "CHECK_PARTLY" || st.kind === "CHECK_NOT_FIXED")) {
+        const ph = photosByReport.get(st.photo_report_id) || [];
+        sh.photos = [];
+        for (const p of ph) sh.photos.push(await photoMedia(env, p, "r"));
+      }
+      c.deptSteps.push(sh);
+    }
+  }
   return Response.json({
     deptDirectory,
     departments: types.filter((t) => !t.retired).map((t) => t.key),

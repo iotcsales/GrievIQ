@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=28"></script><script src="/admin-nav.js?v=r7"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=29"></script><script src="/admin-nav.js?v=r7"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -549,9 +549,17 @@ function tField(k, id, value, opts) {
     (opts.lang ? ' lang="' + opts.lang + '"' : "") + (e ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" + (opts.textarea ? esc(value) + "</textarea>" : "") +
     (e ? '<div class="field-err" id="' + id + '-err">' + esc(typeErr(k, e)) + "</div>" : "") + "</div>";
 }
+// Departments stage 3: the department's target time (days to report the work done).
+function tDays(f) {
+  const e = typeForm.errors.typeTargetDays;
+  return '<div class="form-row"><label for="t-days">' + esc(T("adm.dp_lbl_typeTargetDays")) + '</label><p class="hint" id="t-days-hint">' + esc(T("adm.dp_h_type_days")) + "</p>" +
+    '<input type="number" id="t-days" min="1" max="21" step="1" inputmode="numeric" style="max-width:120px" value="' + esc(f.targetDays) + '"' +
+    (e ? ' aria-invalid="true" aria-describedby="t-days-err t-days-hint"' : ' aria-describedby="t-days-hint"') + ">" +
+    (e ? '<div class="field-err" id="t-days-err">' + esc(typeErr("typeTargetDays", e)) + "</div>" : "") + "</div>";
+}
 function renderTypeForm() {
   const f = typeForm, e = f.errors;
-  const order = [["typeNameEn", "t-name-en"], ["typeNameHi", "t-name-hi"], ["typeDescription", "t-desc"], ["typeReason", "t-reason"]].filter((x) => e[x[0]]);
+  const order = [["typeNameEn", "t-name-en"], ["typeNameHi", "t-name-hi"], ["typeDescription", "t-desc"], ["typeTargetDays", "t-days"], ["typeReason", "t-reason"]].filter((x) => e[x[0]]);
   const summary = order.length ? '<div class="err-summary" id="t-summary" tabindex="-1" role="alert"><h3>' + esc(T("adm.dp_fix_h")) + "</h3><ul>" +
     order.map((x) => '<li><a href="#' + x[1] + '">' + esc(T("adm.dp_lbl_" + x[0]) + ": " + typeErr(x[0], e[x[0]])) + "</a></li>").join("") + "</ul></div>" : "";
   return '<form id="type-form" novalidate style="margin-top:14px;border-top:1px solid var(--admin-border);padding-top:14px">' +
@@ -559,6 +567,7 @@ function renderTypeForm() {
     (f.key ? '<p class="hint">' + esc(T("adm.dp_type_key_note")) + "</p>" : "") +
     '<div class="grid2f">' + tField("typeNameEn", "t-name-en", f.nameEn, { max: 60, hint: T("adm.dp_h_type_en") }) + tField("typeNameHi", "t-name-hi", f.nameHi, { max: 60, lang: "hi", hint: T("adm.dp_h_type_hi") }) + "</div>" +
     tField("typeDescription", "t-desc", f.description, { max: 150, optional: true, hint: T("adm.dp_h_type_desc") }) +
+    tDays(f) +
     (data.canRequest ? tField("typeReason", "t-reason", f.reason, { textarea: true, max: 500, hint: T("adm.dp_h_reason") }) : "") +
     '<div class="actions"><button type="submit" class="primary" id="t-save">' + esc(T(data.canRequest ? "adm.dp_send_request" : f.key ? "adm.dp_save_changes" : "adm.dp_type_add_btn")) + '</button><button type="button" id="t-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
 }
@@ -601,7 +610,7 @@ function renderTypes() {
     }
     const other = hi() ? t.nameEn : t.nameHi;
     return "<tr" + (t.retired ? ' class="retired-row"' : "") + '><th scope="row"><span class="tname">' + esc(typeName(t)) + "</span>" + (other && other !== typeName(t) ? '<span class="sub"' + (hi() ? ' lang="en"' : ' lang="hi"') + ">" + esc(other) + "</span>" : "") + "</th>" +
-      "<td>" + (t.description ? esc(t.description) : '<span class="muted">—</span>') + "</td>" +
+      "<td>" + (t.description ? esc(t.description) : '<span class="muted">—</span>') + '<span class="sub">' + esc(T("adm.dp_type_days_line", { n: t.targetDays || 7 })) + "</span></td>" +
       "<td>" + esc(usageText(t.used || {})) + "</td>" +
       "<td>" + pills + (actions ? '<div class="actions" style="margin-top:' + (pills ? "6" : "0") + 'px">' + actions + "</div>" : "") + (box ? '<div style="margin-top:8px">' + box + "</div>" : "") + "</td></tr>";
   }).join("");
@@ -836,11 +845,11 @@ function wire() {
   });
 
   // Department types
-  on("t-add", "click", () => { msg = null; typeRetire = null; typeRestore = null; typeForm = { key: null, nameEn: "", nameHi: "", description: "", reason: "", errors: {} }; render("type-form-h"); });
+  on("t-add", "click", () => { msg = null; typeRetire = null; typeRestore = null; typeForm = { key: null, nameEn: "", nameHi: "", description: "", targetDays: "7", reason: "", errors: {} }; render("type-form-h"); });
   document.querySelectorAll("[data-tedit]").forEach((b) => b.addEventListener("click", () => {
     const t = data.types.find((x) => x.key === b.dataset.tedit);
     msg = null; typeRetire = null; typeRestore = null;
-    typeForm = { key: t.key, updatedAt: t.updatedAt, origName: typeName(t), nameEn: t.nameEn, nameHi: t.nameHi || "", description: t.description || "", reason: "", errors: {} };
+    typeForm = { key: t.key, updatedAt: t.updatedAt, origName: typeName(t), nameEn: t.nameEn, nameHi: t.nameHi || "", description: t.description || "", targetDays: String(t.targetDays || 7), reason: "", errors: {} };
     render("type-form-h");
   }));
   on("t-cancel", "click", () => { const k = typeForm && typeForm.key; typeForm = null; render(); const b = k ? document.querySelector('[data-tedit="' + CSS.escape(k) + '"]') : document.getElementById("t-add"); if (b) b.focus(); });
@@ -849,15 +858,17 @@ function wire() {
     e.preventDefault();
     typeForm.nameEn = document.getElementById("t-name-en").value; typeForm.nameHi = document.getElementById("t-name-hi").value;
     typeForm.description = document.getElementById("t-desc").value;
+    typeForm.targetDays = document.getElementById("t-days").value;
     const re = document.getElementById("t-reason"); if (re) typeForm.reason = re.value;
     const errs = {};
     if (!typeForm.nameEn.trim()) errs.typeNameEn = "REQUIRED";
     if (!typeForm.nameHi.trim()) errs.typeNameHi = "REQUIRED";
+    if (!/^([1-9]|1[0-9]|2[01])$/.test(String(typeForm.targetDays).trim())) errs.typeTargetDays = "RANGE";
     if (data.canRequest && typeForm.reason.trim().length < 5) errs.typeReason = "REQUIRED";
     typeForm.errors = errs;
     if (Object.keys(errs).length) { render("t-summary"); return; }
     const r = await post({ action: typeForm.key ? "type_rename" : "type_add", key: typeForm.key, expectedUpdatedAt: typeForm.updatedAt,
-      type: { nameEn: typeForm.nameEn, nameHi: typeForm.nameHi, description: typeForm.description }, reason: typeForm.reason });
+      type: { nameEn: typeForm.nameEn, nameHi: typeForm.nameHi, description: typeForm.description, targetDays: Number(typeForm.targetDays) }, reason: typeForm.reason });
     if (r.ok) {
       msg = { text: T(r.body.requested ? (typeForm.key ? "adm.dp_ok_type_change_req" : "adm.dp_ok_type_add_req") : (typeForm.key ? "adm.dp_ok_type_saved" : "adm.dp_ok_type_added"), { name: typeForm.nameEn }) };
       typeForm = null; await load(); focusMsg(); return;

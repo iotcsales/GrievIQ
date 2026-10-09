@@ -33,14 +33,17 @@ import { sendPush, pushConfigured } from "./webpush.js";
 import { recipientName, greetingHtml, SAFETY_LINE } from "./audit-office.js";
 import { CATEGORY_HI } from "./category-names-hi.js";
 import { pushCitizen, citizenHourly } from "./citizen-push.js";
+import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
+import { DEPT_HI } from "./departments.js";
 
 export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
   OBSERVATION: "OBSERVATION", NUDGE: "NUDGE", ANNOUNCEMENT: "ANNOUNCEMENT", REPLY: "REPLY",
+  DEPT_OVERDUE: "DEPT_OVERDUE",   // Departments stage 3: a department's target time passed
 };
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
-const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY]);
+const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE]);
 
 export const SUMMARY_HOUR_IST = 9;          // daily summary at 9:00 am India time
 export const NEW_CASE_CATCHUP_HOURS = 6;
@@ -157,6 +160,11 @@ export function noticeText(n, lang) {
       return { title: hi ? "GrievIQ से संदेश" : "Message from GrievIQ", body: d.title || "" };
     case KIND.REPLY:
       return { title: hi ? "GrievIQ ने उत्तर दिया" : "GrievIQ replied", body: d.title || "" };
+    case KIND.DEPT_OVERDUE: {
+      const who = d.office || (hi ? (d.deptHi || d.dept) : d.dept) || "";
+      return { title: hi ? who + " की समय-सीमा बीत गई: " + n.tracking_ref : who + " is past its target: " + n.tracking_ref,
+        body: wt + (hi ? "। विभाग ने " + d.days + " दिनों में काम पूरा होने की सूचना नहीं दी। उनसे फिर संपर्क करें।" : ". The department hasn't reported the work done within " + d.days + " days. Contact them again.") };
+    }
     default:
       return { title: "GrievIQ", body: "" };
   }
@@ -557,6 +565,8 @@ export async function runNotifications(env, origin, nowMs) {
     } catch (e) { done.errors++; }
   }
 
+  try { done.deptOverdue = await deptOverdueNotices(env, origin, list, now); } catch (e) { done.errors++; }
+
   if (istHour(now) === SUMMARY_HOUR_IST) {
     try { done.summaries = await dailySummaries(env, origin, list, now); } catch (e) { done.errors++; }
   }
@@ -569,6 +579,33 @@ export async function runNotifications(env, origin, nowMs) {
     done.cleaned = ((a.meta && a.meta.changes) || 0) + ((b.meta && b.meta.changes) || 0);
   } catch (e) { /* ignore */ }
   return done;
+}
+
+// Departments stage 3: when a department's target time passes on an open
+// case, the representative's office that forwarded it is told once (per
+// forwarding or sent-back field check: the dedupe key carries the due time).
+export async function deptOverdueNotices(env, origin, list, nowMs) {
+  const ids = list.map((x) => x.g.id);
+  const stepsBy = await loadSteps(env, ids);
+  if (!stepsBy.size) return 0;
+  const targets = await targetDaysByType(env);
+  let n = 0;
+  for (const { g, category, chain } of list) {
+    const steps = stepsBy.get(g.id);
+    if (!steps || !steps.length) continue;
+    const st = deptState(steps, targets, nowMs);
+    if (st.phase !== "WITH_DEPT" || !st.overdue) continue;
+    let fwd = null;
+    for (let i = steps.length - 1; i >= 0; i--) if (steps[i].kind === STEP.FORWARDED) { fwd = steps[i]; break; }
+    if (!fwd || !fwd.by_office_tier) continue;
+    const o = chainOffices(chain).find((x) => x.tier === fwd.by_office_tier);
+    const people = await officeRecipients(env, fwd.by_office_tier, fwd.by_office_id, g.local_unit_id, o ? o.email : null);
+    n += await createNotices(env, origin, people, {
+      kind: KIND.DEPT_OVERDUE, key: "DEPTOD:" + g.id + ":" + st.dueAt, officeTier: fwd.by_office_tier, officeId: fwd.by_office_id, g, category,
+      wardName: chain.localUnit.name, data: { dept: st.department, deptHi: DEPT_HI[st.department] || null, office: st.officeName || null, days: st.days },
+    });
+  }
+  return n;
 }
 
 // 9:00 am: one summary per office with something to act on.

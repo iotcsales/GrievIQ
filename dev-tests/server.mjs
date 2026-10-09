@@ -20,6 +20,7 @@ fs.writeFileSync(path.join(build, "_shared/verify-access-jwt.js"),
 
 // ---- D1 shim ----
 const db = new DatabaseSync(dbFile);
+db.exec("PRAGMA foreign_keys = ON");   // D1 checks foreign keys
 function norm(v) { if (v === undefined) throw new Error("D1_TYPE_ERROR: undefined bound"); return typeof v === "boolean" ? (v ? 1 : 0) : v; }
 class Stmt {
   constructor(sql, binds) { this.sql = sql; this.binds = binds || []; }

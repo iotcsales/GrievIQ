@@ -36,6 +36,7 @@ import { computeEscalation } from "../../../_shared/escalation.js";
 import { NOTE_MIN, NOTE_MAX, REASON_MIN, REASON_MAX, MAX_PHOTOS } from "../../../_shared/resolution-evidence.js";
 import { finalizeResolution } from "../../../_shared/resolve-case.js";
 import { caseAccess, canWorkCases, ROLE, logTeam, onBehalfOf } from "../../../_shared/team.js";
+import { STEP, latestStep, addStep } from "../../../_shared/dept-steps.js";
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -79,7 +80,11 @@ export async function onRequestPost(context) {
   const fieldErrors = {};
   if (note.length < NOTE_MIN || note.length > NOTE_MAX) fieldErrors.note = "NOTE_LENGTH";
   if (photoIds.length > MAX_PHOTOS) fieldErrors.photos = "TOO_MANY_PHOTOS";
-  if (photoIds.length === 0 && (noPhotoReason.length < REASON_MIN || noPhotoReason.length > REASON_MAX)) fieldErrors.photos = "PHOTO_OR_REASON";
+  // Departments stage 3: once a department is involved, the fix is checked
+  // on site with photos -- "no photo" isn't accepted (owner's rule).
+  const lastStep = await latestStep(env, grievanceId);
+  if (lastStep && photoIds.length === 0) fieldErrors.photos = "PHOTO_REQUIRED";
+  else if (photoIds.length === 0 && (noPhotoReason.length < REASON_MIN || noPhotoReason.length > REASON_MAX)) fieldErrors.photos = "PHOTO_OR_REASON";
   if (Object.keys(fieldErrors).length) {
     return Response.json({ error: "Please say what was done, and add a photo or the reason there isn't one.", fields: fieldErrors }, { status: 400 });
   }
@@ -140,6 +145,11 @@ export async function onRequestPost(context) {
     ).bind(auth.email, now, "Case marked resolved directly with a new report.", pending.id).run();
   }
   const out = await finalizeResolution(env, request, grievance, result.currentTier.tier, note, auth.email);
+  if (lastStep && lastStep.kind === STEP.DONE_CLAIMED) {
+    await addStep(env, { grievance_id: grievanceId, kind: STEP.CHECK_FIXED, department: lastStep.department, office_id: lastStep.office_id,
+      office_name: lastStep.office_name, photo_report_id: reportId, actor: auth.email, actor_role: access.role,
+      by_office_tier: access.mandate.tier, by_office_id: access.mandate.id, created_at: now });
+  }
   await logTeam(env, { ...teamBase, action: "MARKED_RESOLVED", detail: { reportId } });
   return Response.json(out);
 }

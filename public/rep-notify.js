@@ -46,6 +46,7 @@
       case 'NUDGE': return { t: T('rn.k_nudge_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_nudge_b') };
       case 'ANNOUNCEMENT': return { t: T('rn.k_msg_t'), b: d.title || '' };
       case 'REPLY': return { t: T('rn.k_reply_t'), b: d.title || '' };
+      case 'DEPT_OVERDUE': return { t: T('rn.k_dod_t', { who: d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept), ref: n.ref }), b: wt + ' · ' + T('rn.k_dod_b', { days: d.days }) };
       default: return { t: 'GrievIQ', b: '' };
     }
   }

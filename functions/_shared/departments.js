@@ -48,10 +48,14 @@ export function isMissingTypesTable(e) {
 // [{ key, nameEn, nameHi, description, builtIn, retired, ... }]
 export async function deptTypes(env) {
   let rows;
+  const cols = "key, name_en, name_hi, description, sort_order, built_in, retired_at, retire_reason, updated_at";
   try {
-    ({ results: rows } = await env.DB.prepare(
-      "SELECT key, name_en, name_hi, description, sort_order, built_in, retired_at, retire_reason, updated_at FROM dept_types"
-    ).all());
+    try {
+      ({ results: rows } = await env.DB.prepare("SELECT " + cols + ", target_days FROM dept_types").all());
+    } catch (e) {
+      if (!/no such column:?\s*target_days/i.test(String(e && e.message))) throw e;   // before part23
+      ({ results: rows } = await env.DB.prepare("SELECT " + cols + " FROM dept_types").all());
+    }
   } catch (e) {
     if (isMissingTypesTable(e)) return builtIn();
     throw e;
@@ -59,7 +63,7 @@ export async function deptTypes(env) {
   if (!rows || !rows.length) return builtIn();
   const list = rows.map((r) => ({
     key: r.key, nameEn: r.name_en, nameHi: r.name_hi, description: r.description || null, sort: Number(r.sort_order) || 0,
-    builtIn: !!r.built_in, retired: !!r.retired_at, retiredAt: r.retired_at || null, retireReason: r.retire_reason || null, updatedAt: r.updated_at || null,
+    builtIn: !!r.built_in, retired: !!r.retired_at, targetDays: r.target_days == null ? null : Number(r.target_days), retiredAt: r.retired_at || null, retireReason: r.retire_reason || null, updatedAt: r.updated_at || null,
   }));
   list.sort((a, b) => ((a.key === OTHER) - (b.key === OTHER)) || (a.sort - b.sort) || a.nameEn.localeCompare(b.nameEn));
   return list;

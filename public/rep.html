@@ -20,9 +20,9 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=28"></script>
+<script src="/i18n.js?v=29"></script>
 <script src="/photo-tools.js?v=7c"></script>
-<script src="/rep-notify.js?v=20b"></script>
+<script src="/rep-notify.js?v=29"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -664,6 +664,35 @@
   .ladder-dot.late { background: var(--red); }
   .ladder-dot.done { background: var(--steel-2); }
   .ladder-dot.mine { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* Departments stage 3: the department step */
+  .ds-panel { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--card); }
+  .ds-panel .ds-h { margin: 0 0 4px; font-size: 14px; color: var(--ink); }
+  .ds-status { font-size: 13.5px; font-weight: 600; color: var(--ink); margin: 2px 0; }
+  .ds-status.late { color: var(--red); }
+  .ds-status.act { color: var(--brand); }
+  .ds-status.ok { color: var(--green); }
+  .ds-hint { font-size: 12.5px; color: var(--steel); margin: 2px 0 6px; }
+  .ds-list { list-style: none; margin: 6px 0 4px; padding: 0 0 0 10px; border-left: 2px solid var(--line); }
+  .ds-step { padding: 3px 0 7px 8px; font-size: 13px; color: var(--ink); }
+  .ds-step .ds-t { display: block; font-weight: 600; }
+  .ds-step .ds-meta, .ds-step .ds-note { display: block; font-size: 12px; color: var(--steel-2); }
+  .ds-step .ds-note { color: var(--steel); }
+  .ds-step.ds-check_partly .ds-t, .ds-step.ds-check_not_fixed .ds-t, .ds-step.ds-cant_do .ds-t, .ds-step.ds-not_ours .ds-t { color: var(--red); }
+  .ds-step.ds-check_fixed .ds-t { color: var(--green); }
+  .ds-photos { display: flex; gap: 6px; margin-top: 4px; }
+  .ds-photos img { width: 64px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+  .ds-fs { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px 8px; margin: 8px 0; }
+  .ds-fs legend { font-size: 12.5px; font-weight: 700; color: var(--steel); padding: 0 4px; }
+  .ds-radio { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13.5px; color: var(--ink); cursor: pointer; }
+  .ds-radio input { width: 18px; height: 18px; flex: none; }
+  .ds-form label:not(.ds-radio), .fwd-form .followup-field label { display: block; font-size: 12px; font-weight: 600; color: var(--steel); margin: 6px 0 3px; }
+  .ds-form textarea, .ds-form input[type=date], .ds-form select { width: 100%; max-width: 420px; min-height: 36px; font: inherit; font-size: 14px; }
+  .ds-form textarea { min-height: 60px; }
+  .ds-form .actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .fwd-form { align-items: flex-start; }
+  .fwd-form .fwd-ch { flex-basis: 100%; }
+  .fwd-form .fwd-ch .ds-radio { display: inline-flex; margin-right: 14px; }
+  .r-outcome-fs { margin-top: 0; }
   /* Departments stage 2: "Who handles this" */
   .dept-card { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--card); }
   .dept-card .dc-h { margin: 0 0 4px; font-size: 14px; color: var(--ink); }
@@ -987,20 +1016,31 @@ function renderResolveControl(c) {
   // Item 8c-1: an office assistant only looks (the fix report, if any, still shows).
   if (c.viewOnly) return c.pendingReport ? renderReviewBlock(c) : '';
   if (c.pendingReport) return isFW ? '<p class="team-note">' + esc(T('rep.fw_waiting')) + '</p>' : renderReviewBlock(c);
+  // Departments stage 3: once a department says the work is done, this form
+  // is the field check (what the team found on site, with photos); once any
+  // department is involved, photos are required (no "no photo" option).
+  var check = c.deptState && c.deptState.phase === 'NEEDS_CHECK';
+  var needPhotos = !!(c.deptSteps && c.deptSteps.length);
   if (!d || !d.open) {
-    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved')) + '</button>';
+    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(check ? 'rep.fc_btn' : (isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved'))) + '</button>';
   }
+  var outcome = check ? (d.outcome || '') : 'FIXED';
+  var failed = outcome === 'PARTLY' || outcome === 'NOT_FIXED';
+  var outcomeBox = check ? '<fieldset class="ds-fs r-outcome-fs"' + (d.errors.outcome ? ' aria-describedby="routcome-err-' + id + '"' : '') + '><legend>' + esc(T('rep.fc_q', { who: c.deptState.officeName || deptName(c.deptState.department) })) + '</legend>' +
+    ['FIXED', 'PARTLY', 'NOT_FIXED'].map(function(k) {
+      return '<label class="ds-radio"><input type="radio" name="r-outcome-' + id + '" class="r-outcome" data-id="' + id + '" value="' + k + '"' + (outcome === k ? ' checked' : '') + '> ' + esc(T('rep.fc_' + k)) + '</label>';
+    }).join('') + '<div class="field-err" id="routcome-err-' + id + '" role="alert">' + esc(d.errors.outcome || '') + '</div></fieldset>' : '';
   // Item 7b: say what was done, and add "after" photos or the reason there
   // are none. Photos upload as soon as they are chosen, so any warnings show
   // before the case is marked resolved. Errors show next to each field.
   var full = d.photos.length + d.uploading >= MAX_RES_PHOTOS;
-  return '<div class="resolve-form" id="resolve-form-' + id + '">' +
-    '<label for="rnote-' + id + '">' + esc(T('rep.r_note')) + '</label>' +
-    '<p class="hint" id="rnote-hint-' + id + '">' + esc(T('rep.r_note_hint')) + '</p>' +
+  return '<div class="resolve-form" id="resolve-form-' + id + '">' + outcomeBox +
+    '<label for="rnote-' + id + '">' + esc(T(failed ? 'rep.fc_note' : 'rep.r_note')) + '</label>' +
+    '<p class="hint" id="rnote-hint-' + id + '">' + esc(T(failed ? 'rep.fc_note_hint' : 'rep.r_note_hint')) + '</p>' +
     '<textarea id="rnote-' + id + '" class="r-note" data-id="' + id + '" maxlength="1000" aria-describedby="rnote-hint-' + id + ' rnote-err-' + id + '"' + (d.errors.note ? ' aria-invalid="true"' : '') + '>' + esc(d.note) + '</textarea>' +
     '<div class="field-err" id="rnote-err-' + id + '" role="alert">' + esc(d.errors.note || '') + '</div>' +
-    '<label for="rphoto-' + id + '">' + esc(T('rep.r_photos')) + '</label>' +
-    '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T('rep.r_photos_hint')) + ' ' + esc(T('rep.r_loc_hint')) + '</p>' +
+    '<label for="rphoto-' + id + '">' + esc(T(needPhotos ? 'rep.fc_photos' : 'rep.r_photos')) + '</label>' +
+    '<p class="hint" id="rphoto-hint-' + id + '">' + esc(T(needPhotos ? 'rep.fc_photos_hint' : 'rep.r_photos_hint')) + ' ' + esc(T('rep.r_loc_hint')) + '</p>' +
     '<p class="hint" role="status" id="rloc-' + id + '">' + locLineHtml(d, id) + '</p>' +
     '<input type="file" id="rphoto-' + id + '" class="r-photo" data-id="' + id + '" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="rphoto-hint-' + id + ' rphoto-err-' + id + '"' + (full || d.noPhoto ? ' disabled' : '') + (d.errors.photos ? ' aria-invalid="true"' : '') + ' />' +
     '<div class="r-thumbs" aria-live="polite">' +
@@ -1012,15 +1052,15 @@ function renderResolveControl(c) {
       (d.uploading ? '<div class="r-thumb">' + esc(T('rep.r_uploading')) + '</div>' : '') +
     '</div>' +
     '<div class="field-err" id="rphoto-err-' + id + '" role="alert">' + esc(d.errors.photos || '') + '</div>' +
-    '<label class="check"><input type="checkbox" class="r-nophoto" data-id="' + id + '"' + (d.noPhoto ? ' checked' : '') + (d.photos.length ? ' disabled' : '') + ' /> ' + esc(T('rep.r_no_photo')) + '</label>' +
-    (d.noPhoto
+    (needPhotos ? '' : '<label class="check"><input type="checkbox" class="r-nophoto" data-id="' + id + '"' + (d.noPhoto ? ' checked' : '') + (d.photos.length ? ' disabled' : '') + ' /> ' + esc(T('rep.r_no_photo')) + '</label>') +
+    (d.noPhoto && !needPhotos
       ? '<label for="rreason-' + id + '">' + esc(T('rep.r_reason')) + '</label>' +
         '<p class="hint" id="rreason-hint-' + id + '">' + esc(T('rep.r_reason_hint')) + '</p>' +
         '<textarea id="rreason-' + id + '" class="r-reason" data-id="' + id + '" maxlength="300" aria-describedby="rreason-hint-' + id + ' rreason-err-' + id + '"' + (d.errors.reason ? ' aria-invalid="true"' : '') + '>' + esc(d.reason) + '</textarea>' +
         '<div class="field-err" id="rreason-err-' + id + '" role="alert">' + esc(d.errors.reason || '') + '</div>'
       : '') +
     '<div class="actions">' +
-      '<button type="button" class="resolve-btn r-submit" data-id="' + id + '"' + (d.busy || d.uploading ? ' disabled' : '') + '>' + esc(T(d.busy ? 'rep.marking' : (isFW ? 'rep.fw_submit' : 'rep.r_submit'))) + '</button>' +
+      '<button type="button" class="resolve-btn r-submit" data-id="' + id + '"' + (d.busy || d.uploading ? ' disabled' : '') + '>' + esc(T(d.busy ? 'rep.marking' : (failed ? 'rep.fc_send_back' : (isFW ? 'rep.fw_submit' : 'rep.r_submit'))))  + '</button>' +
       '<button type="button" class="resolve-btn r-cancel" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.r_cancel')) + '</button>' +
     '</div>' +
     '<div class="resolve-error" id="resolve-error-' + id + '" role="alert">' + esc(d.errors.form || '') + '</div>' +
@@ -1166,36 +1206,148 @@ document.addEventListener('click', async function(e) {
   }
 });
 
+// ---- Departments stage 3: the department step ----
+// What the department has done on this case, from its steps (latest last),
+// what the office should do next, and the forms to record it. Follows the
+// DARPG/CPGRAMS rules (never close a "not ours": forward it; reasons for a
+// refusal; a date for planned work) and the owner's rule that a department's
+// "done" is always checked on site by the office's team, with photos.
+var dsDraft = {};      // case id -> "Record the department's reply" form
+var fwdDraft = {};     // case id -> forward form (department, office, how contacted)
+var DS_REPLY = ['SCHEDULED', 'IN_PROGRESS', 'DONE_CLAIMED', 'NOT_OURS', 'CANT_DO'];
+var DS_CHANNELS = ['PHONE', 'WHATSAPP', 'EMAIL', 'IN_PERSON', 'LETTER'];
+function dsWho(st) { return st.officeName || deptName(st.department); }
+function dsDay(d) { if (!d) return ''; var x = new Date(String(d).length === 10 ? d + 'T00:00:00+05:30' : d); return isNaN(x) ? d : x.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }); }
+function dsStepText(st) {
+  var v = { who: dsWho(st), dept: deptName(st.department), date: dsDay(st.expectedDate), ch: st.channel ? T('rep.ch_' + st.channel) : '', sugg: st.suggestedDepartment ? deptName(st.suggestedDepartment) : '' };
+  var t = T('rep.ds_k_' + st.kind, v);
+  if (st.kind === 'NOT_OURS' && st.suggestedDepartment) t += ' ' + T('rep.ds_k_sugg', v);
+  return t;
+}
+function dsStatus(c) {
+  var s = c.deptState || { phase: 'NONE' };
+  var who = s.officeName || deptName(s.department);
+  if (s.phase === 'WITH_DEPT') {
+    var line = s.overdue ? T('rep.ds_s_overdue', { who: who, n: s.overdueDays }) : T('rep.ds_s_with', { who: who, day: Math.min(s.dayOf, s.days), days: s.days });
+    if (s.expectedDate) line += ' ' + T('rep.ds_s_sched', { date: dsDay(s.expectedDate) });
+    if (s.sentBack) line += ' ' + T('rep.ds_s_sentback');
+    return { cls: s.overdue ? 'late' : '', text: line };
+  }
+  if (s.phase === 'NEEDS_CHECK') return { cls: 'act', text: T('rep.ds_s_check', { who: who }), hint: T(c.myRole === 'FIELD_WORKER' ? 'rep.ds_h_check_fw' : 'rep.ds_h_check') };
+  if (s.phase === 'NEEDS_FORWARD') return { cls: 'act', text: T('rep.ds_s_notours', { who: who }) + (s.suggestedDepartment ? ' ' + T('rep.ds_s_notours_sugg', { dept: deptName(s.suggestedDepartment) }) : ''), hint: T('rep.ds_h_reforward') };
+  if (s.phase === 'CANT_DO') return { cls: 'act', text: T('rep.ds_s_cantdo', { who: who }), hint: T('rep.ds_h_cantdo') };
+  if (s.phase === 'CHECKED') return { cls: 'ok', text: T('rep.ds_s_checked') };
+  return null;
+}
+function renderDeptProgress(c) {
+  var steps = c.deptSteps || [];
+  if (!steps.length) return '';
+  var id = esc(c.id);
+  var st = dsStatus(c);
+  var list = steps.map(function(x) {
+    var photos = (x.photos || []).map(function(p, i) {
+      return p.thumbUrl ? '<a href="' + esc(p.url || p.thumbUrl) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl) + '" alt="' + esc(T('rep.ds_photo_alt', { n: i + 1 })) + '" loading="lazy"></a>' : '';
+    }).join('');
+    return '<li class="ds-step ds-' + esc(x.kind.toLowerCase()) + '"><span class="ds-t">' + esc(dsStepText(x)) + '</span>' +
+      '<span class="ds-meta">' + esc(formatDate(x.at)) + (x.actor ? ' · ' + esc(x.actor) : '') + '</span>' +
+      (x.note ? '<span class="ds-note">' + esc(x.note) + '</span>' : '') + (photos ? '<span class="ds-photos">' + photos + '</span>' : '') + '</li>';
+  }).join('');
+  var canReply = (c.myRole === 'REPRESENTATIVE' || c.myRole === 'OFFICE_MANAGER' || !c.myRole) && !c.viewOnly &&
+    c.status !== 'PENDING_CONFIRMATION' && c.deptState && (c.deptState.phase === 'WITH_DEPT' || c.deptState.phase === 'CANT_DO');
+  return '<section class="ds-panel" id="ds-' + id + '" aria-labelledby="ds-h-' + id + '">' +
+    '<h4 class="ds-h" id="ds-h-' + id + '">' + esc(T('rep.ds_title')) + '</h4>' +
+    (st ? '<p class="ds-status ' + st.cls + '">' + esc(st.text) + '</p>' + (st.hint ? '<p class="ds-hint">' + esc(st.hint) + '</p>' : '') : '') +
+    '<ol class="ds-list">' + list + '</ol>' +
+    (canReply ? renderDsReply(c) : '') + '</section>';
+}
+function renderDsReply(c) {
+  var id = esc(c.id), d = dsDraft[c.id];
+  if (!d || !d.open) return '<button type="button" class="resolve-btn ds-open" data-id="' + id + '" aria-expanded="false">' + esc(T('rep.ds_reply_btn')) + '</button>';
+  var e = d.errors || {};
+  var who = (c.deptState && (c.deptState.officeName || deptName(c.deptState.department))) || '';
+  var radios = DS_REPLY.map(function(k) {
+    return '<label class="ds-radio"><input type="radio" name="ds-kind-' + id + '" class="ds-kind" data-id="' + id + '" value="' + k + '"' + (d.kind === k ? ' checked' : '') + '> ' + esc(T('rep.ds_r_' + k, { who: who })) + '</label>';
+  }).join('');
+  var extra = '';
+  if (d.kind === 'SCHEDULED') {
+    extra = '<label for="ds-date-' + id + '">' + esc(T('rep.ds_date')) + '</label>' +
+      '<input type="date" id="ds-date-' + id + '" class="ds-date" data-id="' + id + '" value="' + esc(d.date || '') + '" min="' + esc(istToday()) + '"' + (e.expectedDate ? ' aria-invalid="true" aria-describedby="ds-date-err-' + id + '"' : '') + '>' +
+      '<div class="field-err" id="ds-date-err-' + id + '" role="alert">' + esc(e.expectedDate || '') + '</div>';
+  }
+  if (d.kind === 'NOT_OURS') {
+    var cur = c.deptState && c.deptState.department;
+    extra = '<label for="ds-sugg-' + id + '">' + esc(T('rep.ds_sugg')) + ' <span class="muted-inline">' + esc(T('rep.optional')) + '</span></label>' +
+      '<select id="ds-sugg-' + id + '" class="ds-sugg" data-id="' + id + '"><option value="">' + esc(T('rep.ds_sugg_none')) + '</option>' +
+      DEPARTMENTS.filter(function(x) { return x !== cur; }).map(function(x) { return '<option value="' + esc(x) + '"' + (d.sugg === x ? ' selected' : '') + '>' + esc(deptName(x)) + '</option>'; }).join('') + '</select>';
+  }
+  var noteReq = d.kind === 'CANT_DO';
+  return '<div class="ds-form" id="ds-form-' + id + '">' +
+    '<fieldset class="ds-fs"' + (e.kind ? ' aria-describedby="ds-kind-err-' + id + '"' : '') + '><legend>' + esc(T('rep.ds_reply_q', { who: who })) + '</legend>' + radios +
+    '<div class="field-err" id="ds-kind-err-' + id + '" role="alert">' + esc(e.kind || '') + '</div></fieldset>' + extra +
+    '<label for="ds-note-' + id + '">' + esc(T(noteReq ? 'rep.ds_note_reason' : 'rep.ds_note')) + (noteReq ? '' : ' <span class="muted-inline">' + esc(T('rep.optional')) + '</span>') + '</label>' +
+    '<textarea id="ds-note-' + id + '" class="ds-note-in" data-id="' + id + '" maxlength="500"' + (e.note ? ' aria-invalid="true" aria-describedby="ds-note-err-' + id + '"' : '') + '>' + esc(d.note || '') + '</textarea>' +
+    '<div class="field-err" id="ds-note-err-' + id + '" role="alert">' + esc(e.note || '') + '</div>' +
+    '<div class="actions"><button type="button" class="resolve-btn ds-save" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ds_save')) + '</button>' +
+    '<button type="button" class="resolve-btn ds-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+    '<div class="resolve-error" id="ds-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+}
+function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+
+// The office choices for a department on this case (directory offices for the ward first).
+function fwdOfficeOptions(c, dept, chosen) {
+  if (!dept) return '<option value="">' + esc(T('rep.fwd_office_first')) + '</option>';
+  var offices = dcOffices(c, dept);
+  return '<option value="">' + esc(T(offices.length ? 'rep.fwd_office_choose' : 'rep.fwd_office_none')) + '</option>' +
+    offices.map(function(o) { var n = isHi() && o.nameHi ? o.nameHi : o.nameEn; return '<option value="' + esc(o.id) + '"' + (chosen === o.id ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') +
+    '<option value="__other"' + (chosen === '__other' ? ' selected' : '') + '>' + esc(T('rep.fwd_office_other')) + '</option>';
+}
+
 function renderFollowupControl(c) {
-  var deptLine = c.currentDepartment
+  var steps = c.deptSteps || [];
+  var deptLine = c.currentDepartment && !steps.length
     ? '<p class="location-detail">' + esc(T('rep.forwarded')) + ' <b>' + esc(deptName(c.currentDepartment)) + '</b></p>'
     : '';
-  var history = (c.followupHistory || []).map(function(f) {
+  // Older forwardings (before the department step existed) keep their simple history.
+  var history = steps.length ? '' : (c.followupHistory || []).map(function(f) {
     var noteText = f.note ? ' — ' + esc(f.note) : '';
     return '<div class="dispute-note"><b>' + esc(deptName(f.department)) + '</b>' + noteText +
       ' <span class="muted-inline">(' + formatDate(f.createdAt) + ')</span></div>';
   }).join('');
   var sugg = DEPARTMENTS.indexOf(c.suggestedDepartment) !== -1 ? c.suggestedDepartment : null;
   var ordered = sugg ? [sugg].concat(DEPARTMENTS.filter(function(d) { return d !== sugg; })) : DEPARTMENTS;
+  var f = fwdDraft[c.id] || {};
   var options = '<option value="">' + esc(T('rep.choose_dept')) + '</option>' + ordered.map(function(d) {
-    return '<option value="' + esc(d) + '">' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
+    return '<option value="' + esc(d) + '"' + (f.dept === d ? ' selected' : '') + '>' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
   }).join('');
   var id = esc(c.id);
   var card = renderDeptCard(c);   // everyone who can see the case sees who handles it
+  var progress = renderDeptProgress(c);
   // Item 7b: the form is hidden while waiting for the citizen (the rep has
   // already marked it resolved); the department history stays visible.
-  if (c.status === 'PENDING_CONFIRMATION') return card + deptLine + history;
+  if (c.status === 'PENDING_CONFIRMATION') return card + progress + deptLine + history;
   // Item 8b: forwarding is for the representative or office manager.
-  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return card + deptLine + history;
-  return card + deptLine + history +
-    '<div class="followup-form">' +
-      '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
-        '<select class="followup-dept" id="followup-dept-' + id + '">' + options + '</select></div>' +
+  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return card + progress + deptLine + history;
+  var e = f.errors || {};
+  var channels = DS_CHANNELS.map(function(ch) {
+    return '<label class="ds-radio"><input type="radio" name="fch-' + id + '" class="followup-ch" data-id="' + id + '" value="' + ch + '"' + (f.channel === ch ? ' checked' : '') + '> ' + esc(T('rep.ch_' + ch)) + '</label>';
+  }).join('');
+  return card + progress + deptLine + history +
+    '<div class="followup-form fwd-form" id="fwd-form-' + id + '">' +
+      '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T(steps.length ? 'rep.forward_again' : 'rep.forward_to')) + '</label>' +
+        '<select class="followup-dept" id="followup-dept-' + id + '" data-id="' + id + '"' + (e.dept ? ' aria-invalid="true"' : '') + '>' + options + '</select></div>' +
+      '<div class="followup-field"><label for="followup-office-' + id + '">' + esc(T('rep.fwd_office')) + '</label>' +
+        '<select class="followup-office" id="followup-office-' + id + '" data-id="' + id + '"' + (f.dept ? '' : ' disabled') + (e.office ? ' aria-invalid="true" aria-describedby="fwd-office-err-' + id + '"' : '') + '>' + fwdOfficeOptions(c, f.dept, f.office) + '</select>' +
+        '<div class="field-err" id="fwd-office-err-' + id + '" role="alert">' + esc(e.office || '') + '</div></div>' +
+      (f.office === '__other' ? '<div class="followup-field"><label for="followup-oname-' + id + '">' + esc(T('rep.fwd_office_name')) + '</label>' +
+        '<input class="followup-oname" id="followup-oname-' + id + '" data-id="' + id + '" type="text" maxlength="120" value="' + esc(f.officeName || '') + '"' + (e.officeName ? ' aria-invalid="true" aria-describedby="fwd-oname-err-' + id + '"' : '') + '>' +
+        '<div class="field-err" id="fwd-oname-err-' + id + '" role="alert">' + esc(e.officeName || '') + '</div></div>' : '') +
+      '<fieldset class="ds-fs fwd-ch"' + (e.channel ? ' aria-describedby="fwd-ch-err-' + id + '"' : '') + '><legend>' + esc(T('rep.fwd_how')) + '</legend>' + channels +
+        '<div class="field-err" id="fwd-ch-err-' + id + '" role="alert">' + esc(e.channel || '') + '</div></fieldset>' +
       '<div class="followup-field"><label for="followup-note-' + id + '">' + esc(T('rep.note_opt')) + '</label>' +
-        '<input class="followup-note" id="followup-note-' + id + '" type="text" maxlength="500" /></div>' +
+        '<input class="followup-note" id="followup-note-' + id + '" data-id="' + id + '" type="text" maxlength="500" value="' + esc(f.note || '') + '" /></div>' +
       '<button type="button" class="resolve-btn followup-btn" data-id="' + id + '">' + esc(T('rep.log_followup')) + '</button>' +
     '</div>' +
-    '<div class="resolve-error followup-error" id="followup-error-' + id + '" role="alert"></div>';
+    '<div class="resolve-error followup-error" id="followup-error-' + id + '" role="alert">' + esc(e.form || '') + '</div>';
 }
 
 function renderAcknowledgeControl(c) {
@@ -1507,7 +1659,9 @@ var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSI
   FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
   MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role',
   PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', OVERVIEW_EXPORTED: 'rep.act_exported',
-  OBSERVATION_REPLIED: 'rep.act_obs_replied', OBSERVATION_DONE: 'rep.act_obs_done', OBSERVATION_COMMENTED: 'rep.act_obs_comment' };
+  OBSERVATION_REPLIED: 'rep.act_obs_replied', OBSERVATION_DONE: 'rep.act_obs_done', OBSERVATION_COMMENTED: 'rep.act_obs_comment',
+  DEPT_SCHEDULED: 'rep.act_dept_sched', DEPT_IN_PROGRESS: 'rep.act_dept_prog', DEPT_DONE_CLAIMED: 'rep.act_dept_done', DEPT_NOT_OURS: 'rep.act_dept_notours',
+  DEPT_CANT_DO: 'rep.act_dept_cantdo', DEPT_CHECK_PARTLY: 'rep.act_dept_check_failed', DEPT_CHECK_NOT_FIXED: 'rep.act_dept_check_failed' };
 function activityText(a) {
   var d = a.detail || {};
   if (a.action === 'UNASSIGNED' && d.reason === 'OUT_OF_AREA') return T('rep.act_unassign_area', { ref: a.trackingRef || '' });
@@ -3159,45 +3313,159 @@ function attachAcknowledgeHandlers() {
   });
 }
 function attachFollowupHandlers() {
+  // Departments stage 3: forward to a named office, saying how it was contacted.
   document.querySelectorAll('.followup-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var id = btn.getAttribute('data-id');
-      var select = document.getElementById('followup-dept-' + id);
-      var dept = select.value;
-      var note = document.getElementById('followup-note-' + id).value;
-      var errorEl = document.getElementById('followup-error-' + id);
-      errorEl.textContent = '';
-      if (!dept) {
-        errorEl.textContent = T('rep.need_dept');
-        select.setAttribute('aria-invalid', 'true');
-        select.focus();
+      var f = fwdReadForm(id);
+      f.errors = {};
+      if (!f.dept) f.errors.dept = T('rep.need_dept');
+      if (!f.channel) f.errors.channel = T('rep.fwd_err_how');
+      if (f.office === '__other' && (f.officeName || '').trim().length < 3) f.errors.officeName = T('rep.fwd_err_oname');
+      if (Object.keys(f.errors).length) {
+        if (f.errors.dept) { f.errors.form = f.errors.dept; }
+        renderContent();
+        var bad = document.querySelector('#fwd-form-' + cssId(id) + ' [aria-invalid="true"], #fwd-form-' + cssId(id) + ' .fwd-ch[aria-describedby] input');
+        if (bad) bad.focus();
         return;
       }
-      select.removeAttribute('aria-invalid');
       btn.disabled = true;
       btn.textContent = T('rep.logging');
       try {
         var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/add-followup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ department: dept, note: note })
+          body: JSON.stringify({ department: f.dept, note: f.note || '', channel: f.channel,
+            officeId: f.office && f.office !== '__other' ? f.office : null, officeName: f.office === '__other' ? f.officeName : null })
         });
-        var data = await res.json();
+        var data = await res.json().catch(function() { return {}; });
         if (!res.ok || data.error) {
-          errorEl.textContent = errText(data.error);
-          btn.disabled = false;
-          btn.textContent = T('rep.log_followup');
+          var fe = data.fields || {};
+          f.errors = {};
+          if (fe.channel) f.errors.channel = T('rep.fwd_err_how');
+          if (fe.office) f.errors.office = T('rep.fwd_err_office');
+          if (fe.officeName) f.errors.officeName = T('rep.fwd_err_oname');
+          if (!Object.keys(f.errors).length) f.errors.form = errText(data.error);
+          renderContent();
           return;
         }
+        delete fwdDraft[id];
         await init();
+        say(T('rep.fwd_done'));
       } catch (err) {
-        errorEl.textContent = T('common.network_error');
-        btn.disabled = false;
-        btn.textContent = T('rep.log_followup');
+        f.errors = { form: T('common.network_error') };
+        renderContent();
       }
     });
   });
 }
+// What is in the forward form now (kept across redraws).
+function fwdReadForm(id) {
+  var f = fwdDraft[id] || (fwdDraft[id] = {});
+  var dept = document.getElementById('followup-dept-' + id), office = document.getElementById('followup-office-' + id),
+      oname = document.getElementById('followup-oname-' + id), note = document.getElementById('followup-note-' + id),
+      ch = document.querySelector('input[name="fch-' + cssId(id) + '"]:checked');
+  if (dept) f.dept = dept.value;
+  if (office) f.office = office.value;
+  if (oname) f.officeName = oname.value;
+  if (note) f.note = note.value;
+  f.channel = ch ? ch.value : (f.channel || '');
+  return f;
+}
+// A short spoken confirmation for screen readers.
+function say(text) {
+  var el = document.getElementById('resolve-status');
+  if (el) { el.textContent = ''; setTimeout(function() { el.textContent = text; }, 50); }
+}
+document.addEventListener('change', function(e) {
+  var t = e.target;
+  if (!t.closest) return;
+  // Forward form: choosing the department fills the office list; "not in the list" asks for its name.
+  if (t.classList.contains('followup-dept') || t.classList.contains('followup-office')) {
+    var id = t.getAttribute('data-id'), c = findCase(id);
+    var f = fwdReadForm(id);
+    if (t.classList.contains('followup-dept')) { f.office = ''; f.officeName = ''; }
+    if (!c) return;
+    var form = document.getElementById('fwd-form-' + id);
+    if (!form) return;
+    renderContent();
+    var again = document.getElementById(t.id); if (again) again.focus();
+    return;
+  }
+  if (t.classList.contains('ds-kind')) {
+    var did = t.getAttribute('data-id'), d = dsDraft[did];
+    if (!d) return;
+    dsRead(did); d.kind = t.value; d.errors = {};
+    renderContent();
+    var r = document.querySelector('input[name="ds-kind-' + cssId(did) + '"][value="' + t.value + '"]'); if (r) r.focus();
+    return;
+  }
+  if (t.classList.contains('r-outcome')) {
+    var rid = t.getAttribute('data-id'), rd = drafts[rid];
+    if (!rd) return;
+    var n = document.getElementById('rnote-' + rid); if (n) rd.note = n.value;
+    rd.outcome = t.value; rd.errors = {};
+    renderContent();
+    var o = document.querySelector('input[name="r-outcome-' + cssId(rid) + '"][value="' + t.value + '"]'); if (o) o.focus();
+  }
+});
+function dsRead(id) {
+  var d = dsDraft[id]; if (!d) return;
+  var date = document.getElementById('ds-date-' + id), sugg = document.getElementById('ds-sugg-' + id), note = document.getElementById('ds-note-' + id);
+  if (date) d.date = date.value;
+  if (sugg) d.sugg = sugg.value;
+  if (note) d.note = note.value;
+}
+document.addEventListener('click', async function(e) {
+  var b = e.target.closest && e.target.closest('.ds-open, .ds-cancel, .ds-save');
+  if (!b) return;
+  var id = b.getAttribute('data-id');
+  if (b.classList.contains('ds-open')) {
+    dsDraft[id] = { open: true, kind: '', date: '', sugg: '', note: '', errors: {} };
+    renderContent();
+    var first = document.querySelector('input[name="ds-kind-' + cssId(id) + '"]'); if (first) first.focus();
+    return;
+  }
+  if (b.classList.contains('ds-cancel')) {
+    delete dsDraft[id];
+    renderContent();
+    var ob = document.querySelector('.ds-open[data-id="' + cssId(id) + '"]'); if (ob) ob.focus();
+    return;
+  }
+  var d = dsDraft[id]; if (!d) return;
+  dsRead(id);
+  d.errors = {};
+  if (!d.kind) d.errors.kind = T('rep.ds_err_kind');
+  if (d.kind === 'SCHEDULED' && !d.date) d.errors.expectedDate = T('rep.ds_err_date');
+  if (d.kind === 'CANT_DO' && (d.note || '').trim().length < 10) d.errors.note = T('rep.ds_err_reason');
+  if (Object.keys(d.errors).length) {
+    renderContent();
+    var bad = document.querySelector('#ds-form-' + cssId(id) + ' [aria-invalid="true"]') || document.querySelector('input[name="ds-kind-' + cssId(id) + '"]');
+    if (bad) bad.focus();
+    return;
+  }
+  d.busy = true; renderContent();
+  try {
+    var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/dept-step', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: d.kind, expectedDate: d.date || null, suggestedDepartment: d.sugg || null, note: d.note || '' }) });
+    var data = await res.json().catch(function() { return {}; });
+    d.busy = false;
+    if (!res.ok) {
+      var fe = data.fields || {};
+      if (fe.expectedDate) d.errors.expectedDate = T('rep.ds_err_date_' + fe.expectedDate) !== 'rep.ds_err_date_' + fe.expectedDate ? T('rep.ds_err_date_' + fe.expectedDate) : T('rep.ds_err_date');
+      if (fe.note) d.errors.note = T('rep.ds_err_reason');
+      if (!fe.expectedDate && !fe.note) d.errors.form = errText(data.error);
+      renderContent();
+      return;
+    }
+    delete dsDraft[id];
+    await init();
+    say(T('rep.ds_saved'));
+    var h = document.getElementById('ds-h-' + id); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+  } catch (err) {
+    d.busy = false; d.errors.form = T('common.network_error'); renderContent();
+  }
+});
 function attachResolveHandlers() {
   // Item 7b: "Mark resolved" opens a short form (what was done + "after"
   // photos or the reason there are none). Form state lives in drafts[] so
@@ -3211,7 +3479,7 @@ function attachResolveHandlers() {
   document.querySelectorAll('.mark-resolved-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var id = btn.getAttribute('data-id');
-      drafts[id] = { open: true, note: '', photos: [], uploading: 0, noPhoto: false, reason: '', errors: {}, busy: false };
+      drafts[id] = { open: true, note: '', photos: [], uploading: 0, noPhoto: false, reason: '', outcome: '', errors: {}, busy: false };
       redraw(id, '#rnote-' + cssId(id));
       // Ask for the location as the form opens, so it is ready by the time
       // a photo has been taken.
@@ -3333,17 +3601,28 @@ function attachResolveHandlers() {
       if (noteEl) d.note = noteEl.value;
       if (reasonEl) d.reason = reasonEl.value;
       var note = d.note.trim(), reason = d.reason.trim();
-      if (note.length < 10) d.errors.note = T('rep.r_err_note');
-      if (!d.photos.length && !d.noPhoto) d.errors.photos = T('rep.r_err_photo');
-      if (!d.photos.length && d.noPhoto && reason.length < 10) d.errors.reason = T('rep.r_err_reason');
-      if (d.errors.note || d.errors.photos || d.errors.reason) {
-        redraw(id, d.errors.note ? '#rnote-' + cssId(id) : d.errors.photos ? '#rphoto-' + cssId(id) : '#rreason-' + cssId(id));
+      var c = findCase(id) || {};
+      var check = c.deptState && c.deptState.phase === 'NEEDS_CHECK';
+      var needPhotos = !!(c.deptSteps && c.deptSteps.length);
+      var outcome = check ? (d.outcome || '') : 'FIXED';
+      if (check && !outcome) d.errors.outcome = T('rep.fc_err_outcome');
+      if (note.length < 10) d.errors.note = T(outcome !== 'FIXED' && outcome ? 'rep.fc_err_note' : 'rep.r_err_note');
+      if (!d.photos.length && (needPhotos || !d.noPhoto)) d.errors.photos = T(needPhotos ? 'rep.fc_err_photo' : 'rep.r_err_photo');
+      if (!needPhotos && !d.photos.length && d.noPhoto && reason.length < 10) d.errors.reason = T('rep.r_err_reason');
+      if (d.errors.outcome || d.errors.note || d.errors.photos || d.errors.reason) {
+        redraw(id, d.errors.outcome ? 'input[name="r-outcome-' + cssId(id) + '"]' : d.errors.note ? '#rnote-' + cssId(id) : d.errors.photos ? '#rphoto-' + cssId(id) : '#rreason-' + cssId(id));
         return;
       }
       d.busy = true;
       redraw(id);
       try {
-        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', {
+        var failedCheck = outcome === 'PARTLY' || outcome === 'NOT_FIXED';
+        var res = failedCheck
+          ? await fetch('/api/grievances/' + encodeURIComponent(id) + '/dept-step', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ kind: outcome === 'PARTLY' ? 'CHECK_PARTLY' : 'CHECK_NOT_FIXED', note: note, photoIds: d.photos.map(function(p) { return p.id; }) }),
+            })
+          : await fetch('/api/grievances/' + encodeURIComponent(id) + '/mark-resolved', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ note: note, photoIds: d.photos.map(function(p) { return p.id; }), noPhotoReason: d.photos.length ? '' : reason }),
@@ -3353,13 +3632,14 @@ function attachResolveHandlers() {
           d.busy = false;
           var fe = data.fields || {};
           if (fe.note) d.errors.note = T('rep.r_err_note');
-          if (fe.photos) d.errors.photos = T(fe.photos === 'PHOTO_MISSING' ? 'rep.r_err_missing' : 'rep.r_err_photo');
+          if (fe.photos) d.errors.photos = T(fe.photos === 'PHOTO_MISSING' ? 'rep.r_err_missing' : fe.photos === 'PHOTO_REQUIRED' ? 'rep.fc_err_photo' : 'rep.r_err_photo');
           if (!fe.note && !fe.photos) d.errors.form = errText(data.error);
           redraw(id, '#resolve-form-' + cssId(id) + ' [aria-invalid="true"]');
           return;
         }
         delete drafts[id];
         await init();
+        if (failedCheck) say(T('rep.fc_sent_back'));
         if (data.status === 'SUBMITTED_FOR_APPROVAL') {
           var st2 = document.getElementById('resolve-status');
           if (st2) st2.textContent = T('rep.fw_submitted');

@@ -39,11 +39,17 @@ export function checkTypeNames(input, types, ownKey) {
   else if (nameHi.length > HI_MAX) fields.typeNameHi = "LENGTH";
   else if (!/[ऀ-ॿ]/.test(nameHi)) fields.typeNameHi = "NOT_HINDI";
   if (description && description.length > DESC_MAX) fields.typeDescription = "LENGTH";
+  // Departments stage 3: the department's target time in days (1-21, default 7).
+  let targetDays = null;
+  if (input && input.targetDays != null && String(input.targetDays).trim() !== "") {
+    targetDays = Number(input.targetDays);
+    if (!Number.isInteger(targetDays) || targetDays < 1 || targetDays > 21) fields.typeTargetDays = "RANGE";
+  }
   const others = types.filter((t) => t.key !== ownKey);
   if (nameEn && !fields.typeNameEn && others.some((t) => [t.key, t.nameEn].some((n) => n && n.toLowerCase() === nameEn.toLowerCase()))) fields.typeNameEn = "TAKEN";
   if (nameHi && !fields.typeNameHi && others.some((t) => t.nameHi && t.nameHi.toLowerCase() === nameHi.toLowerCase())) fields.typeNameHi = "TAKEN";
   if (Object.keys(fields).length) return { ok: false, fields };
-  return { ok: true, values: { nameEn, nameHi, description } };
+  return { ok: true, values: { nameEn, nameHi, description, targetDays } };
 }
 
 // What still uses a type: offices in use (any area) and issue types.
@@ -67,6 +73,12 @@ export async function getType(env, key) {
   return (await deptTypes(env)).find((t) => t.key === String(key || "")) || null;
 }
 
+// Sets the target days if that column exists yet (database update part23).
+async function setTargetDays(env, key, days) {
+  try { await env.DB.prepare("UPDATE dept_types SET target_days = ? WHERE key = ?").bind(days == null ? null : days, key).run(); }
+  catch (e) { if (!/no such column/i.test(String(e && e.message))) throw e; }
+}
+
 export async function addType(env, v, actor) {
   const now = new Date().toISOString();
   const max = await env.DB.prepare("SELECT MAX(sort_order) AS m FROM dept_types WHERE key <> ?").bind(OTHER).first();
@@ -75,6 +87,7 @@ export async function addType(env, v, actor) {
     `INSERT INTO dept_types (key, name_en, name_hi, description, sort_order, built_in, created_at, created_by, updated_at, updated_by)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
   ).bind(v.nameEn, v.nameEn, v.nameHi, v.description || null, sort, now, actor, now, actor).run();
+  if (v.targetDays != null) await setTargetDays(env, v.nameEn, v.targetDays);
   return v.nameEn;
 }
 
@@ -84,7 +97,9 @@ export async function renameType(env, key, v, actor, expectedUpdatedAt) {
   const r = await env.DB.prepare(
     "UPDATE dept_types SET name_en = ?, name_hi = ?, description = ?, updated_at = ?, updated_by = ? WHERE key = ? AND updated_at = ?"
   ).bind(v.nameEn, v.nameHi, v.description || null, now, actor, key, expectedUpdatedAt || "").run();
-  return !!(r.meta && r.meta.changes);
+  const ok = !!(r.meta && r.meta.changes);
+  if (ok) await setTargetDays(env, key, v.targetDays);
+  return ok;
 }
 export async function retireType(env, key, actor, reason, expectedUpdatedAt) {
   const now = new Date().toISOString();

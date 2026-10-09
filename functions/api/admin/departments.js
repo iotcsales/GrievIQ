@@ -327,7 +327,7 @@ async function typeAction(ctx) {
     if (op === "rename" && t.retired) return json({ error: "This type is retired. Bring it back before changing it.", code: "TYPE_RETIRED" }, 409);
     const c = checkTypeNames(body.type || {}, types, t ? t.key : null);
     if (!c.ok) Object.assign(fields, c.fields); else values = c.values;
-    if (values && t && values.nameEn === t.nameEn && values.nameHi === t.nameHi && (values.description || null) === (t.description || null)) {
+    if (values && t && values.nameEn === t.nameEn && values.nameHi === t.nameHi && (values.description || null) === (t.description || null) && (values.targetDays == null ? null : values.targetDays) === (t.targetDays == null ? null : t.targetDays)) {
       return json({ error: "Nothing has changed.", code: "UNCHANGED" }, 400);
     }
   }
@@ -351,7 +351,7 @@ async function typeAction(ctx) {
     }
     const id = crypto.randomUUID();
     const nv = { op, key: t ? t.key : null, name: t ? t.nameEn : values.nameEn, values, reason: op === "retire" ? reason : null,
-      before: t ? { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description } : null };
+      before: t ? { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description, targetDays: t.targetDays || 7 } : null };
     await env.DB.prepare(
       `INSERT INTO change_requests (id, kind, target_type, target_id, target_label, old_values, new_values, reason, source, requested_by, requested_at)
        VALUES (?, 'dept_type', 'dept_type', ?, ?, ?, ?, ?, NULL, ?, ?)`
@@ -369,7 +369,7 @@ async function typeAction(ctx) {
   }
   if (op === "rename") {
     if (!(await renameType(env, t.key, values, auth.email, exp))) return stale();
-    await logEvent(env, auth.email, "dept_type_renamed", t.key, { before: { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description }, after: values });
+    await logEvent(env, auth.email, "dept_type_renamed", t.key, { before: { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description, targetDays: t.targetDays }, after: values });
     return json({ ok: true, key: t.key });
   }
   if (op === "retire") {

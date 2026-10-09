@@ -20,6 +20,7 @@
 // page already used, so the tested detail view is unchanged.
 
 import { deptTypes, namesOf } from "../../_shared/departments.js";
+import { loadSteps, shapeStepForCitizen } from "../../_shared/dept-steps.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
@@ -178,6 +179,8 @@ async function buildCaseDetail(env, grievance) {
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       // grieviq-25: names (English and Hindi) of the departments named here.
       deptNames: followupRows.length ? namesOf(await deptTypes(env)) : {},
+      // Departments stage 3: what the department did, step by step (no notes, no names of people).
+      deptSteps: ((await loadSteps(env, [grievance.id])).get(grievance.id) || []).map(shapeStepForCitizen),
       followupHistory: followupRows.map((e) => ({
         department: e.reason,
         note: e.note,

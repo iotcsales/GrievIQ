@@ -292,7 +292,8 @@ with sync_playwright() as pw:
         html = p.evaluate("""() => { takeDepartments({ departments: ['Water Supply','Pollution / Noise','Other'], deptNames: { 'Pollution / Noise': { en: 'Pollution and Noise', hi: 'प्रदूषण / शोर विभाग' } } });
           return renderFollowupControl({ id: 'c1', status: 'OPEN', suggestedDepartment: 'Pollution / Noise', currentDepartment: 'Pollution / Noise', followupHistory: [] }); }""")
         want = "प्रदूषण / शोर विभाग" if lang == "hi" else "Pollution and Noise"
-        first_opt = re.findall(r'<option value="([^"]*)">([^<]*)</option>', html[html.index('class="followup-dept"'):])
+        seg = html[html.index('class="followup-dept"'):]
+        first_opt = re.findall(r'<option value="([^"]*)">([^<]*)</option>', seg[:seg.index('</select>')])
         ok(first_opt[1][0] == "Pollution / Noise" and want in first_opt[1][1], "rep: suggested new type listed first, named " + lang, first_opt[:3])
         ok(len(first_opt) == 4, "rep: only the current list offered " + lang)
         ctx.close()
@@ -356,6 +357,139 @@ with sync_playwright() as pw:
                 ok(not errs, "no script errors (card) " + tag, errs)
                 ctx.close()
     ok(len(told) == 8 and '"department":"Health"' in told[0] and '"grievanceId":"c1"' in told[0], "Tell GrievIQ sends case and department", told[:1])
+
+
+    # ---------- Departments stage 3: department progress, reply, forward, field check (rep console) ----------
+    import json as _json
+    def steps_case(kind_list, phase, role="REPRESENTATIVE", extra=None):
+        st = [{"id": "s%d" % i, "kind": k, "department": "Water Supply", "officeName": "Jal Kal Zone 3", "channel": "PHONE" if k == "FORWARDED" else None,
+               "expectedDate": "2026-10-12" if k == "SCHEDULED" else None, "suggestedDepartment": None, "note": None, "actor": "r1@x.in", "actorRole": "REPRESENTATIVE",
+               "at": "2026-10-0%dT06:30:00Z" % (i + 1), "photos": [{"url": "/logo-mark.svg", "thumbUrl": "/logo-mark.svg"}] if k.startswith("CHECK_N") else None} for i, k in enumerate(kind_list)]
+        c = {"id": "c9", "status": "ACKNOWLEDGED", "suggestedDepartment": "Water Supply", "localUnit": {"id": "u1", "name": "Aishbagh"}, "followupHistory": [], "myRole": role,
+             "deptSteps": st, "deptState": dict({"phase": phase, "department": "Water Supply", "officeName": "Jal Kal Zone 3", "days": 7, "dayOf": 3, "overdue": False}, **(extra or {}))}
+        return c
+    posts = []
+    def rep_page(lang="en", theme="light", width=1280):
+        ctx = br.new_context(viewport={"width": width, "height": 900})
+        ctx.add_init_script("try{localStorage.setItem('griq-theme','%s');localStorage.setItem('%s','%s')}catch(e){}" % (theme, LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.on("dialog", lambda d: d.accept())
+        def route(rt):
+            u = rt.request.url
+            if "/dept-step" in u or "/add-followup" in u:
+                posts.append((u.split("/api/")[1], _json.loads(rt.request.post_data or "{}")))
+                rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            else:
+                rt.fulfill(status=401, body='{"error":"SIGNED_OUT"}', headers={"content-type": "application/json"})
+        p.route("**/api/**", route)
+        p.goto(B + "/rep.html"); p.wait_for_timeout(500)
+        # Show the content area and stop the real reload after saving.
+        p.evaluate("""() => { window.init = async () => {}; activeTab = 'cases';
+          if (!document.getElementById('content')) { const d = document.createElement('div'); d.id = 'content'; document.body.prepend(d); }
+          const m = document.getElementById('content'); m.hidden = false; m.style.display = 'block';
+          let p = m.parentElement; while (p && p !== document.body) { p.hidden = false; p.style.display = ''; p = p.parentElement; } }""")
+        return ctx, p, errs
+    def show(p, case):
+        p.evaluate("""([dir, c]) => { takeDepartments({ departments: ['Water Supply','Electricity','Health','Other'], deptDirectory: dir }); currentCases = [c];
+          const box = document.getElementById('content'); box.innerHTML = '<div id="ds-test" style="max-width:640px;padding:12px">' + renderFollowupControl(c) + renderResolveControl(c) + '<p id="resolve-status" role="status"></p></div>';
+          renderContent = () => { const cc = currentCases[0]; document.getElementById('ds-test').innerHTML = renderFollowupControl(cc) + renderResolveControl(cc) + '<p id="resolve-status" role="status"></p>'; attachFollowupHandlers(); attachResolveHandlers(); };
+          attachFollowupHandlers(); attachResolveHandlers(); window.scrollTo(0, 0); }""", [DIR, case])
+    # With the department, day 3 of 7; reply form
+    ctx, p, errs = rep_page()
+    show(p, steps_case(["FORWARDED", "SCHEDULED"], "WITH_DEPT", extra={"expectedDate": "2026-10-12"}))
+    ok("With Jal Kal Zone 3: day 3 of 7." in p.inner_text("#ds-c9 .ds-status"), "status: day 3 of 7", p.inner_text("#ds-c9"))
+    ok("Forwarded to Jal Kal Zone 3 (Phone call)" in p.inner_text("#ds-c9") and "scheduled the work for 12 Oct 2026" in p.inner_text("#ds-c9"), "steps listed")
+    p.click(".ds-open"); ok(p.evaluate("document.activeElement.name") == "ds-kind-c9", "reply form opens, focus on the first choice")
+    p.click(".ds-save"); ok("Choose what the department said." in p.inner_text("#ds-form-c9"), "reply: choose one")
+    p.check('input.ds-kind[value="SCHEDULED"]'); ok(p.is_visible("#ds-date-c9"), "date field for scheduled")
+    p.check('input.ds-kind[value="CANT_DO"]'); p.click(".ds-save")
+    ok("reason the department gave" in p.inner_text("#ds-form-c9") and p.get_attribute("#ds-note-c9", "aria-invalid") == "true", "can't do needs the reason")
+    p.fill("#ds-note-c9", "No budget for new pipeline this year"); p.click(".ds-save"); p.wait_for_timeout(300)
+    ok(posts and posts[-1][0] == "grievances/c9/dept-step" and posts[-1][1]["kind"] == "CANT_DO" and "budget" in posts[-1][1]["note"], "reply sent", posts[-1:])
+    shot(p, "14-ds-with-dept", full=False)
+    # Forward form: office list follows the department, "not in the list" asks for a name, how contacted required
+    p.select_option("#followup-dept-c9", "Water Supply")
+    opts = p.eval_on_selector_all("#followup-office-c9 option", "els => els.map(e => e.textContent)")
+    ok("Jal Kal Zone 3" in opts and "Office not in the list" in opts, "office list for the department", opts)
+    p.select_option("#followup-office-c9", "__other"); ok(p.is_visible("#followup-oname-c9"), "office name box for an office not listed")
+    p.click(".followup-btn"); p.wait_for_timeout(100)
+    ok("Choose how you contacted the office." in p.inner_text("#fwd-form-c9") and "office's name" in p.inner_text("#fwd-form-c9"), "forward: how + name required")
+    p.fill("#followup-oname-c9", "Jal Kal sub-division 2"); p.check('input.followup-ch[value="WHATSAPP"]'); p.click(".followup-btn"); p.wait_for_timeout(300)
+    ok(posts[-1][0] == "grievances/c9/add-followup" and posts[-1][1]["channel"] == "WHATSAPP" and posts[-1][1]["officeName"] == "Jal Kal sub-division 2", "forward sent with office and channel", posts[-1:])
+    ok(not errs, "no script errors (department progress)", errs)
+    ctx.close()
+    # Overdue and not-ours wording
+    ctx, p, errs = rep_page()
+    show(p, steps_case(["FORWARDED"], "WITH_DEPT", extra={"overdue": True, "overdueDays": 2}))
+    ok("past its target by 2 day(s)" in p.inner_text("#ds-c9 .ds-status.late"), "overdue shown")
+    show(p, steps_case(["FORWARDED", "NOT_OURS"], "NEEDS_FORWARD", extra={"suggestedDepartment": "Electricity"}))
+    ok("They suggested Electricity" in p.inner_text("#ds-c9") and p.locator(".ds-open").count() == 0, "not ours: forward again, no reply button")
+    ctx.close()
+    # Field check (all themes/languages/widths): outcome, photos required, send back
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = rep_page(lang, theme, width)
+                show(p, steps_case(["FORWARDED", "DONE_CLAIMED"], "NEEDS_CHECK", role="FIELD_WORKER"))
+                btn = p.locator(".mark-resolved-btn")
+                ok(btn.inner_text() == ("Record field check" if lang == "en" else "मौके पर जाँच दर्ज करें"), "field check button " + tag)
+                btn.click(); p.wait_for_timeout(100)
+                ok(p.locator(".r-outcome").count() == 3 and p.locator(".r-nophoto").count() == 0, "outcome choices, no 'no photo' option " + tag)
+                p.fill("#rnote-c9", "Pipe still leaking at the market gate"); p.click(".r-submit"); p.wait_for_timeout(100)
+                ok(p.locator("#routcome-err-c9").inner_text() != "", "choose what you found " + tag)
+                p.check('input.r-outcome[value="NOT_FIXED"]'); p.wait_for_timeout(100)
+                ok(p.inner_text(".r-submit") == ("Send back to the department" if lang == "en" else "विभाग को वापस भेजें"), "button says send back " + tag)
+                p.click(".r-submit"); p.wait_for_timeout(100)
+                ok(p.get_attribute("#rphoto-c9", "aria-invalid") == "true", "photo required " + tag)
+                p.evaluate("() => { drafts['c9'].photos = [{ id: 'ph9', url: '/logo-mark.svg', thumbUrl: '/logo-mark.svg', warnings: [] }]; renderContent(); }")
+                p.click(".r-submit"); p.wait_for_timeout(300)
+                ok(posts[-1][0] == "grievances/c9/dept-step" and posts[-1][1]["kind"] == "CHECK_NOT_FIXED" and posts[-1][1]["photoIds"] == ["ph9"], "failed check sent " + tag, posts[-1:])
+                show(p, steps_case(["FORWARDED", "DONE_CLAIMED", "CHECK_NOT_FIXED"], "WITH_DEPT", extra={"sentBack": True}))
+                ok(no_hscroll(p), "no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('ds-test')", 1))
+                ok(not bad, "contrast AA " + tag, bad[:5])
+                shot(p, "15-ds-" + tag, full=False)
+                ok(not errs, "no script errors (field check) " + tag, errs)
+                ctx.close()
+
+    # Track page: the department's steps for the citizen
+    for lang in ("en", "hi"):
+        ctx = br.new_context(viewport={"width": 390, "height": 900})
+        ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        case = {"trackingRef": "GRV-TEST02", "description": "Leaking pipe", "localUnitName": "Aishbagh", "createdAt": "2026-10-08T10:00:00Z", "status": "ACKNOWLEDGED",
+                "tiers": [{"label": "Corporator", "visible": True, "current": True, "slaBreached": False}], "currentTierIndex": 0, "reopenStatus": {"can": False},
+                "currentDepartment": "Water Supply", "followupHistory": [], "deptNames": {},
+                "deptSteps": [{"kind": "FORWARDED", "department": "Water Supply", "officeName": "Jal Kal Zone 3", "at": "2026-10-08T11:00:00Z"},
+                              {"kind": "DONE_CLAIMED", "department": "Water Supply", "officeName": "Jal Kal Zone 3", "at": "2026-10-09T11:00:00Z"},
+                              {"kind": "CHECK_NOT_FIXED", "department": "Water Supply", "officeName": "Jal Kal Zone 3", "at": "2026-10-09T15:00:00Z"}]}
+        def make_troute(case):
+          def troute(rt):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"): rt.fulfill(status=200, body=_json.dumps({"reports": [{"trackingRef": "GRV-TEST02", "status": "ACKNOWLEDGED"}], "case": case}), headers={"content-type": "application/json"})
+            else: rt.fulfill(status=404, body='{}', headers={"content-type": "application/json"})
+          return troute
+        p.route("**/api/**", make_troute(case))
+        p.goto(B + "/status.html?ref=GRV-TEST02"); p.wait_for_timeout(400)
+        p.fill("#email", "c@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        for i, d in enumerate("123456"): p.locator(".otp-digit").nth(i).fill(d)
+        p.click("#otp-submit"); p.wait_for_selector(".ds-list")
+        txt = p.inner_text("#status-followup")
+        if lang == "en":
+            ok("forwarded it to Jal Kal Zone 3" in txt and "reported the work done" in txt and "not fixed yet. Sent back to Jal Kal Zone 3" in txt, "Track: steps in plain words", txt)
+        else:
+            ok("Jal Kal Zone 3 को भेजा" in txt and "वापस भेजा गया" in txt, "Track: steps in Hindi", txt)
+        ok("r1@x.in" not in txt, "Track: no staff names")
+        ok(no_hscroll(p), "Track: no sideways scroll " + lang)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('status-followup')", 1))
+        ok(not bad, "Track contrast " + lang, bad[:4])
+        p.locator("#status-followup").screenshot(path=os.path.join(SHOTS, "16-track-" + lang + ".png"))
+        ok(not errs, "no script errors (Track) " + lang, errs)
+        ctx.close()
 
     # ---------- themes, languages, widths: contrast + reflow ----------
     for theme in (None, "light"):
