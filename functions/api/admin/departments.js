@@ -10,6 +10,11 @@
 //   import_check { areaId, csv }       checks a file; nothing is saved
 //   import       { areaId, csv, reason? }  saves the whole file, only if
 //                                         every row passes (all or nothing)
+//   type_add     { type: { nameEn, nameHi, description? }, reason? }
+//   type_rename  { key, expectedUpdatedAt, type: {...}, reason? }
+//   type_retire  { key, expectedUpdatedAt, reason }
+//   type_restore { key, expectedUpdatedAt, reason? }
+//     (grieviq-25: the list of department types, managed here)
 //
 // Super and operations admins save directly (manage_departments). Data entry
 // operators (request_changes) never change the directory: the same actions
@@ -20,7 +25,8 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { listAreas } from "../../_shared/areas.js";
-import { DEPARTMENTS } from "../../_shared/departments.js";
+import { deptTypes, namesOf } from "../../_shared/departments.js";
+import { checkTypeNames, addType, renameType, retireType, restoreType, canRetire, typeUsage, typesReady } from "../../_shared/dept-types.js";
 import { emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import {
   checkOffice, insertOffice, updateOffice, retireOffice, restoreOffice, getOffice, listOffices, areaUnits,
@@ -46,11 +52,15 @@ async function areasFor(env) {
 // Waiting requests for this area's offices (so the page can say "change waiting").
 async function pendingFor(env, areaId) {
   const { results } = await env.DB.prepare(
-    "SELECT id, kind, target_id, new_values, requested_by, requested_at FROM change_requests WHERE status = 'PENDING' AND kind IN ('dept_office', 'dept_import')"
+    "SELECT id, kind, target_id, new_values, requested_by, requested_at FROM change_requests WHERE status = 'PENDING' AND kind IN ('dept_office', 'dept_import', 'dept_type')"
   ).all();
   const out = [];
   for (const r of results || []) {
     let nv = null; try { nv = JSON.parse(r.new_values); } catch (e) { nv = null; }
+    if (nv && r.kind === "dept_type") {
+      out.push({ id: r.id, kind: r.kind, op: "type_" + nv.op, typeKey: nv.key || null, name: (nv.values && nv.values.nameEn) || nv.name || null, requestedBy: r.requested_by, requestedAt: r.requested_at });
+      continue;
+    }
     if (!nv || nv.areaId !== areaId) continue;
     out.push({ id: r.id, kind: r.kind, op: r.kind === "dept_import" ? "import" : nv.op, officeId: nv.officeId || null,
       name: r.kind === "dept_import" ? null : (nv.values && nv.values.nameEn) || nv.name || null,
@@ -67,6 +77,11 @@ export async function onRequestGet({ request, env }) {
     return new Response("﻿" + csvTemplate(), { headers: {
       "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="grieviq-departments-template.csv"', "Cache-Control": "no-store" } });
   }
+  if (url.searchParams.get("typeUsage")) {
+    // What still uses a department type (read only), to name it before retiring.
+    if (!(await typesReady(env))) return json(TYPES_NOT_SET_UP, 503);
+    return json({ usage: await typeUsage(env, url.searchParams.get("typeUsage")) });
+  }
   const areas = await areasFor(env);
   const areaId = url.searchParams.get("area") || areas[0].id;
   const area = areas.find((a) => a.id === areaId);
@@ -77,10 +92,25 @@ export async function onRequestGet({ request, env }) {
   const units = await areaUnits(env, area.id);
   let pending = [];
   try { pending = await pendingFor(env, area.id); } catch (e) { pending = []; }
+  const types = await deptTypes(env);
+  const active = types.filter((t) => !t.retired).map((t) => t.key);
+  // For each type: how many offices in use (all areas) and issue types use it.
+  const used = {};
+  if (await typesReady(env)) {
+    const { results: oc } = await env.DB.prepare(
+      "SELECT j.value AS k, COUNT(*) AS n FROM dept_offices o, json_each(o.departments) j WHERE o.retired_at IS NULL GROUP BY j.value"
+    ).all();
+    const { results: ic } = await env.DB.prepare(
+      "SELECT suggested_department AS k, COUNT(*) AS n FROM grievance_categories WHERE suggested_department IS NOT NULL GROUP BY suggested_department"
+    ).all();
+    for (const r of oc || []) (used[r.k] = used[r.k] || { offices: 0, issueTypes: 0 }).offices = Number(r.n);
+    for (const r of ic || []) (used[r.k] = used[r.k] || { offices: 0, issueTypes: 0 }).issueTypes = Number(r.n);
+  }
   return json({
-    ready: true, areas, area, departments: DEPARTMENTS, staleDays: STALE_DAYS, importMax: IMPORT_MAX_ROWS,
+    ready: true, areas, area, departments: active, types: types.map((t) => Object.assign({}, t, { used: used[t.key] || { offices: 0, issueTypes: 0 } })),
+    typesReady: await typesReady(env), names: namesOf(types), staleDays: STALE_DAYS, importMax: IMPORT_MAX_ROWS,
     canManage: allows(auth, "manage_departments"), canRequest: allows(auth, "request_changes") && !allows(auth, "manage_departments"),
-    offices, units, coverage: coverage(units, offices), pending,
+    offices, units, coverage: coverage(units, offices, active), pending,
   });
 }
 
@@ -100,6 +130,7 @@ export async function onRequestPost({ request, env }) {
       case "restore": return await restore(ctx);
       case "import_check": return await importFile(ctx, false);
       case "import": return await importFile(ctx, true);
+      case "type_add": case "type_rename": case "type_retire": case "type_restore": return await typeAction(ctx);
       default: return json({ error: "Unknown action." }, 400);
     }
   } catch (e) {
@@ -231,7 +262,7 @@ async function importFile(ctx, save) {
   if (!csv.trim()) return json({ error: "The file is empty.", code: "EMPTY" }, 400);
   if (csv.length > 500000) return json({ error: "The file is too large.", code: "TOO_LARGE" }, 400);
   const units = await areaUnits(env, area.id);
-  const parsed = rowsFromCsv(csv, units, area.name);
+  const parsed = rowsFromCsv(csv, units, area.name, await deptTypes(env));
   if (!parsed.ok) return json({ error: "The file can't be read.", code: parsed.error, missing: parsed.missing || null, max: parsed.max || null }, 400);
   if (!parsed.rows.length) return json({ error: "The file has no offices in it.", code: "EMPTY" }, 400);
   const rows = await checkRows(env, area.id, parsed.rows, units);
@@ -252,4 +283,86 @@ async function importFile(ctx, save) {
   await env.DB.batch(stmts);
   await logEvent(env, auth.email, "dept_offices_imported", area.id, { count: ids.length, ids, names: values.map((v) => v.nameEn) });
   return json({ ok: true, saved: ids.length, ids });
+}
+
+// ---- Department types (grieviq-25) ----
+const TYPES_NOT_SET_UP = { error: "Department types aren't set up yet. Run the database update part22-department-types.sql.", code: "TYPES_NOT_SET_UP" };
+
+async function typeWaiting(env, key) {
+  const { results } = await env.DB.prepare(
+    "SELECT id FROM change_requests WHERE status = 'PENDING' AND kind = 'dept_type' AND target_id = ?"
+  ).bind(key).all();
+  return (results || []).length > 0;
+}
+
+async function typeAction(ctx) {
+  const { env, auth, body } = ctx;
+  if (!(await typesReady(env))) return json(TYPES_NOT_SET_UP, 503);
+  const op = String(body.action).slice(5);   // add | rename | retire | restore
+  const types = await deptTypes(env);
+  const reason = clip(body.reason, 500);
+  let t = null;
+  if (op !== "add") {
+    t = types.find((x) => x.key === String(body.key || ""));
+    if (!t) return json({ error: "Type not found.", code: "TYPE_NOT_FOUND" }, 404);
+  }
+  const fields = {};
+  let values = null;
+  if (op === "add" || op === "rename") {
+    if (op === "rename" && t.retired) return json({ error: "This type is retired. Bring it back before changing it.", code: "TYPE_RETIRED" }, 409);
+    const c = checkTypeNames(body.type || {}, types, t ? t.key : null);
+    if (!c.ok) Object.assign(fields, c.fields); else values = c.values;
+    if (values && t && values.nameEn === t.nameEn && values.nameHi === t.nameHi && (values.description || null) === (t.description || null)) {
+      return json({ error: "Nothing has changed.", code: "UNCHANGED" }, 400);
+    }
+  }
+  if (op === "retire") {
+    if (t.retired) return json({ error: "This type is already retired.", code: "TYPE_RETIRED" }, 409);
+    if (reason.length < 10) fields.typeRetireReason = "SHORT";
+    const can = await canRetire(env, t);
+    if (!can.ok) return json({ error: can.code === "OTHER" ? "\"Other\" can't be retired." : "This type is still used.", code: can.code === "OTHER" ? "TYPE_OTHER" : "TYPE_IN_USE", usage: can.usage || null }, 409);
+  }
+  if (op === "restore" && !t.retired) return json({ error: "This type is not retired.", code: "TYPE_NOT_RETIRED" }, 409);
+  if (ctx.requestOnly && reason.length < 5 && !fields.typeRetireReason) fields.typeReason = "REQUIRED";
+  if (Object.keys(fields).length) return json({ error: "Please check the highlighted fields.", fields }, 400);
+
+  if (ctx.requestOnly) {
+    if (t && await typeWaiting(env, t.key)) return json({ error: "A change to this type is already waiting for approval.", code: "TYPE_WAITING" }, 409);
+    if (op === "add") {
+      const { results: w } = await env.DB.prepare("SELECT new_values FROM change_requests WHERE status = 'PENDING' AND kind = 'dept_type'").all();
+      if ((w || []).some((r) => { try { const v = JSON.parse(r.new_values); return v.op === "add" && v.values && v.values.nameEn.toLowerCase() === values.nameEn.toLowerCase(); } catch (e) { return false; } })) {
+        return json({ error: "Please check the highlighted fields.", fields: { typeNameEn: "WAITING" } }, 400);
+      }
+    }
+    const id = crypto.randomUUID();
+    const nv = { op, key: t ? t.key : null, name: t ? t.nameEn : values.nameEn, values, reason: op === "retire" ? reason : null,
+      before: t ? { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description } : null };
+    await env.DB.prepare(
+      `INSERT INTO change_requests (id, kind, target_type, target_id, target_label, old_values, new_values, reason, source, requested_by, requested_at)
+       VALUES (?, 'dept_type', 'dept_type', ?, ?, ?, ?, ?, NULL, ?, ?)`
+    ).bind(id, t ? t.key : "new-type:" + values.nameEn, nv.name, t ? JSON.stringify({ updatedAt: t.updatedAt }) : null, JSON.stringify(nv), reason, auth.email, new Date().toISOString()).run();
+    await logEvent(env, auth.email, "change_request_submitted", t ? t.key : values.nameEn, { requestId: id, kind: "dept_type", op, reason });
+    return json({ ok: true, requested: true, requestId: id });
+  }
+
+  const exp = String(body.expectedUpdatedAt || "");
+  const stale = () => json({ error: "Someone else changed this type a moment ago. Reload and try again.", code: "TYPE_STALE" }, 409);
+  if (op === "add") {
+    const key = await addType(env, values, auth.email);
+    await logEvent(env, auth.email, "dept_type_added", key, values);
+    return json({ ok: true, key });
+  }
+  if (op === "rename") {
+    if (!(await renameType(env, t.key, values, auth.email, exp))) return stale();
+    await logEvent(env, auth.email, "dept_type_renamed", t.key, { before: { nameEn: t.nameEn, nameHi: t.nameHi, description: t.description }, after: values });
+    return json({ ok: true, key: t.key });
+  }
+  if (op === "retire") {
+    if (!(await retireType(env, t.key, auth.email, reason, exp))) return stale();
+    await logEvent(env, auth.email, "dept_type_retired", t.key, { name: t.nameEn, reason });
+    return json({ ok: true, key: t.key });
+  }
+  if (!(await restoreType(env, t.key, auth.email, exp))) return stale();
+  await logEvent(env, auth.email, "dept_type_restored", t.key, { name: t.nameEn });
+  return json({ ok: true, key: t.key });
 }

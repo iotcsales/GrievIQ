@@ -15,11 +15,11 @@
 
 import { getVerifiedRep } from "../../../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
-import { DEPARTMENTS } from "../../../_shared/departments.js";
+import { activeDeptKeys } from "../../../_shared/departments.js";
 import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
 
-// The list lives in _shared/departments.js (shared with the admin Issue types page).
-const VALID_DEPARTMENTS = DEPARTMENTS;
+// The list is managed by admins (grieviq-25, _shared/departments.js); a
+// retired department can't be chosen for a new follow-up.
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -40,6 +40,7 @@ export async function onRequestPost(context) {
   const department = String(body.department || "").trim();
   const note = body.note ? String(body.note).trim() : null;
 
+  const VALID_DEPARTMENTS = await activeDeptKeys(env);
   if (!VALID_DEPARTMENTS.includes(department)) {
     return Response.json(
       { error: "department must be one of: " + VALID_DEPARTMENTS.join(", ") },

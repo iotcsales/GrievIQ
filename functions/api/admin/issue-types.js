@@ -15,7 +15,7 @@
 // first, marked "(suggested)"; nothing is ever pre-selected for the rep.
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
-import { DEPARTMENTS } from "../../_shared/departments.js";
+import { deptTypes, namesOf } from "../../_shared/departments.js";
 
 function can(role, permission) {
   return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r));
@@ -45,10 +45,13 @@ export async function onRequestGet({ request, env }) {
      FROM grievance_categories ORDER BY name ASC`
   ).all();
 
+  // grieviq-25: the department types are managed on the Departments page.
+  const types = await deptTypes(env);
   return Response.json({
     role: auth.role,
     canEdit: can(auth.roles || auth.role, "manage_issue_types"),
-    departments: DEPARTMENTS,
+    departments: types.filter((t) => !t.retired).map((t) => t.key),
+    deptNames: namesOf(types),
     issueTypes: results.map((r) => ({
       id: r.id,
       name: r.name,
@@ -79,8 +82,9 @@ export async function onRequestPatch({ request, env }) {
   if (!id) {
     return Response.json({ error: "Issue type id is required." }, { status: 400 });
   }
-  if (next !== null && !DEPARTMENTS.includes(next)) {
-    return Response.json({ error: "Department must be one of: " + DEPARTMENTS.join(", ") }, { status: 400 });
+  const active = (await deptTypes(env)).filter((t) => !t.retired).map((t) => t.key);
+  if (next !== null && !active.includes(next)) {
+    return Response.json({ error: "Department must be one of: " + active.join(", ") }, { status: 400 });
   }
 
   const row = await env.DB.prepare(

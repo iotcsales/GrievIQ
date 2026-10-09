@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=24"></script><script src="/admin-nav.js?v=r7"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=25"></script><script src="/admin-nav.js?v=r7"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -270,6 +270,10 @@
   .cov td.gap::before { content: "✗ "; }
   .cov th[scope=row] { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--admin-text); font-size: 13px; }
   .report td { font-size: 13px; vertical-align: top; }
+  table.types th[scope=row] { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--admin-text); font-weight: 600; }
+  table.types td, table.types th { vertical-align: top; }
+  table.types .tname { display: block; }
+  tr.retired-row .tname { text-decoration: none; color: var(--admin-muted); }
   .report .bad { color: var(--admin-danger); font-weight: 600; }
   .report .good { color: #7fce8f; font-weight: 600; } html.light-theme .report .good { color: #1f7a3a; }
   input[type=file] { font: inherit; font-size: 14px; color: var(--admin-text); }
@@ -336,6 +340,27 @@ function today() { return new Date(Date.now() + 5.5 * 3600000).toISOString().sli
 function officeName(o) { return (hi() && o.nameHi) ? o.nameHi : o.nameEn; }
 function telHref(n) { const d = String(n || "").replace(/[^\d+]/g, ""); return "tel:" + d; }
 function waHref(n) { let d = String(n || "").replace(/\D/g, ""); if (d.length === 10) d = "91" + d; else if (d.length === 11 && d[0] === "0") d = "91" + d.slice(1); return "https://wa.me/" + d; }
+// Examples on the form use the area being worked on (its Hindi name and
+// telephone STD code, when known); area names show with a capital letter.
+const AREA_INFO = {
+  lucknow: ["लखनऊ", "0522"], kanpur: ["कानपुर", "0512"], "kanpur-nagar": ["कानपुर", "0512"], agra: ["आगरा", "0562"],
+  varanasi: ["वाराणसी", "0542"], prayagraj: ["प्रयागराज", "0532"], allahabad: ["प्रयागराज", "0532"], ghaziabad: ["गाज़ियाबाद", "0120"],
+  noida: ["नोएडा", "0120"], "gautam-buddh-nagar": ["गौतम बुद्ध नगर", "0120"], meerut: ["मेरठ", "0121"], gorakhpur: ["गोरखपुर", "0551"],
+  bareilly: ["बरेली", "0581"], aligarh: ["अलीगढ़", "0571"], moradabad: ["मुरादाबाद", "0591"], jhansi: ["झाँसी", "0510"],
+  ayodhya: ["अयोध्या", "05278"], mathura: ["मथुरा", "0565"], saharanpur: ["सहारनपुर", "0132"], firozabad: ["फ़िरोज़ाबाद", "05612"],
+  shahjahanpur: ["शाहजहाँपुर", "05842"], rampur: ["रामपुर", "0595"], muzaffarnagar: ["मुज़फ़्फ़रनगर", "0131"], etawah: ["इटावा", "05688"],
+  sitapur: ["सीतापुर", "05862"], unnao: ["उन्नाव", "0515"], "rae-bareli": ["रायबरेली", "0535"], barabanki: ["बाराबंकी", "05248"],
+  delhi: ["दिल्ली", "011"], "new-delhi": ["नई दिल्ली", "011"], patna: ["पटना", "0612"], jaipur: ["जयपुर", "0141"], bhopal: ["भोपाल", "0755"],
+  dehradun: ["देहरादून", "0135"], mumbai: ["मुंबई", "022"], kolkata: ["कोलकाता", "033"], chennai: ["चेन्नई", "044"], bengaluru: ["बेंगलुरु", "080"],
+  hyderabad: ["हैदराबाद", "040"], ahmedabad: ["अहमदाबाद", "079"], pune: ["पुणे", "020"], chandigarh: ["चंडीगढ़", "0172"],
+};
+function cap(name) { return String(name || "").replace(/(^|[\s\-(])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
+function areaInfo(a) { a = a || (data && data.area) || {}; return AREA_INFO[String(a.id || "").toLowerCase()] || AREA_INFO[String(a.name || "").toLowerCase().replace(/\s+/g, "-")] || null; }
+function areaName(a) { a = a || (data && data.area) || {}; const i = areaInfo(a); return hi() && i ? i[0] : cap(a.name); }
+function areaVars() {
+  const a = (data && data.area) || {}, i = areaInfo(a);
+  return { area: cap(a.name), areaHi: i ? i[0] : cap(a.name), std: i ? i[1] : "" };
+}
 function isUrl(s) { return /^https?:\/\//i.test(String(s || "")); }
 
 let data = null;
@@ -346,6 +371,9 @@ let retireFor = null;     // { id, reason, error }
 let restoreFor = null;    // { id, reason, error }  (data entry operators give a reason)
 let upload = null;        // { name, csv, report, error, reason, busy }
 let covGapsOnly = false;
+let typeForm = null;      // { key|null, updatedAt, nameEn, nameHi, description, reason, errors }
+let typeRetire = null;    // { key, reason, error, usage }
+let typeRestore = null;   // { key, reason, error }  (data entry operators give a reason)
 
 function areaParam() { const m = location.search.match(/[?&]area=([^&]+)/); return m ? decodeURIComponent(m[1]) : ""; }
 
@@ -360,6 +388,7 @@ async function load(areaId) {
     return;
   }
   data = r.body;
+  if (data.names && window.GIQ && GIQ.addDepts) GIQ.addDepts(data.names);
   render();
 }
 
@@ -390,7 +419,7 @@ function renderMain() {
     '<div class="card"><div class="num">' + data.coverage.gaps + '</div><div class="label">' + esc(T("adm.dp_card_gaps")) + "</div></div>" +
     '<div class="card"><div class="num">' + stale + '</div><div class="label">' + esc(T("adm.dp_card_stale")) + "</div></div></div>";
   const areaSel = '<div class="tb"><label for="f-area">' + esc(T("adm.dp_f_area")) + '</label><select id="f-area">' +
-    data.areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === data.area.id ? " selected" : "") + ">" + esc(a.name) + "</option>").join("") + "</select></div>";
+    data.areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === data.area.id ? " selected" : "") + ">" + esc(areaName(a)) + "</option>").join("") + "</select></div>";
   const deptSel = '<div class="tb"><label for="f-dept">' + esc(T("adm.dp_f_dept")) + '</label><select id="f-dept"><option value="">' + esc(T("adm.dp_f_dept_all")) + "</option>" +
     data.departments.map((d) => '<option value="' + esc(d) + '"' + (d === view.dept ? " selected" : "") + ">" + esc(deptName(d)) + "</option>").join("") + "</select></div>";
   const search = '<div class="tb"><label for="f-q">' + esc(T("adm.dp_f_search")) + '</label><input type="search" id="f-q" value="' + esc(view.q) + '"></div>';
@@ -401,7 +430,8 @@ function renderMain() {
   const actions = canAct ? '<div class="actions" style="margin:0 0 16px">' +
     '<button type="button" class="primary" id="add-office">' + esc(T("adm.dp_add")) + "</button>" +
     '<button type="button" id="open-upload"' + (upload ? ' aria-expanded="true"' : ' aria-expanded="false"') + ">" + esc(T("adm.dp_upload")) + "</button>" +
-    '<a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + "</a></div>" : '<div class="actions" style="margin:0 0 16px"><a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + "</a></div>";
+    '<a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + '</a><a class="btn" href="#types">' + esc(T("adm.dp_go_types")) + "</a></div>"
+    : '<div class="actions" style="margin:0 0 16px"><a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + '</a><a class="btn" href="#types">' + esc(T("adm.dp_go_types")) + "</a></div>";
   const importPending = data.pending.filter((p) => p.kind === "dept_import");
   const pendNote = importPending.length ? '<div class="msg ok" role="status">' + esc(T("adm.dp_import_waiting", { n: importPending.reduce((s, p) => s + (p.count || 0), 0) })) + ' <a href="/admin-change-requests.html">' + esc(T("adm.dp_see_requests")) + "</a></div>" : "";
   const newPending = data.pending.filter((p) => p.op === "create");
@@ -416,9 +446,9 @@ function renderMain() {
     return true;
   });
   const list = shown.length ? shown.map(renderOffice).join("")
-    : '<p class="empty">' + esc(offices.length ? T("adm.dp_none_match") : T("adm.dp_none_yet", { area: data.area.name })) + "</p>";
+    : '<p class="empty">' + esc(offices.length ? T("adm.dp_none_match") : T("adm.dp_none_yet", { area: areaName() })) + "</p>";
   return intro() + cards + toolbar + actions + pendNote + newNote + (upload ? renderUpload() : "") +
-    '<h2 style="font-size:16px;margin:8px 0 12px" id="list-h">' + esc(T(view.retired ? "adm.dp_list_retired_h" : "adm.dp_list_h", { n: shown.length })) + "</h2>" + list + renderCoverage();
+    '<h2 style="font-size:16px;margin:8px 0 12px" id="list-h">' + esc(T(view.retired ? "adm.dp_list_retired_h" : "adm.dp_list_h", { n: shown.length })) + "</h2>" + list + renderTypes() + renderCoverage();
 }
 
 function contactRows(o) {
@@ -439,7 +469,7 @@ function contactRows(o) {
 }
 
 function coverText(o) {
-  if (!o.wards) return T("adm.dp_whole_area", { area: data.area.name });
+  if (!o.wards) return T("adm.dp_whole_area", { area: areaName() });
   const names = o.wards.map((id) => { const u = data.units.find((x) => x.id === id); return u ? u.name : id; });
   return names.length <= 3 ? names.join(", ") : T("adm.dp_n_wards", { n: names.length, list: names.slice(0, 3).join(", ") });
 }
@@ -485,7 +515,7 @@ function renderCoverage() {
   const name = (id) => { const o = data.offices.find((x) => x.id === id); return o ? officeName(o) : id; };
   let units = data.units;
   if (covGapsOnly) units = units.filter((u) => c.departments.some((d) => !c.cells[u.id][d].length));
-  const body = units.length ? '<div class="table-wrap"><table class="cov"><caption class="sr-only">' + esc(T("adm.dp_cov_caption", { area: data.area.name })) + "</caption><thead><tr><th scope=\"col\">" + esc(T("adm.dp_cov_unit")) + "</th>" +
+  const body = units.length ? '<div class="table-wrap"><table class="cov"><caption class="sr-only">' + esc(T("adm.dp_cov_caption", { area: areaName() })) + "</caption><thead><tr><th scope=\"col\">" + esc(T("adm.dp_cov_unit")) + "</th>" +
     c.departments.map((d) => '<th scope="col">' + esc(deptName(d)) + "</th>").join("") + "</tr></thead><tbody>" +
     units.map((u) => '<tr><th scope="row">' + esc(u.name) + "</th>" + c.departments.map((d) => {
       const list = c.cells[u.id][d];
@@ -494,6 +524,88 @@ function renderCoverage() {
     : '<p class="empty">' + esc(T(data.units.length ? "adm.dp_cov_all_covered" : "adm.dp_cov_no_units")) + "</p>";
   return '<div class="panel" id="coverage" style="margin-top:24px"><h2 tabindex="-1" id="coverage-h">' + esc(T("adm.dp_cov_h")) + '</h2><p class="sub">' + esc(T("adm.dp_cov_p", { n: c.gaps })) + "</p>" +
     '<label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;min-height:32px;margin-bottom:8px"><input type="checkbox" id="cov-gaps" style="width:18px;height:18px"' + (covGapsOnly ? " checked" : "") + "> " + esc(T("adm.dp_cov_gaps_only")) + "</label>" + body + "</div>";
+}
+
+// ---------------------------------------------------------------- department types (grieviq-25)
+function typeName(t) { return hi() ? (t.nameHi || t.nameEn) : t.nameEn; }
+function typeErr(k, code) {
+  const specific = "adm.dp_e_" + k + "_" + code;
+  if (window.GIQ && window.GIQ.has(specific)) return T(specific);
+  return T("adm.dp_e_" + code);
+}
+function tField(k, id, value, opts) {
+  opts = opts || {};
+  const e = typeForm.errors[k];
+  const hint = opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + "</p>" : "";
+  const desc = [e ? id + "-err" : "", opts.hint ? id + "-hint" : ""].filter(Boolean).join(" ");
+  return '<div class="form-row"><label for="' + id + '">' + esc(T("adm.dp_lbl_" + k)) + (opts.optional ? ' <span class="muted">' + esc(T("adm.dp_optional")) + "</span>" : "") + "</label>" + hint +
+    (opts.textarea ? '<textarea id="' + id + '" maxlength="' + opts.max + '"' : '<input type="text" id="' + id + '" maxlength="' + opts.max + '" autocomplete="off" value="' + esc(value) + '"') +
+    (opts.lang ? ' lang="' + opts.lang + '"' : "") + (e ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" + (opts.textarea ? esc(value) + "</textarea>" : "") +
+    (e ? '<div class="field-err" id="' + id + '-err">' + esc(typeErr(k, e)) + "</div>" : "") + "</div>";
+}
+function renderTypeForm() {
+  const f = typeForm, e = f.errors;
+  const order = [["typeNameEn", "t-name-en"], ["typeNameHi", "t-name-hi"], ["typeDescription", "t-desc"], ["typeReason", "t-reason"]].filter((x) => e[x[0]]);
+  const summary = order.length ? '<div class="err-summary" id="t-summary" tabindex="-1" role="alert"><h3>' + esc(T("adm.dp_fix_h")) + "</h3><ul>" +
+    order.map((x) => '<li><a href="#' + x[1] + '">' + esc(T("adm.dp_lbl_" + x[0]) + ": " + typeErr(x[0], e[x[0]])) + "</a></li>").join("") + "</ul></div>" : "";
+  return '<form id="type-form" novalidate style="margin-top:14px;border-top:1px solid var(--admin-border);padding-top:14px">' +
+    '<h3 id="type-form-h" tabindex="-1" style="font-size:15px;margin:0 0 8px">' + esc(T(f.key ? "adm.dp_type_edit_h" : "adm.dp_type_add_h", { name: f.origName || "" })) + "</h3>" + summary +
+    (f.key ? '<p class="hint">' + esc(T("adm.dp_type_key_note")) + "</p>" : "") +
+    '<div class="grid2f">' + tField("typeNameEn", "t-name-en", f.nameEn, { max: 60, hint: T("adm.dp_h_type_en") }) + tField("typeNameHi", "t-name-hi", f.nameHi, { max: 60, lang: "hi", hint: T("adm.dp_h_type_hi") }) + "</div>" +
+    tField("typeDescription", "t-desc", f.description, { max: 150, optional: true, hint: T("adm.dp_h_type_desc") }) +
+    (data.canRequest ? tField("typeReason", "t-reason", f.reason, { textarea: true, max: 500, hint: T("adm.dp_h_reason") }) : "") +
+    '<div class="actions"><button type="submit" class="primary" id="t-save">' + esc(T(data.canRequest ? "adm.dp_send_request" : f.key ? "adm.dp_save_changes" : "adm.dp_type_add_btn")) + '</button><button type="button" id="t-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+}
+function usageText(u) {
+  const parts = [];
+  if (u.offices) parts.push(T(u.offices === 1 ? "adm.dp_type_used_office1" : "adm.dp_type_used_offices", { n: u.offices }));
+  if (u.issueTypes) parts.push(T(u.issueTypes === 1 ? "adm.dp_type_used_issue1" : "adm.dp_type_used_issues", { n: u.issueTypes }));
+  return parts.length ? parts.join(", ") : T("adm.dp_type_unused");
+}
+function renderTypes() {
+  const canAct = data.canManage || data.canRequest;
+  const notReady = !data.typesReady;
+  const rows = data.types.map((t) => {
+    const waiting = data.pending.find((p) => p.kind === "dept_type" && p.typeKey === t.key);
+    const WAIT = { type_add: "create", type_rename: "update", type_retire: "retire", type_restore: "restore" };
+    const pills = (t.retired ? '<span class="pill ret">' + esc(T("adm.dp_retired")) + "</span> " : "") + (waiting ? '<span class="pill wait">' + esc(T("adm.dp_waiting_" + WAIT[waiting.op])) + "</span>" : "");
+    let actions = "";
+    if (canAct && !notReady && !waiting) {
+      if (t.retired) actions = '<button type="button" data-trestore="' + esc(t.key) + '">' + esc(T("adm.dp_restore")) + '<span class="sr-only"> ' + esc(typeName(t)) + "</span></button>";
+      else actions = '<button type="button" data-tedit="' + esc(t.key) + '">' + esc(T("adm.dp_type_edit")) + '<span class="sr-only"> ' + esc(typeName(t)) + "</span></button>" +
+        (t.key === "Other" ? "" : ' <button type="button" class="danger" data-tretire="' + esc(t.key) + '">' + esc(T("adm.dp_retire")) + '<span class="sr-only"> ' + esc(typeName(t)) + "</span></button>");
+    }
+    let box = "";
+    if (typeRetire && typeRetire.key === t.key) {
+      box = typeRetire.usage
+        ? '<div class="msg err" role="alert" id="tr-msg" tabindex="-1">' + esc(T("adm.dp_type_in_use")) + "<ul style=\"margin:6px 0 0;padding-left:18px\">" +
+            typeRetire.usage.offices.map((o) => "<li>" + esc(T("adm.dp_type_in_use_office", { name: o.name })) + "</li>").join("") +
+            typeRetire.usage.issueTypes.map((i) => '<li><a href="/admin-issue-types.html">' + esc(T("adm.dp_type_in_use_issue", { name: window.GIQ ? GIQ.category(i.id, i.name) : i.name })) + "</a></li>").join("") +
+          '</ul></div><div class="actions"><button type="button" id="tr-cancel">' + esc(T("adm.dp_close")) + "</button></div>"
+        : '<form id="tretire-form" novalidate><div class="form-row"><label for="tr-reason">' + esc(T("adm.dp_type_retire_why")) + '</label><textarea id="tr-reason" maxlength="300"' +
+            (typeRetire.error ? ' aria-invalid="true" aria-describedby="tr-reason-err"' : "") + ">" + esc(typeRetire.reason) + "</textarea>" +
+            (typeRetire.error ? '<div class="field-err" id="tr-reason-err">' + esc(T("adm.dp_e_retire_short")) + "</div>" : "") +
+            '</div><div class="actions"><button type="submit" class="danger" id="tr-go">' + esc(T(data.canRequest ? "adm.dp_retire_request" : "adm.dp_type_retire_confirm")) + '</button><button type="button" id="tr-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+    }
+    if (typeRestore && typeRestore.key === t.key) {
+      box = '<form id="trestore-form" novalidate><div class="form-row"><label for="ts-reason">' + esc(T("adm.dp_reason")) + '</label><textarea id="ts-reason" maxlength="500"' +
+        (typeRestore.error ? ' aria-invalid="true" aria-describedby="ts-reason-err"' : "") + ">" + esc(typeRestore.reason) + "</textarea>" +
+        (typeRestore.error ? '<div class="field-err" id="ts-reason-err">' + esc(T("adm.dp_e_reason_REQUIRED")) + "</div>" : "") +
+        '</div><div class="actions"><button type="submit" class="primary" id="ts-go">' + esc(T("adm.dp_restore_request")) + '</button><button type="button" id="ts-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+    }
+    const other = hi() ? t.nameEn : t.nameHi;
+    return "<tr" + (t.retired ? ' class="retired-row"' : "") + '><th scope="row"><span class="tname">' + esc(typeName(t)) + "</span>" + (other && other !== typeName(t) ? '<span class="sub"' + (hi() ? ' lang="en"' : ' lang="hi"') + ">" + esc(other) + "</span>" : "") + "</th>" +
+      "<td>" + (t.description ? esc(t.description) : '<span class="muted">—</span>') + "</td>" +
+      "<td>" + esc(usageText(t.used || {})) + "</td>" +
+      "<td>" + pills + (actions ? '<div class="actions" style="margin-top:' + (pills ? "6" : "0") + 'px">' + actions + "</div>" : "") + (box ? '<div style="margin-top:8px">' + box + "</div>" : "") + "</td></tr>";
+  }).join("");
+  const newWaiting = data.pending.filter((p) => p.op === "type_add");
+  return '<div class="panel" id="types" style="margin-top:24px"><h2 tabindex="-1" id="types-h">' + esc(T("adm.dp_types_h")) + '</h2><p class="sub">' + esc(T("adm.dp_types_p")) + "</p>" +
+    (notReady ? '<div class="msg err" role="status">' + esc(T("adm.dp_types_not_set_up")) + "</div>" : "") +
+    (newWaiting.length ? '<div class="msg ok" role="status">' + esc(T("adm.dp_type_new_waiting", { names: newWaiting.map((p) => p.name).join(", ") })) + ' <a href="/admin-change-requests.html">' + esc(T("adm.dp_see_requests")) + "</a></div>" : "") +
+    '<div class="table-wrap"><table class="types"><caption class="sr-only">' + esc(T("adm.dp_types_h")) + '</caption><thead><tr><th scope="col">' + esc(T("adm.dp_type_col_name")) + '</th><th scope="col">' + esc(T("adm.dp_type_col_desc")) +
+    '</th><th scope="col">' + esc(T("adm.dp_type_col_used")) + '</th><th scope="col">' + esc(T("adm.dp_type_col_actions")) + "</th></tr></thead><tbody>" + rows + "</tbody></table></div>" +
+    (canAct && !notReady ? (typeForm ? renderTypeForm() : '<div class="actions"><button type="button" class="primary" id="t-add">' + esc(T("adm.dp_type_add")) + "</button></div>") : "") + "</div>";
 }
 
 // ---------------------------------------------------------------- the form
@@ -544,7 +656,8 @@ function renderForm() {
     keys.map((k) => '<li><a href="#' + FIELD_ID[k] + '">' + esc((k === "contact" ? "" : label(k) + ": ") + errText(k, e[k])) + "</a></li>").join("") + "</ul></div>" : "";
   const depts = '<fieldset id="o-dept-fs"' + (e.departments ? ' aria-describedby="o-dept-0-err"' : "") + "><legend>" + esc(label("departments")) + '</legend><p class="hint">' + esc(T("adm.dp_h_departments")) + '</p><div class="checks">' +
     data.departments.map((d, i) => '<label><input type="checkbox" id="o-dept-' + i + '" data-dept="' + esc(d) + '"' + (f.departments.includes(d) ? " checked" : "") + (e.departments ? ' aria-invalid="true"' : "") + "> " + esc(deptName(d)) + "</label>").join("") +
-    "</div>" + (e.departments ? '<div class="field-err" id="o-dept-0-err">' + esc(errText("departments", e.departments)) + "</div>" : "") + "</fieldset>";
+    "</div>" + (e.departments ? '<div class="field-err" id="o-dept-0-err">' + esc(errText("departments", e.departments)) + "</div>" : "") +
+    '<p class="hint" style="margin-top:8px">' + esc(T(data.canManage || data.canRequest ? "adm.dp_h_other_add" : "adm.dp_h_other")) + "</p></fieldset>";
   const q = f.wardQ.toLowerCase();
   const unitsShown = data.units.filter((u) => !q || u.name.toLowerCase().includes(q));
   const wardList = f.wardsMode === "LIST" ? '<div class="wardbox"><div class="wb-tools"><label for="o-ward-q" class="sr-only">' + esc(T("adm.dp_ward_search")) + '</label><input type="search" id="o-ward-q" placeholder="' + esc(T("adm.dp_ward_search")) + '" value="' + esc(f.wardQ) + '" style="flex:1;min-width:160px;padding:7px 10px;border-radius:6px;border:1px solid var(--admin-border);background:transparent;color:inherit;font:inherit;font-size:14px">' +
@@ -552,14 +665,14 @@ function renderForm() {
       '<p class="hint" id="o-ward-count" style="margin-top:8px" aria-live="polite">' + esc(T("adm.dp_ward_chosen", { n: f.wards.length, total: data.units.length })) + "</p>" +
       '<div class="wardlist" role="group" aria-label="' + esc(label("wards")) + '">' + (unitsShown.length ? unitsShown.map((u) => '<label><input type="checkbox" data-ward="' + esc(u.id) + '"' + (f.wards.includes(u.id) ? " checked" : "") + "> " + esc(u.name) + "</label>").join("") : '<p class="muted">' + esc(T("adm.dp_ward_no_match")) + "</p>") + "</div></div>" : "";
   const wards = '<fieldset><legend>' + esc(label("wards")) + '</legend><div class="radios">' +
-      '<label><input type="radio" name="o-wards" id="o-wards-all" value="ALL"' + (f.wardsMode === "ALL" ? " checked" : "") + "> " + esc(T("adm.dp_whole_area", { area: data.area.name })) + "</label>" +
+      '<label><input type="radio" name="o-wards" id="o-wards-all" value="ALL"' + (f.wardsMode === "ALL" ? " checked" : "") + "> " + esc(T("adm.dp_whole_area", { area: areaName() })) + "</label>" +
       '<label><input type="radio" name="o-wards" value="LIST"' + (f.wardsMode === "LIST" ? " checked" : "") + "> " + esc(T("adm.dp_some_wards")) + "</label></div>" +
       (e.wards ? '<div class="field-err" id="o-wards-all-err">' + esc(errText("wards", e.wards)) + "</div>" : "") + wardList + "</fieldset>";
   const contacts = "<fieldset><legend>" + esc(T("adm.dp_fs_contacts")) + '</legend><p class="hint">' + esc(T("adm.dp_h_contacts")) + "</p>" +
     (e.contact ? '<div class="field-err" id="o-helpline-err" style="margin-bottom:6px">' + esc(errText("contact", e.contact)) + "</div>" : "") +
     '<div class="grid2f">' +
       field("helpline", { type: "tel", optional: true, hint: T("adm.dp_h_helpline"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
-      field("officePhone", { type: "tel", optional: true, hint: T("adm.dp_h_phone"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
+      field("officePhone", { type: "tel", optional: true, hint: areaVars().std ? T("adm.dp_h_phone_std", { std: areaVars().std }) : T("adm.dp_h_phone_any"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
       field("officeEmail", { type: "email", optional: true, attrs: ' autocomplete="off" spellcheck="false"', max: 200 }) +
       field("whatsapp", { type: "tel", optional: true, hint: T("adm.dp_h_whatsapp"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
     "</div>" +
@@ -575,10 +688,10 @@ function renderForm() {
   const reason = data.canRequest ? "<fieldset><legend>" + esc(T("adm.dp_fs_request")) + "</legend>" + field("reason", { textarea: true, hint: T("adm.dp_h_reason"), max: 500 }) + "</fieldset>" : "";
   const saveText = data.canRequest ? T("adm.dp_send_request") : T(f.id ? "adm.dp_save_changes" : "adm.dp_save_new");
   return '<button type="button" class="linklike" id="o-back" style="margin-bottom:12px">' + esc(T("adm.dp_back")) + "</button>" +
-    '<div class="panel"><h2 id="form-h" tabindex="-1">' + esc(T(f.id ? "adm.dp_edit_h" : "adm.dp_add_h", { name: f.nameEn, area: data.area.name })) + "</h2>" +
+    '<div class="panel"><h2 id="form-h" tabindex="-1">' + esc(T(f.id ? "adm.dp_edit_h" : "adm.dp_add_h", { name: f.nameEn, area: areaName() })) + "</h2>" +
     '<form id="office-form" novalidate>' + summary +
       "<fieldset><legend>" + esc(T("adm.dp_fs_office")) + '</legend><div class="grid2f">' +
-        field("nameEn", { hint: T("adm.dp_h_name_en"), max: 120, attrs: ' autocomplete="off"' }) + field("nameHi", { optional: true, hint: T("adm.dp_h_name_hi"), max: 120, attrs: ' lang="hi" autocomplete="off"' }) +
+        field("nameEn", { hint: T("adm.dp_h_name_en", areaVars()), max: 120, attrs: ' autocomplete="off"' }) + field("nameHi", { optional: true, hint: T("adm.dp_h_name_hi", areaVars()), max: 120, attrs: ' lang="hi" autocomplete="off"' }) +
       "</div></fieldset>" + depts + wards + contacts + officer + sourceBox + reason +
       '<div class="actions"><button type="submit" class="primary" id="o-save"' + (f.busy ? " disabled" : "") + ">" + esc(saveText) + '</button><button type="button" id="o-cancel">' + esc(T("adm.dp_cancel")) + "</button></div>" +
     "</form></div>";
@@ -592,7 +705,7 @@ function renderUpload() {
   if (u.report) {
     const r = u.report;
     const rows = r.rows.map((x) => "<tr><td>" + x.line + "</td><td>" + esc(x.nameEn || "—") + "</td><td>" + (x.ok
-      ? '<span class="good">' + esc(T("adm.dp_up_row_ok")) + "</span> " + esc((x.departments || []).map(deptName).join(", ") + " · " + (x.wholeArea ? T("adm.dp_whole_area", { area: data.area.name }) : T("adm.dp_up_n_wards", { n: x.wardCount })))
+      ? '<span class="good">' + esc(T("adm.dp_up_row_ok")) + "</span> " + esc((x.departments || []).map(deptName).join(", ") + " · " + (x.wholeArea ? T("adm.dp_whole_area", { area: areaName() }) : T("adm.dp_up_n_wards", { n: x.wardCount })))
       : '<span class="bad">' + esc(T("adm.dp_up_row_bad")) + "</span><ul style=\"margin:4px 0 0;padding-left:18px\">" + Object.keys(x.fields).map((k) => "<li>" + esc(upErr(k, x.fields[k], x)) + "</li>").join("") + "</ul>") + "</td></tr>").join("");
     report += '<div role="status" id="up-sum" tabindex="-1" class="msg ' + (r.bad ? "err" : "ok") + '">' + esc(r.bad ? T("adm.dp_up_bad", { bad: r.bad, total: r.total }) : T("adm.dp_up_good", { total: r.total })) + "</div>" +
       '<div class="table-wrap"><table class="report"><thead><tr><th scope="col">' + esc(T("adm.dp_up_line")) + '</th><th scope="col">' + esc(T("adm.dp_up_office")) + '</th><th scope="col">' + esc(T("adm.dp_up_result")) + "</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
@@ -601,7 +714,7 @@ function renderUpload() {
         '<div class="actions"><button type="button" class="primary" id="up-save"' + (u.busy ? " disabled" : "") + ">" + esc(T(data.canRequest ? "adm.dp_up_send" : "adm.dp_up_save", { n: r.total })) + "</button></div>";
     }
   }
-  return '<div class="panel" id="upload-panel"><h2 id="upload-h" tabindex="-1">' + esc(T("adm.dp_up_h", { area: data.area.name })) + "</h2>" +
+  return '<div class="panel" id="upload-panel"><h2 id="upload-h" tabindex="-1">' + esc(T("adm.dp_up_h", { area: areaName() })) + "</h2>" +
     '<ol style="margin:0 0 12px;padding-left:20px;font-size:14px;line-height:1.6"><li>' + esc(T("adm.dp_up_step1")) + ' <a href="/api/admin/departments?template=1" download>' + esc(T("adm.dp_up_template")) + "</a></li><li>" + esc(T("adm.dp_up_step2")) + "</li><li>" + esc(T("adm.dp_up_step3")) + "</li></ol>" +
     '<div class="form-row"><label for="up-file">' + esc(T("adm.dp_up_file")) + '</label><input type="file" id="up-file" accept=".csv,text/csv"></div>' +
     (u.name ? '<p class="hint">' + esc(T("adm.dp_up_chosen", { name: u.name })) + "</p>" : "") +
@@ -609,7 +722,7 @@ function renderUpload() {
 }
 function upErr(k, code, row) {
   if (k === "wards" && code === "UNKNOWN" && row.unknownWards) return T("adm.dp_up_e_unknown_wards", { list: row.unknownWards.join(", ") });
-  if (k === "area") return T("adm.dp_up_e_area", { area: data.area.name });
+  if (k === "area") return T("adm.dp_up_e_area", { area: areaName() });
   if (k === "nameEn" && code === "DUPLICATE") return T("adm.dp_up_e_dup");
   if (k === "departments" && code === "FORMAT") return T("adm.dp_up_e_handles");
   return (k === "contact" ? "" : label(k) + ": ") + errText(k, code);
@@ -657,6 +770,84 @@ function wire() {
     restoreFor.reason = document.getElementById("s-reason").value;
     if (restoreFor.reason.trim().length < 5) { restoreFor.error = true; render("s-reason"); return; }
     doRestore(restoreFor.id, restoreFor.reason);
+  });
+
+  // Department types
+  on("t-add", "click", () => { msg = null; typeRetire = null; typeRestore = null; typeForm = { key: null, nameEn: "", nameHi: "", description: "", reason: "", errors: {} }; render("type-form-h"); });
+  document.querySelectorAll("[data-tedit]").forEach((b) => b.addEventListener("click", () => {
+    const t = data.types.find((x) => x.key === b.dataset.tedit);
+    msg = null; typeRetire = null; typeRestore = null;
+    typeForm = { key: t.key, updatedAt: t.updatedAt, origName: typeName(t), nameEn: t.nameEn, nameHi: t.nameHi || "", description: t.description || "", reason: "", errors: {} };
+    render("type-form-h");
+  }));
+  on("t-cancel", "click", () => { const k = typeForm && typeForm.key; typeForm = null; render(); const b = k ? document.querySelector('[data-tedit="' + CSS.escape(k) + '"]') : document.getElementById("t-add"); if (b) b.focus(); });
+  on("t-summary", "click", (e) => { const a = e.target.closest("a"); if (!a) return; e.preventDefault(); const el = document.getElementById(a.getAttribute("href").slice(1)); if (el) el.focus(); });
+  on("type-form", "submit", async (e) => {
+    e.preventDefault();
+    typeForm.nameEn = document.getElementById("t-name-en").value; typeForm.nameHi = document.getElementById("t-name-hi").value;
+    typeForm.description = document.getElementById("t-desc").value;
+    const re = document.getElementById("t-reason"); if (re) typeForm.reason = re.value;
+    const errs = {};
+    if (!typeForm.nameEn.trim()) errs.typeNameEn = "REQUIRED";
+    if (!typeForm.nameHi.trim()) errs.typeNameHi = "REQUIRED";
+    if (data.canRequest && typeForm.reason.trim().length < 5) errs.typeReason = "REQUIRED";
+    typeForm.errors = errs;
+    if (Object.keys(errs).length) { render("t-summary"); return; }
+    const r = await post({ action: typeForm.key ? "type_rename" : "type_add", key: typeForm.key, expectedUpdatedAt: typeForm.updatedAt,
+      type: { nameEn: typeForm.nameEn, nameHi: typeForm.nameHi, description: typeForm.description }, reason: typeForm.reason });
+    if (r.ok) {
+      msg = { text: T(r.body.requested ? (typeForm.key ? "adm.dp_ok_type_change_req" : "adm.dp_ok_type_add_req") : (typeForm.key ? "adm.dp_ok_type_saved" : "adm.dp_ok_type_added"), { name: typeForm.nameEn }) };
+      typeForm = null; await load(); focusMsg(); return;
+    }
+    if (r.body.fields) { typeForm.errors = r.body.fields; render("t-summary"); return; }
+    msg = { err: true, text: r.body.code === "UNCHANGED" ? T("adm.dp_e_unchanged") : apiErr(r) };
+    if (r.body.code !== "UNCHANGED") typeForm = null;
+    await load(); focusMsg();
+  });
+  document.querySelectorAll("[data-tretire]").forEach((b) => b.addEventListener("click", () => {
+    const t = data.types.find((x) => x.key === b.dataset.tretire);
+    msg = null; typeForm = null; typeRestore = null;
+    const u = t.used || {};
+    typeRetire = { key: t.key, reason: "", error: false, usage: null };
+    if (u.offices || u.issueTypes) {
+      // Still used: ask the server which offices and issue types, to name each one (nothing changes).
+      api("/api/admin/departments?typeUsage=" + encodeURIComponent(t.key)).then((r) => {
+        typeRetire.usage = (r.body && r.body.usage) || { offices: [], issueTypes: [] };
+        render("tr-msg");
+      });
+      return;
+    }
+    render("tr-reason");
+  }));
+  on("tr-cancel", "click", () => { const k = typeRetire.key; typeRetire = null; render(); const b = document.querySelector('[data-tretire="' + CSS.escape(k) + '"]'); if (b) b.focus(); });
+  on("tretire-form", "submit", async (e) => {
+    e.preventDefault();
+    typeRetire.reason = document.getElementById("tr-reason").value;
+    if (typeRetire.reason.trim().length < 10) { typeRetire.error = true; render("tr-reason"); return; }
+    const t = data.types.find((x) => x.key === typeRetire.key);
+    const r = await post({ action: "type_retire", key: t.key, expectedUpdatedAt: t.updatedAt, reason: typeRetire.reason });
+    if (r.ok) { msg = { text: T(r.body.requested ? "adm.dp_ok_type_retire_req" : "adm.dp_ok_type_retired", { name: typeName(t) }) }; typeRetire = null; await load(); focusMsg(); return; }
+    if (r.body.usage) { typeRetire.usage = r.body.usage; render("tr-msg"); return; }
+    if (r.body.fields) { typeRetire.error = true; render("tr-reason"); return; }
+    msg = { err: true, text: apiErr(r) }; typeRetire = null; await load(); focusMsg();
+  });
+  document.querySelectorAll("[data-trestore]").forEach((b) => b.addEventListener("click", async () => {
+    const t = data.types.find((x) => x.key === b.dataset.trestore);
+    msg = null; typeForm = null; typeRetire = null;
+    if (data.canRequest) { typeRestore = { key: t.key, reason: "", error: false }; render("ts-reason"); return; }
+    const r = await post({ action: "type_restore", key: t.key, expectedUpdatedAt: t.updatedAt });
+    msg = r.ok ? { text: T("adm.dp_ok_type_restored", { name: typeName(t) }) } : { err: true, text: apiErr(r) };
+    await load(); focusMsg();
+  }));
+  on("ts-cancel", "click", () => { const k = typeRestore.key; typeRestore = null; render(); const b = document.querySelector('[data-trestore="' + CSS.escape(k) + '"]'); if (b) b.focus(); });
+  on("trestore-form", "submit", async (e) => {
+    e.preventDefault();
+    typeRestore.reason = document.getElementById("ts-reason").value;
+    if (typeRestore.reason.trim().length < 5) { typeRestore.error = true; render("ts-reason"); return; }
+    const t = data.types.find((x) => x.key === typeRestore.key);
+    const r = await post({ action: "type_restore", key: t.key, expectedUpdatedAt: t.updatedAt, reason: typeRestore.reason });
+    msg = r.ok ? { text: T("adm.dp_ok_type_restore_req", { name: typeName(t) }) } : { err: true, text: apiErr(r) };
+    typeRestore = null; await load(); focusMsg();
   });
 
   // Form
@@ -781,7 +972,8 @@ function fileErr(r) {
   return apiErr(r);
 }
 
-document.addEventListener("giq:lang", () => render());
+// A message shown in one language is cleared when the language changes, so nothing stays in the other language.
+document.addEventListener("giq:lang", () => { msg = null; render(); });
 load();
 </script>
 <script>

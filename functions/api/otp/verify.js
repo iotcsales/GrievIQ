@@ -19,6 +19,7 @@
 // The single-report detail ("case") keeps exactly the shape the status
 // page already used, so the tested detail view is unchanged.
 
+import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
@@ -175,6 +176,8 @@ async function buildCaseDetail(env, grievance) {
       reminderCount: nudgeRows.length,
       lastReminderAt: nudgeRows.length ? nudgeRows[nudgeRows.length - 1].created_at : null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
+      // grieviq-25: names (English and Hindi) of the departments named here.
+      deptNames: followupRows.length ? namesOf(await deptTypes(env)) : {},
       followupHistory: followupRows.map((e) => ({
         department: e.reason,
         note: e.note,

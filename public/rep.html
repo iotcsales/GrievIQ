@@ -20,7 +20,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=24"></script>
+<script src="/i18n.js?v=25"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=20b"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -772,8 +772,13 @@ const DISPUTE_REASON_KEYS = {
 function statusWord(st) { return T('rep.st_' + st) === 'rep.st_' + st ? st.toLowerCase().replace('_', ' ') : T('rep.st_' + st); }
 // Server messages are English; in Hindi show our own sentence with the detail.
 function errText(msg) { return msg ? T('rep.err_detail', { msg: msg }) : T('common.generic_error'); }
-// Must match VALID_DEPARTMENTS in functions/api/grievances/[id]/add-followup.js
-const DEPARTMENTS = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other'];
+// The departments a case can be forwarded to. Since grieviq-25 admins manage
+// this list; /api/grievances sends the current one (and every type's names).
+var DEPARTMENTS = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other'];
+function takeDepartments(d) {
+  if (d && Array.isArray(d.departments) && d.departments.length) DEPARTMENTS = d.departments;
+  if (d && d.deptNames && window.GIQ && GIQ.addDepts) GIQ.addDepts(d.deptNames);
+}
 const LAYERS_ICON = '<svg width="24" height="24" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg>';  // GrievIQ logo mark
 
 var activeTab = 'cases';
@@ -1785,7 +1790,7 @@ function focusJobError(k) {
 async function refreshTeamAndCases() {
   try {
     var r = await fetch('/api/grievances');
-    if (r.ok) { var d = await r.json(); currentCases = d.grievances || []; teamsData = d.teams || {}; if (d.workloadWarn) workloadWarn = d.workloadWarn; }
+    if (r.ok) { var d = await r.json(); takeDepartments(d); currentCases = d.grievances || []; teamsData = d.teams || {}; if (d.workloadWarn) workloadWarn = d.workloadWarn; }
   } catch (e) { /* the team list below still refreshes */ }
   await loadTeamTab();
 }
@@ -3368,6 +3373,7 @@ async function init() {
 
   var casesRes = await fetch('/api/grievances');
   var casesData = await casesRes.json();
+  takeDepartments(casesData);
   currentCases = casesData.grievances || [];
   teamsData = casesData.teams || {};
   if (casesData.workloadWarn) workloadWarn = casesData.workloadWarn;

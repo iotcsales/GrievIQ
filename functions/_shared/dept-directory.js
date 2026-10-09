@@ -22,7 +22,7 @@
 //   - OWASP ASVS V5: every field checked on the server for type, format and
 //     length; errors are returned per field so the page shows them next to it.
 
-import { DEPARTMENTS } from "./departments.js";
+import { deptTypes, activeDeptKeys, OTHER } from "./departments.js";
 import { validateContact, EMAIL_RE } from "./contact-validation.js";
 
 export const STALE_DAYS = 365;            // "Check again" after a year
@@ -35,12 +35,6 @@ export const CSV_COLUMNS = [
 const LIMITS = { name_en: 120, name_hi: 120, address: 300, hours: 120, website: 300, source: 300, notes: 500,
   officer_name: 120, officer_consent_how: 200, retire_reason: 300 };
 
-// Hindi names of the department types (same as dept.* in public/i18n.js),
-// so a file may name them in either language.
-export const DEPT_HI = {
-  "Water Supply": "जलापूर्ति विभाग", "Electricity": "विद्युत विभाग", "Sanitation / Garbage": "सफ़ाई / कूड़ा संग्रहण विभाग",
-  "Roads & Public Works": "सड़क एवं लोक निर्माण विभाग", "Health": "स्वास्थ्य विभाग", "Legal / Land Records": "विधिक / भू-अभिलेख विभाग", "Other": "अन्य",
-};
 
 export function isMissingDeptTable(e) {
   return /no such table:?\s*dept_offices/i.test(String(e && e.message));
@@ -132,8 +126,9 @@ export async function checkOffice(env, areaId, input, opts) {
 
   const depts = Array.isArray(b.departments) ? Array.from(new Set(b.departments.map((d) => String(d).trim()))) : [];
   if (!depts.length) fields.departments = "REQUIRED";
-  else if (depts.some((d) => !DEPARTMENTS.includes(d))) fields.departments = "FORMAT";
-  v.departments = DEPARTMENTS.filter((d) => depts.includes(d));   // stored in the fixed order
+  const keys = (opts && opts.typeKeys) || await activeDeptKeys(env);
+  if (depts.length && depts.some((d) => !keys.includes(d))) fields.departments = "FORMAT";
+  v.departments = keys.filter((d) => depts.includes(d));   // stored in the list's order
 
   if (b.wards === "ALL") {
     v.wards = null;                       // the whole area
@@ -325,19 +320,19 @@ export async function matchOffices(env, unitId, dept) {
 }
 
 // Coverage: every ward or village against every department type.
-export function coverage(units, offices) {
+export function coverage(units, offices, typeKeys) {
+  const depts = typeKeys.filter((d) => d !== OTHER);
   const cells = {};
   let gaps = 0;
   for (const u of units) {
     cells[u.id] = {};
-    for (const d of DEPARTMENTS) {
-      if (d === "Other") continue;
+    for (const d of depts) {
       const list = officesFor(offices, u.id, d).map((o) => o.id);
       cells[u.id][d] = list;
       if (!list.length) gaps++;
     }
   }
-  return { departments: DEPARTMENTS.filter((d) => d !== "Other"), cells, gaps };
+  return { departments: depts, cells, gaps };
 }
 
 // ---- CSV ----
@@ -357,21 +352,18 @@ export function parseCsv(textIn) {
   return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
 }
 
-// Department names in a file may be written in English or Hindi, any case.
-function deptFromText(s, hiNames) {
+// Department types in a file may be written by their English or Hindi name, any case.
+function deptFromText(s, types) {
   const k = String(s || "").trim().toLowerCase();
   if (!k) return null;
-  const en = DEPARTMENTS.find((d) => d.toLowerCase() === k);
-  if (en) return en;
-  const names = hiNames || DEPT_HI;
-  const hi = Object.keys(names).find((d) => String(names[d]).toLowerCase() === k);
-  return hi || null;
+  const t = types.find((x) => !x.retired && [x.key, x.nameEn, x.nameHi].some((n) => n && String(n).toLowerCase() === k));
+  return t ? t.key : null;
 }
 
 // The file's rows -> API inputs, with problems found while reading named
 // per column (e.g. a ward name that isn't in this area).
 // "area" column is accepted and ignored if it names the chosen area.
-export function rowsFromCsv(csvText, units, areaName, hiNames) {
+export function rowsFromCsv(csvText, units, areaName, types) {
   const all = parseCsv(csvText);
   if (!all.length) return { ok: false, error: "EMPTY" };
   const header = all[0].map((h) => String(h).trim().toLowerCase().replace(/\s+/g, "_"));
@@ -387,7 +379,7 @@ export function rowsFromCsv(csvText, units, areaName, hiNames) {
     const area = get("area");
     if (area && areaName && area.toLowerCase() !== String(areaName).toLowerCase()) pre.area = "OTHER_AREA";
     const handles = get("handles").split("|").map((s) => s.trim()).filter(Boolean);
-    const departments = handles.map((h) => deptFromText(h, hiNames));
+    const departments = handles.map((h) => deptFromText(h, types));
     if (departments.some((d) => !d)) pre.departments = "FORMAT";
     const wardsText = get("wards");
     let wards;

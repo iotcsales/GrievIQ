@@ -30,6 +30,8 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { validateContact, emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import { CONTACT_TABLES, readContact, checkNewUnit, insertUnit } from "../../_shared/jurisdiction-writes.js";
 import { applyDeptRequest } from "../../_shared/dept-directory.js";
+import { applyTypeRequest } from "../../_shared/dept-types.js";
+import { deptTypes, namesOf } from "../../_shared/departments.js";
 
 const FIELDS = ["name", "phone", "email"];
 const MAX_IDS = 50;
@@ -113,7 +115,10 @@ export async function onRequestGet({ request, env }) {
     "SELECT COUNT(*) AS n FROM change_requests WHERE status = 'PENDING'"
   ).all();
 
+  let deptNames = null;
+  try { deptNames = namesOf(await deptTypes(env)); } catch (e) { deptNames = null; }
   return Response.json({
+    deptNames,
     role: auth.role,
     email: auth.email,
     canApprove,
@@ -347,12 +352,14 @@ async function approve(env, auth, body) {
     // Departments stage 1: an office in the department directory, or a file
     // of offices. Claimed first (so two approvers can't both apply it), then
     // checked again and applied; if it no longer fits, marked OUT_OF_DATE.
-    if (r.kind === "dept_office" || r.kind === "dept_import") {
+    if (r.kind === "dept_office" || r.kind === "dept_import" || r.kind === "dept_type") {
       const claim = await env.DB.prepare(
         "UPDATE change_requests SET status = 'APPROVED', reviewed_by = ?, reviewed_at = ? WHERE id = ? AND status = 'PENDING'"
       ).bind(auth.email, now, id).run();
       if (!claim.meta || !claim.meta.changes) { results.push({ id, result: "already_decided" }); continue; }
-      const out = await applyDeptRequest(env, auth.email, r, parse(r.new_values), parse(r.old_values));
+      const out = r.kind === "dept_type"
+        ? await applyTypeRequest(env, auth.email, parse(r.new_values) || {}, parse(r.old_values))
+        : await applyDeptRequest(env, auth.email, r, parse(r.new_values), parse(r.old_values));
       if (out.result !== "approved") {
         await env.DB.prepare("UPDATE change_requests SET status = 'OUT_OF_DATE', review_note = ? WHERE id = ?").bind(out.error || "No longer valid.", id).run();
         await logEvent(env, auth.email, "change_request_out_of_date", r.target_id, { requestId: id, why: out.error || null });
@@ -360,7 +367,7 @@ async function approve(env, auth, body) {
         continue;
       }
       await env.DB.prepare("UPDATE change_requests SET applied_values = ? WHERE id = ?")
-        .bind(JSON.stringify({ officeId: out.officeId || null, ids: out.ids || null }), id).run();
+        .bind(JSON.stringify({ officeId: out.officeId || null, ids: out.ids || null, key: out.key || null }), id).run();
       await logEvent(env, auth.email, out.log.action, out.log.target, Object.assign({ requestId: id, requestedBy: r.requested_by }, out.log.detail));
       await logEvent(env, auth.email, "change_request_approved", r.target_id, { requestId: id, requestedBy: r.requested_by, kind: r.kind });
       results.push({ id, result: "approved" });

@@ -150,7 +150,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=24"></script>
+<script src="/i18n.js?v=25"></script>
 <script src="/admin-nav.js?v=r7"></script>
 </head>
 <body>
@@ -286,6 +286,7 @@ async function load() {
   try {
     var res = await fetch("/api/admin/issue-types");
     var data = await res.json();
+    if (data && data.deptNames && window.GIQ && GIQ.addDepts) GIQ.addDepts(data.deptNames);
     if (!res.ok) {
       loadError = function () {
         return data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE"

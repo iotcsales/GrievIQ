@@ -13,6 +13,7 @@
 // get-verified-rep.js); this endpoint unions the visible cases across all
 // of them.
 
+import { deptTypes, namesOf } from "../_shared/departments.js";
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_shared/jurisdiction.js";
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
@@ -377,7 +378,12 @@ export async function onRequestGet(context) {
     } catch (e) { /* team tables not there yet */ }
   }
 
+  // grieviq-25: the department types (managed by admins) for "Forward to
+  // department", and every type's names so old follow-ups show correctly.
+  const types = await deptTypes(env);
   return Response.json({
+    departments: types.filter((t) => !t.retired).map((t) => t.key),
+    deptNames: namesOf(types),
     email: auth.email,
     mandates: auth.mandates.map(({ tier, id, name, label, role }) => ({ tier, id, name, label, role: role || ROLE.REP })),
     grievances: visible,

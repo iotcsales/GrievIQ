@@ -15,3 +15,4 @@ CREATE TABLE local_units (id TEXT PRIMARY KEY, name TEXT, unit_type TEXT, mla_co
   rep_email TEXT, localities TEXT, area_id TEXT, block TEXT, ward_boundary_geojson TEXT);
 CREATE TABLE change_requests (id TEXT PRIMARY KEY, kind TEXT, target_type TEXT, target_id TEXT, target_label TEXT, old_values TEXT, new_values TEXT,
   applied_values TEXT, reason TEXT, source TEXT, status TEXT DEFAULT 'PENDING', requested_by TEXT, requested_at TEXT, reviewed_by TEXT, reviewed_at TEXT, review_note TEXT);
+CREATE TABLE grievance_categories (id TEXT PRIMARY KEY, name TEXT, ack_sla_hours INTEGER, resolution_sla_hours INTEGER, suggested_department TEXT);

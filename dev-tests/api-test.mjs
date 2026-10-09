@@ -168,11 +168,96 @@ ok(r.status === 400 && r.body.code === "COLUMNS" && r.body.missing.includes("han
 r = await post(S, { action: "import_check", areaId: "lucknow", csv: header + "a\n".repeat(301) });
 ok(r.body.code === "TOO_MANY", "row limit", r.body);
 
+
+// ---- department types (grieviq-25) ----
+g = await get(S, "lucknow");
+ok(g.body.typesReady && g.body.types.length === 7 && g.body.types[6].key === "Other", "seven types, Other last", g.body.types && g.body.types.map((t) => t.key));
+ok(g.body.types.find((t) => t.key === "Water Supply").used.issueTypes === 1, "usage counted");
+r = await post(S, { action: "type_add", type: {} });
+ok(r.status === 400 && r.body.fields.typeNameEn === "REQUIRED" && r.body.fields.typeNameHi === "REQUIRED", "type names required", r.body);
+r = await post(S, { action: "type_add", type: { nameEn: "water supply", nameHi: "जलापूर्ति विभाग" } });
+ok(r.body.fields && r.body.fields.typeNameEn === "TAKEN" && r.body.fields.typeNameHi === "TAKEN", "duplicate names refused", r.body);
+r = await post(S, { action: "type_add", type: { nameEn: "Street Lights", nameHi: "Street Lights" } });
+ok(r.body.fields && r.body.fields.typeNameHi === "NOT_HINDI", "Hindi name must be Hindi", r.body);
+r = await post(S, { action: "type_add", type: { nameEn: "Street Lights", nameHi: "स्ट्रीट लाइट विभाग", description: "Broken or missing street lights" } });
+ok(r.status === 200 && r.body.key === "Street Lights", "type added", r.body);
+g = await get(S, "lucknow");
+ok(g.body.departments.includes("Street Lights") && g.body.departments[g.body.departments.length - 1] === "Other", "new type in the list, before Other", g.body.departments);
+ok(g.body.coverage.departments.includes("Street Lights") && g.body.coverage.cells["lu-gomti"]["Street Lights"].length === 0, "new type is a coverage column");
+ok(g.body.names["Street Lights"].hi === "स्ट्रीट लाइट विभाग", "names sent to pages");
+r = await post(S, { action: "save", areaId: "lucknow", office: good({ nameEn: "LMC Street Light Cell", nameHi: "", departments: ["Street Lights"], helpline: "1533", whatsapp: "", website: "", officeEmail: "" }) });
+ok(r.status === 200, "office can use the new type", r.body);
+const slOffice = r.body.officeId;
+let it = await call(S, "GET", "/api/admin/issue-types");
+ok(it.body.departments.includes("Street Lights") && it.body.deptNames["Street Lights"].hi, "Issue types page gets the new type");
+let pt = await call(S, "PATCH", "/api/admin/issue-types", { id: "other", suggestedDepartment: "Street Lights" });
+ok(pt.status === 200, "issue type can suggest the new type", pt.body);
+// rename keeps the key
+let st = (await get(S, "lucknow")).body.types.find((t) => t.key === "Street Lights");
+r = await post(S, { action: "type_rename", key: "Street Lights", expectedUpdatedAt: st.updatedAt, type: { nameEn: "Street Lighting", nameHi: "मार्ग प्रकाश विभाग", description: st.description } });
+ok(r.status === 200, "type renamed", r.body);
+g = await get(S, "lucknow");
+st = g.body.types.find((t) => t.key === "Street Lights");
+ok(st.nameEn === "Street Lighting" && g.body.offices.find((o) => o.id === slOffice).departments[0] === "Street Lights", "key unchanged, office still linked");
+r = await post(S, { action: "type_rename", key: "Street Lights", expectedUpdatedAt: "old", type: { nameEn: "Street Lamps", nameHi: "मार्ग प्रकाश विभाग" } });
+ok(r.status === 409 && r.body.code === "TYPE_STALE", "rename on older version refused", r.body);
+r = await post(S, { action: "type_add", type: { nameEn: "street lights", nameHi: "नई लाइट" } });
+ok(r.body.fields && r.body.fields.typeNameEn === "TAKEN", "old key can't be reused as a name", r.body);
+// retire: blocked while used
+r = await post(S, { action: "type_retire", key: "Street Lights", expectedUpdatedAt: st.updatedAt, reason: "No longer a separate department" });
+ok(r.status === 409 && r.body.code === "TYPE_IN_USE" && r.body.usage.offices.length === 1 && r.body.usage.issueTypes.length === 1, "retire blocked while in use, users named", r.body);
+let us = await call(S, "GET", "/api/admin/departments?typeUsage=" + encodeURIComponent("Street Lights"));
+ok(us.body.usage.offices[0].name === "LMC Street Light Cell", "usage lookup (read only)");
+r = await post(S, { action: "type_retire", key: "Other", expectedUpdatedAt: "x", reason: "Trying to retire Other" });
+ok(r.status === 409 && r.body.code === "TYPE_OTHER", "Other can't be retired");
+await call(S, "PATCH", "/api/admin/issue-types", { id: "other", suggestedDepartment: null });
+let slo = (await get(S, "lucknow")).body.offices.find((o) => o.id === slOffice);
+await post(S, { action: "retire", officeId: slOffice, expectedUpdatedAt: slo.updatedAt, reason: "Test office no longer needed" });
+r = await post(S, { action: "type_retire", key: "Street Lights", expectedUpdatedAt: st.updatedAt, reason: "short" });
+ok(r.status === 400 && r.body.fields.typeRetireReason === "SHORT", "retire needs a reason");
+r = await post(S, { action: "type_retire", key: "Street Lights", expectedUpdatedAt: st.updatedAt, reason: "Merged into Nagar Nigam control room" });
+ok(r.status === 200, "type retired once unused", r.body);
+g = await get(S, "lucknow");
+ok(!g.body.departments.includes("Street Lights") && g.body.types.find((t) => t.key === "Street Lights").retired && g.body.names["Street Lights"], "retired: not choosable, name still known");
+r = await post(S, { action: "save", areaId: "lucknow", office: good({ nameEn: "Another Light Office", departments: ["Street Lights"] }) });
+ok(r.body.fields && r.body.fields.departments === "FORMAT", "retired type can't be chosen");
+pt = await call(S, "PATCH", "/api/admin/issue-types", { id: "other", suggestedDepartment: "Street Lights" });
+ok(pt.status === 400, "issue type can't suggest a retired type");
+st = g.body.types.find((t) => t.key === "Street Lights");
+r = await post(S, { action: "type_restore", key: "Street Lights", expectedUpdatedAt: st.updatedAt });
+ok(r.status === 200 && (await get(S, "lucknow")).body.departments.includes("Street Lights"), "type brought back");
+// CSV can use the new type by its Hindi name
+r = await post(S, { action: "import_check", areaId: "lucknow", csv: header + 'Lucknow,Light Cell 2,,मार्ग प्रकाश विभाग,ALL,1533,,,,,,,https://lmc.up.nic.in,2026-10-01,\n' });
+ok(r.body.ok && r.body.rows[0].departments[0] === "Street Lights", "file can name the new type in Hindi", r.body);
+// operator requests
+r = await post(D, { action: "type_add", type: { nameEn: "Animal Control", nameHi: "पशु नियंत्रण विभाग" } });
+ok(r.status === 400 && r.body.fields.typeReason === "REQUIRED", "operator gives a reason for a type");
+r = await post(D, { action: "type_add", type: { nameEn: "Animal Control", nameHi: "पशु नियंत्रण विभाग", description: "Stray animals" }, reason: "Many complaints about stray cattle" });
+ok(r.status === 200 && r.body.requested, "operator's new type becomes a request");
+const reqT = r.body.requestId;
+r = await post(D, { action: "type_add", type: { nameEn: "animal control", nameHi: "पशु विभाग" }, reason: "Same again by mistake" });
+ok(r.body.fields && r.body.fields.typeNameEn === "WAITING", "same new type can't be requested twice");
+ok(!(await get(S, "lucknow")).body.departments.includes("Animal Control"), "not added before approval");
+ok((await get(S, "lucknow")).body.pending.some((p) => p.op === "type_add" && p.name === "Animal Control"), "waiting type shown");
+ap = await call(D, "POST", "/api/admin/change-requests", { action: "approve", ids: [reqT] });
+ok(ap.status === 403, "operator can't approve own type");
+ap = await call(O, "POST", "/api/admin/change-requests", { action: "approve", ids: [reqT] });
+ok(ap.body.results[0].result === "approved" && (await get(S, "lucknow")).body.departments.includes("Animal Control"), "approved type added", ap.body);
+st = (await get(S, "lucknow")).body.types.find((t) => t.key === "Health");
+r = await post(D, { action: "type_rename", key: "Health", expectedUpdatedAt: st.updatedAt, type: { nameEn: "Health & Hospitals", nameHi: "स्वास्थ्य एवं अस्पताल विभाग" }, reason: "Clearer name" });
+const reqR = r.body.requestId;
+await post(S, { action: "type_rename", key: "Health", expectedUpdatedAt: st.updatedAt, type: { nameEn: "Public Health", nameHi: "जन स्वास्थ्य विभाग" } });
+ap = await call(O, "POST", "/api/admin/change-requests", { action: "approve", ids: [reqR] });
+ok(ap.body.results[0].result === "out_of_date", "rename made against older version is out of date", ap.body);
+let crl = await call(S, "GET", "/api/admin/change-requests?view=decided");
+ok(crl.body.deptNames && crl.body.deptNames["Animal Control"].hi === "पशु नियंत्रण विभाग", "Change requests page gets type names");
+ok((await get(A, "lucknow")).status === 200 && (await post(A, { action: "type_add", type: { nameEn: "X Type", nameHi: "एक्स" } })).status === 403, "auditor can't change types");
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = new DatabaseSync(process.argv[2] || "test.db");
 const acts = db.prepare("SELECT action, COUNT(*) n FROM admin_events GROUP BY action").all().reduce((m, x) => (m[x.action] = x.n, m), {});
-ok(acts.dept_office_added >= 5 && acts.dept_office_changed >= 2 && acts.dept_office_retired >= 2 && acts.dept_office_restored >= 1 && acts.dept_offices_imported >= 2 && acts.change_request_submitted >= 3 && acts.change_request_approved >= 2, "every change logged", acts);
+ok(acts.dept_office_added >= 5 && acts.dept_office_changed >= 2 && acts.dept_office_retired >= 2 && acts.dept_office_restored >= 1 && acts.dept_offices_imported >= 2 && acts.change_request_submitted >= 3 && acts.change_request_approved >= 3 && acts.dept_type_added >= 2 && acts.dept_type_renamed >= 2 && acts.dept_type_retired >= 1 && acts.dept_type_restored >= 1, "every change logged", acts);
 let threw = false; try { db.prepare("UPDATE admin_events SET action='x'").run(); } catch (e) { threw = true; }
 ok(threw, "audit log can't be edited");
 

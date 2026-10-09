@@ -198,6 +198,95 @@ with sync_playwright() as pw:
     ok(not errs, "no script errors (super)", errs)
     ctx.close()
 
+
+    # ---------- grieviq-25: area-specific examples, department types ----------
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-departments.html?area=kanpur"); p.wait_for_selector("#f-area")
+    ok(p.locator("#f-area option:checked").inner_text() == "Kanpur", "area name shown with a capital letter")
+    p.click("#add-office"); p.wait_for_selector("#office-form")
+    ok('"Jal Kal Vibhag, Kanpur"' in p.inner_text("#o-name-en-hint"), "English example names Kanpur", p.inner_text("#o-name-en-hint"))
+    ok("कानपुर" in p.inner_text("#o-name-hi-hint"), "Hindi example names कानपुर")
+    ok("0512" in p.inner_text("#o-phone-hint"), "phone example uses Kanpur's STD code")
+    ok("Whole of Kanpur" in p.inner_text("#office-form"), "Whole of Kanpur")
+    ok("add it as a new type" in p.inner_text("#o-dept-fs"), "note under Other")
+    p.click("#o-cancel")
+    p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+    p.click('a[href="#types"]')
+    ok(p.locator("table.types tbody tr").count() >= 8, "types table")
+    other_row = p.locator('table.types tr:has(th:has-text("Other"))').first
+    ok(other_row.locator("[data-tretire]").count() == 0, "Other has no Retire button")
+    p.click("#t-add"); p.wait_for_selector("#type-form")
+    ok(p.evaluate("document.activeElement.id") == "type-form-h", "focus on type form heading")
+    p.click("#t-save"); p.wait_for_selector("#t-summary")
+    ok(p.locator("#t-summary li").count() == 2 and p.evaluate("document.activeElement.id") == "t-summary", "type form errors summarised")
+    p.fill("#t-name-en", "Pollution / Noise"); p.fill("#t-name-hi", "Pollution")
+    save(p, "#t-save")
+    ok("Hindi (Devanagari)" in p.inner_text("#t-summary"), "server says Hindi name must be Hindi")
+    p.fill("#t-name-hi", "प्रदूषण / शोर विभाग"); p.fill("#t-desc", "Air, water and noise pollution")
+    shot(p, "10-type-form")
+    save(p, "#t-save")
+    ok("was added" in p.inner_text("#top-msg"), "type added message")
+    row = p.locator('table.types tr:has(th:has-text("Pollution / Noise"))')
+    ok(row.count() == 1 and "Not used yet" in row.inner_text(), "new type listed, unused")
+    ok(p.locator('.cov th:has-text("Pollution / Noise")').count() == 1, "new coverage column")
+    # it can be ticked on an office
+    p.click("#add-office"); p.wait_for_selector("#office-form")
+    ok(p.locator('[data-dept="Pollution / Noise"]').count() == 1, "new type tickable on offices")
+    p.click("#o-cancel")
+    # in use -> retire blocked with names
+    row = p.locator('table.types tr:has(th:has-text("Water Supply"))')
+    row.locator("[data-tretire]").click(); p.wait_for_selector("#tr-msg")
+    ok("Jal Kal" in p.inner_text("#tr-msg") and "Issue type" in p.inner_text("#tr-msg"), "in-use type: users named", p.inner_text("#tr-msg"))
+    p.click("#tr-cancel")
+    # rename then retire the unused new type
+    row = p.locator('table.types tr:has(th:has-text("Pollution / Noise"))')
+    row.locator("[data-tedit]").click(); p.wait_for_selector("#type-form")
+    ok(p.input_value("#t-name-hi") == "प्रदूषण / शोर विभाग", "edit form prefilled")
+    p.fill("#t-name-en", "Pollution and Noise"); save(p, "#t-save")
+    ok("were saved" in p.inner_text("#top-msg"), "type renamed")
+    row = p.locator('table.types tr:has(th:has-text("Pollution and Noise"))')
+    row.locator("[data-tretire]").click()
+    p.fill("#tr-reason", "short"); p.click("#tr-go"); ok(p.is_visible("#tr-reason-err"), "short reason refused")
+    p.fill("#tr-reason", "Handled by the Pollution Control Board, not here"); save(p, "#tr-go")
+    ok("was retired" in p.inner_text("#top-msg"), "type retired")
+    row = p.locator('table.types tr:has(th:has-text("Pollution and Noise"))')
+    ok("Retired" in row.inner_text() and p.locator('.cov th:has-text("Pollution")').count() == 0, "retired: marked, no coverage column")
+    save(p, 'table.types tr:has(th:has-text("Pollution and Noise")) [data-trestore]')
+    ok("back in use" in p.inner_text("#top-msg"), "type brought back")
+    # Hindi view of the types table
+    p.click("[data-lang-toggle]"); p.wait_for_timeout(300)
+    ok(p.locator('table.types th:has-text("प्रदूषण / शोर विभाग")').count() == 1, "Hindi type name shown in Hindi")
+    shot(p, "11-types-hi", full=True)
+    p.click("[data-lang-toggle]")
+    ok(not errs, "no script errors (types)", errs)
+    ctx.close()
+
+    # Issue types page lists the new type, in Hindi too
+    ctx, p, errs = P("super@test.in", lang="hi")
+    p.goto(B + "/admin-issue-types.html"); p.wait_for_selector(".dept-select")
+    opts = p.eval_on_selector_all(".dept-select >> nth=0 >> option", "els => els.map(e => e.textContent)")
+    ok("प्रदूषण / शोर विभाग" in opts, "Issue types: new type in Hindi", opts)
+    ok(not errs, "no script errors (issue types)", errs)
+    ctx.close()
+
+    # Rep console and Track page show the new type (functions checked in the page itself)
+    for lang in ("en", "hi"):
+        ctx, p, errs = P("nobody@test.in", lang=lang)
+        p.route("**/api/**", lambda route: route.fulfill(status=401, body='{"error":"SIGNED_OUT"}', headers={"content-type": "application/json"}))
+        p.goto(B + "/rep.html"); p.wait_for_timeout(800)
+        html = p.evaluate("""() => { takeDepartments({ departments: ['Water Supply','Pollution / Noise','Other'], deptNames: { 'Pollution / Noise': { en: 'Pollution and Noise', hi: 'प्रदूषण / शोर विभाग' } } });
+          return renderFollowupControl({ id: 'c1', status: 'OPEN', suggestedDepartment: 'Pollution / Noise', currentDepartment: 'Pollution / Noise', followupHistory: [] }); }""")
+        want = "प्रदूषण / शोर विभाग" if lang == "hi" else "Pollution and Noise"
+        first_opt = re.findall(r'<option value="([^"]*)">([^<]*)</option>', html)
+        ok(first_opt[1][0] == "Pollution / Noise" and want in first_opt[1][1], "rep: suggested new type listed first, named " + lang, first_opt[:3])
+        ok(len(first_opt) == 4, "rep: only the current list offered " + lang)
+        ctx.close()
+        ctx, p, errs = P("nobody@test.in", lang=lang)
+        p.goto(B + "/status.html"); p.wait_for_timeout(500)
+        name = p.evaluate("() => { GIQ.addDepts({ 'Pollution / Noise': { en: 'Pollution and Noise', hi: 'प्रदूषण / शोर विभाग' } }); return GIQ.dept('Pollution / Noise') + '|' + GIQ.dept('Water Supply'); }")
+        ok(name == (want + "|" + ("जलापूर्ति विभाग" if lang == "hi" else "Water Supply")), "Track: department names " + lang, name)
+        ctx.close()
+
     # ---------- themes, languages, widths: contrast + reflow ----------
     for theme in (None, "light"):
         for lang in ("en", "hi"):

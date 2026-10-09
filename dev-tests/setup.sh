@@ -16,7 +16,7 @@ python3 - "$WORK/test.db" "$HERE" <<'PY'
 import sqlite3, sys, os
 db, here = sys.argv[1], sys.argv[2]
 c = sqlite3.connect(db)
-for f in ["schema-min.sql", "part21-departments.sql", "seed.sql"]:
+for f in ["schema-min.sql", "part21-departments.sql", "part22-department-types.sql", "seed.sql"]:
     c.executescript(open(os.path.join(here, f), encoding="utf-8").read())
 c.commit()
 PY

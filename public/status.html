@@ -347,7 +347,7 @@
     h1 { font-size: 21px; }
   }
 </style>
-<script src="/i18n.js?v=24"></script>
+<script src="/i18n.js?v=25"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=17a" defer></script>
 </head>
@@ -838,6 +838,7 @@
     }
 
       if (c.lastReminderAt && !resolved) { banners.innerHTML += '<div class="review-banner">' + boldFirst(GIQ.t('status.reminder_banner', { date: new Date(c.lastReminderAt).toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'short' }) })) + '</div>'; } const followupBox = document.getElementById('status-followup');
+      if (c.deptNames) GIQ.addDepts(c.deptNames);
       if (c.currentDepartment) {
         let historyHtml = '';
         (c.followupHistory || []).slice().reverse().forEach((f) => {
