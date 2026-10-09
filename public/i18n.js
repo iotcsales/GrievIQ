@@ -2589,8 +2589,6 @@
 "rep.dc_choose": ["Choose the department", "विभाग चुनें"],
 "rep.dc_choose_first": ["Choose a department below to see who handles it.", "यह कौन देखता है, जानने के लिए नीचे विभाग चुनें।"],
 "rep.dc_pick": ["Choose…", "चुनें…"],
-"rep.dc_jansunwai": ["Also file it on Jansunwai (UP government):", "इसे जनसुनवाई (उ.प्र. सरकार) पर भी दर्ज करें:"],
-"rep.dc_call_1076": ["call 1076", "1076 पर कॉल करें"],
 "adm.dp_asked_h": ["Representatives asked for these missing contacts ({n}):", "जनप्रतिनिधियों ने ये छूटे संपर्क माँगे ({n}):"],
 "adm.dp_asked_item": ["{dept} in {ward}: last asked {date} ({n} times)", "{ward} में {dept}: अंतिम अनुरोध {date} ({n} बार)"],
 "adm.dp_page_title": ["GrievIQ Admin — Departments", "GrievIQ एडमिन — विभाग"],

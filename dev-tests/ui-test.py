@@ -340,7 +340,7 @@ with sync_playwright() as pw:
                 else:
                     hrefs = p.eval_on_selector_all("#dc-c1 .dc-link", "els => els.map(e => e.getAttribute('href'))")
                     ok("tel:05222612345" in hrefs and "tel:9876543210" in hrefs and "tel:1533" in hrefs and "mailto:nnlko@nic.in" in hrefs and "https://wa.me/919219902911" in hrefs, "tap-to-call, email, WhatsApp links " + tag, hrefs)
-                    ok("Call helpline 1533" in card.inner_text() and "Jansunwai" in card.inner_text(), "link text says what it does; Jansunwai line " + tag)
+                    ok("Call helpline 1533" in card.inner_text() and "Jansunwai" not in card.inner_text(), "link text says what it does; no Jansunwai line " + tag)
                 ok(no_hscroll(p), "card: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('dc-test')", 1))
                 ok(not bad, "card contrast AA " + tag, bad[:5])
