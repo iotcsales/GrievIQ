@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.d_page_title">Dashboard — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=30"></script><script src="/admin-nav.js?v=r8"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=31"></script><script src="/giq-charts.js?v=2"></script><script src="/admin-nav.js?v=r8"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -115,6 +115,21 @@
   .banner .note-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
   /* Headline cards */
+  /* Charts (grieviq-31): colours for giq-charts.js (dark default, light). */
+  :root { --gc-ink: #e6e9ee; --gc-muted: #aab3c0; --gc-line: #2c3543; --gc-card: #1c222c; --gc-s1: #3987e5; --gc-s2: #d95926; --gc-bar: #3987e5;
+    --gc-a1: #184f95; --gc-a2: #2a78d6; --gc-a3: #5598e7; --gc-a4: #9ec5f4; }
+  html.light-theme { --gc-ink: #14181f; --gc-muted: #5b6472; --gc-line: #dde1e6; --gc-card: #ffffff; --gc-s1: #2a78d6; --gc-s2: #c4501f; --gc-bar: #2a78d6;
+    --gc-a1: #86b6ef; --gc-a2: #3987e5; --gc-a3: #1c5cab; --gc-a4: #0d366b; }
+  .st-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 8px 0 6px; }
+  .st-tile { background: var(--admin-bg); border: 1px solid var(--admin-border); border-radius: 8px; padding: 12px 14px; }
+  .st-tile .num { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .st-tile .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.35; }
+  .st-tile.late .num { color: var(--st-late, #f3908a); }
+  html.light-theme .st-tile.late .num { color: #a8332a; }
+  .st-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .st-filter label { font-size: 13px; font-weight: 600; }
+  .st-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+  @media (max-width: 900px) { .st-grid { grid-template-columns: 1fr; } }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .card {
     background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px;
@@ -125,7 +140,8 @@
   .card .num small { font-size: 15px; font-weight: 500; color: var(--admin-muted); }
   .card .label { font-size: 14px; margin-top: 6px; font-weight: 600; }
   .card .hint { font-size: 12.5px; color: var(--admin-muted); margin-top: 4px; line-height: 1.45; }
-  a.card .go { font-size: 12.5px; color: var(--admin-accent); margin-top: 8px; }
+  a.card .go { font-size: 12.5px; color: #8fb0f7; margin-top: 8px; }   /* 4.5:1 on the dark card (was 4.1:1) */
+  html.light-theme a.card .go { color: #2a55c4; }
 
   /* Coverage bars */
   .bar-group { margin-bottom: 22px; }
@@ -578,7 +594,7 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     document.getElementById("rti-btn").disabled = false;
 
     document.getElementById("content").innerHTML =
-      renderBanner(wards) + renderCards(wards) + renderCoverage(wards) +
+      renderBanner(wards) + renderCards(wards) + '<div class="panel" id="stats-area"></div>' + renderCoverage(wards) +
       (data.canSeeDemand ? '<div class="panel" id="demand-area"></div>' : '') +
       renderTableSection();
 
@@ -592,7 +608,55 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     if (editBtn) editBtn.addEventListener("click", openNote);
 
     renderTable();
+    renderStats();
     if (data.canSeeDemand) renderDemand();
+  }
+
+  // ---- How complaints are moving (charts, grieviq-31) -------------------
+  // Counts only, from /api/admin/case-stats; the whole platform or one area.
+  let stats = null, statsState = "idle", statsArea = "ALL";
+  async function loadStats() {
+    statsState = "loading"; renderStats();
+    try {
+      const res = await fetch("/api/admin/case-stats?area=" + encodeURIComponent(statsArea), { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      stats = await res.json(); statsState = "ready";
+    } catch (e) { statsState = "error"; }
+    renderStats();
+  }
+  function chartText() { return { loc: loc(), received: T("chart.received"), resolved: T("chart.resolved"), monthCol: T("chart.month"), keysHint: T("chart.keys"), tableLabel: T("chart.show_table") }; }
+  function renderStats() {
+    const box = document.getElementById("stats-area");
+    if (!box) return;
+    if (statsState === "idle") { loadStats(); return; }
+    const head = '<h2>' + escapeHtml(T("adm.cm_title")) + '</h2><p class="section-sub">' + escapeHtml(T("adm.cm_sub")) + '</p>';
+    if (statsState === "loading" && !stats) { box.innerHTML = head + '<p class="section-sub" role="status">' + escapeHtml(T("adm.loading")) + '</p>'; return; }
+    if (statsState === "error") { box.innerHTML = head + '<div class="error-msg" role="alert">' + escapeHtml(T("adm.cm_err")) + '</div>'; return; }
+    const s = stats, t = s.tiles, C = window.GIQC, L = loc();
+    const tile = (n, label, late) => '<div class="st-tile' + (late ? ' late' : '') + '"><div class="num">' + escapeHtml(n == null ? "—" : Number(n).toLocaleString(L)) + '</div><div class="label">' + escapeHtml(label) + '</div></div>';
+    const filter = s.areas.length ? '<div class="st-filter"><label for="st-area">' + escapeHtml(T("adm.cm_area")) + '</label><select id="st-area"><option value="ALL">' + escapeHtml(T("adm.cm_all")) + '</option>' +
+      s.areas.map((a) => '<option value="' + escapeHtml(a.id) + '"' + (a.id === statsArea ? " selected" : "") + '>' + escapeHtml(a.name) + '</option>').join("") + '</select>' +
+      (statsState === "loading" ? '<span class="section-sub" role="status" style="margin:0">' + escapeHtml(T("adm.loading")) + '</span>' : '') + '</div>' : '';
+    const last = s.trend[s.trend.length - 1] || { received: 0, resolved: 0 };
+    const ages = [0, 1, 2, 3].map((i) => ({ label: T("chart.age_" + i), value: s.ages[i] || 0 }));
+    const od = s.overdueByWard, ty = s.receivedByType.map((r) => ({ name: window.GIQ ? GIQ.category(r.id, r.name) : r.name, value: r.value }));
+    const more = (n, total) => T("chart.more", { n, total });
+    box.innerHTML = head + filter +
+      '<div class="st-tiles">' + tile(t.received, T("adm.cm_t_received")) + tile(t.resolved, T("adm.cm_t_resolved")) + tile(t.pending, T("adm.cm_t_pending")) +
+        tile(t.overdue, T("adm.cm_t_overdue"), t.overdue > 0) + tile(t.medianDays, T("adm.cm_t_median")) + (t.lowRatings == null ? "" : tile(t.lowRatings, T("adm.cm_t_lowrate"), t.lowRatings > 0)) + '</div>' +
+      C.trend(Object.assign(chartText(), { id: "st-trend", title: T("adm.cm_trend_t"), data: s.trend, summary: T("chart.trend_sum", { rec: last.received, res: last.resolved }) })) +
+      '<div class="st-grid"><div>' +
+        C.bars({ loc: L, title: T("adm.cm_od_t"), rows: od, empty: T("chart.od_none"), nameCol: T("chart.ward"), valueCol: T("adm.cm_t_overdue"), tableLabel: T("chart.show_table"),
+          summary: od.length ? T("chart.od_sum", { name: od[0].name, n: od[0].value }) : "", moreNote: more }) +
+      '</div><div>' +
+        C.bars({ loc: L, title: T("adm.cm_type_t"), rows: ty, empty: T("chart.type_none"), nameCol: T("chart.type"), valueCol: T("chart.received"), tableLabel: T("chart.show_table"),
+          summary: ty.length ? T("chart.type_sum", { name: ty[0].name, n: ty[0].value }) : "", moreNote: more }) +
+      '</div></div>' +
+      C.stack({ loc: L, title: T("chart.age_t"), parts: ages, empty: T("chart.age_none"), nameCol: T("chart.age_col"), valueCol: T("chart.cases"), tableLabel: T("chart.show_table"),
+        summary: T("chart.age_sum", { n: t.pending || 0, old: s.ages[3] || 0 }) });
+    C.attach(box, chartText());
+    const sel = document.getElementById("st-area");
+    if (sel) sel.addEventListener("change", () => { statsArea = sel.value; loadStats().then(() => { const again = document.getElementById("st-area"); if (again) again.focus(); }); });
   }
 
   // ---- Where people want GrievIQ next -----------------------------------
@@ -770,6 +834,7 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
   document.getElementById("rti-btn").addEventListener("click", downloadRti);
   document.getElementById("refresh-btn").addEventListener("click", () => {
     document.getElementById("notice-area").innerHTML = "";
+    statsState = "idle";
     load();
   });
 

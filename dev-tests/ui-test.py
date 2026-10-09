@@ -15,7 +15,7 @@ CONTRAST_JS = r"""
 () => {
   function rgb(s){const m=s.match(/rgba?\(([^)]+)\)/); if(!m) return null; const p=m[1].split(',').map(Number); return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
   function lum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(c.r)+0.7152*f(c.g)+0.0722*f(c.b);}
-  function bg(el){ let cur=el; const layers=[]; while(cur && cur.nodeType===1){const c=rgb(getComputedStyle(cur).backgroundColor); if(c&&c.a>0){layers.push(c); if(c.a>=1) break;} cur=cur.parentElement;} let base={r:255,g:255,b:255}; if(!layers.length||layers[layers.length-1].a<1){base=rgb(getComputedStyle(document.body).backgroundColor)||base;} for(let i=layers.length-1;i>=0;i--){const c=layers[i]; base={r:c.r*c.a+base.r*(1-c.a),g:c.g*c.a+base.g*(1-c.a),b:c.b*c.a+base.b*(1-c.a)};} return base;}
+  function bg(el){ let cur=el; const layers=[]; while(cur && cur.nodeType===1){const c=rgb(getComputedStyle(cur).backgroundColor); if(c&&c.a>0){layers.push(c); if(c.a>=1) break;} cur=cur.parentElement;} let base={r:255,g:255,b:255}; if(!layers.length||layers[layers.length-1].a<1){base=rgb(getComputedStyle(document.querySelector('body')).backgroundColor)||base;} for(let i=layers.length-1;i>=0;i--){const c=layers[i]; base={r:c.r*c.a+base.r*(1-c.a),g:c.g*c.a+base.g*(1-c.a),b:c.b*c.a+base.b*(1-c.a)};} return base;}
   const bad=[];
   const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
   const seen=new Set();
@@ -681,6 +681,83 @@ with sync_playwright() as pw:
     ctx, p, errs = P("deo@test.in")
     p.goto(B + "/admin-dashboard.html"); p.wait_for_timeout(800)
     ok(p.locator('a[href*="admin-ratings"]:visible').count() == 0, "data entry operator: no Ratings link")
+    ctx.close()
+
+    # ---------- Charts (grieviq-31) ----------
+    TREND = [{"month": "2025-%02d" % m if m <= 12 else "2026-%02d" % (m - 12), "received": r, "resolved": v} for m, r, v in
+             zip(range(11, 23), [3, 5, 8, 6, 12, 9, 14, 11, 7, 10, 16, 4], [1, 4, 6, 7, 9, 10, 11, 12, 8, 9, 13, 2])]
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = rep_page(lang, theme, width)
+                p.evaluate("""(trend) => {
+                  const d = { groupBy: 'ward', trend, total: { pending: 31, ages: [9, 12, 7, 3] },
+                    rows: [{ id: 'w1', name: 'Aishbagh', overdue: 4 }, { id: 'w2', name: 'Hazratganj-Ramtirth', overdue: 9 }, { id: 'w3', name: 'Gomti Nagar', overdue: 0 }]
+                      .concat(Array.from({ length: 11 }, (x, i) => ({ id: 'x' + i, name: 'Ward ' + (i + 10), overdue: 1 }))) };
+                  document.getElementById('content').innerHTML = '<div id="ch-test" style="max-width:820px;padding:12px">' + renderOvTrend(trend) + renderOvCharts(d) + '</div>';
+                  GIQC.attach(document.getElementById('content'), chartText()); }""", TREND)
+                txt = p.inner_text("#ch-test")
+                if lang == "en":
+                    ok("How long pending cases have waited" in txt and "31 cases are pending now; 3 of them for over 90 days." in txt and re.search(r"Over 90 days:\s*3", txt), "rep: age bar with counts " + tag, txt[:900])
+                    ok("Most overdue: Hazratganj-Ramtirth (9)." in txt and "Showing the 10 highest of 13" in txt, "rep: overdue bars sorted, top 10 " + tag, txt[-600:])
+                else:
+                    ok("लंबित मामले कितने समय से रुके हैं" in txt and "90 दिन से अधिक" in txt, "rep: charts in Hindi " + tag, txt[:300])
+                    ok(not re.findall(r"chart\.\w+", txt), "no raw keys " + tag)
+                names = p.eval_on_selector_all("#ch-test .gc-bar .gc-name", "els => els.map(e => e.textContent)")
+                ok(names[:2] == ["Hazratganj-Ramtirth", "Aishbagh"] and len(names) == 10, "bars largest first, 10 shown " + tag, names)
+                ok(no_hscroll(p), "charts: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('ch-test')", 1))
+                ok(not bad, "charts text contrast AA " + tag, bad[:5])
+                # marks: lines and bars 3:1 against the card
+                marks = p.evaluate("""() => { function rgb(s){const m=s.match(/\\d+(\\.\\d+)?/g).map(Number);return m;} function L(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);}
+                  const card = rgb(getComputedStyle(document.querySelector('.gc-box')).backgroundColor);
+                  const cols = [getComputedStyle(document.querySelector('.gc-path.s1')).stroke, getComputedStyle(document.querySelector('.gc-path.s2')).stroke, getComputedStyle(document.querySelector('.gc-fill')).backgroundColor];
+                  return cols.map(c => { const a=L(rgb(c)), b=L(card); return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05); }); }""")
+                ok(all(m >= 3 for m in marks), "lines and bars 3:1 against the chart " + tag, marks)
+                # keyboard: focus the line chart and move with arrows
+                p.focus("#ov-trend"); p.wait_for_timeout(50)
+                tip1 = p.inner_text("#ov-trend .gc-tip")
+                p.keyboard.press("ArrowLeft"); p.wait_for_timeout(50)
+                tip2 = p.inner_text("#ov-trend .gc-tip"); live = p.inner_text("#ov-trend .gc-sr")
+                ok(p.is_visible("#ov-trend .gc-tip") and tip1 != tip2 and "16" in tip2 and "16" in live, "line chart readable with arrow keys " + tag, [tip1, tip2, live])
+                p.keyboard.press("Home"); p.wait_for_timeout(50)
+                ok(("2025" in p.inner_text("#ov-trend .gc-tip")), "Home goes to the first month " + tag)
+                p.click("#ch-test details.gc-more >> nth=1"); p.wait_for_timeout(50)
+                ok(p.locator("#ch-test details.gc-more[open] table").count() >= 1, "Show as table opens the numbers " + tag)
+                small = p.evaluate("() => Array.from(document.querySelectorAll('#ch-test summary')).filter(e => e.getBoundingClientRect().height < 24).length")
+                ok(small == 0, "table toggles at least 24px " + tag)
+                shot(p, "25-rep-charts-" + tag, full=True)
+                ok(not errs, "no script errors (rep charts) " + tag, errs)
+                ctx.close()
+    for theme in (None, "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme or "dark", lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#stats-area .st-tiles")
+                body = p.inner_text("#stats-area")
+                if lang == "en":
+                    ok("How complaints are moving" in body and "Received this month" in body and "Last 12 months" in body and "How long pending cases have waited" in body, "admin charts section " + tag, body[:300])
+                else:
+                    ok("शिकायतों की प्रगति" in body and "इस महीने प्राप्त" in body, "admin charts in Hindi " + tag, body[:300])
+                    ok(not re.findall(r"(adm\.cm_|chart\.)\w+", body), "no raw keys " + tag)
+                ok(no_hscroll(p), "admin charts: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('stats-area')", 1))
+                ok(not bad, "admin charts contrast AA " + tag, bad[:5])
+                small = p.evaluate("() => Array.from(document.querySelectorAll('#stats-area summary, #stats-area select')).filter(e => e.getBoundingClientRect().height < 24).length")
+                ok(small == 0, "admin chart controls >= 24px " + tag)
+                p.locator("#stats-area").screenshot(path=os.path.join(SHOTS, "26-admin-charts-" + tag + ".png"))
+                ok(not errs, "no script errors (admin charts) " + tag, errs)
+                ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#st-area")
+    with p.expect_response(lambda r: "case-stats?area=kanpur" in r.url): p.select_option("#st-area", "kanpur")
+    p.wait_for_timeout(200)
+    ok(p.input_value("#st-area") == "kanpur" and p.evaluate("document.activeElement.id") == "st-area", "area filter reloads and keeps focus")
+    p.focus("#st-trend"); p.keyboard.press("ArrowLeft"); p.wait_for_timeout(50)
+    ok(p.is_visible("#st-trend .gc-tip"), "admin line chart works with the keyboard")
+    ok(not errs, "no script errors (admin area filter)", errs)
     ctx.close()
 
     # ---------- themes, languages, widths: contrast + reflow ----------

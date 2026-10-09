@@ -507,6 +507,22 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(after.comment === null && after.follow_up_note === null && sdb.prepare("SELECT COUNT(*) n FROM case_dept_steps WHERE grievance_id='g2' AND note IS NOT NULL").get().n === 0, "anonymising removes rating comments and department-step notes", after);
 }
 
+// ---- charts: admin case stats (grieviq-31) ----
+{
+  let r = await call(S, "GET", "/api/admin/case-stats");
+  ok(r.status === 200 && Array.isArray(r.body.trend) && r.body.trend.length === 12 && r.body.ages.length === 4 && r.body.tiles && "lowRatings" in r.body.tiles, "case stats: shape", r.body);
+  ok(r.body.areas.some((a) => a.id === "lucknow") && r.body.area === "ALL", "case stats: area list", r.body.areas);
+  const tot = r.body.tiles.pending;
+  ok(r.body.ages.reduce((a, b) => a + b, 0) === tot, "ages add up to pending", { ages: r.body.ages, tot });
+  ok(!JSON.stringify(r.body).match(/@|9000000|Leaking/), "no emails, phones or complaint text");
+  ok(r.body.receivedByType.every((x, i, a) => !i || a[i - 1].value >= x.value), "issue types sorted largest first");
+  const k = await call(S, "GET", "/api/admin/case-stats?area=kanpur");
+  ok(k.status === 200 && k.body.tiles.received + k.body.tiles.pending <= r.body.tiles.received + r.body.tiles.pending, "one area at a time", k.body.tiles);
+  ok((await call(S, "GET", "/api/admin/case-stats?area=nowhere")).status === 404, "unknown area refused");
+  ok((await call(A, "GET", "/api/admin/case-stats")).status === 200 && (await call(D, "GET", "/api/admin/case-stats")).status === 200, "auditor and data entry operator read the counts");
+  ok((await call("nobody@test.in", "GET", "/api/admin/case-stats")).status === 403, "non-staff refused");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = new DatabaseSync(process.argv[2] || "test.db");

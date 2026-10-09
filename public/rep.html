@@ -20,7 +20,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=30"></script>
+<script src="/i18n.js?v=31"></script>
+<script src="/giq-charts.js?v=2"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=29"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -366,6 +367,13 @@
   .sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
   .sw.s1, .ov-dot.s1 { background: #2a78d6; fill: #2a78d6; }
   .sw.s2, .ov-dot.s2 { background: #eb6834; fill: #eb6834; }
+  /* Charts (grieviq-31): colours for giq-charts.js, light and dark (validated:
+     one-hue ordinal age ramp, oldest strongest; lines and bars 3:1). */
+  :root { --gc-ink: var(--ink); --gc-muted: var(--steel-2); --gc-line: var(--line); --gc-card: var(--card);
+    --gc-s1: #2a78d6; --gc-s2: #c4501f; --gc-bar: #2a78d6; --gc-a1: #86b6ef; --gc-a2: #3987e5; --gc-a3: #1c5cab; --gc-a4: #0d366b; }
+  :root[data-theme="dark"] { --gc-s1: #3987e5; --gc-s2: #d95926; --gc-bar: #3987e5; --gc-a1: #184f95; --gc-a2: #2a78d6; --gc-a3: #5598e7; --gc-a4: #9ec5f4; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gc-s1: #3987e5; --gc-s2: #d95926; --gc-bar: #3987e5; --gc-a1: #184f95; --gc-a2: #2a78d6; --gc-a3: #5598e7; --gc-a4: #9ec5f4; } }
+  @media print { :root[data-theme="dark"] { --gc-s1: #2a78d6; --gc-s2: #c4501f; --gc-bar: #2a78d6; --gc-a1: #86b6ef; --gc-a2: #3987e5; --gc-a3: #1c5cab; --gc-a4: #0d366b; } }
   .ov-chart-wrap { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
   .ov-chart { width: 100%; height: auto; display: block; }
   .ov-grid { stroke: var(--line); stroke-width: 1; }
@@ -2284,6 +2292,7 @@ function renderOverviewTab() {
     html += '</tbody><tfoot><tr><th scope="row" class="ov-name">' + esc(T('rep.ov_total')) + '</th>' + OV_COLS.map(function(c) { return ovCell(t, c); }).join('') + '</tr></tfoot></table></div>';
   }
   html += renderOvTrend(d.trend || []);
+  html += renderOvCharts(d);
   html += renderOvRatings(d.ratings);
   if (d.workload) {
     html += '<h3 class="team-activity-t">' + esc(T('rep.ov_work_t')) + '</h3>';
@@ -2313,38 +2322,27 @@ function renderOvRatings(r) {
 }
 // 12-month trend: two lines (received, resolved), a legend, end labels,
 // and a hover readout per month; the same numbers as a table below.
+function chartText() {
+  return { loc: loc(), received: T('chart.received'), resolved: T('chart.resolved'), monthCol: T('chart.month'), keysHint: T('chart.keys'), tableLabel: T('chart.show_table') };
+}
 function renderOvTrend(trend) {
   if (!trend.length) return '';
-  var W = 640, H = 220, L = 36, R = 64, Tp = 16, B = 28;
-  var max = Math.max(1, Math.max.apply(null, trend.map(function(m) { return Math.max(m.received, m.resolved); })));
-  var step = Math.pow(10, Math.floor(Math.log10(max))); var nice = Math.ceil(max / step) * step; if (nice / step > 5 && step >= 1) nice = Math.ceil(max / (step * 2)) * step * 2;
-  if (nice < 4) nice = 4;
-  var x = function(i) { return L + i * (W - L - R) / (trend.length - 1); };
-  var y = function(v) { return Tp + (H - Tp - B) * (1 - v / nice); };
-  var mon = function(mo) { return new Date(mo + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'short', timeZone: 'Asia/Kolkata' }); };
-  var monY = function(mo) { return new Date(mo + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }); };
-  var grid = '';
-  for (var g = 0; g <= 4; g++) { var gv = Math.round(nice * g / 4); grid += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(gv) + '" y2="' + y(gv) + '" class="ov-grid"/><text x="' + (L - 6) + '" y="' + (y(gv) + 4) + '" class="ov-axis" text-anchor="end">' + gv + '</text>'; }
-  var labels = trend.map(function(m, i) { return (i % 2 === (trend.length - 1) % 2) ? '<text x="' + x(i) + '" y="' + (H - 8) + '" class="ov-axis" text-anchor="middle">' + esc(mon(m.month)) + '</text>' : ''; }).join('');
-  var line = function(k) { return trend.map(function(m, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(m[k]).toFixed(1); }).join(' '); };
   var last = trend[trend.length - 1];
-  var ly1 = y(last.received), ly2 = y(last.resolved); if (Math.abs(ly1 - ly2) < 14) { if (ly1 <= ly2) { ly1 -= 7; ly2 += 7; } else { ly1 += 7; ly2 -= 7; } }
-  var hits = trend.map(function(m, i) {
-    var w = (W - L - R) / (trend.length - 1);
-    return '<rect class="ov-hit" x="' + (x(i) - w / 2) + '" y="' + Tp + '" width="' + w + '" height="' + (H - Tp - B) + '" data-i="' + i + '"/>';
-  }).join('');
-  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="ov-chart" role="img" aria-label="' + esc(T('rep.ov_trend_t')) + '">' + grid + labels +
-    '<line class="ov-cross" id="ov-cross" x1="0" x2="0" y1="' + Tp + '" y2="' + (H - B) + '" visibility="hidden"/>' +
-    '<path d="' + line('received') + '" class="ov-line s1"/><path d="' + line('resolved') + '" class="ov-line s2"/>' +
-    trend.map(function(m, i) { return '<circle cx="' + x(i) + '" cy="' + y(m.received) + '" r="3.5" class="ov-dot s1"/><circle cx="' + x(i) + '" cy="' + y(m.resolved) + '" r="3.5" class="ov-dot s2"/>'; }).join('') +
-    '<text x="' + (W - R + 8) + '" y="' + (ly1 + 4) + '" class="ov-end">' + esc(T('rep.ov_col_received')) + '</text>' +
-    '<text x="' + (W - R + 8) + '" y="' + (ly2 + 4) + '" class="ov-end">' + esc(T('rep.ov_col_resolved')) + '</text>' +
-    hits + '</svg>';
-  var table = '<details class="ov-how"><summary>' + esc(T('rep.ov_trend_table')) + '</summary><table class="ov-table ov-trend-table"><thead><tr><th scope="col">' + esc(T('rep.ov_month')) + '</th><th scope="col">' + esc(T('rep.ov_col_received')) + '</th><th scope="col">' + esc(T('rep.ov_col_resolved')) + '</th></tr></thead><tbody>' +
-    trend.map(function(m) { return '<tr><th scope="row">' + esc(monY(m.month)) + '</th><td class="num">' + m.received + '</td><td class="num">' + m.resolved + '</td></tr>'; }).join('') + '</tbody></table></details>';
-  return '<h3 class="team-activity-t">' + esc(T('rep.ov_trend_t')) + '</h3>' +
-    '<div class="ov-legend" aria-hidden="true"><span><i class="sw s1"></i>' + esc(T('rep.ov_col_received')) + '</span><span><i class="sw s2"></i>' + esc(T('rep.ov_col_resolved')) + '</span></div>' +
-    '<div class="ov-chart-wrap" id="ov-chart-wrap">' + svg + '<div class="ov-tip" id="ov-tip" hidden></div></div>' + table;
+  return window.GIQC.trend(Object.assign(chartText(), { id: 'ov-trend', title: T('rep.ov_trend_t'), data: trend,
+    summary: T('chart.trend_sum', { rec: last.received, res: last.resolved }) }));
+}
+// Charts (grieviq-31): pending cases by age (the one stacked bar) and where
+// cases are overdue now (sorted bars, top 10, all in the table).
+function renderOvCharts(d) {
+  var t = d.total || {}, ages = t.ages || [0, 0, 0, 0];
+  var parts = [0, 1, 2, 3].map(function(i) { return { label: T('chart.age_' + i), value: ages[i] || 0 }; });
+  var firstCol = d.groupBy === 'category' ? T('rep.ov_col_type') : d.groupBy === 'mla' ? T('rep.ov_col_mla') : T('rep.ov_col_ward');
+  var od = (d.rows || []).filter(function(r) { return r.overdue > 0; }).map(function(r) { return { name: d.groupBy === 'category' ? catName(r.id, r.name) : r.name, value: r.overdue }; })
+    .sort(function(a, b) { return b.value - a.value || String(a.name).localeCompare(String(b.name)); });
+  return window.GIQC.stack({ loc: loc(), title: T('chart.age_t'), parts: parts, empty: T('chart.age_none'), nameCol: T('chart.age_col'), valueCol: T('chart.cases'), tableLabel: T('chart.show_table'),
+      summary: T('chart.age_sum', { n: t.pending || 0, old: ages[3] || 0 }) }) +
+    window.GIQC.bars({ loc: loc(), title: T('chart.od_t'), rows: od, empty: T('chart.od_none'), nameCol: firstCol, valueCol: T('rep.ov_k_overdue'), tableLabel: T('chart.show_table'),
+      summary: od.length ? T('chart.od_sum', { name: od[0].name, n: od[0].value }) : '', moreNote: function(n, total) { return T('chart.more', { n: n, total: total }); } });
 }
 function attachOverviewHandlers() {
   document.querySelectorAll('.ov-sort').forEach(function(b) { b.addEventListener('click', function() {
@@ -2375,22 +2373,7 @@ function attachOverviewHandlers() {
     renderViewingControl(); updateTabs(); updateSummary(); document.getElementById('filter-slot').innerHTML = ''; renderFilters(); renderContent();
     var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
   }); });
-  var wrap = document.getElementById('ov-chart-wrap'), tip = document.getElementById('ov-tip'), cross = document.getElementById('ov-cross');
-  if (wrap && tip && ovData && ovData.trend) {
-    var svgEl = wrap.querySelector('svg');
-    wrap.querySelectorAll('.ov-hit').forEach(function(h) {
-      h.addEventListener('mouseenter', function() {
-        var i = +h.getAttribute('data-i'), m = ovData.trend[i];
-        var cx = +h.getAttribute('x') + +h.getAttribute('width') / 2;
-        cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
-        tip.innerHTML = '<b>' + esc(new Date(m.month + '-01T00:00:00+05:30').toLocaleDateString(loc(), { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })) + '</b><div><i class="sw s1"></i>' + esc(T('rep.ov_col_received')) + ': ' + m.received + '</div><div><i class="sw s2"></i>' + esc(T('rep.ov_col_resolved')) + ': ' + m.resolved + '</div>';
-        tip.hidden = false;
-        var box = svgEl.getBoundingClientRect(), scale = box.width / 640, px = cx * scale;
-        tip.style.left = Math.min(Math.max(0, px - 70), box.width - 150) + 'px';
-      });
-    });
-    svgEl.addEventListener('mouseleave', function() { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
-  }
+  if (window.GIQC) window.GIQC.attach(document.getElementById('content'), chartText());
 }
 
 // ================= Viewing (which of my areas) =================
