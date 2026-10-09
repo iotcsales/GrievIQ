@@ -124,7 +124,7 @@ export async function onRequestGet({ request, env }) {
     gapReports,
     ready: true, areas, area, departments: active, types: types.map((t) => Object.assign({}, t, { used: used[t.key] || { offices: 0, issueTypes: 0 } })),
     typesReady: await typesReady(env), names: namesOf(types), staleDays: STALE_DAYS, importMax: IMPORT_MAX_ROWS,
-    canManage: allows(auth, "manage_departments"), canRequest: allows(auth, "request_changes") && !allows(auth, "manage_departments"),
+    canManage: allows(auth, "manage_departments"), canSeeOfficers: allows(auth, "view_dept_officers"), canManageOfficers: allows(auth, "manage_dept_officers"), canRequest: allows(auth, "request_changes") && !allows(auth, "manage_departments"),
     offices, units, coverage: coverage(units, offices, active), pending,
   });
 }

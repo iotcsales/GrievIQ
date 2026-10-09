@@ -24,6 +24,7 @@ import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
 import { loadRatings, shapeForRep } from "../_shared/ratings.js";
+import { officerNames } from "../_shared/dept-cases.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 
 export async function onRequestGet(context) {
@@ -391,13 +392,16 @@ export async function onRequestGet(context) {
   // Departments stage 3: each case's department steps and current state.
   const stepsBy = await loadSteps(env, visible.map((c) => c.id));
   const targets = stepsBy.size ? await targetDaysByType(env) : {};
+  // grieviq-32: names of department officers who replied on the dashboard.
+  const deptOfficerNames = await officerNames(env, Array.from(stepsBy.values()).flat().filter((x) => x.actor_role === "DEPARTMENT").map((x) => x.actor));
   for (const c of visible) {
     const steps = stepsBy.get(c.id) || [];
     c.deptState = deptState(steps, targets);
     c.deptSteps = [];
     for (const st of steps) {
       const sh = shapeStepForRep(st);
-      if (st.photo_report_id && (st.kind === "CHECK_PARTLY" || st.kind === "CHECK_NOT_FIXED")) {
+      if (st.actor_role === "DEPARTMENT") { sh.byDept = true; sh.byDeptName = deptOfficerNames[String(st.actor || "").toLowerCase()] || null; }
+      if (st.photo_report_id && (st.kind === "CHECK_PARTLY" || st.kind === "CHECK_NOT_FIXED" || (st.kind === "DONE_CLAIMED" && st.actor_role === "DEPARTMENT"))) {
         const ph = photosByReport.get(st.photo_report_id) || [];
         sh.photos = [];
         for (const p of ph) sh.photos.push(await photoMedia(env, p, "r"));

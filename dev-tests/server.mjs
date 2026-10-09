@@ -20,7 +20,7 @@ fs.writeFileSync(path.join(build, "_shared/verify-access-jwt.js"),
 
 // ---- D1 shim ----
 const db = new DatabaseSync(dbFile);
-db.exec("PRAGMA foreign_keys = ON");   // D1 checks foreign keys
+db.exec("PRAGMA foreign_keys = ON"); db.exec("PRAGMA busy_timeout = 5000");   // D1 checks foreign keys
 function norm(v) { if (v === undefined) throw new Error("D1_TYPE_ERROR: undefined bound"); return typeof v === "boolean" ? (v ? 1 : 0) : v; }
 class Stmt {
   constructor(sql, binds) { this.sql = sql; this.binds = binds || []; }
@@ -35,7 +35,17 @@ const DB = {
   batch: async (stmts) => { db.exec("BEGIN"); try { const out = stmts.map((s) => s._runSync()); db.exec("COMMIT"); return out; } catch (e) { db.exec("ROLLBACK"); throw e; } },
   exec: async (sql) => { db.exec(sql); return { count: 1 }; },
 };
-const env = { DB, ACCESS_TEAM_DOMAIN: "test", ACCESS_AUD: "test" };
+// A stand-in for the private photo bucket (R2), kept in memory.
+const r2 = new Map();
+const PRIVATE_PHOTOS = {
+  put: async (k, v) => { r2.set(k, Buffer.from(v instanceof ArrayBuffer ? new Uint8Array(v) : v)); },
+  get: async (k) => { const b = r2.get(k); return b ? { size: b.length, arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length), body: b, httpMetadata: {} } : null; },
+  delete: async (ks) => { for (const k of [].concat(ks)) r2.delete(k); },
+};
+const env = { DB, ACCESS_TEAM_DOMAIN: "test", ACCESS_AUD: "test", RESEND_API_KEY: "test-key", PRIVATE_PHOTOS, PHOTO_LINK_SECRET: "test-secret-0123456789abcdef" };
+// Emails "sent" in tests are written here (one JSON per line).
+const MAIL_LOG = path.join(path.dirname(dbFile), "mail.log");
+fs.writeFileSync(MAIL_LOG, "");
 
 // DNS-over-HTTPS email checks: answer "can receive" instantly (no network here).
 const realFetch = globalThis.fetch;
@@ -44,6 +54,10 @@ globalThis.fetch = async (url, opts) => {
   if (u.startsWith("https://cloudflare-dns.com/")) {
     const nomail = /name=nomail\.invalid/.test(u);
     return new Response(JSON.stringify(nomail ? { Status: 3 } : { Status: 0, Answer: [{ type: 15, data: "10 mx.example." }] }), { headers: { "content-type": "application/dns-json" } });
+  }
+  if (u.startsWith("https://api.resend.com/")) {
+    fs.appendFileSync(MAIL_LOG, String(opts && opts.body || "") + "\n");
+    return new Response(JSON.stringify({ id: "test" }), { status: 200, headers: { "content-type": "application/json" } });
   }
   return realFetch(url, opts);
 };

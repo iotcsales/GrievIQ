@@ -627,7 +627,7 @@ with sync_playwright() as pw:
 
     # Admin: Ratings page, dashboard card, case panel (real server)
     import sqlite3 as _sq
-    _db = _sq.connect(os.environ.get("GRIEVIQ_TEST_DIR", "/tmp/grieviq-tests") + "/test.db")
+    _db = _sq.connect(os.environ.get("GRIEVIQ_TEST_DIR", "/tmp/grieviq-tests") + "/test.db", timeout=10)
     _now = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     for i, (o, d, cm) in enumerate(((1, 2, "Nobody came for two weeks and the road is still dug up"), (2, None, None))):
         gid = "glow%d" % i
@@ -758,6 +758,156 @@ with sync_playwright() as pw:
     p.focus("#st-trend"); p.keyboard.press("ArrowLeft"); p.wait_for_timeout(50)
     ok(p.is_visible("#st-trend .gc-tip"), "admin line chart works with the keyboard")
     ok(not errs, "no script errors (admin area filter)", errs)
+    ctx.close()
+
+    # ---------- Department dashboard (grieviq-32) ----------
+    import hashlib as _hl
+    WORK = os.environ.get("GRIEVIQ_TEST_DIR", "/tmp/grieviq-tests")
+    def last_code(email):
+        for line in reversed(open(WORK + "/mail.log", encoding="utf-8").read().strip().split("\n")):
+            if not line: continue
+            m = _json.loads(line)
+            if m.get("to") and m["to"][0] == email:
+                return re.search(r"(\d{6})", m["subject"]).group(1)
+        return None
+    # 1. Real sign-in with the emailed code
+    ctx = br.new_context(viewport={"width": 390, "height": 900})
+    p = ctx.new_page(); errs = []
+    p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/dept"); p.wait_for_selector("#email")
+    p.click("#send"); p.wait_for_timeout(100)
+    ok(p.get_attribute("#email", "aria-invalid") == "true" and p.inner_text("#email-err") != "", "dept sign-in: email checked")
+    p.fill("#email", "ae.zone3@nic.in"); p.click("#send"); p.wait_for_selector("#code")
+    ok(p.evaluate("document.activeElement.id") == "code", "code box focused")
+    p.fill("#code", "000000"); p.click("#verify"); p.wait_for_timeout(300)
+    ok("isn't right" in p.inner_text("#code-err") or "expired" in p.inner_text("#code-err"), "wrong code message", p.inner_text("#code-err"))
+    p.fill("#code", last_code("ae.zone3@nic.in")); p.click("#verify"); p.wait_for_selector(".tiles")
+    ok("Ravi Kumar" in p.inner_text("#who") and "Jal Kal Vibhag Lucknow" in p.inner_text("#who"), "signed in: name and office shown")
+    ok(p.locator('[data-open="g21"]').count() == 1, "new case listed")
+    p.click('[data-open="g21"]'); p.wait_for_selector("#case-h")
+    body = p.inner_text("main")
+    ok("Second leak" in body and "9876500000" not in body and "citizen" in body.lower(), "case: complaint shown, no phone", body[:300])
+    p.click("#r-send"); p.wait_for_timeout(100)
+    ok(p.inner_text("#kind-err") != "", "reply: choose the position")
+    p.check('input[name=kind][value=SCHEDULED]'); p.wait_for_selector("#r-date")
+    p.click("#r-send"); p.wait_for_timeout(100)
+    ok(p.get_attribute("#r-date", "aria-invalid") == "true", "reply: date needed")
+    import datetime as _dt
+    p.fill("#r-date", (_dt.date.today() + _dt.timedelta(days=3)).isoformat()); p.fill("#r-note", "Team visiting Thursday")
+    with p.expect_response(lambda r: "/api/dept/reply" in r.url): p.click("#r-send")
+    p.wait_for_selector("#msg")
+    ok("work is scheduled" in p.inner_text("#msg") and "scheduled the work" in p.inner_text("main"), "reply sent and shown in the history", p.inner_text("#msg"))
+    # work done with a photo
+    p.check('input[name=kind][value=DONE_CLAIMED]'); p.wait_for_selector("#r-photo")
+    png = bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) + bytes(range(40))
+    with p.expect_response(lambda r: "/api/dept/photo" in r.url): p.set_input_files("#r-photo", files=[{"name": "work.png", "mimeType": "image/png", "buffer": png}])
+    p.wait_for_selector("[data-rm-photo]")
+    ok(p.locator("[data-rm-photo]").count() == 1, "work photo added")
+    with p.expect_response(lambda r: "/api/dept/reply" in r.url): p.click("#r-send")
+    p.wait_for_selector("#msg:has-text('check it on site')")
+    ok("check it on site" in p.inner_text("#msg"), "work done sent", p.inner_text("#msg"))
+    p.click("#back"); p.wait_for_selector(".tiles")
+    ok("Waiting for check" in p.inner_text('li:has([data-open="g21"])'), "list shows waiting for the check")
+    p.click("#sign-out"); p.wait_for_selector("#email")
+    ok("signed out" in p.inner_text("#msg"), "signed out")
+    ok(not errs, "no script errors (dept sign-in flow)", errs)
+    ctx.close()
+    # 2. Every theme, language and width (session made directly, to stay under the code limit)
+    def dept_signin(ctx):
+        # A code made directly in the database (the 3-codes-per-15-minutes limit
+        # applies to asking for codes, not to signing in), then the real sign-in.
+        code = "135790"
+        d = _sq.connect(WORK + "/test.db", timeout=10)
+        d.execute("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, 'ae.zone3@nic.in', ?, ?, ?)",
+                  ("ui-" + str(_dt.datetime.utcnow().timestamp()), _hl.sha256(("ae.zone3@nic.in:" + code).encode()).hexdigest(),
+                   (_dt.datetime.utcnow() + _dt.timedelta(minutes=10)).isoformat() + "Z", (_dt.datetime.utcnow() + _dt.timedelta(seconds=5)).isoformat() + "Z"))
+        d.commit(); d.close()
+        r = ctx.request.post(B + "/api/dept/verify", data={"email": "ae.zone3@nic.in", "code": code})
+        return r.status
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ok(dept_signin(ctx) == 200, "signed in " + tag)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/dept"); p.wait_for_selector(".tiles")
+                txt = p.inner_text("main")
+                if lang == "hi":
+                    ok("आपके कार्यालय को भेजी गई शिकायतें" in txt and not re.findall(r"dd\.\w+", txt), "dept list in Hindi " + tag, txt[:200])
+                ok(no_hscroll(p), "dept list: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "dept list contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "dept list targets >= 24px " + tag, small[:5])
+                shot(p, "27-dept-list-" + tag, full=(width == 375))
+                p.click('[data-open="g20"]'); p.wait_for_selector("#case-h")
+                ok(no_hscroll(p), "dept case: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "dept case contrast AA " + tag, bad[:5])
+                p.goto(B + "/dept#case=g21"); p.wait_for_selector("#case-h")
+                if p.locator("input[name=kind]").count():
+                    p.check('input[name=kind][value=CANT_DO]'); p.wait_for_selector("#r-note")
+                    p.click("#r-send"); p.wait_for_timeout(100)
+                    bad = p.evaluate(CONTRAST_JS); ok(not bad, "dept reply form contrast AA " + tag, bad[:5])
+                    small = p.evaluate(TARGET_JS); ok(not small, "dept reply targets >= 24px " + tag, small[:5])
+                shot(p, "28-dept-case-" + tag, full=True)
+                ok(not errs, "no script errors (dept) " + tag, errs)
+                ctx.close()
+    # 3. Admin: officers panel
+    for theme in (None, "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme or "dark", lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+                btn = p.locator("article:has-text('Jal Kal Vibhag Lucknow') [data-officers]")
+                btn.click(); p.wait_for_selector(".op h5")
+                ok(btn.get_attribute("aria-expanded") == "true", "officers panel opens " + tag)
+                ptxt = p.inner_text(".op")
+                if lang == "en":
+                    ok("Signed on" in ptxt and "Ravi Kumar" in ptxt and "Asha Verma" in ptxt and "Removed" in ptxt, "panel: agreement and officers " + tag, ptxt[:400])
+                else:
+                    ok("GrievIQ के साथ समझौता" in ptxt and not re.findall(r"adm\.do_\w+", ptxt), "panel in Hindi " + tag)
+                ok(no_hscroll(p), "officers panel: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.op')", 1)); ok(not bad, "officers panel contrast AA " + tag, bad[:5])
+                p.locator(".op").screenshot(path=os.path.join(SHOTS, "29-admin-officers-" + tag + ".png"))
+                ok(not errs, "no script errors (officers panel) " + tag, errs)
+                ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+    p.locator("article:has-text('Lucknow Nagar Nigam Control Room') [data-officers]").first.click(); p.wait_for_selector("#op-agr-form")
+    p.click("#op-agr-save"); p.wait_for_timeout(300)
+    ok(p.get_attribute("#op-signed-on", "aria-invalid") == "true" and p.evaluate("document.activeElement.id") == "op-signed-on", "agreement form: errors next to fields, focus on the first")
+    p.fill("#op-signed-on", "2026-10-05"); p.fill("#op-signed-by", "S. Mishra, Additional Municipal Commissioner"); p.fill("#op-doc", "LMC/IT/2026/88")
+    with p.expect_response(lambda r: "dept-officers" in r.url and r.request.method == "POST"): p.click("#op-agr-save")
+    p.wait_for_selector("#op-add-form")
+    p.fill("#op-name", "Neha Gupta"); p.fill("#op-desig", "Zonal Officer, Zone 1"); p.fill("#op-email", "zo1.lmc@nic.in")
+    with p.expect_response(lambda r: "dept-officers" in r.url and r.request.method == "POST"): p.click("#op-add-go")
+    p.wait_for_selector("#op-msg")
+    ok("Neha Gupta added" in p.inner_text("#op-msg") and "zo1.lmc@nic.in" in p.inner_text(".op"), "officer added from the page")
+    p.locator("[data-op-remove]").first.click(); p.wait_for_selector("#op-rm-reason")
+    p.click("#op-rm-go"); p.wait_for_timeout(100)
+    ok(p.get_attribute("#op-rm-reason", "aria-invalid") == "true", "removal needs a reason")
+    p.fill("#op-rm-reason", "Left the zonal office")
+    with p.expect_response(lambda r: "dept-officers" in r.url and r.request.method == "POST"): p.click("#op-rm-go")
+    p.wait_for_selector("#op-msg")
+    ok("removed and signed out" in p.inner_text("#op-msg"), "officer removed from the page")
+    ok(not errs, "no script errors (officers add/remove)", errs)
+    ctx.close()
+    ctx, p, errs = P("audit@test.in")
+    p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+    p.locator("article:has-text('Jal Kal Vibhag Lucknow') [data-officers]").click(); p.wait_for_selector(".op h5")
+    ok(p.locator("#op-add-form, [data-op-remove], #op-agr-open").count() == 0, "auditor: officers panel read only")
+    ctx.close()
+    ctx, p, errs = P("deo@test.in")
+    p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+    ok(p.locator("[data-officers]").count() == 0, "data entry operator: no officers button")
+    ctx.close()
+    # 4. Rep console: who replied from the department
+    ctx, p, errs = rep_page("en", "light", 1280)
+    show(p, steps_case(["FORWARDED", "SCHEDULED"], "WITH_DEPT", extra={"expectedDate": "2026-10-12"}))
+    p.evaluate("""() => { const c = currentCases[0]; c.deptSteps[1].byDept = true; c.deptSteps[1].byDeptName = 'Ravi Kumar'; renderContent(); }""")
+    ok("Replied by the department (Ravi Kumar)" in p.inner_text("#ds-c9"), "rep console: department reply labelled with the officer")
     ctx.close()
 
     # ---------- themes, languages, widths: contrast + reflow ----------

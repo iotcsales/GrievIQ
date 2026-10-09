@@ -20,10 +20,10 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=31"></script>
+<script src="/i18n.js?v=32"></script>
 <script src="/giq-charts.js?v=2"></script>
 <script src="/photo-tools.js?v=7c"></script>
-<script src="/rep-notify.js?v=29"></script>
+<script src="/rep-notify.js?v=32"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
 <link rel="stylesheet" href="/vendor/accessible-autocomplete/accessible-autocomplete.min.css">
 <script src="/vendor/accessible-autocomplete/accessible-autocomplete.min.js"></script>
@@ -1281,7 +1281,7 @@ function renderDeptProgress(c) {
       return p.thumbUrl ? '<a href="' + esc(p.url || p.thumbUrl) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl) + '" alt="' + esc(T('rep.ds_photo_alt', { n: i + 1 })) + '" loading="lazy"></a>' : '';
     }).join('');
     return '<li class="ds-step ds-' + esc(x.kind.toLowerCase()) + '"><span class="ds-t">' + esc(dsStepText(x)) + '</span>' +
-      '<span class="ds-meta">' + esc(formatDate(x.at)) + (x.actor ? ' · ' + esc(x.actor) : '') + '</span>' +
+      '<span class="ds-meta">' + esc(formatDate(x.at)) + (x.byDept ? ' · ' + esc(T('rep.ds_by_dept', { name: x.byDeptName || T('rep.ds_dept_officer') })) : x.actor ? ' · ' + esc(x.actor) : '') + '</span>' +
       (x.note ? '<span class="ds-note">' + esc(x.note) + '</span>' : '') + (photos ? '<span class="ds-photos">' + photos + '</span>' : '') + '</li>';
   }).join('');
   var canReply = (c.myRole === 'REPRESENTATIVE' || c.myRole === 'OFFICE_MANAGER' || !c.myRole) && !c.viewOnly &&

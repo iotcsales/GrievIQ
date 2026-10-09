@@ -47,6 +47,7 @@
       case 'ANNOUNCEMENT': return { t: T('rn.k_msg_t'), b: d.title || '' };
       case 'REPLY': return { t: T('rn.k_reply_t'), b: d.title || '' };
       case 'DEPT_OVERDUE': return { t: T('rn.k_dod_t', { who: d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept), ref: n.ref }), b: wt + ' · ' + T('rn.k_dod_b', { days: d.days }) };
+      case 'DEPT_REPLY': { var who = d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept); return { t: T('rn.k_dr_t', { who: who, ref: n.ref }), b: wt + ' · ' + T('rn.k_dr_' + d.kind, { who: who, date: d.expectedDate || '' }) }; }
       default: return { t: 'GrievIQ', b: '' };
     }
   }

@@ -90,6 +90,11 @@ export const PERMISSIONS = {
   // ratings; the auditor reads (same people who see cases).
   view_ratings: ["super_admin", "operations_admin", "auditor"],
   follow_up_ratings: ["super_admin", "operations_admin"],
+  // Department dashboard (grieviq-32): who from a department office may sign
+  // in. Giving access to citizens' complaints is a senior decision; the
+  // auditor reads the officers, agreements and their activity.
+  view_dept_officers: ["super_admin", "operations_admin", "auditor"],
+  manage_dept_officers: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page

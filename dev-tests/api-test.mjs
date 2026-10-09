@@ -269,7 +269,7 @@ g = await get(S, "lucknow");
 ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department === "Health" && x.by === "r1@x.in"), "admin sees the report", g.body.gapReports);
 {
   const { DatabaseSync } = await import("node:sqlite");
-  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
   const stmt = (sql, b) => ({ bind: (...x) => stmt(sql, x), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((r) => ({ ...r })) }),
     first: async () => { const r = sdb.prepare(sql).get(...(b || [])); return r ? { ...r } : null; } });
   const env = { DB: { prepare: (sql) => stmt(sql, []) } };
@@ -292,7 +292,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const fwd = (who, b) => call(who, "POST", "/api/grievances/g2/add-followup", b);
   const step = (who, b) => call(who, "POST", "/api/grievances/g2/dept-step", b);
   const { DatabaseSync } = await import("node:sqlite");
-  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
   const steps = () => sdb.prepare("SELECT * FROM case_dept_steps WHERE grievance_id = 'g2' ORDER BY created_at, rowid").all();
   let r;
   r = await step(R, { kind: "SCHEDULED", expectedDate: "2030-01-01" });
@@ -402,7 +402,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
 // ---- citizen ratings (grieviq-30) ----
 {
   const { DatabaseSync } = await import("node:sqlite");
-  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
   const R = "r1@x.in", OM = "om@x.in", FW = "fw@x.in", CIT = "cit@x.in";
   const now = () => new Date().toISOString();
   const ago = (d) => new Date(Date.now() - d * 86400000).toISOString();
@@ -523,9 +523,140 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await call("nobody@test.in", "GET", "/api/admin/case-stats")).status === 403, "non-staff refused");
 }
 
+// ---- department dashboard (grieviq-32) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const R = "r1@x.in", OFF = "je.zone3@nic.in";
+  const now = new Date().toISOString();
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, citizen_email, local_unit_id, category_id, status, description, location_detail, pin_lat, pin_lng, current_tier, created_at) VALUES ('g20','GRV-DEPT20','9876500000','citizen20@x.in','lu-hazratganj','water-sanitation','OPEN','No water since Monday in Lane 4','Near the temple',26.85,80.94,'LOCAL',?)").run(now);
+  const jal = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn === "Jal Kal Vibhag Lucknow");
+  let r = await call(R, "POST", "/api/grievances/g20/add-followup", { department: "Water Supply", channel: "PHONE", officeId: jal.id, note: "Please send the tanker today" });
+  ok(r.status === 200, "case forwarded to the Jal Kal office", r.body);
+  const dp = (b) => call(S, "POST", "/api/admin/dept-officers", b);
+  // admin: agreement first, then officers
+  r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "Junior Engineer, Zone 3", email: OFF });
+  ok(r.status === 409 && r.body.code === "NO_AGREEMENT", "no officers before the agreement", r.body);
+  r = await dp({ action: "agreement_save", officeId: jal.id, signedOn: "2099-01-01", signedBy: "X", documentRef: "" });
+  ok(r.status === 400 && r.body.fields.signedOn === "FUTURE" && r.body.fields.signedBy && r.body.fields.documentRef, "agreement fields checked", r.body);
+  r = await dp({ action: "agreement_save", officeId: jal.id, signedOn: "2026-10-01", signedBy: "R. K. Singh, Executive Engineer", documentRef: "JK/GRV/2026/14, signed copy in office file" });
+  ok(r.status === 200, "agreement recorded", r.body);
+  ok((await call(A, "POST", "/api/admin/dept-officers", { action: "officer_add", officeId: jal.id, name: "X Y", designation: "AE", email: "x@nic.in" })).status === 403, "auditor can't add officers");
+  ok((await call(D, "GET", "/api/admin/dept-officers?office=" + jal.id)).status === 403, "data entry operator can't see officers");
+  ok((await call(A, "GET", "/api/admin/dept-officers?office=" + jal.id)).body.canManage === false, "auditor reads");
+  r = await dp({ action: "officer_add", officeId: jal.id, name: "A", designation: "", email: "bad@" });
+  ok(r.status === 400 && r.body.fields.name && r.body.fields.designation && r.body.fields.email === "FORMAT", "officer fields checked", r.body);
+  r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "Junior Engineer, Zone 3", email: "JE.Zone3@nic.in" });
+  ok(r.status === 200, "officer added", r.body);
+  const officerId = r.body.id;
+  r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "JE", email: OFF });
+  ok(r.status === 400 && r.body.fields.email === "ALREADY_HERE", "same officer twice refused", r.body);
+  // sign in with an emailed code
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const before = mails().length;
+  r = await call("", "POST", "/api/dept/code", { email: "stranger@nic.in" });
+  ok(r.status === 200 && r.body.sent && mails().length === before, "unknown email: same reply, no email sent", r.body);
+  r = await call("", "POST", "/api/dept/code", { email: OFF });
+  const m1 = mails().slice(-1)[0];
+  const code = /(\d{6})/.exec(m1.subject)[1];
+  ok(r.status === 200 && m1.to[0] === OFF && !/GRV-|Lane 4/.test(m1.html), "code emailed to the officer, nothing about cases", m1.subject);
+  ok(sdb.prepare("SELECT code_hash FROM dept_codes WHERE email = ? ORDER BY created_at DESC").get(OFF).code_hash !== code, "only a hash of the code is stored");
+  r = await call("", "POST", "/api/dept/verify", { email: OFF, code: code === "111111" ? "222222" : "111111" });
+  ok(r.status === 401 && r.body.error === "INCORRECT" && r.body.triesLeft === 4, "wrong code: tries left", r.body);
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: OFF, code }) });
+  const setc = vr.headers.get("set-cookie") || "";
+  ok(vr.status === 200 && /__Host-giq_dept=/.test(setc) && /HttpOnly/.test(setc) && /SameSite=Strict/.test(setc) && /Secure/.test(setc), "signed in: secure session cookie", setc);
+  const CK = setc.split(";")[0];
+  const dcall = async (method, path, body, ck) => { const x = await fetch(B + path, { method, headers: { cookie: ck === undefined ? CK : ck, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); const t = await x.text(); let j; try { j = JSON.parse(t); } catch (e) { j = { raw: t }; } return { status: x.status, body: j }; };
+  r = await call("", "POST", "/api/dept/verify", { email: OFF, code });
+  ok(r.status === 401, "a code works once", r.body);
+  ok((await dcall("GET", "/api/dept/cases", null, "")).status === 401, "no session: refused");
+  // the list
+  r = await dcall("GET", "/api/dept/cases");
+  const row = r.body.cases && r.body.cases.find((c) => c.id === "g20");
+  ok(r.status === 200 && r.body.me.name === "Asha Verma" && r.body.office.id === jal.id && row && row.bucket === "NEW" && r.body.tiles.newCases >= 1, "office's cases with tiles", r.body.tiles);
+  ok(!JSON.stringify(r.body).match(/9876500000|citizen20@x\.in/), "no citizen phone or email in the list");
+  ok(!r.body.cases.some((c) => c.id === "g1"), "other cases not listed");
+  r = await dcall("GET", "/api/dept/case?id=g20");
+  ok(r.status === 200 && r.body.case.description.includes("Lane 4") && r.body.case.pin && r.body.case.steps[0].note === "Please send the tanker today" && r.body.case.steps[0].by === "OFFICE" && r.body.case.canReply, "case detail: complaint, place, what the office asked", r.body.case);
+  ok(!JSON.stringify(r.body).match(/9876500000|citizen20@x\.in|r1@x\.in/), "no citizen contact or staff email in the case");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM dept_access_log WHERE action = 'CASE_VIEWED' AND grievance_id = 'g20'").get().n === 1, "case opened is recorded");
+  ok((await dcall("GET", "/api/dept/case?id=g1")).status === 404, "a case not sent to the office can't be opened");
+  // replies
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "SCHEDULED" });
+  ok(r.status === 400 && r.body.fields.expectedDate === "REQUIRED", "date needed", r.body);
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "CANT_DO", note: "no" });
+  ok(r.status === 400 && r.body.fields.note === "REASON", "reason needed", r.body);
+  const soon = new Date(Date.now() + 5.5 * 3600000 + 2 * 86400000).toISOString().slice(0, 10);
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "SCHEDULED", expectedDate: soon, note: "Tanker booked" });
+  ok(r.status === 200, "officer schedules the work", r.body);
+  let last = sdb.prepare("SELECT * FROM case_dept_steps WHERE grievance_id = 'g20' ORDER BY created_at DESC, rowid DESC").get();
+  ok(last.kind === "SCHEDULED" && last.actor_role === "DEPARTMENT" && last.actor === OFF && last.by_office_id === jal.id && last.office_name === "Jal Kal Vibhag Lucknow", "step recorded as the department's", last);
+  let nt = [];
+  for (let i = 0; i < 40 && nt.length < 2; i++) { await new Promise((z) => setTimeout(z, 100)); nt = sdb.prepare("SELECT recipient, data FROM notifications WHERE grievance_id = 'g20' AND kind = 'DEPT_REPLY'").all(); }
+  ok(nt.some((x) => x.recipient === R) && nt.some((x) => x.recipient === "om@x.in"), "representative's office told at once", nt);
+  // a work photo, then "work done"
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4, 5, 6, 7, 8]);
+  const fd = new FormData(); fd.append("photo", new Blob([png], { type: "image/png" }), "w.png");
+  const up = await fetch(B + "/api/dept/photo?id=g20", { method: "POST", headers: { cookie: CK }, body: fd });
+  const upj = await up.json();
+  ok(up.status === 200 && upj.id, "work photo uploaded", upj);
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "DONE_CLAIMED", photoIds: ["nope"] });
+  ok(r.status === 400 && r.body.fields.photos === "PHOTO_MISSING", "unknown photo refused", r.body);
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "DONE_CLAIMED", note: "Pipe joint replaced", photoIds: [upj.id] });
+  ok(r.status === 200, "officer reports the work done with a photo", r.body);
+  last = sdb.prepare("SELECT * FROM case_dept_steps WHERE grievance_id = 'g20' ORDER BY created_at DESC, rowid DESC").get();
+  const held = sdb.prepare("SELECT * FROM resolution_reports WHERE id = ?").get(last.photo_report_id);
+  ok(held && held.review_status === "FIELD_CHECK" && held.submitted_role === "DEPARTMENT" && sdb.prepare("SELECT report_id FROM resolution_photos WHERE id = ?").get(upj.id).report_id === held.id, "photo kept beside the step, never as a resolution");
+  ok(sdb.prepare("SELECT status FROM grievances WHERE id = 'g20'").get().status === "OPEN", "the department can't close the case");
+  const rep = await call(R, "GET", "/api/grievances");
+  const rc = rep.body.grievances.find((c) => c.id === "g20");
+  const rs = rc.deptSteps[rc.deptSteps.length - 1];
+  ok(rc.deptState.phase === "NEEDS_CHECK" && rs.byDept && rs.byDeptName === "Asha Verma" && rs.photos && rs.photos.length === 1, "rep console: needs the field check, shows who replied and the photo", rs);
+  r = await dcall("GET", "/api/dept/cases");
+  ok(r.body.cases.find((c) => c.id === "g20").bucket === "WAITING_CHECK", "officer sees: waiting for the check");
+  // not ours: no more replies
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "NOT_OURS", suggestedDepartment: "Electricity" });
+  ok(r.status === 200, "not ours", r.body);
+  r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "IN_PROGRESS" });
+  ok(r.status === 409 && r.body.code === "REFORWARD", "no replies after 'not ours'", r.body);
+  // daily email: counts only
+  const st2 = (sql, b) => ({ bind: (...y) => st2(sql, y), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((q) => ({ ...q })) }),
+    first: async () => { const q = sdb.prepare(sql).get(...(b || [])); return q ? { ...q } : null; }, run: async () => { const q = sdb.prepare(sql).run(...(b || [])); return { meta: { changes: Number(q.changes) } }; } });
+  const envD = { DB: { prepare: (sql) => st2(sql, []), batch: async (l) => Promise.all(l.map((q) => q.all())) } };
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g21','GRV-DEPT21','9','lu-hazratganj','water-sanitation','OPEN','Second leak','LOCAL',?)").run(now);
+  await call(R, "POST", "/api/grievances/g21/add-followup", { department: "Water Supply", channel: "EMAIL", officeId: jal.id });
+  const nf = await import((process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/notify.js");
+  const n1 = await nf.deptOfficerDigests(envD, "https://grieviq.in", Date.now());
+  const n2 = await nf.deptOfficerDigests(envD, "https://grieviq.in", Date.now());
+  const dig = sdb.prepare("SELECT * FROM email_outbox WHERE kind = 'DEPT_DIGEST'").all();
+  ok(n1 === 1 && n2 === 0 && dig.length === 1 && dig[0].to_email === OFF && /1 new/.test(dig[0].html) && !/GRV-|leak/i.test(dig[0].html), "daily email: counts only, once a day", dig.map((x) => x.html.slice(0, 160)));
+  // removal ends the session at once
+  r = await call(S, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId, reason: "short" });
+  ok(r.status === 400, "removal needs a reason", r.body);
+  r = await call(O, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId, reason: "Transferred to another zone" });
+  ok(r.status === 200 && (await dcall("GET", "/api/dept/cases")).status === 401, "removed officer is signed out at once", r.body);
+  // agreement ended: nobody from the office can sign in
+  r = await dp({ action: "officer_add", officeId: jal.id, name: "Ravi Kumar", designation: "Assistant Engineer", email: "ae.zone3@nic.in" });
+  ok(r.status === 200, "second officer added");
+  r = await dp({ action: "agreement_end", officeId: jal.id, reason: "Department withdrew from the pilot" });
+  ok(r.status === 200, "agreement ended", r.body);
+  await call("", "POST", "/api/dept/code", { email: "ae.zone3@nic.in" });
+  const m2 = mails().slice(-1)[0];
+  ok(!m2.to || m2.to[0] !== "ae.zone3@nic.in", "no code emailed once the agreement ended");
+  const g = await call(S, "GET", "/api/admin/dept-officers?office=" + jal.id);
+  ok(g.body.agreement.endedAt && g.body.officers.length === 2 && g.body.activity.some((x) => x.action === "REPLIED" && x.trackingRef === "GRV-DEPT20" && x.kind === "DONE_CLAIMED"), "admin sees the agreement, officers and activity", g.body.activity.slice(0, 3));
+  const ev = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'dept_officer%' OR action LIKE 'dept_agreement%'").all().map((x) => x.action);
+  ok(["dept_agreement_recorded", "dept_officer_added", "dept_officer_removed", "dept_agreement_ended"].every((a) => ev.includes(a)), "every change logged", ev);
+  // restore for the browser tests: agreement back, second officer active
+  await dp({ action: "agreement_save", officeId: jal.id, signedOn: "2026-10-01", signedBy: "R. K. Singh, Executive Engineer", documentRef: "JK/GRV/2026/14" });
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
-const db = new DatabaseSync(process.argv[2] || "test.db");
+const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
 const acts = db.prepare("SELECT action, COUNT(*) n FROM admin_events GROUP BY action").all().reduce((m, x) => (m[x.action] = x.n, m), {});
 ok(acts.dept_office_added >= 5 && acts.dept_office_changed >= 2 && acts.dept_office_retired >= 2 && acts.dept_office_restored >= 1 && acts.dept_offices_imported >= 2 && acts.change_request_submitted >= 3 && acts.change_request_approved >= 3 && acts.dept_type_added >= 2 && acts.dept_type_renamed >= 2 && acts.dept_type_retired >= 1 && acts.dept_type_restored >= 1, "every change logged", acts);
 let threw = false; try { db.prepare("UPDATE admin_events SET action='x'").run(); } catch (e) { threw = true; }

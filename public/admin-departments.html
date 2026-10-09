@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=31"></script><script src="/admin-nav.js?v=r8"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=32"></script><script src="/admin-nav.js?v=r8"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -287,6 +287,19 @@
   /* WCAG 2.2 AA (1.4.3) colours for this page: the shared admin blue and red
      are a little light for text, so they are adjusted here. */
   :root { --admin-danger: #f3908a; --dp-link: #8fb0f7; --dp-primary: #2f5bd3; }
+  /* Department officers panel (grieviq-32) */
+  .op { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--admin-border); border-radius: 8px; background: rgba(127,127,127,.05); }
+  .op h4 { margin: 0 0 8px; font-size: 15px; }
+  .op h5 { margin: 14px 0 6px; font-size: 13.5px; }
+  .op .op-agr { margin: 0 0 6px; font-size: 14px; }
+  .op .op-agr.warn { color: var(--admin-danger); font-weight: 600; }
+  .op-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .op-person { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--admin-border); border-radius: 6px; font-size: 14px; }
+  .op-person .sub { display: block; color: var(--admin-muted); font-size: 12.5px; margin-top: 2px; }
+  .op-person.removed b { text-decoration: line-through; }
+  .op-form { margin-top: 8px; }
+  .op-act ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+  .op-act summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; font-weight: 600; font-size: 13.5px; }
   html.light-theme { --admin-danger: #a8332a; --dp-link: #2a55c4; --dp-primary: #2a55c4; }
   button.primary, html.light-theme button.primary { background: var(--dp-primary); border-color: var(--dp-primary); color: #fff; }
   button.primary:hover, html.light-theme button.primary:hover { background: #2448b0; }
@@ -371,6 +384,7 @@ let retireFor = null;     // { id, reason, error }
 let restoreFor = null;    // { id, reason, error }  (data entry operators give a reason)
 let upload = null;        // { name, csv, report, error, reason, busy }
 let covGapsOnly = false;
+let op = null;            // Department officers panel (grieviq-32): { officeId, d, loading, err, msg, add, addErr, agr, agrErr, agrOpen, endOpen, endReason, endErr, removeFor }
 let typeForm = null;      // { key|null, updatedAt, nameEn, nameHi, description, reason, errors }
 let typeRetire = null;    // { key, reason, error, usage }
 let typeRestore = null;   // { key, reason, error }  (data entry operators give a reason)
@@ -503,11 +517,150 @@ function renderOffice(o) {
       (restoreFor.error ? '<div class="field-err" id="s-reason-err">' + esc(T("adm.dp_e_reason_REQUIRED")) + "</div>" : "") +
       '</div><div class="actions"><button type="submit" class="primary" id="s-go">' + esc(T("adm.dp_restore_request")) + '</button><button type="button" id="s-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
   }
+  if (data.canSeeOfficers && !o.retired) {
+    const open = op && op.officeId === o.id;
+    actions += '<button type="button" data-officers="' + esc(o.id) + '" aria-expanded="' + (open ? "true" : "false") + '" aria-controls="op-' + esc(o.id) + '">' + esc(T("adm.do_btn")) + '<span class="sr-only"> ' + esc(officeName(o)) + "</span></button>";
+  }
+  if (op && op.officeId === o.id) box += renderOfficers(o);
   return '<article class="office' + (o.retired ? " retired" : "") + '" id="office-' + esc(o.id) + '" aria-labelledby="oh-' + esc(o.id) + '">' +
     '<div class="office-head"><div><h3 id="oh-' + esc(o.id) + '">' + esc(officeName(o)) + "</h3>" + (other ? '<div class="hi"' + (hi() ? ' lang="en"' : ' lang="hi"') + ">" + esc(other) + "</div>" : "") + "</div>" +
     '<div class="pills">' + pills.join("") + "</div></div>" +
     '<div class="tags">' + o.departments.map((d) => '<span class="tag">' + esc(deptName(d)) + "</span>").join("") + '<span class="tag">' + esc(coverText(o)) + "</span></div>" +
     contactRows(o) + meta + (actions ? '<div class="actions">' + actions + "</div>" : "") + box + "</article>";
+}
+
+// ---- Department officers and agreement (grieviq-32) ---------------------
+function opErr(k, code) { const key = "adm.do_e_" + k + "_" + code; const t = T(key); return t === key ? T("adm.do_e_generic") : t; }
+function opField(id, k, value, opts) {
+  const o = opts || {}, err = o.err ? opErr(k, o.err) : "";
+  const hint = o.hint ? '<p class="hint" id="' + id + '-hint">' + esc(o.hint) + "</p>" : "";
+  const desc = [o.hint ? id + "-hint" : "", err ? id + "-err" : ""].filter(Boolean).join(" ");
+  const input = o.area ? '<textarea id="' + id + '" maxlength="' + (o.max || 500) + '"' + (err ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" + esc(value || "") + "</textarea>"
+    : '<input type="' + (o.type || "text") + '" id="' + id + '" value="' + esc(value || "") + '"' + (o.max ? ' maxlength="' + o.max + '"' : "") + (o.auto ? ' autocomplete="' + o.auto + '"' : "") + (o.maxDate ? ' max="' + o.maxDate + '"' : "") +
+      (err ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">";
+  return '<div class="form-row"><label for="' + id + '">' + esc(o.label) + "</label>" + hint + input + (err ? '<div class="field-err" id="' + id + '-err">' + esc(err) + "</div>" : "") + "</div>";
+}
+function renderOfficers(o) {
+  const id = esc(o.id);
+  let inner = "";
+  if (op.loading) inner = '<p class="muted" role="status">' + esc(T("adm.loading")) + "</p>";
+  else if (op.err) inner = '<div class="msg err" role="alert">' + esc(op.err) + "</div>";
+  else {
+    const d = op.d, a = d.agreement, manage = d.canManage;
+    const active = a && !a.endedAt;
+    let agr = "";
+    if (active) agr = '<p class="op-agr">' + esc(T("adm.do_agr_on", { date: fmtDate(a.signedOn), by: a.signedBy, ref: a.documentRef })) + "</p>";
+    else if (a) agr = '<p class="op-agr warn">' + esc(T("adm.do_agr_ended", { date: fmtDate(String(a.endedAt).slice(0, 10)), why: a.endReason || "" })) + "</p>";
+    else agr = '<p class="op-agr warn">' + esc(T("adm.do_agr_none")) + "</p>";
+    const showAgrForm = manage && (op.agrOpen || !a);
+    if (showAgrForm) {
+      const f = op.agr, e = op.agrErr || {};
+      agr += '<form id="op-agr-form" novalidate class="op-form"><h5>' + esc(T(a ? "adm.do_agr_edit_h" : "adm.do_agr_new_h")) + "</h5>" +
+        opField("op-signed-on", "signedOn", f.signedOn, { label: T("adm.do_l_signed_on"), type: "date", maxDate: d.today, err: e.signedOn }) +
+        opField("op-signed-by", "signedBy", f.signedBy, { label: T("adm.do_l_signed_by"), hint: T("adm.do_h_signed_by"), max: 120, err: e.signedBy }) +
+        opField("op-doc", "documentRef", f.documentRef, { label: T("adm.do_l_doc"), hint: T("adm.do_h_doc"), max: 200, err: e.documentRef }) +
+        opField("op-notes", "notes", f.notes, { label: T("adm.do_l_notes"), area: true, max: 500, err: e.notes }) +
+        '<div class="actions"><button type="submit" class="primary" id="op-agr-save">' + esc(T("adm.do_agr_save")) + "</button>" + (a ? '<button type="button" id="op-agr-cancel">' + esc(T("adm.dp_cancel")) + "</button>" : "") + "</div></form>";
+    } else if (manage) {
+      agr += '<div class="actions"><button type="button" id="op-agr-open">' + esc(T(active ? "adm.do_agr_change" : "adm.do_agr_renew")) + "</button>" +
+        (active ? '<button type="button" class="danger" id="op-end-open">' + esc(T("adm.do_agr_end")) + "</button>" : "") + "</div>";
+    }
+    if (op.endOpen) {
+      agr += '<form id="op-end-form" novalidate class="op-form">' + opField("op-end-reason", "reason", op.endReason, { label: T("adm.do_l_end_reason"), hint: T("adm.do_h_end_reason"), area: true, max: 500, err: op.endErr }) +
+        '<div class="actions"><button type="submit" class="danger" id="op-end-go">' + esc(T("adm.do_agr_end_go")) + '</button><button type="button" id="op-end-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+    }
+    const people = d.officers.length ? '<ul class="op-list">' + d.officers.map((x) => {
+      const rm = op.removeFor && op.removeFor.id === x.id;
+      return '<li class="op-person' + (x.status !== "ACTIVE" ? " removed" : "") + '"><div><b>' + esc(x.name) + "</b> · " + esc(x.designation) + '<span class="sub">' + esc(x.email) + "</span>" +
+        '<span class="sub">' + esc(x.status === "ACTIVE" ? T("adm.do_added", { date: fmtDate(String(x.addedAt).slice(0, 10)), who: x.addedBy }) + " · " + (x.lastSignedIn ? T("adm.do_last_in", { date: fmtDate(String(x.lastSignedIn).slice(0, 10)) }) : T("adm.do_never_in"))
+          : T("adm.do_removed", { date: fmtDate(String(x.removedAt).slice(0, 10)), why: x.removeReason || "" })) + "</span></div>" +
+        (manage && x.status === "ACTIVE" && !rm ? '<button type="button" class="danger" data-op-remove="' + esc(x.id) + '">' + esc(T("adm.do_remove")) + '<span class="sr-only"> ' + esc(x.name) + "</span></button>" : "") +
+        (rm ? '<form id="op-rm-form" novalidate class="op-form" style="flex-basis:100%">' + opField("op-rm-reason", "reason", op.removeFor.reason, { label: T("adm.do_l_rm_reason"), area: true, max: 500, err: op.removeFor.err }) +
+          '<div class="actions"><button type="submit" class="danger" id="op-rm-go">' + esc(T("adm.do_remove_go", { name: x.name })) + '</button><button type="button" id="op-rm-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>" : "") +
+        "</li>";
+    }).join("") + "</ul>" : '<p class="muted">' + esc(T("adm.do_none")) + "</p>";
+    let add = "";
+    if (manage && active) {
+      const f = op.add, e = op.addErr || {};
+      add = '<form id="op-add-form" novalidate class="op-form"><h5>' + esc(T("adm.do_add_h")) + "</h5><p class=\"hint\">" + esc(T("adm.do_add_hint")) + "</p>" +
+        opField("op-name", "name", f.name, { label: T("adm.do_l_name"), max: 80, auto: "off", err: e.name }) +
+        opField("op-desig", "designation", f.designation, { label: T("adm.do_l_desig"), hint: T("adm.do_h_desig"), max: 80, err: e.designation }) +
+        opField("op-email", "email", f.email, { label: T("adm.do_l_email"), hint: T("adm.do_h_email"), type: "email", max: 200, auto: "off", err: e.email }) +
+        '<div class="actions"><button type="submit" class="primary" id="op-add-go">' + esc(T("adm.do_add_go")) + "</button></div></form>";
+    }
+    const act = d.activity.length ? '<details class="op-act"><summary>' + esc(T("adm.do_act_h", { n: d.activity.length })) + '</summary><ul>' + d.activity.map((x) =>
+      "<li>" + esc(fmtDate(String(x.at).slice(0, 10)) + " " + new Date(x.at).toLocaleTimeString(loc(), { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " · " + (x.officer || "—") + " · " +
+        T("adm.do_a_" + x.action, { ref: x.trackingRef || "", kind: x.kind ? T("adm.do_k_" + x.kind) : "" })) + "</li>").join("") + "</ul></details>" : '<p class="muted">' + esc(T("adm.do_act_none")) + "</p>";
+    inner = (op.msg ? '<div class="msg ' + (op.msg.err ? "err" : "ok") + '" id="op-msg" tabindex="-1" role="' + (op.msg.err ? "alert" : "status") + '">' + esc(op.msg.text) + "</div>" : "") +
+      '<h5>' + esc(T("adm.do_agr_h")) + "</h5>" + agr + '<h5>' + esc(T("adm.do_people_h")) + "</h5>" + people + add + '<h5>' + esc(T("adm.do_act_title")) + "</h5>" + act +
+      '<p class="hint" style="margin-top:10px">' + esc(T("adm.do_privacy")) + "</p>";
+  }
+  return '<section class="op" id="op-' + id + '" aria-labelledby="op-h-' + id + '"><h4 id="op-h-' + id + '" tabindex="-1">' + esc(T("adm.do_title", { office: officeName(o) })) + "</h4>" + inner + "</section>";
+}
+async function loadOfficers(officeId, focusId) {
+  op = Object.assign(op && op.officeId === officeId ? op : { officeId, add: { name: "", designation: "", email: "" }, addErr: {}, agr: { signedOn: "", signedBy: "", documentRef: "", notes: "" }, agrErr: {} }, { loading: !(op && op.d && op.officeId === officeId), err: null });
+  render();
+  const r = await api("/api/admin/dept-officers?office=" + encodeURIComponent(officeId));
+  if (!op || op.officeId !== officeId) return;
+  op.loading = false;
+  if (!r.ok) op.err = r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.do_not_set_up") : T("adm.err_detail", { msg: r.body.error || r.status });
+  else op.d = r.body;
+  render(focusId || "op-h-" + officeId);
+}
+async function opPost(body, okText, focusId) {
+  const r = await api("/api/admin/dept-officers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (r.ok) { op.msg = { text: okText }; return { ok: true }; }
+  if (r.status === 400 && r.body.fields) return { fields: r.body.fields };
+  op.msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+  return { failed: true };
+}
+function wireOfficers() {
+  document.querySelectorAll("[data-officers]").forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.officers;
+    if (op && op.officeId === id) { op = null; render(); const again = document.querySelector('[data-officers="' + id + '"]'); if (again) again.focus(); return; }
+    op = null; loadOfficers(id);
+  }));
+  if (!op || !op.d) return;
+  const oid = op.officeId;
+  const val = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+  on("op-agr-open", "click", () => { const a = op.d.agreement; op.msg = null; op.agrOpen = true; op.agrErr = {}; if (a) op.agr = { signedOn: a.signedOn, signedBy: a.signedBy, documentRef: a.documentRef, notes: a.notes || "" }; render("op-signed-on"); });
+  on("op-agr-cancel", "click", () => { op.agrOpen = false; op.agrErr = {}; render("op-agr-open"); });
+  on("op-agr-form", "submit", async (e) => {
+    e.preventDefault();
+    op.agr = { signedOn: val("op-signed-on"), signedBy: val("op-signed-by"), documentRef: val("op-doc"), notes: val("op-notes") };
+    const res = await opPost(Object.assign({ action: "agreement_save", officeId: oid }, op.agr), T("adm.do_agr_saved"));
+    if (res.fields) { op.agrErr = res.fields; const first = { signedOn: "op-signed-on", signedBy: "op-signed-by", documentRef: "op-doc", notes: "op-notes" }[Object.keys(res.fields)[0]]; render(first); return; }
+    op.agrOpen = false; op.agrErr = {}; await loadOfficers(oid, "op-msg");
+  });
+  on("op-end-open", "click", () => { op.msg = null; op.endOpen = true; op.endReason = ""; op.endErr = null; render("op-end-reason"); });
+  on("op-end-cancel", "click", () => { op.endOpen = false; render("op-end-open"); });
+  on("op-end-form", "submit", async (e) => {
+    e.preventDefault();
+    op.endReason = val("op-end-reason");
+    if (op.endReason.trim().length < 10) { op.endErr = "SHORT"; render("op-end-reason"); return; }
+    const res = await opPost({ action: "agreement_end", officeId: oid, reason: op.endReason }, T("adm.do_agr_ended_ok"));
+    if (res.fields) { op.endErr = "SHORT"; render("op-end-reason"); return; }
+    op.endOpen = false; await loadOfficers(oid, "op-msg");
+  });
+  on("op-add-form", "submit", async (e) => {
+    e.preventDefault();
+    op.add = { name: val("op-name"), designation: val("op-desig"), email: val("op-email") };
+    const res = await opPost(Object.assign({ action: "officer_add", officeId: oid }, op.add), T("adm.do_added_ok", { name: op.add.name.trim() }));
+    if (res.fields) { op.addErr = res.fields; const first = { name: "op-name", designation: "op-desig", email: "op-email" }[Object.keys(res.fields)[0]]; render(first); return; }
+    if (res.ok) { op.add = { name: "", designation: "", email: "" }; op.addErr = {}; }
+    await loadOfficers(oid, "op-msg");
+  });
+  document.querySelectorAll("[data-op-remove]").forEach((b) => b.addEventListener("click", () => { op.msg = null; op.removeFor = { id: b.dataset.opRemove, reason: "", err: null }; render("op-rm-reason"); }));
+  on("op-rm-cancel", "click", () => { const id = op.removeFor.id; op.removeFor = null; render(); const b = document.querySelector('[data-op-remove="' + id + '"]'); if (b) b.focus(); });
+  on("op-rm-form", "submit", async (e) => {
+    e.preventDefault();
+    op.removeFor.reason = val("op-rm-reason");
+    if (op.removeFor.reason.trim().length < 10) { op.removeFor.err = "SHORT"; render("op-rm-reason"); return; }
+    const who = (op.d.officers.find((x) => x.id === op.removeFor.id) || {}).name || "";
+    const res = await opPost({ action: "officer_remove", officerId: op.removeFor.id, reason: op.removeFor.reason }, T("adm.do_removed_ok", { name: who }));
+    if (res.fields) { op.removeFor.err = "SHORT"; render("op-rm-reason"); return; }
+    op.removeFor = null; await loadOfficers(oid, "op-msg");
+  });
 }
 
 function renderCoverage() {
@@ -810,6 +963,7 @@ function readForm() {
 
 function wire() {
   on("top-msg", "keydown", () => {});
+  wireOfficers();
   on("f-area", "change", (e) => { msg = null; upload = null; retireFor = null; history.replaceState(null, "", "?area=" + encodeURIComponent(e.target.value)); load(e.target.value); });
   on("f-dept", "change", (e) => { view.dept = e.target.value; render("f-dept"); say(T("adm.dp_list_h", { n: document.querySelectorAll(".office").length })); });
   on("f-q", "input", (e) => { view.q = e.target.value; const pos = e.target.selectionStart; render("f-q"); const q = document.getElementById("f-q"); if (q) q.setSelectionRange(pos, pos); });
