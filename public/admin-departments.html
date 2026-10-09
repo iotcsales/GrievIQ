@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=25"></script><script src="/admin-nav.js?v=r7"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=26"></script><script src="/admin-nav.js?v=r7"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -657,7 +657,7 @@ function renderForm() {
   const depts = '<fieldset id="o-dept-fs"' + (e.departments ? ' aria-describedby="o-dept-0-err"' : "") + "><legend>" + esc(label("departments")) + '</legend><p class="hint">' + esc(T("adm.dp_h_departments")) + '</p><div class="checks">' +
     data.departments.map((d, i) => '<label><input type="checkbox" id="o-dept-' + i + '" data-dept="' + esc(d) + '"' + (f.departments.includes(d) ? " checked" : "") + (e.departments ? ' aria-invalid="true"' : "") + "> " + esc(deptName(d)) + "</label>").join("") +
     "</div>" + (e.departments ? '<div class="field-err" id="o-dept-0-err">' + esc(errText("departments", e.departments)) + "</div>" : "") +
-    '<p class="hint" style="margin-top:8px">' + esc(T(data.canManage || data.canRequest ? "adm.dp_h_other_add" : "adm.dp_h_other")) + "</p></fieldset>";
+    '<p class="hint" style="margin-top:8px">' + esc(T(data.canManage || data.canRequest ? "adm.dp_h_other_new" : "adm.dp_h_other")) + "</p>" + renderNewType() + "</fieldset>";
   const q = f.wardQ.toLowerCase();
   const unitsShown = data.units.filter((u) => !q || u.name.toLowerCase().includes(q));
   const wardList = f.wardsMode === "LIST" ? '<div class="wardbox"><div class="wb-tools"><label for="o-ward-q" class="sr-only">' + esc(T("adm.dp_ward_search")) + '</label><input type="search" id="o-ward-q" placeholder="' + esc(T("adm.dp_ward_search")) + '" value="' + esc(f.wardQ) + '" style="flex:1;min-width:160px;padding:7px 10px;border-radius:6px;border:1px solid var(--admin-border);background:transparent;color:inherit;font:inherit;font-size:14px">' +
@@ -697,6 +697,62 @@ function renderForm() {
     "</form></div>";
 }
 
+// "+ Add a new type" inside the office form: the new type is created (or,
+// for a data entry operator, requested) without leaving the form, and ticked.
+function renderNewType() {
+  if (!(data.canManage || data.canRequest) || !data.typesReady) return "";
+  const n = form.newType;
+  if (n && n.sent) {
+    return '<div class="msg ok" role="status" id="nt-msg" tabindex="-1">' + esc(T("adm.dp_nt_sent", { name: n.sent })) + "</div>";
+  }
+  if (!n) return '<button type="button" id="nt-open" aria-expanded="false">' + esc(T(data.canRequest ? "adm.dp_nt_ask" : "adm.dp_nt_add")) + "</button>";
+  const e = n.errors || {};
+  const box = (k, id, val, opts) => {
+    const err = e[k];
+    return '<div class="form-row"><label for="' + id + '">' + esc(T("adm.dp_lbl_" + k)) + (opts.optional ? ' <span class="muted">' + esc(T("adm.dp_optional")) + "</span>" : "") + "</label>" +
+      (opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + "</p>" : "") +
+      (opts.textarea ? '<textarea id="' + id + '" maxlength="' + opts.max + '"' : '<input type="text" id="' + id + '" maxlength="' + opts.max + '" autocomplete="off" value="' + esc(val) + '"') +
+      (opts.lang ? ' lang="' + opts.lang + '"' : "") + (err ? ' aria-invalid="true" aria-describedby="' + id + '-err"' : (opts.hint ? ' aria-describedby="' + id + '-hint"' : "")) + ">" + (opts.textarea ? esc(val) + "</textarea>" : "") +
+      (err ? '<div class="field-err" id="' + id + '-err">' + esc(typeErr(k, err)) + "</div>" : "") + "</div>";
+  };
+  return '<div class="new-box" id="nt-box" role="group" aria-labelledby="nt-h"><h3 id="nt-h" tabindex="-1" style="font-size:14px;margin:4px 0 6px">' + esc(T(data.canRequest ? "adm.dp_nt_ask_h" : "adm.dp_nt_h")) + "</h3>" +
+    '<div class="grid2f">' + box("typeNameEn", "nt-en", n.nameEn, { max: 60, hint: T("adm.dp_h_type_en") }) + box("typeNameHi", "nt-hi", n.nameHi, { max: 60, lang: "hi", hint: T("adm.dp_h_type_hi") }) + "</div>" +
+    box("typeDescription", "nt-desc", n.description, { max: 150, optional: true, hint: T("adm.dp_h_type_desc") }) +
+    (data.canRequest ? box("typeReason", "nt-reason", n.reason, { textarea: true, max: 500, hint: T("adm.dp_h_reason") }) : "") +
+    '<div class="actions"><button type="button" class="primary" id="nt-save"' + (n.busy ? " disabled" : "") + ">" + esc(T(data.canRequest ? "adm.dp_send_request" : "adm.dp_nt_save")) + '</button><button type="button" id="nt-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></div>";
+}
+function readNewType() {
+  const n = form.newType; if (!n) return;
+  ["en", "hi", "desc", "reason"].forEach((k) => { const el = document.getElementById("nt-" + k); if (el) n[{ en: "nameEn", hi: "nameHi", desc: "description", reason: "reason" }[k]] = el.value; });
+}
+async function saveNewType() {
+  readForm(); readNewType();
+  const n = form.newType, errs = {};
+  if (!n.nameEn.trim()) errs.typeNameEn = "REQUIRED";
+  if (!n.nameHi.trim()) errs.typeNameHi = "REQUIRED";
+  if (data.canRequest && n.reason.trim().length < 5) errs.typeReason = "REQUIRED";
+  n.errors = errs;
+  if (Object.keys(errs).length) { render(errs.typeNameEn ? "nt-en" : errs.typeNameHi ? "nt-hi" : "nt-reason"); return; }
+  n.busy = true; render();
+  const r = await post({ action: "type_add", type: { nameEn: n.nameEn, nameHi: n.nameHi, description: n.description }, reason: n.reason });
+  n.busy = false;
+  if (r.ok && r.body.requested) { form.newType = { sent: n.nameEn }; render("nt-msg"); return; }
+  if (r.ok) {
+    const key = r.body.key;
+    await load();                               // the form stays open with everything typed
+    if (!form.departments.includes(key)) form.departments.push(key);
+    form.newType = null;
+    render();
+    const idx = data.departments.indexOf(key);
+    const cb = document.getElementById("o-dept-" + idx);
+    if (cb) cb.focus();
+    say(T("adm.dp_nt_done", { name: n.nameEn }));
+    return;
+  }
+  if (r.body.fields) { n.errors = r.body.fields; render(r.body.fields.typeNameEn ? "nt-en" : "nt-hi"); return; }
+  n.errors = {}; msg = { err: true, text: apiErr(r) }; render("top-msg");
+}
+
 // ---------------------------------------------------------------- upload
 function renderUpload() {
   const u = upload;
@@ -734,6 +790,7 @@ function readForm() {
   document.querySelectorAll("#office-form [data-f]").forEach((el) => { form[el.dataset.f] = el.value; });
   form.departments = Array.from(document.querySelectorAll("#office-form [data-dept]")).filter((c) => c.checked).map((c) => c.dataset.dept);
   const m = document.querySelector('input[name="o-wards"]:checked'); if (m) form.wardsMode = m.value;
+  readNewType();
 }
 
 function wire() {
@@ -861,6 +918,10 @@ function wire() {
   }));
   on("o-ward-all", "click", () => { readForm(); document.querySelectorAll("[data-ward]").forEach((c) => { if (!form.wards.includes(c.dataset.ward)) form.wards.push(c.dataset.ward); }); render("o-ward-all"); });
   on("o-ward-none", "click", () => { readForm(); form.wards = []; render("o-ward-none"); });
+  on("nt-open", "click", () => { readForm(); form.newType = { nameEn: "", nameHi: "", description: "", reason: "", errors: {} }; render("nt-h"); });
+  on("nt-cancel", "click", () => { readForm(); form.newType = null; render("nt-open"); });
+  on("nt-save", "click", saveNewType);
+  ["nt-en", "nt-hi", "nt-desc"].forEach((id) => on(id, "keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveNewType(); } }));
   on("o-summary", "click", (e) => { const a = e.target.closest("a"); if (!a) return; e.preventDefault(); const el = document.getElementById(a.getAttribute("href").slice(1)); if (el) { const d = el.closest("details"); if (d) d.open = true; el.focus(); } });
   on("office-form", "submit", async (e) => {
     e.preventDefault();
