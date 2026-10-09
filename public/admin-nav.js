@@ -41,6 +41,7 @@
     "adm.nav_g_data": "Areas & data",
     "adm.nav_g_people": "People & audit",
     "adm.nav_main": "Admin pages",
+    "adm.nav_departments": "Departments",
   };
   var PAGE_NAMES = {
     "admin-dashboard": "Dashboard", "admin-cases": "Cases", "admin-checks": "Checks", "admin-audit": "Audit",
@@ -190,7 +191,7 @@
   // not copied), so translations and the role rules above keep working.
   var GROUPS = [
     { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-messages"] },
-    { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
+    { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
   ];
   var TOP = ["admin-dashboard"], TAIL = ["admin-visitors"];
@@ -240,6 +241,7 @@
     var header = document.querySelector("header");
     var nav = header && header.querySelector("nav");
     if (!header || !nav || document.getElementById("adm-menu")) return;
+    addDepartmentsLink(nav);
     var links = {};
     nav.querySelectorAll("a[href]").forEach(function (a) { var k = pageKey(a.getAttribute("href")); if (k) links[k] = a; if (a.classList.contains("active")) a.setAttribute("aria-current", "page"); });
     var tools = document.createElement("div"); tools.id = "adm-tools";
@@ -283,6 +285,18 @@
     });
     menu.addEventListener("focusout", function (e) { var g = e.target.closest && e.target.closest(".adm-grp"); if (g && !g.contains(e.relatedTarget)) { var b = g.querySelector("button"); if (b) b.setAttribute("aria-expanded", "false"); } });
     tidyGroups();
+  }
+  // Departments (Oct 2026) is added here once, rather than in every page's
+  // header markup: placed after Areas, with its own translation.
+  function addDepartmentsLink(nav) {
+    if (nav.querySelector('a[href*="admin-departments"]')) return;
+    var a = document.createElement("a");
+    a.href = "/admin-departments.html";
+    a.setAttribute("data-i18n", "adm.nav_departments");
+    a.textContent = t("adm.nav_departments");
+    var areas = nav.querySelector('a[href*="admin-areas"]');
+    if (areas && areas.nextSibling) nav.insertBefore(a, areas.nextSibling); else nav.appendChild(a);
+    if (info) applyMenu();
   }
   function closeDrops() { document.querySelectorAll('.adm-grp>button[aria-expanded="true"]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); }); }
   function drawMenuBtn() {

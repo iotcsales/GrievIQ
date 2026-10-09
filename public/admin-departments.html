@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=24"></script><script src="/admin-nav.js?v=r7"></script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #4c7cf0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3d6be0;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  .req { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .req-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .req-head input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .req-title { font-weight: 600; font-size: 15px; flex: 1; min-width: 200px; }
+  .req-meta { font-size: 12px; color: var(--admin-muted); margin-top: 4px; }
+  .status-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-PENDING { background: #3a3423; color: #d8c26f; } .st-APPROVED { background: #233a2b; color: #7fce8f; }
+  .st-REJECTED { background: #3a2323; color: #e2564f; } .st-WITHDRAWN, .st-OUT_OF_DATE { background: #2c3543; color: #9aa4b2; }
+  html.light-theme .st-PENDING { background: #fbf1d6; color: #7a5c1c; } html.light-theme .st-APPROVED { background: #e6f4ea; color: #1f7a3a; }
+  html.light-theme .st-REJECTED { background: #fbe7e5; color: #b23a30; } html.light-theme .st-WITHDRAWN, html.light-theme .st-OUT_OF_DATE { background: #eef0f3; color: #5b6472; }
+  table.cmp { margin-top: 10px; }
+  table.cmp td.changed { font-weight: 600; }
+  table.cmp .was { color: var(--admin-muted); text-decoration: line-through; }
+  .ood { margin-top: 8px; font-size: 13px; color: var(--admin-danger); }
+  .why { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .why b { color: var(--admin-muted); font-weight: 600; }
+  .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .reject-box { display: none; width: 100%; }
+  .reject-box.open { display: block; }
+  .reject-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); margin-top: 6px; }
+  html.light-theme .reject-box textarea { background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .row-msg { font-size: 13px; margin-top: 8px; } .row-msg:empty { display: none; }
+  .row-msg.error, #summary.error { color: var(--admin-danger); } .row-msg.success, #summary.success { color: #7fce8f; }
+  html.light-theme .row-msg.success, html.light-theme #summary.success { color: #1f7a3a; }
+  #summary { font-size: 14px; margin-bottom: 14px; } #summary:empty { display: none; }
+  .empty { color: var(--admin-muted); font-size: 14px; padding: 18px 0; }
+  a.src { color: var(--admin-accent); word-break: break-all; }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  main { max-width: 980px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .card { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 26px; font-weight: 700; }
+  .card .label { font-size: 13px; color: var(--admin-muted); margin-top: 4px; line-height: 1.4; }
+  .panel p.sub { color: var(--admin-muted); font-size: 13px; margin: -8px 0 14px; line-height: 1.5; }
+  .form-row label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .form-row input[type=text], .form-row textarea { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=text], html.light-theme .form-row textarea { background: #fff; }
+  .form-row [aria-invalid="true"] { border-color: var(--admin-danger); }
+  .field-err { color: var(--admin-danger); font-size: 13px; margin-top: 4px; font-weight: 600; }
+  .field-err:empty { display: none; }
+  .hint { color: var(--admin-muted); font-size: 12.5px; margin: 0 0 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .msg { font-size: 14px; margin-top: 12px; padding: 10px 12px; border-radius: 6px; }
+  .msg:empty { display: none; }
+  .msg.ok { background: #1f3326; color: #a6e0b4; } .msg.err { background: var(--admin-danger-bg); color: var(--admin-danger); }
+  html.light-theme .msg.ok { background: #e6f4ea; color: #1f5f32; }
+  td .sub { display: block; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); }
+  details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+
+  main { max-width: 1060px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.live { background: #1f3326; color: #a6e0b4; } .pill.setup { background: #3a3423; color: #e8d38c; }
+  html.light-theme .pill.live { background: #e6f4ea; color: #1f5f32; } html.light-theme .pill.setup { background: #fbf1d6; color: #6b4f12; }
+  .checklist { list-style: none; padding: 0; margin: 0 0 14px; }
+  .checklist li { padding: 6px 0 6px 28px; position: relative; font-size: 14px; line-height: 1.45; }
+  .checklist li::before { position: absolute; left: 0; top: 5px; width: 20px; text-align: center; font-weight: 700; }
+  .checklist li.ok::before { content: "✓"; color: #7fce8f; } .checklist li.no::before { content: "✗"; color: var(--admin-danger); } .checklist li.opt::before { content: "○"; color: var(--admin-muted); }
+  html.light-theme .checklist li.ok::before { color: #1f7a3a; }
+  .ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .way { display: block; background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; color: var(--admin-text); text-decoration: none; text-align: left; font: inherit; cursor: pointer; min-height: 44px; }
+  .way:hover, .way:focus-visible { border-color: var(--admin-accent); }
+  .way b { display: block; font-size: 15px; margin-bottom: 4px; } .way span { display: block; font-size: 13px; color: var(--admin-muted); line-height: 1.45; }
+  fieldset { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; }
+  legend { font-weight: 600; font-size: 14px; padding: 0 6px; }
+  .grid2f { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; }
+  .form-row select { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 38px; }
+  html.light-theme .form-row select { background: #fff; }
+  .form-row input[type=email], .form-row input[type=tel] { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=email], html.light-theme .form-row input[type=tel] { background: #fff; }
+  .radios { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 6px; } .radios label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500 !important; margin: 0 !important; min-height: 32px; cursor: pointer; }
+  .radios input { width: 18px; height: 18px; }
+  .new-box { border-left: 3px solid var(--admin-accent); padding: 4px 0 4px 12px; margin: 8px 0 4px; }
+  .err-summary { border: 2px solid var(--admin-danger); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  .err-summary h3 { margin: 0 0 6px; font-size: 15px; color: var(--admin-danger); } .err-summary ul { margin: 0; padding-left: 18px; } .err-summary a { color: var(--admin-text); }
+  .back { display: inline-block; margin-bottom: 12px; color: var(--admin-accent); text-decoration: none; font-size: 14px; }
+  td.c, th.c { text-align: center; }
+  .yes { color: #7fce8f; font-weight: 700; } html.light-theme .yes { color: #1f7a3a; } .no { color: var(--admin-danger); font-weight: 700; }
+  @media (max-width: 640px) { td, th { padding: 8px 6px; } }
+  /* ---- Departments page ---- */
+  .toolbar label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
+  .toolbar .tb { display: flex; flex-direction: column; }
+  .toolbar .chk { flex-direction: row; align-items: center; gap: 6px; min-height: 36px; align-self: flex-end; font-size: 14px; font-weight: 500; }
+  .toolbar .chk input { width: 18px; height: 18px; }
+  .toolbar input[type=search] { background: #11151c; border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 14px; min-width: 200px; }
+  html.light-theme .toolbar input[type=search] { background: #fff; }
+  .office { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  .office.retired { opacity: .85; border-style: dashed; }
+  .office h3 { margin: 0; font-size: 16px; }
+  .office .hi { color: var(--admin-muted); font-size: 14px; margin-top: 2px; }
+  .office .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+  .office dl { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 6px 14px; margin: 10px 0 0; font-size: 14px; }
+  .office dt { color: var(--admin-muted); }
+  .office dd { margin: 0; word-break: break-word; }
+  .office dd a { color: var(--admin-accent); }
+  .office .meta { font-size: 13px; color: var(--admin-muted); margin-top: 10px; line-height: 1.5; }
+  .pill.check { background: #3a3423; color: #e8d38c; } html.light-theme .pill.check { background: #fbf1d6; color: #6b4f12; }
+  .pill.wait { background: #1f3040; color: #9fcbf0; } html.light-theme .pill.wait { background: #e3effa; color: #174a7a; }
+  .pill.ret { background: #2c3543; color: #c4cbd6; } html.light-theme .pill.ret { background: #eef0f3; color: #3f4753; }
+  .office-head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+  .office-head .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; }
+  .checks label, .wardlist label { display: flex; align-items: center; gap: 8px; min-height: 32px; font-weight: 500 !important; margin: 0 !important; cursor: pointer; font-size: 14px; }
+  .checks input, .wardlist input { width: 18px; height: 18px; flex: none; }
+  .wardbox { border: 1px solid var(--admin-border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; max-width: 640px; }
+  .wardlist { max-height: 260px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; margin-top: 8px; }
+  .wardbox .wb-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .form-row input[type=date], .form-row input[type=url], .form-row input[type=search] { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; }
+  html.light-theme .form-row input[type=date], html.light-theme .form-row input[type=url], html.light-theme .form-row input[type=search] { background: #fff; color-scheme: light; }
+  .form-row input[type=date] { color-scheme: dark; max-width: 220px; }
+  details.officer { margin-top: 6px; } details.officer > summary { cursor: pointer; font-weight: 600; font-size: 14px; min-height: 32px; display: list-item; }
+  .cov th, .cov td { font-size: 13px; vertical-align: top; }
+  .cov td.gap { color: var(--admin-danger); font-weight: 600; }
+  .cov td.gap::before { content: "✗ "; }
+  .cov th[scope=row] { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--admin-text); font-size: 13px; }
+  .report td { font-size: 13px; vertical-align: top; }
+  .report .bad { color: var(--admin-danger); font-weight: 600; }
+  .report .good { color: #7fce8f; font-weight: 600; } html.light-theme .report .good { color: #1f7a3a; }
+  input[type=file] { font: inherit; font-size: 14px; color: var(--admin-text); }
+  .linklike { background: none; border: 0; padding: 0; color: var(--admin-accent); text-decoration: underline; cursor: pointer; font: inherit; font-size: 14px; min-height: 0; }
+  html.light-theme .linklike { background: none; }
+  a.btn { display: inline-flex; align-items: center; min-height: 32px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--admin-border); color: var(--admin-text); text-decoration: none; font-size: 13px; background: #232a36; }
+  html.light-theme a.btn { background: #eef0f3; }
+  a.btn:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible, .linklike:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  .sr-only { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  @media (max-width: 640px) { .office dl { grid-template-columns: 1fr; gap: 2px; } .office dd { margin-bottom: 6px; } .toolbar .tb, .toolbar select, .toolbar input[type=search] { width: 100%; } }
+  /* WCAG 2.2 AA (1.4.3) colours for this page: the shared admin blue and red
+     are a little light for text, so they are adjusted here. */
+  :root { --admin-danger: #f3908a; --dp-link: #8fb0f7; --dp-primary: #2f5bd3; }
+  html.light-theme { --admin-danger: #a8332a; --dp-link: #2a55c4; --dp-primary: #2a55c4; }
+  button.primary, html.light-theme button.primary { background: var(--dp-primary); border-color: var(--dp-primary); color: #fff; }
+  button.primary:hover, html.light-theme button.primary:hover { background: #2448b0; }
+  main a, .office dd a, a.src, .linklike, html.light-theme .linklike { color: var(--dp-link); }
+  a.btn { color: var(--admin-text) !important; }
+  button.danger { color: var(--admin-danger); }
+  html.light-theme button.danger { color: var(--admin-danger); }
+  .msg.err { color: var(--admin-danger); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-departments.html" data-i18n="adm.nav_departments" class="active" aria-current="page">Departments</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main id="main">
+  <h1 data-i18n="adm.dp_title">Departments</h1>
+  <p class="subtitle" data-i18n="adm.dp_sub">The government offices that handle each kind of problem in each area, with their official public contacts. Representatives will see the right office on each complaint.</p>
+  <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
+function hi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
+function deptName(d) { return window.GIQ ? window.GIQ.dept(d) : d; }
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+async function api(url, opts) {
+  try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
+  catch (e) { return { ok: false, status: 0, body: {} }; }
+}
+const post = (b) => api("/api/admin/departments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+function say(text) { const l = document.getElementById("live"); if (l) { l.textContent = ""; setTimeout(() => { l.textContent = text; }, 50); } }
+function fmtDate(d) {
+  if (!d) return "";
+  const x = new Date(String(d).length === 10 ? d + "T00:00:00+05:30" : d);
+  return isNaN(x) ? d : x.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+}
+function today() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+function officeName(o) { return (hi() && o.nameHi) ? o.nameHi : o.nameEn; }
+function telHref(n) { const d = String(n || "").replace(/[^\d+]/g, ""); return "tel:" + d; }
+function waHref(n) { let d = String(n || "").replace(/\D/g, ""); if (d.length === 10) d = "91" + d; else if (d.length === 11 && d[0] === "0") d = "91" + d.slice(1); return "https://wa.me/" + d; }
+function isUrl(s) { return /^https?:\/\//i.test(String(s || "")); }
+
+let data = null;
+let view = { dept: "", stale: false, retired: false, q: "" };
+let msg = null;           // { err, text } at the top
+let form = null;          // add / edit form
+let retireFor = null;     // { id, reason, error }
+let restoreFor = null;    // { id, reason, error }  (data entry operators give a reason)
+let upload = null;        // { name, csv, report, error, reason, busy }
+let covGapsOnly = false;
+
+function areaParam() { const m = location.search.match(/[?&]area=([^&]+)/); return m ? decodeURIComponent(m[1]) : ""; }
+
+async function load(areaId) {
+  const id = areaId || (data && data.area && data.area.id) || areaParam();
+  const r = await api("/api/admin/departments" + (id ? "?area=" + encodeURIComponent(id) : ""));
+  const box = document.getElementById("content");
+  if (!r.ok) {
+    data = null;
+    const t = r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.dp_not_set_up") : r.body.code === "NOT_FOUND" ? T("adm.dp_area_not_found") : T("adm.err_detail", { msg: r.body.error || r.status });
+    box.innerHTML = '<div class="msg err" role="alert">' + esc(t) + "</div>";
+    return;
+  }
+  data = r.body;
+  render();
+}
+
+// ---------------------------------------------------------------- render
+function render(focusId) {
+  if (!data) return;
+  const box = document.getElementById("content");
+  const top = msg ? '<div class="msg ' + (msg.err ? "err" : "ok") + '" id="top-msg" tabindex="-1" role="' + (msg.err ? "alert" : "status") + '">' + esc(msg.text) + "</div>" : "";
+  box.innerHTML = top + (form ? renderForm() : renderMain());
+  wire();
+  if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); if (el.scrollIntoView) el.scrollIntoView({ block: "center" }); } }
+}
+
+function intro() {
+  const lines = [T("adm.dp_note_official"), T("adm.dp_note_match")];
+  if (data.canRequest) lines.push(T("adm.dp_note_request"));
+  if (!data.canManage && !data.canRequest) lines.push(T("adm.dp_note_readonly"));
+  return '<div class="note">' + lines.map((l) => "<p style=\"margin:0 0 6px\">" + esc(l) + "</p>").join("") + "</div>";
+}
+
+function renderMain() {
+  const offices = data.offices;
+  const live = offices.filter((o) => !o.retired);
+  const stale = live.filter((o) => o.needsCheck).length;
+  const cards = '<div class="cards">' +
+    '<div class="card"><div class="num">' + live.length + '</div><div class="label">' + esc(T("adm.dp_card_offices")) + "</div></div>" +
+    '<div class="card"><div class="num">' + data.units.length + '</div><div class="label">' + esc(T("adm.dp_card_units")) + "</div></div>" +
+    '<div class="card"><div class="num">' + data.coverage.gaps + '</div><div class="label">' + esc(T("adm.dp_card_gaps")) + "</div></div>" +
+    '<div class="card"><div class="num">' + stale + '</div><div class="label">' + esc(T("adm.dp_card_stale")) + "</div></div></div>";
+  const areaSel = '<div class="tb"><label for="f-area">' + esc(T("adm.dp_f_area")) + '</label><select id="f-area">' +
+    data.areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === data.area.id ? " selected" : "") + ">" + esc(a.name) + "</option>").join("") + "</select></div>";
+  const deptSel = '<div class="tb"><label for="f-dept">' + esc(T("adm.dp_f_dept")) + '</label><select id="f-dept"><option value="">' + esc(T("adm.dp_f_dept_all")) + "</option>" +
+    data.departments.map((d) => '<option value="' + esc(d) + '"' + (d === view.dept ? " selected" : "") + ">" + esc(deptName(d)) + "</option>").join("") + "</select></div>";
+  const search = '<div class="tb"><label for="f-q">' + esc(T("adm.dp_f_search")) + '</label><input type="search" id="f-q" value="' + esc(view.q) + '"></div>';
+  const toolbar = '<div class="toolbar">' + areaSel + deptSel + search +
+    '<label class="tb chk"><input type="checkbox" id="f-stale"' + (view.stale ? " checked" : "") + "> " + esc(T("adm.dp_f_stale")) + "</label>" +
+    '<label class="tb chk"><input type="checkbox" id="f-retired"' + (view.retired ? " checked" : "") + "> " + esc(T("adm.dp_f_retired")) + "</label></div>";
+  const canAct = data.canManage || data.canRequest;
+  const actions = canAct ? '<div class="actions" style="margin:0 0 16px">' +
+    '<button type="button" class="primary" id="add-office">' + esc(T("adm.dp_add")) + "</button>" +
+    '<button type="button" id="open-upload"' + (upload ? ' aria-expanded="true"' : ' aria-expanded="false"') + ">" + esc(T("adm.dp_upload")) + "</button>" +
+    '<a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + "</a></div>" : '<div class="actions" style="margin:0 0 16px"><a class="btn" href="#coverage">' + esc(T("adm.dp_go_cov")) + "</a></div>";
+  const importPending = data.pending.filter((p) => p.kind === "dept_import");
+  const pendNote = importPending.length ? '<div class="msg ok" role="status">' + esc(T("adm.dp_import_waiting", { n: importPending.reduce((s, p) => s + (p.count || 0), 0) })) + ' <a href="/admin-change-requests.html">' + esc(T("adm.dp_see_requests")) + "</a></div>" : "";
+  const newPending = data.pending.filter((p) => p.op === "create");
+  const newNote = newPending.length ? '<div class="msg ok" role="status">' + esc(T("adm.dp_new_waiting", { names: newPending.map((p) => p.name).join(", ") })) + ' <a href="/admin-change-requests.html">' + esc(T("adm.dp_see_requests")) + "</a></div>" : "";
+
+  const shown = offices.filter((o) => {
+    if (o.retired && !view.retired) return false;
+    if (!o.retired && view.retired) return false;
+    if (view.dept && !o.departments.includes(view.dept)) return false;
+    if (view.stale && !o.needsCheck) return false;
+    if (view.q) { const q = view.q.toLowerCase(); if (!(o.nameEn + " " + (o.nameHi || "")).toLowerCase().includes(q)) return false; }
+    return true;
+  });
+  const list = shown.length ? shown.map(renderOffice).join("")
+    : '<p class="empty">' + esc(offices.length ? T("adm.dp_none_match") : T("adm.dp_none_yet", { area: data.area.name })) + "</p>";
+  return intro() + cards + toolbar + actions + pendNote + newNote + (upload ? renderUpload() : "") +
+    '<h2 style="font-size:16px;margin:8px 0 12px" id="list-h">' + esc(T(view.retired ? "adm.dp_list_retired_h" : "adm.dp_list_h", { n: shown.length })) + "</h2>" + list + renderCoverage();
+}
+
+function contactRows(o) {
+  const rows = [];
+  const add = (k, html) => rows.push("<dt>" + esc(T(k)) + "</dt><dd>" + html + "</dd>");
+  if (o.helpline) add("adm.dp_l_helpline", '<a href="' + esc(telHref(o.helpline)) + '">' + esc(o.helpline) + "</a>");
+  if (o.officePhone) add("adm.dp_l_phone", '<a href="' + esc(telHref(o.officePhone)) + '">' + esc(o.officePhone) + "</a>");
+  if (o.officeEmail) add("adm.dp_l_email", '<a href="mailto:' + esc(o.officeEmail) + '">' + esc(o.officeEmail) + "</a>");
+  if (o.whatsapp) add("adm.dp_l_whatsapp", '<a href="' + esc(waHref(o.whatsapp)) + '" target="_blank" rel="noopener noreferrer">' + esc(o.whatsapp) + ' <span class="sr-only">' + esc(T("adm.dp_new_tab")) + "</span></a>");
+  if (o.website) add("adm.dp_l_website", '<a href="' + esc(o.website) + '" target="_blank" rel="noopener noreferrer">' + esc(o.website) + ' <span class="sr-only">' + esc(T("adm.dp_new_tab")) + "</span></a>");
+  if (o.address) add("adm.dp_l_address", esc(o.address));
+  if (o.hours) add("adm.dp_l_hours", esc(o.hours));
+  if (o.officerPhone) add("adm.dp_l_officer", esc(o.officerName || "") + " · " + '<a href="' + esc(telHref(o.officerPhone)) + '">' + esc(o.officerPhone) + "</a>" +
+    '<span class="sub muted" style="display:block">' + esc(T("adm.dp_officer_agreed", { date: fmtDate(o.officerConsentDate), how: o.officerConsentHow || "" })) + "</span>");
+  else if (o.officerName) add("adm.dp_l_officer_name", esc(o.officerName));
+  if (o.notes) add("adm.dp_l_notes", esc(o.notes));
+  return "<dl>" + rows.join("") + "</dl>";
+}
+
+function coverText(o) {
+  if (!o.wards) return T("adm.dp_whole_area", { area: data.area.name });
+  const names = o.wards.map((id) => { const u = data.units.find((x) => x.id === id); return u ? u.name : id; });
+  return names.length <= 3 ? names.join(", ") : T("adm.dp_n_wards", { n: names.length, list: names.slice(0, 3).join(", ") });
+}
+
+function renderOffice(o) {
+  const waiting = data.pending.find((p) => p.officeId === o.id);
+  const pills = [];
+  if (o.retired) pills.push('<span class="pill ret">' + esc(T("adm.dp_retired")) + "</span>");
+  else if (o.needsCheck) pills.push('<span class="pill check">' + esc(T("adm.dp_check_again")) + "</span>");
+  if (waiting) pills.push('<span class="pill wait">' + esc(T("adm.dp_waiting_" + waiting.op)) + "</span>");
+  const other = o.nameHi ? (hi() ? o.nameEn : o.nameHi) : null;   // the name in the other language, when there is one
+  const src = isUrl(o.source) ? '<a class="src" href="' + esc(o.source) + '" target="_blank" rel="noopener noreferrer">' + esc(o.source) + "</a>" : esc(o.source);
+  const meta = '<div class="meta">' + esc(T("adm.dp_checked_on", { date: fmtDate(o.lastChecked) })) + " · " + esc(T("adm.dp_source")) + " " + src +
+    (o.retired ? "<br>" + esc(T("adm.dp_retired_on", { date: fmtDate(o.retiredAt), why: o.retireReason || "" })) : "") + "</div>";
+  let actions = "";
+  if ((data.canManage || data.canRequest) && !waiting) {
+    if (o.retired) actions = '<button type="button" data-restore="' + esc(o.id) + '">' + esc(T("adm.dp_restore")) + "</button>";
+    else actions = '<button type="button" data-edit="' + esc(o.id) + '">' + esc(T("adm.dp_edit")) + '<span class="sr-only"> ' + esc(officeName(o)) + "</span></button>" +
+      '<button type="button" class="danger" data-retire="' + esc(o.id) + '">' + esc(T("adm.dp_retire")) + '<span class="sr-only"> ' + esc(officeName(o)) + "</span></button>";
+  }
+  let box = "";
+  if (retireFor && retireFor.id === o.id) {
+    box = '<form id="retire-form" novalidate style="margin-top:12px"><div class="form-row"><label for="r-reason">' + esc(T("adm.dp_retire_why")) + '</label><p class="hint" id="r-reason-hint">' + esc(T("adm.dp_retire_hint")) + '</p><textarea id="r-reason" maxlength="300"' +
+      (retireFor.error ? ' aria-invalid="true" aria-describedby="r-reason-err"' : ' aria-describedby="r-reason-hint"') + ">" + esc(retireFor.reason) + "</textarea>" +
+      (retireFor.error ? '<div class="field-err" id="r-reason-err">' + esc(T("adm.dp_e_retire_short")) + "</div>" : "") +
+      '</div><div class="actions"><button type="submit" class="danger" id="r-go">' + esc(T(data.canRequest ? "adm.dp_retire_request" : "adm.dp_retire_confirm")) + '</button><button type="button" id="r-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+  }
+  if (restoreFor && restoreFor.id === o.id) {
+    box = '<form id="restore-form" novalidate style="margin-top:12px"><div class="form-row"><label for="s-reason">' + esc(T("adm.dp_reason")) + '</label><textarea id="s-reason" maxlength="500"' +
+      (restoreFor.error ? ' aria-invalid="true" aria-describedby="s-reason-err"' : "") + ">" + esc(restoreFor.reason) + "</textarea>" +
+      (restoreFor.error ? '<div class="field-err" id="s-reason-err">' + esc(T("adm.dp_e_reason_REQUIRED")) + "</div>" : "") +
+      '</div><div class="actions"><button type="submit" class="primary" id="s-go">' + esc(T("adm.dp_restore_request")) + '</button><button type="button" id="s-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>";
+  }
+  return '<article class="office' + (o.retired ? " retired" : "") + '" id="office-' + esc(o.id) + '" aria-labelledby="oh-' + esc(o.id) + '">' +
+    '<div class="office-head"><div><h3 id="oh-' + esc(o.id) + '">' + esc(officeName(o)) + "</h3>" + (other ? '<div class="hi"' + (hi() ? ' lang="en"' : ' lang="hi"') + ">" + esc(other) + "</div>" : "") + "</div>" +
+    '<div class="pills">' + pills.join("") + "</div></div>" +
+    '<div class="tags">' + o.departments.map((d) => '<span class="tag">' + esc(deptName(d)) + "</span>").join("") + '<span class="tag">' + esc(coverText(o)) + "</span></div>" +
+    contactRows(o) + meta + (actions ? '<div class="actions">' + actions + "</div>" : "") + box + "</article>";
+}
+
+function renderCoverage() {
+  const c = data.coverage;
+  const name = (id) => { const o = data.offices.find((x) => x.id === id); return o ? officeName(o) : id; };
+  let units = data.units;
+  if (covGapsOnly) units = units.filter((u) => c.departments.some((d) => !c.cells[u.id][d].length));
+  const body = units.length ? '<div class="table-wrap"><table class="cov"><caption class="sr-only">' + esc(T("adm.dp_cov_caption", { area: data.area.name })) + "</caption><thead><tr><th scope=\"col\">" + esc(T("adm.dp_cov_unit")) + "</th>" +
+    c.departments.map((d) => '<th scope="col">' + esc(deptName(d)) + "</th>").join("") + "</tr></thead><tbody>" +
+    units.map((u) => '<tr><th scope="row">' + esc(u.name) + "</th>" + c.departments.map((d) => {
+      const list = c.cells[u.id][d];
+      return list.length ? "<td>" + list.map((id) => esc(name(id))).join("<br>") + "</td>" : '<td class="gap">' + esc(T("adm.dp_cov_none")) + "</td>";
+    }).join("") + "</tr>").join("") + "</tbody></table></div>"
+    : '<p class="empty">' + esc(T(data.units.length ? "adm.dp_cov_all_covered" : "adm.dp_cov_no_units")) + "</p>";
+  return '<div class="panel" id="coverage" style="margin-top:24px"><h2 tabindex="-1" id="coverage-h">' + esc(T("adm.dp_cov_h")) + '</h2><p class="sub">' + esc(T("adm.dp_cov_p", { n: c.gaps })) + "</p>" +
+    '<label style="display:inline-flex;gap:8px;align-items:center;font-size:14px;min-height:32px;margin-bottom:8px"><input type="checkbox" id="cov-gaps" style="width:18px;height:18px"' + (covGapsOnly ? " checked" : "") + "> " + esc(T("adm.dp_cov_gaps_only")) + "</label>" + body + "</div>";
+}
+
+// ---------------------------------------------------------------- the form
+const FIELD_ORDER = ["nameEn", "nameHi", "departments", "wards", "contact", "helpline", "officePhone", "officeEmail", "whatsapp", "website", "address", "hours",
+  "officerName", "officerPhone", "officerConsentDate", "officerConsentHow", "source", "lastChecked", "notes", "reason"];
+const FIELD_ID = { nameEn: "o-name-en", nameHi: "o-name-hi", departments: "o-dept-0", wards: "o-wards-all", contact: "o-helpline", helpline: "o-helpline", officePhone: "o-phone",
+  officeEmail: "o-email", whatsapp: "o-whatsapp", website: "o-website", address: "o-address", hours: "o-hours", officerName: "o-off-name", officerPhone: "o-off-phone",
+  officerConsentDate: "o-off-date", officerConsentHow: "o-off-how", source: "o-source", lastChecked: "o-checked", notes: "o-notes", reason: "o-reason" };
+
+function blankForm() {
+  return { id: null, updatedAt: null, nameEn: "", nameHi: "", departments: [], wardsMode: "ALL", wards: [], wardQ: "",
+    helpline: "", officePhone: "", officeEmail: "", whatsapp: "", website: "", address: "", hours: "",
+    officerName: "", officerPhone: "", officerConsentDate: "", officerConsentHow: "", source: "", lastChecked: today(), notes: "", reason: "", errors: {}, busy: false };
+}
+function formFrom(o) {
+  const f = blankForm();
+  Object.keys(f).forEach((k) => { if (o[k] != null && typeof f[k] === "string") f[k] = o[k]; });
+  f.id = o.id; f.updatedAt = o.updatedAt; f.departments = o.departments.slice();
+  f.wardsMode = o.wards ? "LIST" : "ALL"; f.wards = (o.wards || []).slice();
+  return f;
+}
+function label(k) { return T("adm.dp_lbl_" + k); }
+function errText(k, code) {
+  const specific = "adm.dp_e_" + k + "_" + code;
+  if (window.GIQ && window.GIQ.has(specific)) return T(specific);
+  return T("adm.dp_e_" + code);
+}
+function fieldErr(k) {
+  const code = form.errors[k];
+  return code ? '<div class="field-err" id="' + FIELD_ID[k] + '-err">' + esc(errText(k, code)) + "</div>" : "";
+}
+function field(k, opts) {
+  opts = opts || {};
+  const id = FIELD_ID[k], e = form.errors[k];
+  const hint = opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + "</p>" : "";
+  const desc = [e ? id + "-err" : "", opts.hint ? id + "-hint" : ""].filter(Boolean).join(" ");
+  const attrs = ' id="' + id + '" data-f="' + k + '"' + (e ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + (opts.attrs || "");
+  const control = opts.textarea
+    ? "<textarea" + attrs + ' maxlength="' + (opts.max || 500) + '">' + esc(form[k]) + "</textarea>"
+    : '<input type="' + (opts.type || "text") + '"' + attrs + ' value="' + esc(form[k]) + '"' + (opts.max ? ' maxlength="' + opts.max + '"' : "") + ">";
+  return '<div class="form-row"><label for="' + id + '">' + esc(label(k)) + (opts.optional ? ' <span class="muted">' + esc(T("adm.dp_optional")) + "</span>" : "") + "</label>" + hint + control + fieldErr(k) + "</div>";
+}
+
+function renderForm() {
+  const f = form, e = f.errors;
+  const keys = FIELD_ORDER.filter((k) => e[k]);
+  const summary = keys.length ? '<div class="err-summary" id="o-summary" tabindex="-1" role="alert"><h3>' + esc(T("adm.dp_fix_h")) + "</h3><ul>" +
+    keys.map((k) => '<li><a href="#' + FIELD_ID[k] + '">' + esc((k === "contact" ? "" : label(k) + ": ") + errText(k, e[k])) + "</a></li>").join("") + "</ul></div>" : "";
+  const depts = '<fieldset id="o-dept-fs"' + (e.departments ? ' aria-describedby="o-dept-0-err"' : "") + "><legend>" + esc(label("departments")) + '</legend><p class="hint">' + esc(T("adm.dp_h_departments")) + '</p><div class="checks">' +
+    data.departments.map((d, i) => '<label><input type="checkbox" id="o-dept-' + i + '" data-dept="' + esc(d) + '"' + (f.departments.includes(d) ? " checked" : "") + (e.departments ? ' aria-invalid="true"' : "") + "> " + esc(deptName(d)) + "</label>").join("") +
+    "</div>" + (e.departments ? '<div class="field-err" id="o-dept-0-err">' + esc(errText("departments", e.departments)) + "</div>" : "") + "</fieldset>";
+  const q = f.wardQ.toLowerCase();
+  const unitsShown = data.units.filter((u) => !q || u.name.toLowerCase().includes(q));
+  const wardList = f.wardsMode === "LIST" ? '<div class="wardbox"><div class="wb-tools"><label for="o-ward-q" class="sr-only">' + esc(T("adm.dp_ward_search")) + '</label><input type="search" id="o-ward-q" placeholder="' + esc(T("adm.dp_ward_search")) + '" value="' + esc(f.wardQ) + '" style="flex:1;min-width:160px;padding:7px 10px;border-radius:6px;border:1px solid var(--admin-border);background:transparent;color:inherit;font:inherit;font-size:14px">' +
+      '<button type="button" id="o-ward-all">' + esc(T(q ? "adm.dp_ward_select_shown" : "adm.dp_ward_select_all")) + '</button><button type="button" id="o-ward-none">' + esc(T("adm.dp_ward_clear")) + "</button></div>" +
+      '<p class="hint" id="o-ward-count" style="margin-top:8px" aria-live="polite">' + esc(T("adm.dp_ward_chosen", { n: f.wards.length, total: data.units.length })) + "</p>" +
+      '<div class="wardlist" role="group" aria-label="' + esc(label("wards")) + '">' + (unitsShown.length ? unitsShown.map((u) => '<label><input type="checkbox" data-ward="' + esc(u.id) + '"' + (f.wards.includes(u.id) ? " checked" : "") + "> " + esc(u.name) + "</label>").join("") : '<p class="muted">' + esc(T("adm.dp_ward_no_match")) + "</p>") + "</div></div>" : "";
+  const wards = '<fieldset><legend>' + esc(label("wards")) + '</legend><div class="radios">' +
+      '<label><input type="radio" name="o-wards" id="o-wards-all" value="ALL"' + (f.wardsMode === "ALL" ? " checked" : "") + "> " + esc(T("adm.dp_whole_area", { area: data.area.name })) + "</label>" +
+      '<label><input type="radio" name="o-wards" value="LIST"' + (f.wardsMode === "LIST" ? " checked" : "") + "> " + esc(T("adm.dp_some_wards")) + "</label></div>" +
+      (e.wards ? '<div class="field-err" id="o-wards-all-err">' + esc(errText("wards", e.wards)) + "</div>" : "") + wardList + "</fieldset>";
+  const contacts = "<fieldset><legend>" + esc(T("adm.dp_fs_contacts")) + '</legend><p class="hint">' + esc(T("adm.dp_h_contacts")) + "</p>" +
+    (e.contact ? '<div class="field-err" id="o-helpline-err" style="margin-bottom:6px">' + esc(errText("contact", e.contact)) + "</div>" : "") +
+    '<div class="grid2f">' +
+      field("helpline", { type: "tel", optional: true, hint: T("adm.dp_h_helpline"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
+      field("officePhone", { type: "tel", optional: true, hint: T("adm.dp_h_phone"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
+      field("officeEmail", { type: "email", optional: true, attrs: ' autocomplete="off" spellcheck="false"', max: 200 }) +
+      field("whatsapp", { type: "tel", optional: true, hint: T("adm.dp_h_whatsapp"), attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
+    "</div>" +
+    field("website", { type: "url", optional: true, hint: T("adm.dp_h_website"), attrs: ' autocomplete="off" spellcheck="false"', max: 300 }) +
+    field("address", { optional: true, max: 300 }) + field("hours", { optional: true, hint: T("adm.dp_h_hours"), max: 120 }) + "</fieldset>";
+  const officerOpen = !!(f.officerPhone || e.officerName || e.officerPhone || e.officerConsentDate || e.officerConsentHow);
+  const officer = '<details class="officer"' + (officerOpen ? " open" : "") + "><summary>" + esc(T("adm.dp_officer_sum")) + '</summary><p class="hint" style="margin-top:8px">' + esc(T("adm.dp_officer_p")) + '</p><div class="grid2f">' +
+    field("officerName", { optional: true, max: 120 }) + field("officerPhone", { type: "tel", optional: true, attrs: ' inputmode="tel" autocomplete="off"', max: 40 }) +
+    field("officerConsentDate", { type: "date", attrs: ' max="' + today() + '"' }) + field("officerConsentHow", { hint: T("adm.dp_h_consent_how"), max: 200 }) + "</div></details>";
+  const sourceBox = "<fieldset><legend>" + esc(T("adm.dp_fs_source")) + "</legend>" +
+    field("source", { hint: T("adm.dp_h_source"), max: 300 }) + field("lastChecked", { type: "date", hint: T("adm.dp_h_checked"), attrs: ' max="' + today() + '"' }) +
+    field("notes", { textarea: true, optional: true, max: 500 }) + "</fieldset>";
+  const reason = data.canRequest ? "<fieldset><legend>" + esc(T("adm.dp_fs_request")) + "</legend>" + field("reason", { textarea: true, hint: T("adm.dp_h_reason"), max: 500 }) + "</fieldset>" : "";
+  const saveText = data.canRequest ? T("adm.dp_send_request") : T(f.id ? "adm.dp_save_changes" : "adm.dp_save_new");
+  return '<button type="button" class="linklike" id="o-back" style="margin-bottom:12px">' + esc(T("adm.dp_back")) + "</button>" +
+    '<div class="panel"><h2 id="form-h" tabindex="-1">' + esc(T(f.id ? "adm.dp_edit_h" : "adm.dp_add_h", { name: f.nameEn, area: data.area.name })) + "</h2>" +
+    '<form id="office-form" novalidate>' + summary +
+      "<fieldset><legend>" + esc(T("adm.dp_fs_office")) + '</legend><div class="grid2f">' +
+        field("nameEn", { hint: T("adm.dp_h_name_en"), max: 120, attrs: ' autocomplete="off"' }) + field("nameHi", { optional: true, hint: T("adm.dp_h_name_hi"), max: 120, attrs: ' lang="hi" autocomplete="off"' }) +
+      "</div></fieldset>" + depts + wards + contacts + officer + sourceBox + reason +
+      '<div class="actions"><button type="submit" class="primary" id="o-save"' + (f.busy ? " disabled" : "") + ">" + esc(saveText) + '</button><button type="button" id="o-cancel">' + esc(T("adm.dp_cancel")) + "</button></div>" +
+    "</form></div>";
+}
+
+// ---------------------------------------------------------------- upload
+function renderUpload() {
+  const u = upload;
+  let report = "";
+  if (u.error) report = '<div class="msg err" role="alert" id="up-msg" tabindex="-1">' + esc(u.error) + "</div>";
+  if (u.report) {
+    const r = u.report;
+    const rows = r.rows.map((x) => "<tr><td>" + x.line + "</td><td>" + esc(x.nameEn || "—") + "</td><td>" + (x.ok
+      ? '<span class="good">' + esc(T("adm.dp_up_row_ok")) + "</span> " + esc((x.departments || []).map(deptName).join(", ") + " · " + (x.wholeArea ? T("adm.dp_whole_area", { area: data.area.name }) : T("adm.dp_up_n_wards", { n: x.wardCount })))
+      : '<span class="bad">' + esc(T("adm.dp_up_row_bad")) + "</span><ul style=\"margin:4px 0 0;padding-left:18px\">" + Object.keys(x.fields).map((k) => "<li>" + esc(upErr(k, x.fields[k], x)) + "</li>").join("") + "</ul>") + "</td></tr>").join("");
+    report += '<div role="status" id="up-sum" tabindex="-1" class="msg ' + (r.bad ? "err" : "ok") + '">' + esc(r.bad ? T("adm.dp_up_bad", { bad: r.bad, total: r.total }) : T("adm.dp_up_good", { total: r.total })) + "</div>" +
+      '<div class="table-wrap"><table class="report"><thead><tr><th scope="col">' + esc(T("adm.dp_up_line")) + '</th><th scope="col">' + esc(T("adm.dp_up_office")) + '</th><th scope="col">' + esc(T("adm.dp_up_result")) + "</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+    if (!r.bad) {
+      report += (data.canRequest ? '<div class="form-row"><label for="up-reason">' + esc(T("adm.dp_lbl_reason")) + '</label><p class="hint">' + esc(T("adm.dp_h_reason")) + '</p><textarea id="up-reason" maxlength="500"' + (u.reasonErr ? ' aria-invalid="true" aria-describedby="up-reason-err"' : "") + ">" + esc(u.reason || "") + "</textarea>" + (u.reasonErr ? '<div class="field-err" id="up-reason-err">' + esc(T("adm.dp_e_reason_REQUIRED")) + "</div>" : "") + "</div>" : "") +
+        '<div class="actions"><button type="button" class="primary" id="up-save"' + (u.busy ? " disabled" : "") + ">" + esc(T(data.canRequest ? "adm.dp_up_send" : "adm.dp_up_save", { n: r.total })) + "</button></div>";
+    }
+  }
+  return '<div class="panel" id="upload-panel"><h2 id="upload-h" tabindex="-1">' + esc(T("adm.dp_up_h", { area: data.area.name })) + "</h2>" +
+    '<ol style="margin:0 0 12px;padding-left:20px;font-size:14px;line-height:1.6"><li>' + esc(T("adm.dp_up_step1")) + ' <a href="/api/admin/departments?template=1" download>' + esc(T("adm.dp_up_template")) + "</a></li><li>" + esc(T("adm.dp_up_step2")) + "</li><li>" + esc(T("adm.dp_up_step3")) + "</li></ol>" +
+    '<div class="form-row"><label for="up-file">' + esc(T("adm.dp_up_file")) + '</label><input type="file" id="up-file" accept=".csv,text/csv"></div>' +
+    (u.name ? '<p class="hint">' + esc(T("adm.dp_up_chosen", { name: u.name })) + "</p>" : "") +
+    '<div class="actions"><button type="button" id="up-check"' + (u.csv && !u.busy ? "" : " disabled") + ">" + esc(T("adm.dp_up_check")) + '</button><button type="button" id="up-close">' + esc(T("adm.dp_cancel")) + "</button></div>" + report + "</div>";
+}
+function upErr(k, code, row) {
+  if (k === "wards" && code === "UNKNOWN" && row.unknownWards) return T("adm.dp_up_e_unknown_wards", { list: row.unknownWards.join(", ") });
+  if (k === "area") return T("adm.dp_up_e_area", { area: data.area.name });
+  if (k === "nameEn" && code === "DUPLICATE") return T("adm.dp_up_e_dup");
+  if (k === "departments" && code === "FORMAT") return T("adm.dp_up_e_handles");
+  return (k === "contact" ? "" : label(k) + ": ") + errText(k, code);
+}
+
+// ---------------------------------------------------------------- wiring
+function on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
+function readForm() {
+  document.querySelectorAll("#office-form [data-f]").forEach((el) => { form[el.dataset.f] = el.value; });
+  form.departments = Array.from(document.querySelectorAll("#office-form [data-dept]")).filter((c) => c.checked).map((c) => c.dataset.dept);
+  const m = document.querySelector('input[name="o-wards"]:checked'); if (m) form.wardsMode = m.value;
+}
+
+function wire() {
+  on("top-msg", "keydown", () => {});
+  on("f-area", "change", (e) => { msg = null; upload = null; retireFor = null; history.replaceState(null, "", "?area=" + encodeURIComponent(e.target.value)); load(e.target.value); });
+  on("f-dept", "change", (e) => { view.dept = e.target.value; render("f-dept"); say(T("adm.dp_list_h", { n: document.querySelectorAll(".office").length })); });
+  on("f-q", "input", (e) => { view.q = e.target.value; const pos = e.target.selectionStart; render("f-q"); const q = document.getElementById("f-q"); if (q) q.setSelectionRange(pos, pos); });
+  on("f-stale", "change", (e) => { view.stale = e.target.checked; render("f-stale"); });
+  on("f-retired", "change", (e) => { view.retired = e.target.checked; render("f-retired"); });
+  on("cov-gaps", "change", (e) => { covGapsOnly = e.target.checked; render("cov-gaps"); });
+  on("add-office", "click", () => { msg = null; form = blankForm(); render("form-h"); });
+  on("open-upload", "click", () => { msg = null; upload = upload ? null : { name: "", csv: "" }; render(upload ? "upload-h" : "open-upload"); });
+  document.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => { msg = null; form = formFrom(data.offices.find((o) => o.id === b.dataset.edit)); render("form-h"); }));
+  document.querySelectorAll("[data-retire]").forEach((b) => b.addEventListener("click", () => { msg = null; restoreFor = null; retireFor = { id: b.dataset.retire, reason: "", error: false }; render("r-reason"); }));
+  document.querySelectorAll("[data-restore]").forEach((b) => b.addEventListener("click", () => {
+    msg = null; retireFor = null;
+    if (data.canRequest) { restoreFor = { id: b.dataset.restore, reason: "", error: false }; render("s-reason"); return; }
+    doRestore(b.dataset.restore, "");
+  }));
+  on("r-cancel", "click", () => { const id = retireFor.id; retireFor = null; render(); const b = document.querySelector('[data-retire="' + id + '"]'); if (b) b.focus(); });
+  on("s-cancel", "click", () => { const id = restoreFor.id; restoreFor = null; render(); const b = document.querySelector('[data-restore="' + id + '"]'); if (b) b.focus(); });
+  on("retire-form", "submit", async (e) => {
+    e.preventDefault();
+    retireFor.reason = document.getElementById("r-reason").value;
+    if (retireFor.reason.trim().length < 10) { retireFor.error = true; render("r-reason"); return; }
+    const o = data.offices.find((x) => x.id === retireFor.id);
+    const r = await post({ action: "retire", officeId: o.id, expectedUpdatedAt: o.updatedAt, reason: retireFor.reason });
+    if (r.ok) { msg = { text: T(r.body.requested ? "adm.dp_ok_retire_req" : "adm.dp_ok_retired", { name: officeName(o) }) }; retireFor = null; await load(); focusMsg(); }
+    else if (r.body.fields) { retireFor.error = true; render("r-reason"); }
+    else { msg = { err: true, text: apiErr(r) }; retireFor = null; await load(); focusMsg(); }
+  });
+  on("restore-form", "submit", (e) => {
+    e.preventDefault();
+    restoreFor.reason = document.getElementById("s-reason").value;
+    if (restoreFor.reason.trim().length < 5) { restoreFor.error = true; render("s-reason"); return; }
+    doRestore(restoreFor.id, restoreFor.reason);
+  });
+
+  // Form
+  on("o-back", "click", closeForm);
+  on("o-cancel", "click", closeForm);
+  document.querySelectorAll('input[name="o-wards"]').forEach((r) => r.addEventListener("change", () => { readForm(); render(r.value === "LIST" ? "o-ward-q" : "o-wards-all"); }));
+  on("o-ward-q", "input", (e) => { readForm(); form.wardQ = e.target.value; const pos = e.target.selectionStart; render("o-ward-q"); const q = document.getElementById("o-ward-q"); if (q) q.setSelectionRange(pos, pos); });
+  document.querySelectorAll("[data-ward]").forEach((c) => c.addEventListener("change", () => {
+    if (c.checked) { if (!form.wards.includes(c.dataset.ward)) form.wards.push(c.dataset.ward); } else form.wards = form.wards.filter((w) => w !== c.dataset.ward);
+    const n = document.getElementById("o-ward-count"); if (n) n.textContent = T("adm.dp_ward_chosen", { n: form.wards.length, total: data.units.length });
+  }));
+  on("o-ward-all", "click", () => { readForm(); document.querySelectorAll("[data-ward]").forEach((c) => { if (!form.wards.includes(c.dataset.ward)) form.wards.push(c.dataset.ward); }); render("o-ward-all"); });
+  on("o-ward-none", "click", () => { readForm(); form.wards = []; render("o-ward-none"); });
+  on("o-summary", "click", (e) => { const a = e.target.closest("a"); if (!a) return; e.preventDefault(); const el = document.getElementById(a.getAttribute("href").slice(1)); if (el) { const d = el.closest("details"); if (d) d.open = true; el.focus(); } });
+  on("office-form", "submit", async (e) => {
+    e.preventDefault();
+    readForm();
+    const errs = clientCheck();
+    form.errors = errs;
+    if (Object.keys(errs).length) { render("o-summary"); return; }
+    form.busy = true;
+    const office = {
+      nameEn: form.nameEn, nameHi: form.nameHi, departments: form.departments, wards: form.wardsMode === "ALL" ? "ALL" : form.wards,
+      helpline: form.helpline, officePhone: form.officePhone, officeEmail: form.officeEmail, whatsapp: form.whatsapp, website: form.website,
+      address: form.address, hours: form.hours, officerName: form.officerName, officerPhone: form.officerPhone,
+      officerConsentDate: form.officerConsentDate, officerConsentHow: form.officerConsentHow, source: form.source, lastChecked: form.lastChecked, notes: form.notes,
+    };
+    const r = await post({ action: "save", areaId: data.area.id, officeId: form.id, expectedUpdatedAt: form.updatedAt, office, reason: form.reason });
+    form.busy = false;
+    if (r.ok) {
+      const name = form.nameEn, id = r.body.officeId;
+      msg = { text: T(r.body.requested ? (form.id ? "adm.dp_ok_change_req" : "adm.dp_ok_add_req") : (form.id ? "adm.dp_ok_saved" : "adm.dp_ok_added"), { name }) };
+      form = null; await load(); focusMsg();
+      return;
+    }
+    if (r.body.fields) { form.errors = r.body.fields; render("o-summary"); return; }
+    if (r.body.code === "UNCHANGED") { form.errors = {}; msg = { err: true, text: T("adm.dp_e_unchanged") }; render("top-msg"); return; }
+    msg = { err: true, text: apiErr(r) };
+    if (r.body.code === "STALE" || r.body.code === "WAITING") { form = null; await load(); }
+    else render();
+    focusMsg();
+  });
+
+  // Upload
+  on("up-close", "click", () => { upload = null; render("open-upload"); });
+  on("up-file", "change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (file.size > 500000) { upload = { name: file.name, csv: "", error: T("adm.dp_up_e_size") }; render("up-msg"); return; }
+    const reader = new FileReader();
+    reader.onload = () => { upload = { name: file.name, csv: String(reader.result || "") }; render("up-check"); };
+    reader.onerror = () => { upload = { name: file.name, csv: "", error: T("adm.dp_up_e_read") }; render("up-msg"); };
+    reader.readAsText(file, "utf-8");
+  });
+  on("up-check", "click", async () => {
+    upload.busy = true; upload.error = null; upload.report = null; render();
+    const r = await post({ action: "import_check", areaId: data.area.id, csv: upload.csv });
+    upload.busy = false;
+    if (r.ok || (r.body && r.body.rows)) upload.report = r.body;
+    else upload.error = fileErr(r);
+    render(upload.report ? "up-sum" : "up-msg");
+  });
+  on("up-save", "click", async () => {
+    const reasonEl = document.getElementById("up-reason");
+    if (reasonEl) { upload.reason = reasonEl.value; if (upload.reason.trim().length < 5) { upload.reasonErr = true; render("up-reason"); return; } }
+    upload.busy = true; render();
+    const r = await post({ action: "import", areaId: data.area.id, csv: upload.csv, reason: upload.reason || "" });
+    if (r.ok) { msg = { text: T(r.body.requested ? "adm.dp_ok_import_req" : "adm.dp_ok_imported", { n: upload.report.total }) }; upload = null; await load(); focusMsg(); return; }
+    upload.busy = false;
+    if (r.body && r.body.rows) { upload.report = r.body; render("up-sum"); return; }
+    upload.error = fileErr(r); render("up-msg");
+  });
+}
+
+function clientCheck() {
+  // Quick checks in the page; the server checks everything again.
+  const e = {};
+  if (!form.nameEn.trim()) e.nameEn = "REQUIRED";
+  if (!form.departments.length) e.departments = "REQUIRED";
+  if (form.wardsMode === "LIST" && !form.wards.length) e.wards = "REQUIRED";
+  if (![form.helpline, form.officePhone, form.officeEmail, form.whatsapp, form.website].some((v) => v.trim())) e.contact = "NO_CONTACT";
+  if (form.officeEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.officeEmail.trim())) e.officeEmail = "FORMAT";
+  if (form.website.trim() && !/^https?:\/\/\S+\.\S+/i.test(form.website.trim())) e.website = "FORMAT";
+  if (!form.source.trim()) e.source = "REQUIRED";
+  if (!form.lastChecked) e.lastChecked = "REQUIRED";
+  else if (form.lastChecked > today()) e.lastChecked = "FUTURE";
+  if (form.officerPhone.trim()) {
+    if (!form.officerName.trim()) e.officerName = "REQUIRED";
+    if (!form.officerConsentDate) e.officerConsentDate = "REQUIRED";
+    if (!form.officerConsentHow.trim()) e.officerConsentHow = "REQUIRED";
+  }
+  if (data.canRequest && form.reason.trim().length < 5) e.reason = "REQUIRED";
+  return e;
+}
+
+async function doRestore(id, reason) {
+  const o = data.offices.find((x) => x.id === id);
+  const r = await post({ action: "restore", officeId: id, expectedUpdatedAt: o.updatedAt, reason });
+  restoreFor = null;
+  msg = r.ok ? { text: T(r.body.requested ? "adm.dp_ok_restore_req" : "adm.dp_ok_restored", { name: officeName(o) }) } : { err: true, text: apiErr(r) };
+  if (r.ok) view.retired = false;
+  await load(); focusMsg();
+}
+function closeForm() {
+  const id = form && form.id; form = null; msg = null; render();
+  const b = id ? document.querySelector('[data-edit="' + id + '"]') : document.getElementById("add-office"); if (b) b.focus();
+}
+function focusMsg() { const m = document.getElementById("top-msg"); if (m) { m.focus(); if (m.scrollIntoView) m.scrollIntoView({ block: "center" }); } }
+function apiErr(r) {
+  if (r.status === 0) return T("adm.network");
+  const code = r.body && r.body.code;
+  if (code && window.GIQ && window.GIQ.has("adm.dp_api_" + code)) return T("adm.dp_api_" + code);
+  return T("adm.err_detail", { msg: (r.body && r.body.error) || r.status });
+}
+function fileErr(r) {
+  const b = r.body || {};
+  if (r.status === 0) return T("adm.network");
+  if (b.code === "COLUMNS") return T("adm.dp_up_e_columns", { list: (b.missing || []).join(", ") });
+  if (b.code === "TOO_MANY") return T("adm.dp_up_e_many", { max: b.max });
+  if (b.code === "EMPTY") return T("adm.dp_up_e_empty");
+  if (b.code === "TOO_LARGE") return T("adm.dp_up_e_size");
+  return apiErr(r);
+}
+
+document.addEventListener("giq:lang", () => render());
+load();
+</script>
+<script>
+(function () {
+  var btn = document.getElementById("theme-toggle");
+  function draw() { var light = document.documentElement.classList.contains("light-theme"); btn.textContent = window.GIQ ? GIQ.t(light ? "adm.theme_dark" : "adm.theme_light") : (light ? "Dark mode" : "Light mode"); }
+  btn.addEventListener("click", function () {
+    var light = document.documentElement.classList.toggle("light-theme");
+    try { localStorage.setItem("griq-admin-theme", light ? "light" : "dark"); } catch (e) {}
+    draw();
+  });
+  document.addEventListener("giq:lang", draw);
+  draw();
+})();
+</script>
+</body>
+</html>

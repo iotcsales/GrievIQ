@@ -81,6 +81,11 @@ export const PERMISSIONS = {
   // offices and the replies. The auditor reads (independent oversight).
   view_messages: ["super_admin", "operations_admin", "auditor"],
   send_messages: ["super_admin", "operations_admin"],
+  // Departments stage 1 (Oct 2026): the department directory. The two senior
+  // roles add and change offices; data entry operators request changes
+  // (maker-checker, approved on Change requests); the auditor reads.
+  view_departments: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
+  manage_departments: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -104,6 +109,7 @@ export const PAGES = {
   "admin-areas": "view_areas",
   "admin-feedback": "view_feedback",
   "admin-messages": "view_messages",
+  "admin-departments": "view_departments",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);
