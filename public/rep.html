@@ -20,7 +20,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=26"></script>
+<script src="/i18n.js?v=27"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=20b"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -664,6 +664,27 @@
   .ladder-dot.late { background: var(--red); }
   .ladder-dot.done { background: var(--steel-2); }
   .ladder-dot.mine { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* Departments stage 2: "Who handles this" */
+  .dept-card { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--card); }
+  .dept-card .dc-h { margin: 0 0 4px; font-size: 14px; color: var(--ink); }
+  .dept-card .dc-dept { color: var(--brand); }
+  .dept-card .dc-sub, .dept-card .dc-extra, .dept-card .dc-checked { font-size: 12.5px; color: var(--steel-2); margin: 2px 0; }
+  .dept-card .dc-office { padding: 6px 0; border-top: 1px dashed var(--line); }
+  .dept-card .dc-office:first-of-type { border-top: 0; }
+  .dept-card .dc-name { font-weight: 700; font-size: 14px; color: var(--ink); }
+  .dept-card .dc-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+  .dept-card .dc-link { display: inline-flex; align-items: center; min-height: 36px; padding: 4px 10px; border: 1px solid var(--brand); border-radius: 18px; color: var(--brand); text-decoration: none; font-size: 13px; font-weight: 600; background: var(--brand-tint); }
+  .dept-card .dc-link:hover { text-decoration: underline; }
+  .dept-card .dc-link:focus-visible, .dept-card .dc-tell:focus-visible, .dept-card select:focus-visible, .dept-card .dc-jans a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  .dept-card .dc-note { font-size: 13px; color: var(--ink); margin: 4px 0; }
+  .dept-card .dc-told { font-size: 13px; color: var(--green); font-weight: 600; margin: 4px 0; }
+  .dept-card .dc-tell { min-height: 36px; font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  .dept-card .dc-switch { margin-top: 8px; }
+  .dept-card .dc-switch label { display: block; font-size: 12px; font-weight: 600; color: var(--steel); margin-bottom: 3px; }
+  .dept-card .dc-switch select { min-height: 36px; max-width: 100%; }
+  .dept-card .dc-jans { font-size: 12.5px; color: var(--steel); margin: 8px 0 0; }
+  .dept-card .dc-jans a { color: var(--brand); }
+  .dept-card .dc-err { color: var(--red); font-size: 13px; }
   .followup-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 10px; }
   .followup-field label { display: block; font-size: 12px; font-weight: 600; color: var(--steel); margin-bottom: 3px; }
   .followup-form .resolve-btn { margin-top: 0; }
@@ -775,7 +796,9 @@ function errText(msg) { return msg ? T('rep.err_detail', { msg: msg }) : T('comm
 // The departments a case can be forwarded to. Since grieviq-25 admins manage
 // this list; /api/grievances sends the current one (and every type's names).
 var DEPARTMENTS = ['Water Supply','Electricity','Sanitation / Garbage','Roads & Public Works','Health','Legal / Land Records','Other'];
+var deptDir = { units: {}, areas: {}, offices: [] };   // Departments stage 2: the directory for these cases
 function takeDepartments(d) {
+  if (d && d.deptDirectory) deptDir = d.deptDirectory;
   if (d && Array.isArray(d.departments) && d.departments.length) DEPARTMENTS = d.departments;
   if (d && d.deptNames && window.GIQ && GIQ.addDepts) GIQ.addDepts(d.deptNames);
 }
@@ -1049,6 +1072,105 @@ function renderResolution(c) {
 // pre-selected answer is easily missed and submitted wrongly). The
 // department matching the issue type, if any, is listed first and marked
 // "(suggested)"; the rep must actively choose.
+// ---- Departments stage 2: "Who handles this" ----
+// The office(s) on file for this case's ward and department: an office
+// covering just this ward first, then one covering the whole area. Official
+// public contacts, as tap-to-call / email / WhatsApp links with their full
+// meaning written out (WCAG 2.2: link purpose). Nothing is sent from GrievIQ.
+var dcChoice = {};   // case id -> department chosen under "Not the right department?"
+var dcTold = {};     // "caseId|dept" -> true once "Tell GrievIQ" was pressed
+function dcOffices(c, dept) {
+  var unit = c.localUnit && c.localUnit.id;
+  var area = deptDir.units[unit];
+  if (!area || !dept) return [];
+  var live = (deptDir.offices || []).filter(function(o) { return o.areaId === area && o.departments.indexOf(dept) !== -1; });
+  var exact = live.filter(function(o) { return o.wards && o.wards.indexOf(unit) !== -1; });
+  var whole = live.filter(function(o) { return !o.wards; });
+  return exact.concat(whole);
+}
+function dcTel(n) { return 'tel:' + String(n || '').replace(/[^\d+]/g, ''); }
+function dcWa(n) { var d = String(n || '').replace(/\D/g, ''); if (d.length === 10) d = '91' + d; else if (d.length === 11 && d[0] === '0') d = '91' + d.slice(1); return 'https://wa.me/' + d; }
+function dcDate(d) { if (!d) return ''; var x = new Date(d + 'T00:00:00+05:30'); return isNaN(x) ? d : x.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }); }
+function dcOffice(o) {
+  var name = isHi() && o.nameHi ? o.nameHi : o.nameEn;
+  var links = [];
+  var newTab = ' <span class="visually-hidden">' + esc(T('rep.dc_new_tab')) + '</span>';
+  if (o.helpline) links.push('<a class="dc-link" href="' + esc(dcTel(o.helpline)) + '">' + esc(T('rep.dc_call_helpline', { n: o.helpline })) + '</a>');
+  if (o.officePhone) links.push('<a class="dc-link" href="' + esc(dcTel(o.officePhone)) + '">' + esc(T('rep.dc_call_office', { n: o.officePhone })) + '</a>');
+  if (o.officeEmail) links.push('<a class="dc-link" href="mailto:' + esc(o.officeEmail) + '">' + esc(T('rep.dc_email', { e: o.officeEmail })) + '</a>');
+  if (o.whatsapp) links.push('<a class="dc-link" href="' + esc(dcWa(o.whatsapp)) + '" target="_blank" rel="noopener noreferrer">' + esc(T('rep.dc_whatsapp', { n: o.whatsapp })) + newTab + '</a>');
+  if (o.website) links.push('<a class="dc-link" href="' + esc(o.website) + '" target="_blank" rel="noopener noreferrer">' + esc(T('rep.dc_website')) + newTab + '</a>');
+  if (o.officerPhone) links.push('<a class="dc-link" href="' + esc(dcTel(o.officerPhone)) + '">' + esc(T('rep.dc_call_officer', { name: o.officerName || '', n: o.officerPhone })) + '</a>');
+  var extra = [];
+  if (o.hours) extra.push(T('rep.dc_hours', { h: o.hours }));
+  if (o.address) extra.push(o.address);
+  return '<div class="dc-office"><div class="dc-name">' + esc(name) + '</div>' +
+    '<div class="dc-links">' + links.join('') + '</div>' +
+    (extra.length ? '<div class="dc-extra">' + esc(extra.join(' · ')) + '</div>' : '') +
+    '<div class="dc-checked">' + esc(T('rep.dc_checked', { date: dcDate(o.lastChecked) })) + '</div></div>';
+}
+function renderDeptCard(c) {
+  if (c.status === 'RESOLVED' || c.status === 'CLOSED') return '';
+  var id = esc(c.id);
+  var sugg = DEPARTMENTS.indexOf(c.suggestedDepartment) !== -1 ? c.suggestedDepartment : null;
+  var dept = dcChoice[c.id] || sugg;
+  var offices = dcOffices(c, dept);
+  var body;
+  if (!dept) {
+    body = '<p class="dc-note">' + esc(T('rep.dc_choose_first')) + '</p>';
+  } else if (offices.length) {
+    body = offices.map(dcOffice).join('');
+  } else {
+    var told = dcTold[c.id + '|' + dept];
+    body = '<p class="dc-note">' + esc(T('rep.dc_none', { dept: deptName(dept) })) + '</p>' +
+      (told ? '<p class="dc-told" role="status">' + esc(T('rep.dc_told')) + '</p>'
+            : '<button type="button" class="dc-tell" data-id="' + id + '" data-dept="' + esc(dept) + '">' + esc(T('rep.dc_tell')) + '</button>');
+  }
+  var opts = '<option value="">' + esc(T('rep.dc_pick')) + '</option>' + DEPARTMENTS.map(function(d) {
+    return '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
+  }).join('');
+  var area = deptDir.areas[deptDir.units[c.localUnit && c.localUnit.id]] || null;
+  var up = area ? area.state === 'Uttar Pradesh' : true;
+  var jans = up ? '<p class="dc-jans">' + esc(T('rep.dc_jansunwai')) + ' <a href="https://jansunwai.up.nic.in" target="_blank" rel="noopener noreferrer">jansunwai.up.nic.in<span class="visually-hidden"> ' + esc(T('rep.dc_new_tab')) + '</span></a> · <a href="tel:1076">' + esc(T('rep.dc_call_1076')) + '</a></p>' : '';
+  return '<section class="dept-card" id="dc-' + id + '" aria-labelledby="dc-h-' + id + '">' +
+    '<h4 class="dc-h" id="dc-h-' + id + '">' + esc(T('rep.dc_title')) + (dept ? ': <span class="dc-dept">' + esc(deptName(dept)) + '</span>' : '') + '</h4>' +
+    (dept && dept === sugg && !dcChoice[c.id] ? '<p class="dc-sub">' + esc(T('rep.dc_from_type')) + '</p>' : '') +
+    body +
+    '<div class="dc-switch"><label for="dc-sel-' + id + '">' + esc(T(dept ? 'rep.dc_not_right' : 'rep.dc_choose')) + '</label>' +
+      '<select class="dc-select" id="dc-sel-' + id + '" data-id="' + id + '">' + opts + '</select></div>' +
+    jans + '</section>';
+}
+function redrawDeptCard(id, focusId) {
+  var c = findCase(id), el = document.getElementById('dc-' + id);
+  if (!c || !el) return;
+  el.outerHTML = renderDeptCard(c);
+  var f = focusId && document.getElementById(focusId);
+  if (f) f.focus();
+}
+document.addEventListener('change', function(e) {
+  var sel = e.target.closest && e.target.closest('.dc-select');
+  if (!sel) return;
+  var id = sel.getAttribute('data-id');
+  dcChoice[id] = sel.value || null;
+  redrawDeptCard(id, 'dc-sel-' + id);
+});
+document.addEventListener('click', async function(e) {
+  var b = e.target.closest && e.target.closest('.dc-tell');
+  if (!b) return;
+  var id = b.getAttribute('data-id'), dept = b.getAttribute('data-dept');
+  b.disabled = true;
+  try {
+    var r = await fetch('/api/dept-gap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grievanceId: id, department: dept }) });
+    if (!r.ok) throw new Error('x');
+    dcTold[id + '|' + dept] = true;
+    redrawDeptCard(id);
+    var t = document.querySelector('#dc-' + id + ' .dc-told'); if (t) { t.setAttribute('tabindex', '-1'); t.focus(); }
+  } catch (err) {
+    b.disabled = false;
+    b.insertAdjacentHTML('afterend', '<span class="dc-err" role="alert"> ' + esc(T('common.network_error')) + '</span>');
+  }
+});
+
 function renderFollowupControl(c) {
   var deptLine = c.currentDepartment
     ? '<p class="location-detail">' + esc(T('rep.forwarded')) + ' <b>' + esc(deptName(c.currentDepartment)) + '</b></p>'
@@ -1064,12 +1186,13 @@ function renderFollowupControl(c) {
     return '<option value="' + esc(d) + '">' + esc(deptName(d)) + (d === sugg ? ' ' + esc(T('rep.suggested')) : '') + '</option>';
   }).join('');
   var id = esc(c.id);
+  var card = renderDeptCard(c);   // everyone who can see the case sees who handles it
   // Item 7b: the form is hidden while waiting for the citizen (the rep has
   // already marked it resolved); the department history stays visible.
-  if (c.status === 'PENDING_CONFIRMATION') return deptLine + history;
+  if (c.status === 'PENDING_CONFIRMATION') return card + deptLine + history;
   // Item 8b: forwarding is for the representative or office manager.
-  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return deptLine + history;
-  return deptLine + history +
+  if (c.myRole === 'FIELD_WORKER' || c.viewOnly) return card + deptLine + history;
+  return card + deptLine + history +
     '<div class="followup-form">' +
       '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T('rep.forward_to')) + '</label>' +
         '<select class="followup-dept" id="followup-dept-' + id + '">' + options + '</select></div>' +

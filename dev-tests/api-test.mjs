@@ -253,6 +253,38 @@ let crl = await call(S, "GET", "/api/admin/change-requests?view=decided");
 ok(crl.body.deptNames && crl.body.deptNames["Animal Control"].hi === "पशु नियंत्रण विभाग", "Change requests page gets type names");
 ok((await get(A, "lucknow")).status === 200 && (await post(A, { action: "type_add", type: { nameEn: "X Type", nameHi: "एक्स" } })).status === 403, "auditor can't change types");
 
+
+// ---- Departments stage 2: "Tell GrievIQ" and the directory sent to the rep console ----
+r = await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" });
+ok(r.status === 200 && r.body.ok && !r.body.already, "rep tells GrievIQ about a missing contact", r.body);
+r = await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" });
+ok(r.status === 200 && r.body.already, "same report within 7 days is not repeated", r.body);
+r = await call("r2@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" });
+ok(r.status === 403, "rep of another ward can't report on this case", r.body);
+r = await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Plumbing" });
+ok(r.status === 400, "unknown department refused");
+r = await call("", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" });
+ok(r.status === 401, "signed-out refused");
+g = await get(S, "lucknow");
+ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department === "Health" && x.by === "r1@x.in"), "admin sees the report", g.body.gapReports);
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const stmt = (sql, b) => ({ bind: (...x) => stmt(sql, x), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((r) => ({ ...r })) }),
+    first: async () => { const r = sdb.prepare(sql).get(...(b || [])); return r ? { ...r } : null; } });
+  const env = { DB: { prepare: (sql) => stmt(sql, []) } };
+  const build = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/api/grievances.js";
+  const { directoryFor } = await import(build);
+  const dir = await directoryFor(env, ["lu-hazratganj", "lu-knp1"]);
+  ok(dir.units["lu-hazratganj"] === "lucknow" && dir.units["lu-knp1"] === "kanpur", "directory: ward -> area");
+  ok(dir.areas.lucknow.state === "Uttar Pradesh", "directory: area state (for Jansunwai line)");
+  ok(dir.offices.length > 0 && dir.offices.every((o) => !("source" in o) && !("officerConsentHow" in o)), "directory: offices in use, contacts only");
+  ok(!dir.offices.some((o) => o.nameEn === "LMC Street Light Cell"), "directory: retired offices left out");
+  ok(dir.offices.every((o) => o.officerPhone || !o.officerName), "directory: officer named only with an agreed number");
+  const none = await directoryFor(env, []);
+  ok(none.offices.length === 0, "directory: no cases, nothing sent");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = new DatabaseSync(process.argv[2] || "test.db");

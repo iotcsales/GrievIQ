@@ -106,7 +106,22 @@ export async function onRequestGet({ request, env }) {
     for (const r of oc || []) (used[r.k] = used[r.k] || { offices: 0, issueTypes: 0 }).offices = Number(r.n);
     for (const r of ic || []) (used[r.k] = used[r.k] || { offices: 0, issueTypes: 0 }).issueTypes = Number(r.n);
   }
+  // Departments stage 2: representatives' "Tell GrievIQ" reports (no
+  // contact on file for a ward and department), last 90 days, this area.
+  const gapReports = [];
+  try {
+    const since = new Date(Date.now() - 90 * 86400000).toISOString().replace("T", " ").slice(0, 19);
+    const { results: gr } = await env.DB.prepare(
+      "SELECT actor_email, target, detail, created_at FROM admin_events WHERE action = 'dept_gap_reported' AND created_at >= ? ORDER BY created_at DESC LIMIT 500"
+    ).bind(since).all();
+    for (const r of gr || []) {
+      let d = null; try { d = JSON.parse(r.detail); } catch (e) { d = null; }
+      if (!d || d.areaId !== area.id) continue;
+      gapReports.push({ unitId: r.target, unitName: d.unitName, department: d.department, by: r.actor_email, at: r.created_at, trackingRef: d.trackingRef || null });
+    }
+  } catch (e) { /* nothing reported yet */ }
   return json({
+    gapReports,
     ready: true, areas, area, departments: active, types: types.map((t) => Object.assign({}, t, { used: used[t.key] || { offices: 0, issueTypes: 0 } })),
     typesReady: await typesReady(env), names: namesOf(types), staleDays: STALE_DAYS, importMax: IMPORT_MAX_ROWS,
     canManage: allows(auth, "manage_departments"), canRequest: allows(auth, "request_changes") && !allows(auth, "manage_departments"),

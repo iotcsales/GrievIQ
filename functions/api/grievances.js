@@ -381,7 +381,12 @@ export async function onRequestGet(context) {
   // grieviq-25: the department types (managed by admins) for "Forward to
   // department", and every type's names so old follow-ups show correctly.
   const types = await deptTypes(env);
+  // Departments stage 2: the department directory's offices for the areas of
+  // the cases shown, so each case can show "Who handles this". Official public
+  // contacts only (and an officer's own number only where they agreed).
+  const deptDirectory = await directoryFor(env, visible.map((c) => c.localUnit && c.localUnit.id).filter(Boolean));
   return Response.json({
+    deptDirectory,
     departments: types.filter((t) => !t.retired).map((t) => t.key),
     deptNames: namesOf(types),
     email: auth.email,
@@ -405,4 +410,41 @@ function previewOnly(list, on) {
 function previewOnlyReport(r, on) {
   if (!on || !r) return r;
   return Object.assign({}, r, { photos: previewOnly(r.photos, true) });
+}
+
+// Departments stage 2 (Oct 2026): offices in use for the areas of these
+// wards, with each ward's area and each area's state (for the Jansunwai line
+// on Uttar Pradesh cases). Matching (ward-specific office first, then the
+// whole area) is done in the page, so "Not the right department?" needs no
+// extra request. Before the directory exists this is simply empty.
+export async function directoryFor(env, unitIds) {
+  const out = { units: {}, areas: {}, offices: [] };
+  const ids = Array.from(new Set(unitIds));
+  if (!ids.length) return out;
+  try {
+    const { results: units } = await env.DB.prepare(
+      "SELECT id, area_id FROM local_units WHERE id IN (SELECT value FROM json_each(?))"
+    ).bind(JSON.stringify(ids)).all();
+    for (const u of units || []) out.units[u.id] = u.area_id || "lucknow";
+    const areaIds = Array.from(new Set(Object.values(out.units)));
+    try {
+      const { results: areas } = await env.DB.prepare("SELECT id, name, state FROM areas WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(areaIds)).all();
+      for (const a of areas || []) out.areas[a.id] = { name: a.name, state: a.state };
+    } catch (e) { out.areas.lucknow = { name: "Lucknow", state: "Uttar Pradesh" }; }
+    const { results: offices } = await env.DB.prepare(
+      `SELECT id, area_id, name_en, name_hi, departments, wards, helpline, office_phone, office_email, whatsapp, website, address, hours,
+              officer_name, officer_phone, last_checked
+         FROM dept_offices WHERE retired_at IS NULL AND area_id IN (SELECT value FROM json_each(?)) ORDER BY LOWER(name_en) LIMIT 500`
+    ).bind(JSON.stringify(areaIds)).all();
+    const list = (v) => { try { const x = JSON.parse(v); return Array.isArray(x) ? x : null; } catch (e) { return null; } };
+    out.offices = (offices || []).map((o) => ({
+      id: o.id, areaId: o.area_id, nameEn: o.name_en, nameHi: o.name_hi || null, departments: list(o.departments) || [], wards: list(o.wards),
+      helpline: o.helpline || null, officePhone: o.office_phone || null, officeEmail: o.office_email || null, whatsapp: o.whatsapp || null,
+      website: o.website || null, address: o.address || null, hours: o.hours || null,
+      officerName: o.officer_phone ? o.officer_name || null : null, officerPhone: o.officer_phone || null, lastChecked: o.last_checked,
+    }));
+  } catch (e) {
+    if (!/no such table/i.test(String(e && e.message))) throw e;
+  }
+  return out;
 }

@@ -292,7 +292,7 @@ with sync_playwright() as pw:
         html = p.evaluate("""() => { takeDepartments({ departments: ['Water Supply','Pollution / Noise','Other'], deptNames: { 'Pollution / Noise': { en: 'Pollution and Noise', hi: 'प्रदूषण / शोर विभाग' } } });
           return renderFollowupControl({ id: 'c1', status: 'OPEN', suggestedDepartment: 'Pollution / Noise', currentDepartment: 'Pollution / Noise', followupHistory: [] }); }""")
         want = "प्रदूषण / शोर विभाग" if lang == "hi" else "Pollution and Noise"
-        first_opt = re.findall(r'<option value="([^"]*)">([^<]*)</option>', html)
+        first_opt = re.findall(r'<option value="([^"]*)">([^<]*)</option>', html[html.index('class="followup-dept"'):])
         ok(first_opt[1][0] == "Pollution / Noise" and want in first_opt[1][1], "rep: suggested new type listed first, named " + lang, first_opt[:3])
         ok(len(first_opt) == 4, "rep: only the current list offered " + lang)
         ctx.close()
@@ -301,6 +301,61 @@ with sync_playwright() as pw:
         name = p.evaluate("() => { GIQ.addDepts({ 'Pollution / Noise': { en: 'Pollution and Noise', hi: 'प्रदूषण / शोर विभाग' } }); return GIQ.dept('Pollution / Noise') + '|' + GIQ.dept('Water Supply'); }")
         ok(name == (want + "|" + ("जलापूर्ति विभाग" if lang == "hi" else "Water Supply")), "Track: department names " + lang, name)
         ctx.close()
+
+
+    # ---------- Departments stage 2: "Who handles this" card in the rep console ----------
+    DIR = {"units": {"u1": "lucknow", "u2": "lucknow"}, "areas": {"lucknow": {"name": "Lucknow", "state": "Uttar Pradesh"}},
+           "offices": [
+             {"id": "o1", "areaId": "lucknow", "nameEn": "Lucknow Nagar Nigam Control Room", "nameHi": "लखनऊ नगर निगम कंट्रोल रूम", "departments": ["Water Supply", "Sanitation / Garbage"], "wards": None,
+              "helpline": "1533", "officePhone": None, "officeEmail": "nnlko@nic.in", "whatsapp": "9219902911", "website": "https://lmc.up.nic.in/helpline.aspx", "address": None, "hours": "24 hours", "officerName": None, "officerPhone": None, "lastChecked": "2026-10-07"},
+             {"id": "o2", "areaId": "lucknow", "nameEn": "Jal Kal Zone 3", "nameHi": None, "departments": ["Water Supply"], "wards": ["u1"],
+              "helpline": None, "officePhone": "0522 2612345", "officeEmail": None, "whatsapp": None, "website": None, "address": "Aishbagh", "hours": None, "officerName": "R. K. Singh", "officerPhone": "9876543210", "lastChecked": "2026-10-03"}]}
+    CASE = {"id": "c1", "status": "OPEN", "suggestedDepartment": "Water Supply", "localUnit": {"id": "u1"}, "followupHistory": [], "myRole": "FIELD_WORKER"}
+    told = []
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                ctx = br.new_context(viewport={"width": width, "height": 900})
+                ctx.add_init_script("try{localStorage.setItem('griq-theme','%s');localStorage.setItem('%s','%s')}catch(e){}" % (theme, LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                def route(rt):
+                    if "/api/dept-gap" in rt.request.url:
+                        told.append(rt.request.post_data); rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+                    else:
+                        rt.fulfill(status=401, body='{"error":"SIGNED_OUT"}', headers={"content-type": "application/json"})
+                p.route("**/api/**", route)
+                p.goto(B + "/rep.html"); p.wait_for_timeout(600)
+                p.evaluate("""([dir, c]) => { takeDepartments({ departments: ['Water Supply','Electricity','Sanitation / Garbage','Health','Other'], deptDirectory: dir });
+                  currentCases = [c]; const m = document.querySelector('main') || document.body;
+                  const box = document.createElement('div'); box.id = 'dc-test'; box.className = 'case-card'; box.style.maxWidth = '640px'; box.style.padding = '12px';
+                  box.innerHTML = renderFollowupControl(c); m.prepend(box); window.scrollTo(0, 0); }""", [DIR, CASE])
+                tag = "%s-%s-%d" % (theme, lang, width)
+                card = p.locator("#dc-c1")
+                ok(card.count() == 1, "card shown to a field worker " + tag)
+                names = p.locator("#dc-c1 .dc-name").all_inner_texts()
+                ok(names[0] == "Jal Kal Zone 3" and len(names) == 2, "ward office first, then whole-area office " + tag, names)
+                if lang == "hi":
+                    ok("लखनऊ नगर निगम कंट्रोल रूम" in names[1] and "यह कौन देखता है" in card.inner_text(), "card in Hindi " + tag)
+                else:
+                    hrefs = p.eval_on_selector_all("#dc-c1 .dc-link", "els => els.map(e => e.getAttribute('href'))")
+                    ok("tel:05222612345" in hrefs and "tel:9876543210" in hrefs and "tel:1533" in hrefs and "mailto:nnlko@nic.in" in hrefs and "https://wa.me/919219902911" in hrefs, "tap-to-call, email, WhatsApp links " + tag, hrefs)
+                    ok("Call helpline 1533" in card.inner_text() and "Jansunwai" in card.inner_text(), "link text says what it does; Jansunwai line " + tag)
+                ok(no_hscroll(p), "card: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('dc-test')", 1))
+                ok(not bad, "card contrast AA " + tag, bad[:5])
+                small = p.evaluate("() => Array.from(document.querySelectorAll('#dc-c1 a.dc-link, #dc-c1 select, #dc-c1 button')).filter(e => { const r = e.getBoundingClientRect(); return r.height < 24; }).length")
+                ok(small == 0, "card targets >= 24px " + tag)
+                shot(p, "13-card-" + tag, full=False)
+                # Not the right department? -> Health: no contact -> Tell GrievIQ
+                p.select_option("#dc-sel-c1", "Health")
+                ok(p.evaluate("document.activeElement.id") == "dc-sel-c1", "focus stays on the department list " + tag)
+                ok(p.locator("#dc-c1 .dc-tell").count() == 1, "no contact: Tell GrievIQ button " + tag)
+                p.click("#dc-c1 .dc-tell"); p.wait_for_selector("#dc-c1 .dc-told")
+                ok(p.evaluate("document.activeElement.className") == "dc-told", "thank-you message focused " + tag)
+                ok(not errs, "no script errors (card) " + tag, errs)
+                ctx.close()
+    ok(len(told) == 8 and '"department":"Health"' in told[0] and '"grievanceId":"c1"' in told[0], "Tell GrievIQ sends case and department", told[:1])
 
     # ---------- themes, languages, widths: contrast + reflow ----------
     for theme in (None, "light"):

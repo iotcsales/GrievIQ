@@ -16,3 +16,6 @@ CREATE TABLE local_units (id TEXT PRIMARY KEY, name TEXT, unit_type TEXT, mla_co
 CREATE TABLE change_requests (id TEXT PRIMARY KEY, kind TEXT, target_type TEXT, target_id TEXT, target_label TEXT, old_values TEXT, new_values TEXT,
   applied_values TEXT, reason TEXT, source TEXT, status TEXT DEFAULT 'PENDING', requested_by TEXT, requested_at TEXT, reviewed_by TEXT, reviewed_at TEXT, review_note TEXT);
 CREATE TABLE grievance_categories (id TEXT PRIMARY KEY, name TEXT, ack_sla_hours INTEGER, resolution_sla_hours INTEGER, suggested_department TEXT);
+CREATE TABLE grievances (id TEXT PRIMARY KEY, tracking_ref TEXT, local_unit_id TEXT, category_id TEXT, status TEXT, description TEXT, current_tier TEXT, citizen_email TEXT, created_at TEXT);
+CREATE TABLE office_team (id TEXT PRIMARY KEY, office_tier TEXT, office_id TEXT, member_email TEXT, member_name TEXT, role TEXT, status TEXT, confirmed_by_rep_email TEXT);
+CREATE TABLE case_assignments (id TEXT PRIMARY KEY, grievance_id TEXT, office_tier TEXT, office_id TEXT, assignee_email TEXT, assigned_at TEXT, ended_at TEXT);

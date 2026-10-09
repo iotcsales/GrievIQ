@@ -15,3 +15,5 @@ INSERT INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id
  ('lu-maulvi','Maulvi Ganj','URBAN','mla-c',NULL,'lucknow'),
  ('lu-knp1','Swaroop Nagar','URBAN','mla-c',NULL,'kanpur');
 INSERT INTO grievance_categories VALUES ('water-sanitation','Water Supply / Sanitation',48,168,'Water Supply'),('electricity','Electricity Supply',24,72,'Electricity'),('other','Other / Uncategorized',72,240,NULL);
+INSERT INTO grievances (id, tracking_ref, local_unit_id, category_id, status, description, current_tier, created_at) VALUES
+ ('g1','GRV-TEST01','lu-hazratganj','water-sanitation','OPEN','Pipe burst near the market','LOCAL','2026-10-08T10:00:00Z');
