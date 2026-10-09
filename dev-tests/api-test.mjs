@@ -399,6 +399,114 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 409 && r.body.code === "CLOSED", "no department steps once resolved", r.body);
 }
 
+// ---- citizen ratings (grieviq-30) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = new DatabaseSync(process.argv[2] || "test.db");
+  const R = "r1@x.in", OM = "om@x.in", FW = "fw@x.in", CIT = "cit@x.in";
+  const now = () => new Date().toISOString();
+  const ago = (d) => new Date(Date.now() - d * 86400000).toISOString();
+  sdb.prepare("UPDATE grievances SET citizen_email = ? WHERE id = 'g2'").run(CIT);
+  const otp = (email) => sdb.prepare("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, ?, 'EMAIL', ?)")
+    .run("otp-" + Math.random(), now(), email, now());
+  const rate = (b) => call("", "POST", "/api/grievances/rate", Object.assign({ email: CIT, trackingRef: "GRV-TEST02" }, b));
+  const row = () => sdb.prepare("SELECT * FROM case_ratings WHERE grievance_id = 'g2'").get();
+  let r = await rate({ office: "SATISFIED" });
+  ok(r.status === 401, "rating needs the email code", r.body);
+  otp(CIT);
+  r = await rate({ office: "SATISFIED" });
+  ok(r.status === 409 && r.body.code === "NOT_CLOSED", "no rating while waiting for the citizen to confirm", r.body);
+  r = await call("", "POST", "/api/grievances/confirm-resolution", { email: CIT, trackingRef: "GRV-TEST02" });
+  ok(r.status === 200, "citizen confirms the fix", r.body);
+  let v = await call("", "POST", "/api/otp/verify", { email: CIT, trackingRef: "GRV-TEST02", open: true });
+  ok(v.status === 200 && v.body.case.rating === null && v.body.case.ratingStatus.can && v.body.case.ratingStatus.mode === "NEW" && v.body.case.ratingDept && v.body.case.ratingDept.key === "Electricity" && v.body.case.ratingDept.officeName === "MVVNL sub-station Hazratganj", "Track page offers a rating, asking about the last department", v.body.case && { s: v.body.case.ratingStatus, d: v.body.case.ratingDept });
+  r = await call("", "POST", "/api/grievances/rate", { email: "other@x.in", trackingRef: "GRV-TEST02", office: "SATISFIED" });
+  ok(r.status === 401, "another email can't rate it", r.body);
+  r = await rate({});
+  ok(r.status === 400 && r.body.fields.office === "REQUIRED", "the office answer is required", r.body);
+  r = await rate({ office: "GREAT", dept: "BAD" });
+  ok(r.status === 400 && r.body.fields.office && r.body.fields.dept === "FORMAT", "only the five answers are accepted", r.body);
+  r = await rate({ office: "SATISFIED", comment: "x".repeat(501) });
+  ok(r.status === 400 && r.body.fields.comment === "LENGTH", "comment up to 500 characters", r.body);
+  r = await rate({ office: "DISSATISFIED", dept: "VERY_DISSATISFIED", comment: "Took three weeks <b>and</b> two visits" });
+  ok(r.status === 200 && r.body.rating.office === "DISSATISFIED" && r.body.ratingStatus.mode === "EDIT", "rating saved; can be changed", r.body);
+  let x = row();
+  ok(x.office_score === 2 && x.dept_score === 1 && x.low === 1 && x.department === "Electricity" && x.office_tier === "LOCAL" && x.office_id === "lu-hazratganj" && x.edit_count === 0, "stored: scores, low flag, department, resolving office", x);
+  // who sees it
+  const repList = await call(R, "GET", "/api/grievances");
+  const g2r = repList.body.grievances.find((c) => c.id === "g2");
+  ok(g2r && g2r.rating && g2r.rating.office === "DISSATISFIED" && g2r.rating.comment.includes("<b>") && g2r.rating.followedUpAt === undefined, "representative sees the rating (no follow-up details)", g2r && g2r.rating);
+  const fwList = await call(FW, "GET", "/api/grievances");
+  const g2f = fwList.body.grievances.find((c) => c.id === "g2");
+  ok(!g2f || g2f.rating === null, "field worker doesn't see the rating", g2f && g2f.rating);
+  // edits within 7 days
+  r = await rate({ office: "SATISFIED", dept: "SATISFIED", comment: "" });
+  x = row();
+  ok(r.status === 200 && x.low === 0 && x.edit_count === 1 && x.comment === null, "changed to satisfied: no longer low", x);
+  r = await rate({ office: "DISSATISFIED", dept: "DISSATISFIED", comment: "Changed my mind, the road was left dug up" });
+  ok(r.status === 200 && row().low === 1, "changed back to low", row());
+  // admin list
+  let a = await call(S, "GET", "/api/admin/ratings");
+  ok(a.status === 200 && a.body.counts.OPEN === 1 && a.body.items.length === 1 && a.body.items[0].trackingRef === "GRV-TEST02" && a.body.items[0].officeName === "Hazratganj-Ramtirth" && a.body.canFollowUp, "low rating on the admin list with the resolving office", a.body);
+  ok(!JSON.stringify(a.body).includes(CIT), "no citizen email on the ratings list");
+  const au = await call(A, "GET", "/api/admin/ratings");
+  ok(au.status === 200 && !au.body.canFollowUp, "auditor reads");
+  ok((await call(A, "POST", "/api/admin/ratings", { id: x.id, note: "Looked into it with the office" })).status === 403, "auditor can't follow up");
+  ok((await call(D, "GET", "/api/admin/ratings")).status === 403 && (await call(M, "GET", "/api/admin/ratings")).status === 403, "data entry operator and moderator have no access");
+  const dash = await call(S, "GET", "/api/admin/dashboard");
+  ok(dash.body.lowRatingsOpen === 1, "dashboard counts low ratings waiting", dash.body.lowRatingsOpen);
+  r = await call(S, "POST", "/api/admin/ratings", { id: x.id, note: "short" });
+  ok(r.status === 400 && r.body.fields.note === "SHORT", "follow-up needs a note", r.body);
+  r = await call(S, "POST", "/api/admin/ratings", { id: x.id, note: "Spoke to the office manager", updatedAt: "2000-01-01" });
+  ok(r.status === 409 && r.body.code === "CHANGED", "follow-up refused if the citizen changed it meanwhile", r.body);
+  x = row();
+  r = await call(O, "POST", "/api/admin/ratings", { id: x.id, note: "Spoke to the office manager; road repair booked", updatedAt: x.updated_at });
+  ok(r.status === 200, "operations admin marks it followed up", r.body);
+  r = await call(S, "POST", "/api/admin/ratings", { id: x.id, note: "Second follow-up attempt here" });
+  ok(r.status === 409 && r.body.code === "ALREADY", "only once", r.body);
+  a = await call(S, "GET", "/api/admin/ratings");
+  ok(a.body.counts.OPEN === 0 && a.body.counts.DONE === 1, "moves to Followed up", a.body.counts);
+  const ac = await call(S, "GET", "/api/admin/cases?id=g2");
+  ok(ac.body.case && ac.body.case.rating && ac.body.case.rating.low && ac.body.case.rating.followedUpBy === O, "admin case page shows the rating and follow-up", ac.body.case && ac.body.case.rating);
+  r = await rate({ office: "VERY_DISSATISFIED", dept: "DISSATISFIED", comment: "Still dug up" });
+  ok(r.status === 200 && row().followed_up_at === null, "a changed low rating goes back on the list", row());
+  // locked after 7 days; a new round after reopening
+  sdb.prepare("UPDATE case_ratings SET submitted_at = ? WHERE grievance_id = 'g2'").run(ago(8));
+  r = await rate({ office: "SATISFIED" });
+  ok(r.status === 409 && r.body.code === "LOCKED", "can't change after 7 days", r.body);
+  v = await call("", "POST", "/api/otp/verify", { email: CIT, trackingRef: "GRV-TEST02", open: true });
+  ok(v.body.case.rating && v.body.case.ratingStatus.can === false && v.body.case.ratingStatus.code === "LOCKED", "Track page shows the rating, no change button", v.body.case.ratingStatus);
+  sdb.prepare("UPDATE case_ratings SET round_closed_at = ? WHERE grievance_id = 'g2'").run(ago(20));
+  r = await rate({ office: "SATISFIED" });
+  ok(r.status === 200 && row().edit_count === 0 && row().low === 0, "closed again after reopening: rated afresh", row());
+  // too late: closed over 30 days ago
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, citizen_email, local_unit_id, category_id, status, description, current_tier, created_at, resolved_at, closed_at) VALUES ('g9','GRV-TEST09','9000000009',?,'lu-hazratganj','water-sanitation','RESOLVED','Old','LOCAL',?,?,?)").run(CIT, ago(60), ago(40), ago(33));
+  r = await call("", "POST", "/api/grievances/rate", { email: CIT, trackingRef: "GRV-TEST09", office: "SATISFIED" });
+  ok(r.status === 409 && r.body.code === "TOO_LATE", "no rating more than 30 days after closing", r.body);
+  // office average from 5 ratings
+  let ov = await call(R, "GET", "/api/overview?office=LOCAL:lu-hazratganj");
+  ok(ov.status === 200 && ov.body.ratings && ov.body.ratings.count === 1 && ov.body.ratings.average === null, "overview: no average below 5 ratings", ov.body.ratings);
+  [5, 4, 4, 5].forEach((sc, i) => {
+    const id = "gr" + i;
+    sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at, resolved_at, closed_at) VALUES (?, ?, '9', 'lu-hazratganj', 'water-sanitation', 'RESOLVED', 'x', 'LOCAL', ?, ?, ?)").run(id, "GRV-R" + i, ago(9), ago(5), ago(4));
+    sdb.prepare("INSERT INTO case_ratings (id, grievance_id, office_score, office_tier, office_id, low, submitted_at, updated_at, round_closed_at) VALUES (?, ?, ?, 'LOCAL', 'lu-hazratganj', 0, ?, ?, ?)").run("cr" + i, id, sc, now(), now(), ago(4));
+  });
+  ov = await call(R, "GET", "/api/overview?office=LOCAL:lu-hazratganj");
+  ok(ov.body.ratings.count === 5 && ov.body.ratings.average === 4.4 && ov.body.ratings.word === "SATISFIED" && ov.body.ratings.byAnswer.VERY_SATISFIED === 2, "overview: average from 5 ratings", ov.body.ratings);
+  const ovOm = await call(OM, "GET", "/api/overview?office=LOCAL:lu-hazratganj");
+  ok(ovOm.body.ratings && ovOm.body.ratings.count === 5, "office manager sees the ratings too");
+  // anonymising removes the comment
+  sdb.prepare("UPDATE case_ratings SET comment = 'Personal remark', follow_up_note = 'Note' WHERE grievance_id = 'g2'").run();
+  const rt = await import((process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/retention.js");
+  const st2 = (sql, b) => ({ sql, bind: (...y) => st2(sql, y), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((q) => ({ ...q })) }),
+    first: async () => { const q = sdb.prepare(sql).get(...(b || [])); return q ? { ...q } : null; }, run: async () => { sdb.prepare(sql).run(...(b || [])); return { meta: {} }; } });
+  const envA = { DB: { prepare: (sql) => st2(sql, []), batch: async (list) => Promise.all(list.map((q) => q.all())) } };
+  const an = await rt.anonymiseStatements(envA, { id: "g2" }, "run-test", now());
+  for (const q of an.stmts) if (/case_ratings|case_dept_steps/.test(q.sql)) await q.run();   // the two new tables (others need a retention run)
+  const after = row();
+  ok(after.comment === null && after.follow_up_note === null && sdb.prepare("SELECT COUNT(*) n FROM case_dept_steps WHERE grievance_id='g2' AND note IS NOT NULL").get().n === 0, "anonymising removes rating comments and department-step notes", after);
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = new DatabaseSync(process.argv[2] || "test.db");

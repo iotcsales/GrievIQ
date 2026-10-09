@@ -109,7 +109,7 @@ async function removePhotos(env, gid, now) {
 const DETAIL_TEXT_KEYS = ["note", "reason", "staffReason"];
 
 // The statements that anonymise one case, and how many fields they clear.
-async function anonymiseStatements(env, g, runId, now) {
+export async function anonymiseStatements(env, g, runId, now) {
   const DB = env.DB;
   const [ev, ro, ae, rr, rc] = await DB.batch([
     DB.prepare("SELECT id FROM grievance_events WHERE grievance_id = ? AND (note IS NOT NULL OR (event_type LIKE 'CITIZEN_%' AND COALESCE(actor, '') <> 'citizen'))").bind(g.id),
@@ -138,6 +138,16 @@ async function anonymiseStatements(env, g, runId, now) {
   }
   for (const x of rr.results || []) { stmts.push(DB.prepare("UPDATE resolution_reports SET note = '', no_photo_reason = NULL WHERE id = ?").bind(x.id)); fields++; }
   for (const x of rc.results || []) { stmts.push(DB.prepare("UPDATE resolution_checks SET note = NULL WHERE id = ?").bind(x.id)); fields++; }
+  // Departments stage 3 (part23) and citizen ratings (part24): notes typed
+  // about the case. Each table may not exist yet, so each is looked up on its own.
+  try {
+    const { results } = await DB.prepare("SELECT id FROM case_dept_steps WHERE grievance_id = ? AND note IS NOT NULL").bind(g.id).all();
+    for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_dept_steps SET note = NULL WHERE id = ?").bind(x.id)); fields++; }
+  } catch (e) { /* before part23 */ }
+  try {
+    const { results } = await DB.prepare("SELECT id FROM case_ratings WHERE grievance_id = ? AND (comment IS NOT NULL OR follow_up_note IS NOT NULL)").bind(g.id).all();
+    for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_ratings SET comment = NULL, follow_up_note = NULL WHERE id = ?").bind(x.id)); fields++; }
+  } catch (e) { /* before part24 */ }
   return { stmts, fields };
 }
 

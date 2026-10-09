@@ -42,6 +42,7 @@
     "adm.nav_g_people": "People & audit",
     "adm.nav_main": "Admin pages",
     "adm.nav_departments": "Departments",
+    "adm.nav_ratings": "Ratings",
   };
   var PAGE_NAMES = {
     "admin-dashboard": "Dashboard", "admin-cases": "Cases", "admin-checks": "Checks", "admin-audit": "Audit",
@@ -190,7 +191,7 @@
   // groups as large buttons. The links themselves are the page's own (moved,
   // not copied), so translations and the role rules above keep working.
   var GROUPS = [
-    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-messages"] },
+    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-ratings", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
   ];
@@ -242,6 +243,7 @@
     var nav = header && header.querySelector("nav");
     if (!header || !nav || document.getElementById("adm-menu")) return;
     addDepartmentsLink(nav);
+    addRatingsLink(nav);
     var links = {};
     nav.querySelectorAll("a[href]").forEach(function (a) { var k = pageKey(a.getAttribute("href")); if (k) links[k] = a; if (a.classList.contains("active")) a.setAttribute("aria-current", "page"); });
     var tools = document.createElement("div"); tools.id = "adm-tools";
@@ -296,6 +298,17 @@
     a.textContent = t("adm.nav_departments");
     var areas = nav.querySelector('a[href*="admin-areas"]');
     if (areas && areas.nextSibling) nav.insertBefore(a, areas.nextSibling); else nav.appendChild(a);
+    if (info) applyMenu();
+  }
+  // Citizen ratings (grieviq-30): the Ratings page, after Feedback.
+  function addRatingsLink(nav) {
+    if (nav.querySelector('a[href*="admin-ratings"]')) return;
+    var a = document.createElement("a");
+    a.href = "/admin-ratings.html";
+    a.setAttribute("data-i18n", "adm.nav_ratings");
+    a.textContent = t("adm.nav_ratings");
+    var fb = nav.querySelector('a[href*="admin-feedback"]');
+    if (fb && fb.nextSibling) nav.insertBefore(a, fb.nextSibling); else nav.appendChild(a);
     if (info) applyMenu();
   }
   function closeDrops() { document.querySelectorAll('.adm-grp>button[aria-expanded="true"]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); }); }

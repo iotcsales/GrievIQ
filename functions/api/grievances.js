@@ -23,6 +23,7 @@ import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "
 import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
+import { loadRatings, shapeForRep } from "../_shared/ratings.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 
 export async function onRequestGet(context) {
@@ -404,6 +405,11 @@ export async function onRequestGet(context) {
       c.deptSteps.push(sh);
     }
   }
+  // Citizen ratings (grieviq-30): the representative and office managers see
+  // the citizen's rating on a closed case; field workers and office
+  // assistants don't.
+  const ratingsBy = await loadRatings(env, visible.filter((c) => canManageCases(c.myRole) && (c.status === "RESOLVED" || c.status === "CLOSED")).map((c) => c.id));
+  for (const c of visible) c.rating = shapeForRep(ratingsBy.get(c.id) || null);
   return Response.json({
     deptDirectory,
     departments: types.filter((t) => !t.retired).map((t) => t.key),

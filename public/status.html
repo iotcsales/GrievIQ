@@ -290,6 +290,20 @@
   textarea#reopen-note { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 90px; margin-top: 6px; }
   textarea#reopen-note[aria-invalid="true"] { border-color: var(--brick); }
   .field-err { color: var(--brick); font-size: 12.5px; font-weight: 600; margin-top: 4px; min-height: 0; }
+  /* Citizen ratings (grieviq-30): GOV.UK's five-answer satisfaction scale */
+  .rate-q { border: 0; padding: 0; margin: 16px 0 4px; }
+  .rate-q legend { font-size: 14px; font-weight: 700; margin-bottom: 8px; padding: 0; line-height: 1.4; }
+  .rate-scale { display: grid; gap: 6px; }
+  .rate-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 11px; background: var(--card); font-size: 14px; cursor: pointer; }
+  .rate-opt:has(input:checked) { border-color: var(--teal); color: var(--teal-dark); font-weight: 700; }
+  .rate-opt input { accent-color: var(--teal); width: 20px; height: 20px; margin: 0; flex: none; }
+  .rate-q[aria-invalid="true"] .rate-opt { border-color: var(--brick); }
+  textarea#rate-comment { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 80px; margin-top: 6px; }
+  textarea#rate-comment[aria-invalid="true"] { border-color: var(--brick); }
+  .rate-summary { margin: 10px 0 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.5; }
+  .rate-summary li + li { margin-top: 4px; }
+  .rate-summary .rate-quote { white-space: pre-wrap; word-break: break-word; color: var(--ink-soft); }
+  #rate-card[hidden] { display: none; }
 
   .footer-actions { margin-top: 28px; text-align: center; }
 
@@ -355,7 +369,7 @@
   .followup-section .ds-item.ds-check_partly::before, .followup-section .ds-item.ds-check_not_fixed::before, .followup-section .ds-item.ds-cant_do::before { background: var(--brick, #C23B2C); }
   .followup-section .ds-when { display: block; font-size: 0.85em; color: var(--ink-soft, #59657A); }
 </style>
-<script src="/i18n.js?v=29"></script>
+<script src="/i18n.js?v=30"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=17a" defer></script>
 </head>
@@ -463,6 +477,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Citizen ratings (grieviq-30): how satisfied the citizen is, after closing. -->
+    <section id="rate-card" class="confirm-card" hidden aria-labelledby="rate-title"></section>
 
     <div id="status-banners"></div>
     <div id="status-followup" class="followup-section" style="display:none;"></div>
@@ -830,6 +847,7 @@
 
     renderResolution(c);
     renderReopen(c);
+    renderRating(c);
 
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
@@ -1131,6 +1149,120 @@
     }
   });
 
+  // --- Citizen ratings (grieviq-30) ---
+  // GOV.UK's five worded answers. The citizen can skip, and can change the
+  // rating for 7 days after sending it. What they chose is kept while the
+  // page is open (a language switch redraws the card without losing it).
+  const RATE_KEYS = ['VERY_SATISFIED', 'SATISFIED', 'NEITHER', 'DISSATISFIED', 'VERY_DISSATISFIED'];
+  let rateUi = { ref: null, mode: null, office: '', dept: '', comment: '', errors: {}, msg: '', busy: false };
+  function rateDay(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }); }
+  function rateDeptName(c) { const d = c.ratingDept; return d ? (d.officeName || GIQ.dept(d.key)) : ''; }
+  function renderRating(c) {
+    const card = document.getElementById('rate-card');
+    const st = c.ratingStatus, r = c.rating;
+    if (rateUi.ref !== c.trackingRef) {
+      rateUi = { ref: c.trackingRef, mode: null, office: '', dept: '', comment: '', errors: {}, msg: '', busy: false };
+    }
+    const closed = c.status === 'RESOLVED' || c.status === 'CLOSED';
+    if (!closed || !st || (!st.can && !r)) { card.hidden = true; card.innerHTML = ''; return; }
+    if (!rateUi.mode) rateUi.mode = st.can && (!r || st.mode === 'NEW') ? 'form' : 'summary';
+    if (rateUi.mode === 'skipped') { card.hidden = true; card.innerHTML = ''; return; }
+    card.hidden = false;
+    const deptName = rateDeptName(c);
+    if (rateUi.mode === 'summary' || rateUi.mode === 'thanks') {
+      const items = ['<li>' + escapeHtml(GIQ.t('status.rate_sum_office', { answer: GIQ.t('status.rate_a_' + r.office) })) + '</li>'];
+      if (r.dept) items.push('<li>' + escapeHtml(GIQ.t('status.rate_sum_dept', { dept: r.department && c.ratingDept && c.ratingDept.key === r.department ? deptName : GIQ.dept(r.department), answer: GIQ.t('status.rate_a_' + r.dept) })) + '</li>');
+      if (r.comment) items.push('<li><span class="rate-quote">' + escapeHtml(GIQ.t('status.rate_sum_comment', { text: r.comment })) + '</span></li>');
+      const canChange = st && st.can && st.mode === 'EDIT';
+      card.innerHTML = '<h2 class="section-title" id="rate-title">' + escapeHtml(GIQ.t(rateUi.mode === 'thanks' ? 'status.rate_thanks_title' : 'status.rate_yours')) + '</h2>' +
+        (rateUi.mode === 'thanks' ? '<p class="confirm-note" id="rate-msg" role="status" tabindex="-1">' + escapeHtml(GIQ.t('status.rate_thanks')) + '</p>' : '') +
+        '<ul class="rate-summary">' + items.join('') + '</ul>' +
+        '<p class="confirm-note">' + escapeHtml(canChange ? GIQ.t('status.rate_change_until', { date: rateDay(st.until) }) : GIQ.t('status.rate_locked')) + '</p>' +
+        (canChange ? '<div class="confirm-actions"><button type="button" class="secondary" id="rate-change">' + escapeHtml(GIQ.t('status.rate_change')) + '</button></div>' : '');
+      const ch = document.getElementById('rate-change');
+      if (ch) ch.addEventListener('click', () => {
+        rateUi.mode = 'form'; rateUi.office = r.office || ''; rateUi.dept = r.dept || ''; rateUi.comment = r.comment || ''; rateUi.errors = {}; rateUi.msg = '';
+        renderRating(c);
+        const first = card.querySelector('input[name="rate-office"]:checked') || card.querySelector('input[name="rate-office"]');
+        if (first) first.focus();
+      });
+      return;
+    }
+    // The form.
+    const scale = (name, chosen, errId) => '<div class="rate-scale">' + RATE_KEYS.map((k) =>
+      '<label class="rate-opt"><input type="radio" name="' + name + '" value="' + k + '"' + (chosen === k ? ' checked' : '') + '> <span>' + escapeHtml(GIQ.t('status.rate_a_' + k)) + '</span></label>').join('') + '</div>';
+    const e = rateUi.errors;
+    const editing = r && st.mode === 'EDIT';
+    card.innerHTML = '<h2 class="section-title" id="rate-title">' + escapeHtml(GIQ.t('status.rate_title')) + '</h2>' +
+      '<p class="section-note">' + escapeHtml(GIQ.t(editing ? 'status.rate_lede_edit' : 'status.rate_lede', { date: rateDay(st.until) })) + '</p>' +
+      '<form id="rate-form" novalidate>' +
+      '<fieldset class="rate-q" id="rate-q-office"' + (e.office ? ' aria-invalid="true"' : '') + ' aria-describedby="rate-office-err"><legend>' + escapeHtml(GIQ.t('status.rate_q_office')) + '</legend>' +
+        scale('rate-office', rateUi.office) + '<div class="field-err" id="rate-office-err" role="alert">' + escapeHtml(e.office || '') + '</div></fieldset>' +
+      (c.ratingDept ? '<fieldset class="rate-q" id="rate-q-dept"' + (e.dept ? ' aria-invalid="true"' : '') + ' aria-describedby="rate-dept-hint rate-dept-err"><legend>' + escapeHtml(GIQ.t('status.rate_q_dept', { dept: deptName })) + '</legend>' +
+        '<p class="confirm-note" id="rate-dept-hint" style="margin-top:0">' + escapeHtml(GIQ.t('status.rate_dept_hint')) + '</p>' +
+        scale('rate-dept', rateUi.dept) + '<div class="field-err" id="rate-dept-err" role="alert">' + escapeHtml(e.dept || '') + '</div></fieldset>' : '') +
+      '<label for="rate-comment" class="reopen-label">' + escapeHtml(GIQ.t('status.rate_comment')) + '</label>' +
+      '<p class="confirm-note" id="rate-comment-hint" style="margin-top:2px">' + escapeHtml(GIQ.t('status.rate_comment_hint')) + '</p>' +
+      '<textarea id="rate-comment" maxlength="500" aria-describedby="rate-comment-hint rate-comment-err"' + (e.comment ? ' aria-invalid="true"' : '') + '>' + escapeHtml(rateUi.comment) + '</textarea>' +
+      '<div class="field-err" id="rate-comment-err" role="alert">' + escapeHtml(e.comment || '') + '</div>' +
+      '<p class="confirm-note">' + escapeHtml(GIQ.t('status.rate_privacy')) + '</p>' +
+      '<div id="rate-error">' + (rateUi.msg ? '<div class="error-banner" role="alert">' + escapeHtml(rateUi.msg) + '</div>' : '') + '</div>' +
+      '<div class="confirm-actions">' +
+        '<button type="submit" class="primary" id="rate-send"' + (rateUi.busy ? ' disabled' : '') + '>' + (rateUi.busy ? '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.submitting')) : escapeHtml(GIQ.t(editing ? 'status.rate_save' : 'status.rate_send'))) + '</button>' +
+        '<button type="button" class="secondary" id="rate-skip">' + escapeHtml(GIQ.t(editing ? 'status.reopen_cancel' : 'status.rate_skip')) + '</button>' +
+      '</div></form>';
+    const form = document.getElementById('rate-form');
+    form.addEventListener('change', (ev) => {
+      if (ev.target.name === 'rate-office') { rateUi.office = ev.target.value; if (rateUi.errors.office) { rateUi.errors.office = ''; document.getElementById('rate-office-err').textContent = ''; document.getElementById('rate-q-office').removeAttribute('aria-invalid'); } }
+      if (ev.target.name === 'rate-dept') rateUi.dept = ev.target.value;
+    });
+    document.getElementById('rate-comment').addEventListener('input', (ev) => { rateUi.comment = ev.target.value; });
+    document.getElementById('rate-skip').addEventListener('click', () => {
+      rateUi.mode = editing ? 'summary' : 'skipped'; rateUi.errors = {}; rateUi.msg = '';
+      renderRating(c);
+      if (editing) { const b = document.getElementById('rate-change'); if (b) b.focus(); }
+    });
+    form.addEventListener('submit', (ev) => { ev.preventDefault(); sendRating(c); });
+  }
+  async function sendRating(c) {
+    rateUi.errors = {}; rateUi.msg = '';
+    if (!rateUi.office) rateUi.errors.office = GIQ.t('status.rate_err_office');
+    if (rateUi.comment.trim().length > 500) rateUi.errors.comment = GIQ.t('status.rate_err_comment');
+    if (rateUi.errors.office || rateUi.errors.comment) {
+      renderRating(c);
+      const bad = rateUi.errors.office ? document.querySelector('input[name="rate-office"]') : document.getElementById('rate-comment');
+      if (bad) bad.focus();
+      return;
+    }
+    rateUi.busy = true; renderRating(c);
+    let res = null, data = {};
+    try {
+      res = await fetch(API_BASE + '/api/grievances/rate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: c.trackingRef, office: rateUi.office, dept: c.ratingDept ? rateUi.dept || null : null, comment: rateUi.comment.trim() }),
+      });
+      data = await res.json().catch(() => ({}));
+    } catch (err) { res = null; }
+    rateUi.busy = false;
+    if (!res || !res.ok) {
+      const f = data.fields || {};
+      if (f.office) rateUi.errors.office = GIQ.t('status.rate_err_office');
+      if (f.comment) rateUi.errors.comment = GIQ.t('status.rate_err_comment');
+      if (!f.office && !f.comment) {
+        rateUi.msg = !res ? GIQ.t('common.network_error') : res.status === 401 ? GIQ.t('status.verify_again')
+          : data.code === 'LOCKED' ? GIQ.t('status.rate_locked') : data.code === 'TOO_LATE' ? GIQ.t('status.rate_too_late') : GIQ.t('common.generic_error');
+      }
+      renderRating(c);
+      const target = document.querySelector('#rate-error [role="alert"]') ? document.getElementById('rate-send') : document.querySelector('#rate-card [aria-invalid="true"] input, #rate-card textarea[aria-invalid="true"]');
+      if (target) target.focus();
+      return;
+    }
+    c.rating = data.rating; c.ratingStatus = data.ratingStatus;
+    rateUi.mode = 'thanks';
+    renderRating(c);
+    const m = document.getElementById('rate-msg'); if (m) m.focus();
+  }
+
   // --- Confirm / dispute resolution ---
   const confirmCard = document.getElementById('confirm-card');
   const confirmActions = document.getElementById('confirm-actions');
@@ -1222,6 +1354,19 @@
       const pill = document.getElementById('status-pill');
       pill.textContent = statusLabel('RESOLVED'); if (lastCase) lastCase.status = 'RESOLVED';
       pill.className = 'status-pill resolved';
+      // Citizen ratings (grieviq-30): now that it's closed, ask how it went.
+      try {
+        const again = await fetch(API_BASE + '/api/otp/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, open: true }),
+        });
+        const fresh = await again.json().catch(() => ({}));
+        if (again.ok && fresh.case && lastCase) {
+          lastCase.rating = fresh.case.rating; lastCase.ratingStatus = fresh.case.ratingStatus; lastCase.ratingDept = fresh.case.ratingDept;
+          if (fresh.case.deptNames) GIQ.addDepts(fresh.case.deptNames);
+          renderRating(lastCase);
+        }
+      } catch (e2) { /* the rating can be given next time */ }
     } catch (err) {
       renderError(confirmError, GIQ.t('common.network_error'));
       btnConfirmYes.disabled = false;

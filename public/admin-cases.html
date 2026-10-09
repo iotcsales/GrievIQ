@@ -307,8 +307,8 @@
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
-<script src="/i18n.js?v=29"></script>
-<script src="/admin-nav.js?v=r7"></script>
+<script src="/i18n.js?v=30"></script>
+<script src="/admin-nav.js?v=r8"></script>
 </head>
 <body>
 
@@ -727,6 +727,25 @@
     '</div>';
   }
 
+  // Citizen ratings (grieviq-30).
+  function renderRatingPanel(c) {
+    const r = c.rating;
+    if (!r) return "";
+    if (c.deptNames && window.GIQ) GIQ.addDepts(c.deptNames);
+    const ans = (k) => escapeHtml(T("adm.cr_a_" + k));
+    const rows = '<div class="field"><div class="k">' + escapeHtml(T("adm.cr_k_office")) + '</div><div class="v">' + ans(r.office) + '</div></div>' +
+      (r.dept ? '<div class="field"><div class="k">' + escapeHtml(T("adm.cr_k_dept", { dept: window.GIQ ? GIQ.dept(r.department) : r.department })) + '</div><div class="v">' + ans(r.dept) + '</div></div>' : '') +
+      '<div class="field"><div class="k">' + escapeHtml(T("adm.cr_k_comment")) + '</div><div class="v">' + (r.comment ? '<div class="res-note">' + escapeHtml(r.comment) + '</div>' : '<span class="muted">' + escapeHtml(T("adm.cr_no_comment")) + '</span>') + '</div></div>';
+    const follow = r.low
+      ? (r.followedUpAt
+        ? '<div class="field"><div class="k">' + escapeHtml(T("adm.cr_done_h").replace(/[:：]\s*$/, "")) + '</div><div class="v">' + escapeHtml(r.followUpNote || "") + '<div class="muted" style="margin-top:4px">' + escapeHtml(T("adm.cr_followed", { who: r.followedUpBy || "", date: dateTime(r.followedUpAt) })) + '</div></div></div>'
+        : '<p class="section-sub"><b style="color:var(--admin-danger)">' + escapeHtml(T("adm.cr_low_open")) + '</b> <a href="/admin-ratings.html" style="color:var(--admin-accent)">' + escapeHtml(T("adm.cr_go_list")) + '</a></p>')
+      : "";
+    return '<div class="panel" style="margin-top:20px"><h2 style="margin-bottom:6px">' + escapeHtml(T("adm.cr_case_title")) + '</h2>' +
+      '<p class="section-sub" style="margin-bottom:10px">' + escapeHtml(T(r.changed ? "adm.cr_when_changed" : "adm.cr_when", { date: dateTime(r.updatedAt || r.submittedAt) })) + '</p>' +
+      rows + follow + '</div>';
+  }
+
   function renderDetail(body, keepState) {
     detailBody = body;
     detailError = null;
@@ -789,6 +808,7 @@
         '</div>' +
       '</div>' +
       renderResolutionPanel(c) +
+      renderRatingPanel(c) +
       renderReopenPanel(body) +
       '<div class="panel" style="margin-top:20px">' +
         '<h2 style="margin-bottom:16px">' + escapeHtml(T("adm.cs_history")) + '</h2>' +

@@ -59,6 +59,16 @@ def save(p, sel):
 def shot(p, name, full=True):
     p.screenshot(path=os.path.join(SHOTS, name + ".png"), full_page=full)
 
+def fill_otp(p):
+    # The code boxes move focus as you type; fill until all six hold a digit
+    # (a fast fill can land while focus is moving).
+    for _ in range(5):
+        for i, d in enumerate("123456"):
+            box = p.locator(".otp-digit").nth(i)
+            if box.input_value() != d: box.fill(d)
+        if all(p.locator(".otp-digit").nth(i).input_value() == d for i, d in enumerate("123456")): return
+        p.wait_for_timeout(50)
+
 def no_hscroll(p):
     return p.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth + 1")
 
@@ -476,7 +486,7 @@ with sync_playwright() as pw:
         p.route("**/api/**", make_troute(case))
         p.goto(B + "/status.html?ref=GRV-TEST02"); p.wait_for_timeout(400)
         p.fill("#email", "c@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
-        for i, d in enumerate("123456"): p.locator(".otp-digit").nth(i).fill(d)
+        fill_otp(p)
         p.click("#otp-submit"); p.wait_for_selector(".ds-list")
         txt = p.inner_text("#status-followup")
         if lang == "en":
@@ -490,6 +500,188 @@ with sync_playwright() as pw:
         p.locator("#status-followup").screenshot(path=os.path.join(SHOTS, "16-track-" + lang + ".png"))
         ok(not errs, "no script errors (Track) " + lang, errs)
         ctx.close()
+
+    # ---------- Citizen ratings (grieviq-30) ----------
+    import json as _json2
+    # Track page: the rating card (mocked server), every theme/language, phone and laptop
+    def rated_case(rating=None, status=None):
+        return {"trackingRef": "GRV-TEST02", "description": "Leaking pipe", "localUnitName": "Aishbagh", "createdAt": "2026-10-08T10:00:00Z", "status": "RESOLVED",
+                "resolutionKind": "CONFIRMED", "tiers": [{"label": "Corporator", "visible": True, "current": True, "slaBreached": False}], "currentTierIndex": 0,
+                "reopenStatus": {"can": True, "code": "OK", "until": "2026-11-08T10:00:00Z"}, "followupHistory": [], "deptNames": {"Electricity": {"en": "Electricity", "hi": "विद्युत विभाग"}}, "deptSteps": [],
+                "rating": rating, "ratingStatus": status or {"can": True, "code": "OK", "until": "2026-11-08T10:00:00Z", "mode": "NEW"},
+                "ratingDept": {"key": "Electricity", "officeName": "MVVNL sub-station Hazratganj"}}
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (375, 1280):
+                if width == 1280 and (theme, lang) != ("light", "en"): continue
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; sent = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                case = rated_case()
+                def make_r(case, sent):
+                    def r(rt):
+                        u = rt.request.url
+                        if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+                        elif u.endswith("/api/otp/verify"): rt.fulfill(status=200, body=_json2.dumps({"reports": [{"trackingRef": "GRV-TEST02", "status": "RESOLVED"}], "case": case}), headers={"content-type": "application/json"})
+                        elif u.endswith("/api/grievances/rate"):
+                            b = _json2.loads(rt.request.post_data or "{}"); sent.append(b)
+                            rt.fulfill(status=200, body=_json2.dumps({"ok": True, "rating": {"office": b["office"], "dept": b.get("dept"), "department": "Electricity", "comment": b.get("comment") or "", "submittedAt": "2026-10-09T10:00:00Z", "updatedAt": "2026-10-09T10:00:00Z"},
+                                "ratingStatus": {"can": True, "code": "OK", "until": "2026-10-16T10:00:00Z", "mode": "EDIT"}}), headers={"content-type": "application/json"})
+                        else: rt.fulfill(status=404, body='{}', headers={"content-type": "application/json"})
+                    return r
+                p.route("**/api/**", make_r(case, sent))
+                p.goto(B + "/status.html?ref=GRV-TEST02"); p.wait_for_timeout(300)
+                p.fill("#email", "c@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+                fill_otp(p)
+                p.click("#otp-submit"); p.wait_for_selector("#rate-card:not([hidden])")
+                card = p.locator("#rate-card")
+                ok(p.locator("input[name=rate-office]").count() == 5 and p.locator("input[name=rate-dept]").count() == 5, "five answers for each question " + tag)
+                txt = card.inner_text()
+                if lang == "en":
+                    ok("How did we do?" in txt and "Neither satisfied nor dissatisfied" in txt and "MVVNL sub-station Hazratganj" in txt and "never shown publicly" in txt, "card wording " + tag, txt[:300])
+                else:
+                    ok("आपका अनुभव कैसा रहा?" in txt and "न संतुष्ट, न असंतुष्ट" in txt and "सार्वजनिक" in txt, "card in Hindi " + tag, txt[:300])
+                    ok(not re.findall(r"status\.rate_\w+", txt), "no raw keys " + tag)
+                ok(no_hscroll(p), "rating card: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('rate-card')", 1))
+                ok(not bad, "rating card contrast AA " + tag, bad[:5])
+                small = p.evaluate("() => Array.from(document.querySelectorAll('#rate-card .rate-opt, #rate-card button')).filter(e => e.getBoundingClientRect().height < 44).length")
+                ok(small == 0, "answers and buttons at least 44px tall " + tag)
+                card.screenshot(path=os.path.join(SHOTS, "20-rate-form-" + tag + ".png"))
+                # nothing chosen
+                p.click("#rate-send"); p.wait_for_timeout(100)
+                ok(p.get_attribute("#rate-q-office", "aria-invalid") == "true" and p.inner_text("#rate-office-err") != "" and p.evaluate("document.activeElement.name") == "rate-office", "first question required, focus moves to it " + tag)
+                ok(not sent, "nothing sent with an error " + tag)
+                p.check("input[name=rate-office][value=DISSATISFIED]")
+                ok(p.inner_text("#rate-office-err") == "", "error clears on choosing " + tag)
+                p.check("input[name=rate-dept][value=SATISFIED]")
+                p.fill("#rate-comment", "Took two visits")
+                if width == 375 and theme == "light":
+                    # a language switch keeps what was chosen
+                    p.evaluate("() => GIQ.setLang(GIQ.lang === 'hi' ? 'en' : 'hi')"); p.wait_for_timeout(150)
+                    ok(p.is_checked("input[name=rate-office][value=DISSATISFIED]") and p.input_value("#rate-comment") == "Took two visits", "language switch keeps the answers " + tag)
+                    p.evaluate("() => GIQ.setLang(GIQ.lang === 'hi' ? 'en' : 'hi')"); p.wait_for_timeout(150)
+                p.click("#rate-send"); p.wait_for_selector("#rate-msg")
+                ok(sent and sent[-1]["office"] == "DISSATISFIED" and sent[-1]["dept"] == "SATISFIED" and sent[-1]["comment"] == "Took two visits" and sent[-1]["trackingRef"] == "GRV-TEST02", "rating sent " + tag, sent[-1:])
+                ok(p.evaluate("document.activeElement.id") == "rate-msg", "thank-you focused " + tag)
+                t2 = card.inner_text()
+                ok(("Dissatisfied" in t2 and "16 October 2026" in t2) if lang == "en" else ("असंतुष्ट" in t2), "summary with change-until date " + tag, t2[:300])
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('rate-card')", 1))
+                ok(not bad, "thank-you contrast AA " + tag, bad[:5])
+                card.screenshot(path=os.path.join(SHOTS, "21-rate-thanks-" + tag + ".png"))
+                p.click("#rate-change"); p.wait_for_timeout(100)
+                ok(p.is_checked("input[name=rate-office][value=DISSATISFIED]") and p.input_value("#rate-comment") == "Took two visits", "change: form filled in " + tag)
+                p.click("#rate-skip"); p.wait_for_timeout(100)
+                ok(p.locator("#rate-change").count() == 1, "cancel goes back to the summary " + tag)
+                ok(not errs, "no script errors (rating card) " + tag, errs)
+                ctx.close()
+    # Not now hides it; locked rating shows without a change button; an open case shows nothing
+    for case, check in ((rated_case(), "skip"), (rated_case({"office": "SATISFIED", "dept": None, "department": None, "comment": "", "submittedAt": "2026-09-01T10:00:00Z", "updatedAt": "2026-09-01T10:00:00Z"}, {"can": False, "code": "LOCKED", "until": None, "mode": None}), "locked"),
+                        (dict(rated_case(), status="ACKNOWLEDGED", resolutionKind=None), "open")):
+        ctx = br.new_context(viewport={"width": 390, "height": 900})
+        p = ctx.new_page(); errs = []; sent = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.route("**/api/**", make_r(case, sent))
+        p.goto(B + "/status.html?ref=GRV-TEST02"); p.wait_for_timeout(300)
+        p.fill("#email", "c@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        fill_otp(p)
+        p.click("#otp-submit"); p.wait_for_selector("#status-ref"); p.wait_for_timeout(300)
+        if check == "skip":
+            p.click("#rate-skip"); p.wait_for_timeout(100)
+            ok(p.is_hidden("#rate-card"), "Not now hides the card")
+        elif check == "locked":
+            ok(p.is_visible("#rate-card") and p.locator("#rate-change").count() == 0 and "time to change this rating has ended" in p.inner_text("#rate-card"), "locked rating: shown, no change button", p.inner_text("#rate-card"))
+        else:
+            ok(p.is_hidden("#rate-card"), "open case: no rating card")
+        ok(not errs, "no script errors (" + check + ")", errs)
+        ctx.close()
+
+    # Rep console: the citizen's rating on a case, and the overview tile
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = rep_page(lang, theme, width)
+                p.evaluate("""() => { GIQ.addDepts({ Electricity: { en: 'Electricity', hi: 'विद्युत विभाग' } });
+                  const c = { id: 'c1', rating: { office: 'SATISFIED', dept: 'VERY_DISSATISFIED', department: 'Electricity', comment: 'Road <b>left</b> dug up', submittedAt: '2026-10-09T05:00:00Z', updatedAt: '2026-10-10T05:00:00Z', changed: true } };
+                  const few = { count: 3, needed: 5, average: null, word: null, byAnswer: { VERY_SATISFIED: 1, SATISFIED: 1, NEITHER: 0, DISSATISFIED: 1, VERY_DISSATISFIED: 0 } };
+                  const many = { count: 23, needed: 5, average: 4.2, word: 'SATISFIED', byAnswer: { VERY_SATISFIED: 9, SATISFIED: 10, NEITHER: 2, DISSATISFIED: 1, VERY_DISSATISFIED: 1 } };
+                  document.getElementById('content').innerHTML = '<div id="rt-test" style="max-width:720px;padding:12px">' + renderCitizenRating(c) + '<div id="rt-few">' + renderOvRatings(few) + '</div><div id="rt-many">' + renderOvRatings(many) + '</div></div>'; }""")
+                txt = p.inner_text("#rt-test")
+                if lang == "en":
+                    ok("Citizen's rating" in txt and "Your office: Satisfied" in txt and "Electricity: Very dissatisfied" in txt and "changed by the citizen" in txt and "Only the representative and office managers" in txt, "rep: rating note " + tag, txt[:400])
+                    ok("Not enough ratings yet" in p.inner_text("#rt-few") and "3 of 5" in p.inner_text("#rt-few"), "rep: no average below 5 " + tag)
+                    ok("Satisfied" in p.inner_text("#rt-many .ov-rate") and "4.2 out of 5" in p.inner_text("#rt-many") and "23 ratings" in p.inner_text("#rt-many"), "rep: average shown in words and number " + tag)
+                else:
+                    ok("नागरिक की रेटिंग" in txt and "बहुत असंतुष्ट" in txt and "विद्युत विभाग" in txt, "rep: rating note in Hindi " + tag, txt[:300])
+                    ok(not re.findall(r"rep\.(rate|ov_rate)\w*", txt), "no raw keys " + tag)
+                ok(p.locator("#rt-test b").count() == 0, "comment is escaped " + tag)
+                ok(no_hscroll(p), "rep rating: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('rt-test')", 1))
+                ok(not bad, "rep rating contrast AA " + tag, bad[:5])
+                shot(p, "22-rep-rating-" + tag, full=False)
+                ok(not errs, "no script errors (rep rating) " + tag, errs)
+                ctx.close()
+
+    # Admin: Ratings page, dashboard card, case panel (real server)
+    import sqlite3 as _sq
+    _db = _sq.connect(os.environ.get("GRIEVIQ_TEST_DIR", "/tmp/grieviq-tests") + "/test.db")
+    _now = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    for i, (o, d, cm) in enumerate(((1, 2, "Nobody came for two weeks and the road is still dug up"), (2, None, None))):
+        gid = "glow%d" % i
+        _db.execute("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at, resolved_at, closed_at) VALUES (?, ?, '9', 'lu-hazratganj', 'water-sanitation', 'RESOLVED', 'x', 'LOCAL', ?, ?, ?)", (gid, "GRV-LOW%d" % i, _now, _now, _now))
+        _db.execute("INSERT INTO case_ratings (id, grievance_id, office_score, dept_score, department, office_tier, office_id, comment, low, submitted_at, updated_at, round_closed_at) VALUES (?, ?, ?, ?, ?, 'LOCAL', 'lu-hazratganj', ?, 1, ?, ?, ?)",
+                    ("crl%d" % i, gid, o, d, "Electricity" if d else None, cm, _now, _now, _now))
+    _db.commit(); _db.close()
+    for theme in (None, "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme or "dark", lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-ratings.html"); p.wait_for_selector("article.fb")
+                ok(p.locator("article.fb").count() == 2, "two low ratings waiting " + tag)
+                body = p.inner_text("main")
+                if lang == "en":
+                    ok("Waiting for follow-up (2)" in body and "Very dissatisfied" in body and "Hazratganj-Ramtirth" in body and "Not enough ratings yet" in body, "ratings page wording " + tag, body[:500])
+                else:
+                    ok("नागरिकों की रेटिंग" in body and "बहुत असंतुष्ट" in body, "ratings page in Hindi " + tag)
+                    ok(not re.findall(r"adm\.cr_\w+", body), "no raw keys " + tag)
+                ok(no_hscroll(p), "ratings page: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "ratings page contrast AA " + tag, bad[:6])
+                small = p.evaluate(TARGET_JS); ok(not small, "ratings page targets >= 24px " + tag, small[:6])
+                shot(p, "23-admin-ratings-" + tag, full=(width == 375))
+                ok(not errs, "no script errors (ratings page) " + tag, errs)
+                ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-ratings.html"); p.wait_for_selector("form.rt-follow")
+    first = p.locator("form.rt-follow").first
+    first.locator("button").click(); p.wait_for_timeout(150)
+    ta = p.locator("form.rt-follow textarea").first
+    ok(ta.get_attribute("aria-invalid") == "true" and p.evaluate("document.activeElement.tagName") == "TEXTAREA", "follow-up needs a note; focus on it")
+    ta.fill("Called the office manager; repair booked for Monday")
+    with p.expect_response(lambda r: r.request.method == "POST"): p.locator("form.rt-follow button").first.click()
+    p.wait_for_selector("#top-msg")
+    ok("Marked followed up." in p.inner_text("#top-msg") and p.locator("article.fb").count() == 1, "followed up: leaves the waiting list")
+    p.click("[data-tab=DONE]"); p.wait_for_selector(".rt-done")
+    ok("Called the office manager" in p.inner_text(".rt-done") and "super@test.in" in p.inner_text(".rt-done"), "followed-up tab shows what was done and who")
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_timeout(800)
+    ok("Low ratings to follow up" in p.inner_text("main"), "dashboard card for low ratings")
+    p.goto(B + "/admin-cases.html?case=glow0"); p.wait_for_selector("text=Nobody came for two weeks")
+    mt = p.inner_text("main")
+    ok("Citizen's rating" in mt and "Very dissatisfied" in mt and ("Low rating: waiting for follow-up." in mt or "By super@test.in" in mt), "admin case page: ratings panel", mt[-600:])
+    shot(p, "24-admin-case-rating", full=True)
+    ok(not errs, "no script errors (admin follow-up)", errs)
+    ctx.close()
+    ctx, p, errs = P("audit@test.in")
+    p.goto(B + "/admin-ratings.html"); p.wait_for_selector("article.fb, .empty")
+    ok(p.locator("form.rt-follow").count() == 0, "auditor: no follow-up form")
+    ctx.close()
+    ctx, p, errs = P("deo@test.in")
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_timeout(800)
+    ok(p.locator('a[href*="admin-ratings"]:visible').count() == 0, "data entry operator: no Ratings link")
+    ctx.close()
 
     # ---------- themes, languages, widths: contrast + reflow ----------
     for theme in (None, "light"):

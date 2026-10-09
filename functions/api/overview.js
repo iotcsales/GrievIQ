@@ -21,6 +21,7 @@ import { settleOverdueConfirmations } from "../_shared/confirmation.js";
 import { ROLE, parseOfficeKey, logTeam } from "../_shared/team.js";
 import { caseFacts, summarise, monthlyTrend, isDay, dayStartMs, dayEndMs, todayIst, pct, AGE_BUCKETS } from "../_shared/overview.js";
 import { toUtcMs } from "../_shared/time-limits.js";
+import { loadRatings, summarise as summariseRatings } from "../_shared/ratings.js";
 
 const MAX_DAYS = 3 * 366;
 const DAY = 86400000;
@@ -155,6 +156,20 @@ export async function onRequestGet({ request, env }) {
     } catch (e) { workload = []; }
   }
 
+  // Citizen ratings (grieviq-30): representative and office managers only.
+  // Cases this office resolved, rated in the period; an average only from 5.
+  let ratings = null;
+  if (m.role === ROLE.REP || m.role === ROLE.OM) {
+    const byCase = await loadRatings(env, cases.map((g) => g.id));
+    const scores = [];
+    for (const r of byCase.values()) {
+      if (r.office_tier !== m.tier || String(r.office_id) !== String(m.id)) continue;
+      const at = toUtcMs(r.submitted_at);
+      if (!isNaN(at) && at >= fromMs && at <= toMs) scores.push(r.office_score);
+    }
+    ratings = summariseRatings(scores);
+  }
+
   const officeOut = { key: m.tier + ":" + m.id, tier: m.tier, name: m.name, label: m.label };
   if (url.searchParams.get("format") === "csv") {
     await logTeam(env, { officeTier: m.tier, officeId: m.id, actor: auth.email, actorRole: m.role || ROLE.REP,
@@ -165,7 +180,7 @@ export async function onRequestGet({ request, env }) {
     office: officeOut, myRole: m.role || ROLE.REP, from, to, today, groupBy, mla: mlaId,
     mlaName: mlaId && rows.length ? await mlaNameOf(env, mlaId) : null,
     ages: AGE_BUCKETS.map(([lo, hi]) => ({ from: lo, to: hi === Infinity ? null : hi })),
-    rows, total, trend, workload,
+    rows, total, trend, workload, ratings,
   }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 

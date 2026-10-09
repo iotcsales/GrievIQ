@@ -15,6 +15,7 @@
 // "Needs attention" comes from _shared/exception-cases.js, the same rules
 // as the Exceptions page and the dashboard.
 
+import { loadRatings, shapeForAdmin } from "../../_shared/ratings.js";
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
@@ -226,6 +227,8 @@ async function caseDetail(env, auth, id) {
       // Departments stage 3: the department steps (field-check photos are in reports, review status FIELD_CHECK).
       deptSteps: ((await loadSteps(env, [g.id])).get(g.id) || []).map(shapeStepForRep),
       deptNames: namesOf(await deptTypes(env)),
+      // Citizen ratings (grieviq-30).
+      rating: shapeForAdmin((await loadRatings(env, [g.id])).get(g.id) || null),
       awaitingCheck: awaitingStaffCheck(g),
       staffChecks: ((await env.DB.prepare(
         "SELECT method, outcome, note, checked_by, checked_at FROM resolution_checks WHERE grievance_id = ? ORDER BY checked_at ASC"

@@ -20,7 +20,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=29"></script>
+<script src="/i18n.js?v=30"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=29"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -342,6 +342,10 @@
   .ov-tile-v { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--ink); }
   .ov-tile-l { font-size: 12.5px; color: var(--steel); margin-top: 4px; }
   .ov-tile.late .ov-tile-v { color: var(--red); }
+  .ov-rate-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; margin: 8px 0 18px; }
+  .ov-rate { min-width: 200px; flex: 0 1 260px; }
+  .ov-rate-w { font-size: 20px; }
+  .ov-rate-t { width: auto; min-width: 260px; flex: 0 1 340px; }
   .ov-trail { font-size: 13.5px; margin: 0 0 8px; }
   .ov-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--card); margin-bottom: 18px; }
   .ov-scroll:focus { outline: 3px solid #ffbf47; outline-offset: 2px; }
@@ -467,6 +471,13 @@
     max-width: 46ch;
   }
   .dispute-note b { color: var(--red); }
+  /* Citizen ratings (grieviq-30) */
+  .rating-note { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--steel); background: var(--paper, transparent); font-size: 12.5px; color: var(--ink); line-height: 1.5; max-width: 52ch; border: 1px solid var(--line, #d5d9de); border-left-width: 3px; border-radius: 4px; }
+  .rating-note .rn-h { font-weight: 700; display: block; margin-bottom: 2px; }
+  .rating-note ul { margin: 0; padding: 0; list-style: none; }
+  .rating-note .rn-low { color: var(--red); font-weight: 700; }
+  .rating-note .rn-quote { display: block; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+  .rating-note .muted-inline { display: block; margin-top: 4px; }
   .resolve-btn {
     margin-top: 10px;
     font-family: inherit;
@@ -960,6 +971,19 @@ function renderMapLink(c) {
     esc(T('rep.map_link')) + '<span class="visually-hidden"> ' + esc(T('rep.new_tab')) + '</span></a></div>';
 }
 
+// Citizen ratings (grieviq-30): the citizen's rating of a closed case, for
+// the representative and office managers (the server sends it only to them).
+function renderCitizenRating(c) {
+  var r = c.rating;
+  if (!r) return '';
+  function ans(k) { var low = k === 'DISSATISFIED' || k === 'VERY_DISSATISFIED'; return '<span' + (low ? ' class="rn-low"' : '') + '>' + esc(T('rep.rate_a_' + k)) + '</span>'; }
+  var lines = '<li>' + esc(T('rep.rate_office')) + ' ' + ans(r.office) + '</li>';
+  if (r.dept) lines += '<li>' + esc(T('rep.rate_dept', { dept: deptName(r.department) })) + ' ' + ans(r.dept) + '</li>';
+  return '<div class="rating-note"><span class="rn-h">' + esc(T('rep.rate_title')) + '</span><ul>' + lines + '</ul>' +
+    (r.comment ? '<span class="rn-quote">' + esc(T('rep.rate_comment', { text: r.comment })) + '</span>' : '') +
+    '<span class="muted-inline">' + esc(T(r.changed ? 'rep.rate_when_changed' : 'rep.rate_when', { date: formatDate(r.updatedAt || r.submittedAt) })) + ' ' + esc(T('rep.rate_private')) + '</span></div>';
+}
+
 function renderDisputeNote(c) {
   if (!c.citizenDisputeReason) return '';
   var label = T(DISPUTE_REASON_KEYS[c.citizenDisputeReason] || 'rep.d_other');
@@ -1414,6 +1438,7 @@ function renderCase(c) {
       renderPhotoThumbs(c.photos) +
       badge +
       renderResolution(c) +
+      renderCitizenRating(c) +
       renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
       renderTeamNotes(c) +
       // Actions sit beside the details on a laptop, below them on a phone.
@@ -2259,6 +2284,7 @@ function renderOverviewTab() {
     html += '</tbody><tfoot><tr><th scope="row" class="ov-name">' + esc(T('rep.ov_total')) + '</th>' + OV_COLS.map(function(c) { return ovCell(t, c); }).join('') + '</tr></tfoot></table></div>';
   }
   html += renderOvTrend(d.trend || []);
+  html += renderOvRatings(d.ratings);
   if (d.workload) {
     html += '<h3 class="team-activity-t">' + esc(T('rep.ov_work_t')) + '</h3>';
     if (!d.workload.length) html += '<p class="ov-hint">' + esc(T('rep.ov_work_none')) + '</p>';
@@ -2268,8 +2294,22 @@ function renderOverviewTab() {
       }).join('') + '</tbody></table></div>';
   }
   html += '<details class="ov-how"><summary>' + esc(T('rep.ov_how_t')) + '</summary><ul>' +
-    ['received', 'resolved', 'pending', 'overdue', 'median', 'ack', 'esc', 'conf', 'reopen', 'view', 'live'].map(function(k) { return '<li>' + esc(T('rep.ov_how_' + k)) + '</li>'; }).join('') + '</ul></details>';
+    ['received', 'resolved', 'pending', 'overdue', 'median', 'ack', 'esc', 'conf', 'reopen', 'view', 'live'].concat(d.ratings ? ['rating'] : []).map(function(k) { return '<li>' + esc(T('rep.ov_how_' + k)) + '</li>'; }).join('') + '</ul></details>';
   return html;
+}
+// Citizen ratings (grieviq-30): how citizens rated this office for the cases
+// it resolved, rated in the period. An average only from 5 ratings; the
+// count of each answer is always shown.
+var RATE_KEYS = ['VERY_SATISFIED', 'SATISFIED', 'NEITHER', 'DISSATISFIED', 'VERY_DISSATISFIED'];
+function renderOvRatings(r) {
+  if (!r) return '';
+  var head = r.average != null
+    ? '<div class="ov-tile ov-rate"><div class="ov-tile-v ov-rate-w">' + esc(T('rep.rate_a_' + r.word)) + '</div><div class="ov-tile-l">' + esc(T('rep.ov_rate_avg', { avg: r.average.toLocaleString(window.GIQ ? GIQ.locale() : 'en-IN'), n: r.count })) + '</div></div>'
+    : '<div class="ov-tile ov-rate"><div class="ov-tile-v ov-rate-w">' + esc(T('rep.ov_rate_few')) + '</div><div class="ov-tile-l">' + esc(T('rep.ov_rate_few_h', { n: r.count, need: r.needed })) + '</div></div>';
+  var table = r.count ? '<table class="ov-table ov-rate-t"><caption class="visually-hidden">' + esc(T('rep.ov_rate_t')) + '</caption><thead><tr><th scope="col" class="ov-name">' + esc(T('rep.ov_rate_answer')) + '</th><th scope="col">' + esc(T('rep.ov_rate_n')) + '</th></tr></thead><tbody>' +
+    RATE_KEYS.map(function(k) { return '<tr><th scope="row" class="ov-name">' + esc(T('rep.rate_a_' + k)) + '</th><td class="num">' + (r.byAnswer[k] || 0) + '</td></tr>'; }).join('') + '</tbody></table>' : '';
+  return '<h3 class="team-activity-t">' + esc(T('rep.ov_rate_t')) + '</h3><p class="ov-hint">' + esc(T('rep.ov_rate_hint')) + '</p>' +
+    '<div class="ov-rate-row">' + head + table + '</div>';
 }
 // 12-month trend: two lines (received, resolved), a legend, end labels,
 // and a hover readout per month; the same numbers as a table below.

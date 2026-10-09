@@ -86,6 +86,10 @@ export const PERMISSIONS = {
   // (maker-checker, approved on Change requests); the auditor reads.
   view_departments: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
   manage_departments: ["super_admin", "operations_admin"],
+  // Citizen ratings (grieviq-30): the two senior roles follow up low
+  // ratings; the auditor reads (same people who see cases).
+  view_ratings: ["super_admin", "operations_admin", "auditor"],
+  follow_up_ratings: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -110,6 +114,7 @@ export const PAGES = {
   "admin-feedback": "view_feedback",
   "admin-messages": "view_messages",
   "admin-departments": "view_departments",
+  "admin-ratings": "view_ratings",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

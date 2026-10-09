@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#13233F">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title data-i18n="adm.rt_page_title">GrievIQ Admin — Data retention</title>
+<title data-i18n="adm.cr_page_title">GrievIQ Admin — Ratings</title>
 <script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=30"></script><script src="/admin-nav.js?v=r8"></script><style>
   :root {
     --admin-bg: #14181f;
@@ -203,158 +203,180 @@
   .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); }
   details.panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
   details.panel[open] > summary { margin-bottom: 12px; }
+
+  main { max-width: 900px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tabs button { min-height: 36px; }
+  .tabs button[aria-pressed="true"] { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  .fb { background: var(--admin-panel); border: 1px solid var(--admin-border); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .fb-head { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .fb-cat { font-weight: 600; font-size: 15px; }
+  .fb-meta { font-size: 12.5px; color: var(--admin-muted); margin-top: 3px; }
+  .fb-msg { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.55; margin: 10px 0; padding: 10px 12px; border-radius: 8px; background: rgba(127,127,127,.08); }
+  .fb-msg.none { color: var(--admin-muted); font-style: italic; }
+  .fb-row { font-size: 13.5px; margin: 4px 0; } .fb-row b { color: var(--admin-muted); font-weight: 600; }
+  .fb-row a { color: var(--admin-accent); }
+  .fb-edit { display: grid; grid-template-columns: 200px minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-top: 12px; }
+  @media (max-width: 640px) { .fb-edit { grid-template-columns: 1fr; } }
+  .fb-edit label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+  .fb-edit select, .fb-edit textarea { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 36px; }
+  .fb-edit textarea { min-height: 36px; resize: vertical; }
+  html.light-theme .fb-edit select, html.light-theme .fb-edit textarea { background: #fff; }
+  .st { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st-NEW { background: #3a3423; color: #e8d38c; } .st-IN_PROGRESS { background: #1f3040; color: #8cc4ee; } .st-DONE { background: #1f3326; color: #a6e0b4; }
+  html.light-theme .st-NEW { background: #fbf1d6; color: #6b4f12; } html.light-theme .st-IN_PROGRESS { background: #e3eefa; color: #1d4f80; } html.light-theme .st-DONE { background: #e6f4ea; color: #1f5f32; }
+
+  /* Citizen ratings page (grieviq-30). WCAG 2.2 AA (1.4.3) colours: the
+     shared admin blue and red are below 4.5:1 for small text here. */
+  :root { --admin-danger: #f3908a; --rt-link: #8fb0f7; --rt-primary: #2f5bd3; }
+  html.light-theme { --admin-danger: #a8332a; --rt-link: #2a55c4; --rt-primary: #2a55c4; }
+  button.primary, html.light-theme button.primary { background: var(--rt-primary); border-color: var(--rt-primary); color: #fff; }
+  button.primary:hover, html.light-theme button.primary:hover { background: #2448b0; }
+  .tabs button[aria-pressed="true"] { background: var(--rt-primary); border-color: var(--rt-primary); color: #fff; }
+  a.case-link, .fb-row a { color: var(--rt-link); }
+  .rt-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .rt-cards .card .num { font-size: 20px; }
+  .rt-ans { font-size: 14px; margin: 6px 0 0; }
+  .rt-ans li + li { margin-top: 3px; }
+  .rt-ans { list-style: none; padding: 0; }
+  .rt-low { color: var(--admin-danger); font-weight: 700; }
+  .rt-follow textarea { width: 100%; min-height: 64px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; resize: vertical; }
+  html.light-theme .rt-follow textarea { background: #fff; }
+  .rt-follow textarea[aria-invalid="true"] { border-color: var(--admin-danger); }
+  .rt-follow label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 2px; }
+  .rt-done { margin-top: 10px; font-size: 13.5px; }
+  .rt-done .who { color: var(--admin-muted); font-size: 12.5px; display: block; }
+  details.panel table { margin-top: 6px; }
+  td.num, th.num { text-align: right; }
+  .tag.changed { margin-left: 6px; }
+  /* WCAG 2.2 (2.5.8): links and the table toggle are at least 24px tall. */
+  a.case-link { display: inline-flex; align-items: center; min-height: 28px; }
+  details.panel > summary { min-height: 28px; display: flex; align-items: center; }
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-ratings.html" data-i18n="adm.nav_ratings" class="active" aria-current="page">Ratings</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
     <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
-    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention" class="active" aria-current="page">Data retention</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
     <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
   </nav>
 </header>
 
-<main>
-  <h1 data-i18n="adm.rt_title">Data retention</h1>
-  <p class="subtitle" id="page-sub" data-i18n="adm.rt_sub">Complaints are kept for 3 years from filing or 1 year after they close, whichever is later. Then the citizen's details are removed and the case is kept without them, so figures and reports stay correct.</p>
+<main id="main">
+  <h1 data-i18n="adm.cr_title">Citizen ratings</h1>
+  <p class="subtitle" data-i18n="adm.cr_sub">How citizens rated the handling of their closed cases. A rating of Dissatisfied or Very dissatisfied on either question comes here to be followed up.</p>
   <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
 </main>
 
 <script>
-// ---- Language (English / Hindi): text lives in /i18n.js (keys "adm.rt_*") ----
 function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
-function isHi() { return !!(window.GIQ && window.GIQ.lang === "hi"); }
 function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function toDate(s) { if (!s) return null; const t = String(s); const d = new Date(t.indexOf("T") !== -1 ? t : t.replace(" ", "T") + "Z"); return isNaN(d) ? null : d; }
-function day(s) { const d = toDate(s); return d ? d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) : "—"; }
-function dateTime(s) {
-  const d = toDate(s); if (!d) return "—";
-  return d.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) + ", " +
-    d.toLocaleTimeString(loc(), isHi() ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit" });
-}
-function addDays(s, n) { const d = toDate(s); return d ? new Date(d.getTime() + n * 86400000).toISOString() : null; }
-
-let data = null, hold = { ref: "", reason: "", errors: {}, busy: false, msg: null }, run = { busy: false, msg: null };
-
+function when(s) { const d = toDate(s); return d ? d.toLocaleString(loc(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : ""; }
 async function api(url, opts) {
   try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
   catch (e) { return { ok: false, status: 0, body: {} }; }
 }
+const KEYS = ["VERY_SATISFIED", "SATISFIED", "NEITHER", "DISSATISFIED", "VERY_DISSATISFIED"];
+const TIER = { LOCAL: "adm.al_tier_LOCAL", MAYOR: "adm.al_tier_MAYOR", MLA: "adm.al_tier_MLA", MP: "adm.al_tier_MP" };
+let data = null, show = "OPEN", msg = null;
+const drafts = {}, errs = {};
+
 async function load() {
-  const r = await api("/api/admin/retention");
+  const r = await api("/api/admin/ratings?show=" + show);
   if (!r.ok) {
-    const msg = r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.rt_not_set_up") : r.body.error === "INSUFFICIENT_ROLE" || r.body.error === "NOT_ADMIN" ? T("adm.no_access") : T("adm.err_detail", { msg: r.body.error || r.status });
-    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(msg) + '</div>';
+    data = null;
+    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.cr_not_set_up") : T("adm.err_detail", { msg: r.body.error || r.status })) + "</div>";
     return;
   }
   data = r.body;
+  if (window.GIQ && data.deptNames) GIQ.addDepts(data.deptNames);
   render();
 }
-
-function caseTable(list, cols, emptyKey) {
-  if (!list.length) return '<p class="empty">' + esc(T(emptyKey)) + '</p>';
-  const head = { ref: "adm.rt_col_case", ward: "adm.rt_col_ward", closed: "adm.rt_col_closed", due: "adm.rt_col_due", notice: "adm.rt_col_notice", remove: "adm.rt_col_remove", why: "adm.rt_col_why" };
-  return '<div class="table-wrap"><table><thead><tr>' + cols.map((c) => '<th scope="col">' + esc(T(head[c])) + '</th>').join("") + '</tr></thead><tbody>' +
-    list.map((x) => '<tr>' + cols.map((c) => {
-      if (c === "ref") return '<td class="name"><a class="src" href="/admin-cases.html?case=' + encodeURIComponent(x.id) + '">' + esc(x.ref) + '</a></td>';
-      if (c === "ward") return '<td>' + esc(x.ward || "—") + '</td>';
-      if (c === "closed") return '<td>' + esc(day(x.closedAt)) + '</td>';
-      if (c === "due") return '<td>' + esc(day(x.dueAt)) + '</td>';
-      if (c === "notice") return '<td>' + esc(x.noticeAt ? T("adm.rt_notice_sent", { date: day(x.noticeAt) }) : x.hasEmail ? T("adm.rt_notice_pending") : T("adm.rt_notice_none")) + '</td>';
-      if (c === "remove") return '<td>' + esc(day(addDays(x.noticeAt, data.policy.noticeDays) > (x.dueAt || "") ? addDays(x.noticeAt, data.policy.noticeDays) : x.dueAt)) + '</td>';
-      if (c === "why") {
-        const parts = [];
-        if (x.manual) parts.push(T("adm.rt_why_manual", { reason: x.reason || "—", by: x.by || "—", date: day(x.at) }));
-        if (x.observations) parts.push(T("adm.rt_why_obs", { refs: x.observations }));
-        return '<td>' + esc(parts.join(" · ")) + '</td>';
-      }
-      return '<td></td>';
-    }).join("") + '</tr>').join("") + '</tbody></table></div>';
+function ans(k) {
+  const low = k === "DISSATISFIED" || k === "VERY_DISSATISFIED";
+  return '<span' + (low ? ' class="rt-low"' : "") + ">" + esc(T("adm.cr_a_" + k)) + "</span>";
 }
-
+function overallCard(sum, label) {
+  const big = sum.average != null ? T("adm.cr_a_" + sum.word) : T("adm.cr_few");
+  const small = sum.average != null ? T("adm.cr_avg", { avg: sum.average.toLocaleString(loc()), n: sum.count }) : T("adm.cr_few_h", { n: sum.count, need: sum.needed });
+  return '<div class="card"><div class="num">' + esc(big) + '</div><div class="label"><b>' + esc(label) + "</b><br>" + esc(small) + "</div></div>";
+}
 function render() {
-  const d = data, man = d.canManage;
-  const card = (n, key) => '<div class="card"><div class="num">' + n + '</div><div class="label">' + esc(T(key)) + '</div></div>';
-  let html = '<div class="cards">' +
-    card(d.dueNow.length, "adm.rt_c_due") + card(d.noticeDue.length, "adm.rt_c_notice") + card(d.waitingAfterNotice.length, "adm.rt_c_waiting") +
-    card(d.next30.length, "adm.rt_c_next30") + card(d.held.length, "adm.rt_c_held") + card(d.totals.anonymised, "adm.rt_c_done") + '</div>';
-
-  if (man) {
-    html += '<div class="panel"><h2>' + esc(T("adm.rt_run_t")) + '</h2><p class="sub">' + esc(T("adm.rt_run_sub", { signins: d.totals.signinsDue, codes: d.totals.codesDue })) + '</p>' +
-      '<div class="actions"><button type="button" class="primary" id="run-btn"' + (run.busy ? " disabled" : "") + '>' + esc(T(run.busy ? "adm.rt_running" : "adm.rt_run_btn")) + '</button></div>' +
-      '<div class="msg ' + (run.msg && run.msg.err ? "err" : "ok") + '" id="run-msg" role="status" tabindex="-1">' + esc(run.msg ? run.msg.text : "") + '</div></div>';
-  }
-
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_due_t")) + '</h2><p class="sub">' + esc(T("adm.rt_due_sub")) + '</p>' + caseTable(d.dueNow, ["ref", "ward", "closed", "due", "notice"], "adm.rt_none_due") + '</div>';
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_notice_t")) + '</h2><p class="sub">' + esc(T("adm.rt_notice_sub", { n: d.policy.noticeDays })) + '</p>' + caseTable(d.noticeDue, ["ref", "ward", "closed", "due"], "adm.rt_none_notice") + '</div>';
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_waiting_t")) + '</h2><p class="sub">' + esc(T("adm.rt_waiting_sub", { n: d.policy.noticeDays })) + '</p>' + caseTable(d.waitingAfterNotice, ["ref", "ward", "notice", "remove"], "adm.rt_none_waiting") + '</div>';
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_next30_t")) + '</h2>' + caseTable(d.next30, ["ref", "ward", "closed", "due"], "adm.rt_none_next30") + '</div>';
-
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_held_t")) + '</h2><p class="sub">' + esc(T("adm.rt_held_sub")) + '</p>' + caseTable(d.held, ["ref", "ward", "due", "why"], "adm.rt_none_held");
-  if (man) {
-    const e = hold.errors, inv = (k) => e[k] ? ' aria-invalid="true"' : '';
-    html += '<form id="hold-form" novalidate style="margin-top:16px"><h2 style="font-size:14px;margin:0">' + esc(T("adm.rt_hold_form_t")) + '</h2>' +
-      '<div class="form-row"><label for="h-ref">' + esc(T("adm.rt_f_ref")) + '</label><input type="text" id="h-ref" maxlength="20" autocomplete="off" value="' + esc(hold.ref) + '" placeholder="' + esc(T("adm.rt_f_ref_ph")) + '" aria-describedby="h-ref-err"' + inv("ref") + '><div class="field-err" id="h-ref-err" role="alert">' + esc(e.ref || "") + '</div></div>' +
-      '<div class="form-row"><label for="h-reason">' + esc(T("adm.rt_f_reason")) + '</label><p class="hint" id="h-reason-hint">' + esc(T("adm.rt_f_reason_hint")) + '</p><textarea id="h-reason" rows="2" maxlength="500" aria-describedby="h-reason-hint h-reason-err"' + inv("reason") + '>' + esc(hold.reason) + '</textarea><div class="field-err" id="h-reason-err" role="alert">' + esc(e.reason || "") + '</div></div>' +
-      '<div class="actions"><button type="submit" class="primary" data-act="hold"' + (hold.busy ? " disabled" : "") + '>' + esc(T("adm.rt_hold_btn")) + '</button> <button type="submit" data-act="release"' + (hold.busy ? " disabled" : "") + '>' + esc(T("adm.rt_release_btn")) + '</button></div>' +
-      '<div class="msg ' + (hold.msg && hold.msg.err ? "err" : "ok") + '" id="hold-msg" role="status" tabindex="-1">' + esc(hold.msg ? hold.msg.text : "") + '</div></form>';
-  }
-  html += '</div>';
-
-  html += '<div class="panel"><h2>' + esc(T("adm.rt_register_t")) + '</h2><p class="sub">' + esc(T("adm.rt_register_sub")) + '</p>';
-  if (!d.runs.length) html += '<p class="empty">' + esc(T("adm.rt_none_runs")) + '</p>';
-  else html += '<div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.rt_col_when")) + '</th><th scope="col">' + esc(T("adm.rt_col_by")) + '</th><th scope="col">' + esc(T("adm.rt_col_removed")) + '</th><th scope="col">' + esc(T("adm.rt_col_notices")) + '</th><th scope="col">' + esc(T("adm.rt_col_other")) + '</th></tr></thead><tbody>' +
-    d.runs.map((r) => '<tr><td>' + esc(dateTime(r.at)) + '</td><td>' + esc(r.by === "system" ? T("adm.rt_by_system") : r.by) + '<span class="sub">' + esc(T(r.kind === "MANUAL" ? "adm.rt_kind_manual" : "adm.rt_kind_auto")) + '</span></td>' +
-      '<td>' + esc(T("adm.rt_n_cases", { n: r.anonymised })) + (r.refs.length ? '<span class="sub">' + esc(r.refs.join(", ")) + '</span>' : '') + (r.fields ? '<span class="sub">' + esc(T("adm.rt_n_fields", { n: r.fields })) + '</span>' : '') + '</td>' +
-      '<td>' + esc(String(r.notices)) + (r.noticeRefs.length ? '<span class="sub">' + esc(r.noticeRefs.join(", ")) + '</span>' : '') + '</td>' +
-      '<td>' + esc(T("adm.rt_other_line", { signins: r.signins, codes: r.codes })) + '</td></tr>').join("") + '</tbody></table></div>';
-  html += '</div>';
-  if (man) html += '<p class="muted">' + esc(T("adm.rt_photos_line")) + ' <a class="src" href="/admin-photos.html">' + esc(T("adm.rt_photos_link")) + '</a></p>';
-  document.getElementById("content").innerHTML = html;
-  attach();
+  if (!data) return;
+  const c = data.counts, o = data.overall;
+  const cards = '<div class="rt-cards">' + overallCard(o.office, T("adm.cr_o_office")) + overallCard(o.dept, T("adm.cr_o_dept")) +
+    '<div class="card"><div class="num">' + c.OPEN + '</div><div class="label"><b>' + esc(T("adm.cr_o_open")) + "</b><br>" + esc(T("adm.cr_o_open_h")) + "</div></div></div>";
+  const table = (o.office.count || o.dept.count) ? '<details class="panel"><summary>' + esc(T("adm.cr_table_t")) + '</summary><div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.cr_answer")) + '</th><th scope="col" class="num">' + esc(T("adm.cr_o_office")) + '</th><th scope="col" class="num">' + esc(T("adm.cr_o_dept")) + "</th></tr></thead><tbody>" +
+    KEYS.map((k) => "<tr><th scope=\"row\">" + esc(T("adm.cr_a_" + k)) + '</th><td class="num">' + (o.office.byAnswer[k] || 0) + '</td><td class="num">' + (o.dept.byAnswer[k] || 0) + "</td></tr>").join("") +
+    '</tbody></table></div></details>' : "";
+  const tabs = '<div class="tabs" role="group" aria-label="' + esc(T("adm.cr_show")) + '">' +
+    [["OPEN", T("adm.cr_tab_open", { n: c.OPEN })], ["DONE", T("adm.cr_tab_done", { n: c.DONE })], ["ALL", T("adm.cr_tab_all", { n: c.ALL })]]
+      .map((t) => '<button type="button" data-tab="' + t[0] + '" aria-pressed="' + (show === t[0]) + '">' + esc(t[1]) + "</button>").join("") + "</div>";
+  const top = msg ? '<div class="msg ' + (msg.err ? "err" : "ok") + '" role="' + (msg.err ? "alert" : "status") + '" id="top-msg" tabindex="-1">' + esc(msg.text) + "</div>" : "";
+  const items = data.items.length ? data.items.map(item).join("") : '<p class="empty">' + esc(T(show === "OPEN" ? "adm.cr_none_open" : "adm.cr_none")) + "</p>";
+  document.getElementById("content").innerHTML = cards + table + top + '<h2 class="visually-hidden">' + esc(T("adm.cr_list_h")) + "</h2>" + tabs + items;
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { show = b.dataset.tab; msg = null; load(); }));
+  document.querySelectorAll("form.rt-follow").forEach((f) => f.addEventListener("submit", save));
+  document.querySelectorAll("form.rt-follow textarea").forEach((t) => t.addEventListener("input", () => { drafts[t.dataset.id] = t.value; }));
 }
-
-function attach() {
-  const rb = document.getElementById("run-btn");
-  if (rb) rb.addEventListener("click", async () => {
-    if (!confirm(T("adm.rt_run_confirm"))) return;
-    run = { busy: true, msg: null }; render();
-    const r = await api("/api/admin/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run" }) });
-    if (!r.ok) run = { busy: false, msg: { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) } };
-    else { const x = r.body.done; run = { busy: false, msg: { text: T("adm.rt_run_done", { cases: x.anonymised, notices: x.notices, signins: x.signins, codes: x.codes }) + (x.skipped ? " " + T("adm.rt_run_skipped", { n: x.skipped }) : "") } }; }
-    await load();
-    const m = document.getElementById("run-msg"); if (m) m.focus();
-  });
-  const f = document.getElementById("hold-form");
-  if (f) f.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const act = ev.submitter && ev.submitter.getAttribute("data-act") === "release" ? "release" : "hold";
-    hold.ref = document.getElementById("h-ref").value.trim(); hold.reason = document.getElementById("h-reason").value.trim();
-    hold.errors = {}; hold.msg = null;
-    if (!hold.ref) hold.errors.ref = T("adm.rt_e_ref");
-    if (hold.reason.length < 10) hold.errors.reason = T("adm.rt_e_reason");
-    if (Object.keys(hold.errors).length) { render(); const el = document.querySelector('#hold-form [aria-invalid="true"]'); if (el) el.focus(); return; }
-    hold.busy = true; render();
-    const r = await api("/api/admin/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: act, ref: hold.ref, reason: hold.reason }) });
-    hold.busy = false;
-    if (!r.ok) {
-      const M = { REQUIRED: "adm.rt_e_ref", NOT_FOUND: "adm.rt_e_not_found", REMOVED: "adm.rt_e_removed", ALREADY: "adm.rt_e_already", NOT_HELD: "adm.rt_e_not_held", LENGTH: "adm.rt_e_reason" };
-      const fl = (r.body && r.body.fields) || {};
-      Object.keys(fl).forEach((k) => { hold.errors[k] = T(M[fl[k]] || "adm.rt_e_ref"); });
-      if (!Object.keys(fl).length) hold.msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
-      render(); const el = document.querySelector('#hold-form [aria-invalid="true"]') || document.getElementById("hold-msg"); if (el) el.focus(); return;
-    }
-    hold = { ref: "", reason: "", errors: {}, busy: false, msg: { text: T(act === "hold" ? "adm.rt_held_ok" : "adm.rt_released_ok", { ref: r.body.ref }) } };
-    await load();
-    const m = document.getElementById("hold-msg"); if (m) m.focus();
-  });
+function item(it) {
+  const office = it.officeTier ? T(TIER[it.officeTier] || it.officeTier) + (it.officeName ? " — " + it.officeName : "") : T("adm.cr_office_unknown");
+  const deptLine = it.dept ? "<li>" + esc(T("adm.cr_k_dept", { dept: window.GIQ ? GIQ.dept(it.department) : it.department })) + ": " + ans(it.dept) + "</li>" : "";
+  const comment = it.comment ? '<div class="fb-msg">' + esc(it.comment) + "</div>" : '<div class="fb-msg none">' + esc(T("adm.cr_no_comment")) + "</div>";
+  let follow = "";
+  if (it.followedUpAt) {
+    follow = '<div class="rt-done"><b>' + esc(T("adm.cr_done_h")) + "</b> " + esc(it.followUpNote) + '<span class="who">' + esc(T("adm.cr_followed", { who: it.followedUpBy || "", date: when(it.followedUpAt) })) + "</span></div>";
+  } else if (data.canFollowUp) {
+    const e = errs[it.id] || "";
+    follow = '<form class="rt-follow" data-id="' + esc(it.id) + '" data-updated="' + esc(it.updatedAt) + '" novalidate>' +
+      '<label for="n-' + esc(it.id) + '">' + esc(T("adm.cr_note")) + '</label><p class="hint" id="h-n-' + esc(it.id) + '">' + esc(T("adm.cr_note_hint", { min: data.noteMin, max: data.noteMax })) + "</p>" +
+      '<textarea id="n-' + esc(it.id) + '" data-id="' + esc(it.id) + '" maxlength="' + data.noteMax + '" aria-describedby="h-n-' + esc(it.id) + " e-n-" + esc(it.id) + '"' + (e ? ' aria-invalid="true"' : "") + ">" + esc(drafts[it.id] || "") + "</textarea>" +
+      '<div class="field-err" id="e-n-' + esc(it.id) + '" role="alert">' + esc(e) + "</div>" +
+      '<div class="actions"><button type="submit" class="primary">' + esc(T("adm.cr_mark")) + "</button></div></form>";
+  } else {
+    follow = '<p class="muted">' + esc(T("adm.cr_waiting")) + "</p>";
+  }
+  return '<article class="fb" aria-labelledby="h-' + esc(it.id) + '"><div class="fb-head"><div>' +
+      '<div class="fb-cat" id="h-' + esc(it.id) + '"><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(it.caseId) + '">' + esc(it.trackingRef) + "</a></div>" +
+      '<div class="fb-meta">' + esc([it.ward, window.GIQ ? GIQ.category(it.categoryId, it.category) : it.category].filter(Boolean).join(" · ")) + "</div>" +
+      '<div class="fb-meta">' + esc(T("adm.cr_resolved_by", { office: office })) + "</div></div>" +
+      '<span class="st st-' + (it.followedUpAt ? "DONE" : "NEW") + '">' + esc(T(it.followedUpAt ? "adm.cr_st_done" : "adm.cr_st_open")) + "</span></div>" +
+    '<ul class="rt-ans"><li>' + esc(T("adm.cr_k_office")) + ": " + ans(it.office) + "</li>" + deptLine + "</ul>" +
+    comment +
+    '<div class="fb-meta">' + esc(T(it.changed ? "adm.cr_when_changed" : "adm.cr_when", { date: when(it.updatedAt || it.submittedAt) })) + "</div>" +
+    follow + "</article>";
+}
+async function save(ev) {
+  ev.preventDefault();
+  const f = ev.target, id = f.dataset.id;
+  const note = (document.getElementById("n-" + id).value || "").trim();
+  if (note.length < data.noteMin) {
+    errs[id] = T("adm.cr_err_note", { min: data.noteMin });
+    render();
+    document.getElementById("n-" + id).focus();
+    return;
+  }
+  errs[id] = "";
+  const r = await api("/api/admin/ratings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, note, updatedAt: f.dataset.updated }) });
+  if (!r.ok && r.body.fields && r.body.fields.note) {
+    errs[id] = T("adm.cr_err_note", { min: data.noteMin });
+    render();
+    document.getElementById("n-" + id).focus();
+    return;
+  }
+  if (r.ok) delete drafts[id];
+  msg = r.ok ? { text: T("adm.cr_saved") } : { err: true, text: r.status === 0 ? T("adm.network") : r.body.code === "CHANGED" ? T("adm.cr_changed") : r.body.code === "ALREADY" ? T("adm.cr_already") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+  await load();
+  const m = document.getElementById("top-msg"); if (m) m.focus();
 }
 
 function applyTheme(theme) {
@@ -372,6 +394,7 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
 document.addEventListener("giq:lang", () => {
   let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
   applyTheme(th);
+  Object.keys(errs).forEach((k) => { if (errs[k]) errs[k] = T("adm.cr_err_note", { min: data ? data.noteMin : 10 }); });
   if (data) render();
 });
 load();

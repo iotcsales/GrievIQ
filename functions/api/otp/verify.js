@@ -30,6 +30,7 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 // short-lived signed links (plus any old public links not moved yet).
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
 import { reopenStatus, loadReopen, shapeReopen } from "../../_shared/reopen.js";
+import { ratingsReady, loadRatings, ratingStatus, departmentFor, shapeForCitizen } from "../../_shared/ratings.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -147,8 +148,22 @@ async function buildCaseDetail(env, grievance) {
     dueAt: limits.tiers[i].dueAt,
   }));
 
+  // Citizen ratings (grieviq-30): their own rating, whether they can rate
+  // or change it now, and which department they would be asked about.
+  let rating = null, rateStatus = null, ratingDept = null;
+  if (await ratingsReady(env)) {
+    const row = (await loadRatings(env, [grievance.id])).get(grievance.id) || null;
+    rating = shapeForCitizen(row);
+    rateStatus = ratingStatus(grievance, row);
+    if (rateStatus.can || rating) ratingDept = await departmentFor(env, grievance.id);
+  }
+  const allDeptNames = followupRows.length || ratingDept ? namesOf(await deptTypes(env)) : {};
+
   return {
     case: {
+      rating,
+      ratingStatus: rateStatus,
+      ratingDept,
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
       status: grievance.status,
@@ -178,7 +193,7 @@ async function buildCaseDetail(env, grievance) {
       lastReminderAt: nudgeRows.length ? nudgeRows[nudgeRows.length - 1].created_at : null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       // grieviq-25: names (English and Hindi) of the departments named here.
-      deptNames: followupRows.length ? namesOf(await deptTypes(env)) : {},
+      deptNames: allDeptNames,
       // Departments stage 3: what the department did, step by step (no notes, no names of people).
       deptSteps: ((await loadSteps(env, [grievance.id])).get(grievance.id) || []).map(shapeStepForCitizen),
       followupHistory: followupRows.map((e) => ({

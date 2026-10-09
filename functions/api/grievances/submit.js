@@ -78,7 +78,7 @@ function isPlausiblePhone(phone) {
 // text the citizen agreed to.
 import { liveJoin } from "../../_shared/areas.js";
 
-export const NOTICE_VERSION = "2026-10-03";
+export const NOTICE_VERSION = "2026-10-09";
 
 // "What happens next, and by when" for the confirmation page, from the
 // category's own time limits (the same ones the status page uses).

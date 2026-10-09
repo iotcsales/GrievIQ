@@ -241,6 +241,8 @@ export async function onRequestGet(context) {
     canSeeDemand: can(role, "view_demand"),
     visitorsToday: can(role, "view_visitors") ? await visitorsToday(env) : null,
     feedbackNew: can(role, "view_feedback") ? await feedbackNew(env) : null,
+    // Citizen ratings (grieviq-30): low ratings not yet followed up.
+    lowRatingsOpen: can(role, "view_ratings") ? await lowRatingsOpen(env) : null,
     // Notifications (Oct 2026): replies from offices waiting, and whether
     // notices are getting through (backup emails, phone alerts).
     messagesUnread: can(role, "view_messages") ? await messagesUnread(env) : null,
@@ -275,6 +277,14 @@ async function photoWarnings(env) {
 async function messagesUnread(env) {
   try {
     const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM announcement_replies WHERE side = 'OFFICE' AND read_by_giq_at IS NULL").first();
+    return r ? Number(r.n) || 0 : 0;
+  } catch (e) { return null; }
+}
+
+// Low citizen ratings waiting for a follow-up (null before part24).
+async function lowRatingsOpen(env) {
+  try {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM case_ratings WHERE low = 1 AND followed_up_at IS NULL").first();
     return r ? Number(r.n) || 0 : 0;
   } catch (e) { return null; }
 }
