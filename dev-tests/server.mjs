@@ -47,6 +47,20 @@ const env = { DB, ACCESS_TEAM_DOMAIN: "test", ACCESS_AUD: "test", RESEND_API_KEY
 const MAIL_LOG = path.join(path.dirname(dbFile), "mail.log");
 fs.writeFileSync(MAIL_LOG, "");
 
+// grieviq-35: phone alerts in tests. A throw-away VAPID key pair made at
+// start-up (never a real key), and browser push services answered here:
+// each alert is written to push.log; an address containing "gone" answers
+// 410 like a device that turned alerts off.
+{
+  const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  const jwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
+  env.VAPID_PUBLIC_KEY = Buffer.from(raw).toString("base64url");
+  env.VAPID_PRIVATE_KEY = jwk.d;
+}
+const PUSH_LOG = path.join(path.dirname(dbFile), "push.log");
+fs.writeFileSync(PUSH_LOG, "");
+
 // DNS-over-HTTPS email checks: answer "can receive" instantly (no network here).
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
@@ -58,6 +72,11 @@ globalThis.fetch = async (url, opts) => {
   if (u.startsWith("https://api.resend.com/")) {
     fs.appendFileSync(MAIL_LOG, String(opts && opts.body || "") + "\n");
     return new Response(JSON.stringify({ id: "test" }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (/^https:\/\/(fcm\.googleapis\.com|[^/]*push\.apple\.com|[^/]*push\.services\.mozilla\.com)\//.test(u)) {
+    const h = (opts && opts.headers) || {};
+    fs.appendFileSync(PUSH_LOG, JSON.stringify({ endpoint: u, auth: String(h.Authorization || h.authorization || "").slice(0, 12), bytes: opts && opts.body ? opts.body.byteLength || opts.body.length || 0 : 0 }) + "\n");
+    return new Response("", { status: u.includes("gone") ? 410 : 201 });
   }
   return realFetch(url, opts);
 };

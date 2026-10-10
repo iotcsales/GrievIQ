@@ -36,13 +36,19 @@ import { pushCitizen, citizenHourly } from "./citizen-push.js";
 import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { DEPT_HI } from "./departments.js";
 import { officeCaseList } from "./dept-cases.js";
+import { officerRecipient } from "./dept-auth.js";
 
 export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
   OBSERVATION: "OBSERVATION", NUDGE: "NUDGE", ANNOUNCEMENT: "ANNOUNCEMENT", REPLY: "REPLY",
   DEPT_OVERDUE: "DEPT_OVERDUE",   // Departments stage 3: a department's target time passed
   DEPT_REPLY: "DEPT_REPLY",       // grieviq-32: a department officer replied on the dashboard
+  // grieviq-35: for department officers (recipient "dept:<officer id>")
+  DEPT_O_NEW: "DEPT_O_NEW",       // a case was forwarded to their office
+  DEPT_O_BACK: "DEPT_O_BACK",     // the field check found it not fixed / partly fixed
+  DEPT_O_LATE: "DEPT_O_LATE",     // their office is past the target time on a case
 };
+const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE]);
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
 const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY]);
@@ -178,6 +184,16 @@ export function noticeText(n, lang) {
       }[d.kind] || "";
       return { title: hi ? who + " ने उत्तर दिया: " + n.tracking_ref : who + " replied: " + n.tracking_ref, body: wt + (hi ? "। " : ". ") + (hi ? who + " ने " : who + " ") + what };
     }
+    case KIND.DEPT_O_NEW:
+      return { title: hi ? "आपके कार्यालय के लिए नई शिकायत: " + n.tracking_ref : "New complaint for your office: " + n.tracking_ref,
+        body: wt + (hi ? "। देखने और उत्तर देने के लिए खोलें।" : ". Open it to see the complaint and reply.") };
+    case KIND.DEPT_O_BACK:
+      return { title: hi ? "मौके की जाँच के बाद वापस भेजी गई: " + n.tracking_ref : "Sent back after the check on site: " + n.tracking_ref,
+        body: wt + (hi ? (d.partly ? "। जाँच में आंशिक रूप से ठीक मिला।" : "। जाँच में ठीक नहीं मिला।") + " कृपया काम पूरा करके फिर उत्तर दें।"
+          : (d.partly ? ". The check found it partly fixed." : ". The check found it not fixed.") + " Please finish the work and reply again.") };
+    case KIND.DEPT_O_LATE:
+      return { title: hi ? "समय-सीमा बीत गई: " + n.tracking_ref : "Past the target time: " + n.tracking_ref,
+        body: wt + (hi ? "। " + d.days + " दिनों में काम पूरा होने की सूचना नहीं दी गई। कृपया उत्तर दें।" : ". The work wasn't reported done within " + d.days + " days. Please reply.") };
     default:
       return { title: "GrievIQ", body: "" };
   }
@@ -186,6 +202,7 @@ export function noticeText(n, lang) {
 // Where a notice opens in the rep console.
 export function noticeUrl(n) {
   const d = parseData(n);
+  if (OFFICER_KINDS.has(n.kind)) return "/dept#case=" + encodeURIComponent(n.grievance_id || "") + "&n=" + encodeURIComponent(n.id);
   if (n.kind === KIND.ANNOUNCEMENT || n.kind === KIND.REPLY) return "/rep#msg=" + encodeURIComponent(d.aid || "") + "&n=" + encodeURIComponent(n.id);
   if (n.kind === KIND.OBSERVATION) return "/rep#audit=" + encodeURIComponent(d.obsId || "") + "&n=" + encodeURIComponent(n.id);
   if (n.kind === KIND.DAILY) return "/rep#n=" + encodeURIComponent(n.id);
@@ -245,7 +262,7 @@ export async function reminderEmails(env, origin, nowMs) {
     rows = (await env.DB.prepare(
       `SELECT id, recipient FROM notifications
        WHERE read_at IS NULL AND seen_at IS NULL AND pushed_at IS NULL AND emailed_at IS NULL
-         AND kind IN (SELECT value FROM json_each(?)) AND created_at <= ? AND created_at >= ?
+         AND kind IN (SELECT value FROM json_each(?)) AND created_at <= ? AND created_at >= ? AND recipient NOT LIKE 'dept:%' 
        ORDER BY recipient, created_at`
     ).bind(kinds, new Date(now - REMIND_AFTER_HOURS * 3600000).toISOString(), new Date(now - REMIND_MAX_AGE_DAYS * 86400000).toISOString()).all()).results || [];
   } catch (e) { return 0; }
@@ -614,6 +631,10 @@ export async function deptOverdueNotices(env, origin, list, nowMs) {
     if (!fwd || !fwd.by_office_tier) continue;
     const o = chainOffices(chain).find((x) => x.tier === fwd.by_office_tier);
     const people = await officeRecipients(env, fwd.by_office_tier, fwd.by_office_id, g.local_unit_id, o ? o.email : null);
+    // grieviq-35: the office's own officers are told too (once per target).
+    if (fwd.office_id) {
+      try { n += (await notifyDeptOfficers(env, origin, fwd.office_id, g, KIND.DEPT_O_LATE, "DEPTOLATE:" + g.id + ":" + st.dueAt, { days: st.days })).length; } catch (e) { /* the rep's notice still goes */ }
+    }
     n += await createNotices(env, origin, people, {
       kind: KIND.DEPT_OVERDUE, key: "DEPTOD:" + g.id + ":" + st.dueAt, officeTier: fwd.by_office_tier, officeId: fwd.by_office_id, g, category,
       wardName: chain.localUnit.name, data: { dept: st.department, deptHi: DEPT_HI[st.department] || null, office: st.officeName || null, days: st.days },
@@ -640,30 +661,63 @@ export async function notifyDeptReply(env, origin, g, info) {
   });
 }
 
-// grieviq-34: a case was just forwarded to an office whose officers use the
-// department dashboard. Each officer is emailed at once (no details, only
-// the link, as for every staff email). key: the forwarding step's id.
-export async function notifyDeptForwarded(env, origin, officeId, key) {
-  let officers = [];
+// grieviq-35: alerts for a department office's officers (the bell on the
+// department dashboard and their phones). Content-free like every staff
+// notice: reference, ward, issue type. Returns the new notice rows' officers.
+async function officeOfficers(env, officeId) {
   try {
-    officers = (await env.DB.prepare(
+    return (await env.DB.prepare(
       `SELECT o.id, o.email, o.name FROM dept_officers o
        JOIN dept_offices d ON d.id = o.office_id AND d.retired_at IS NULL
        JOIN dept_agreements a ON a.office_id = o.office_id AND a.ended_at IS NULL
        WHERE o.status = 'ACTIVE' AND o.office_id = ?`
     ).bind(String(officeId)).all()).results || [];
-  } catch (e) { return 0; }
+  } catch (e) { return []; }
+}
+export async function notifyDeptOfficers(env, origin, officeId, g, kind, key, data) {
+  if (!officeId || !g) return [];
+  const officers = await officeOfficers(env, officeId);
+  if (!officers.length) return [];
+  let ward = null, category = null;
+  try {
+    ward = await env.DB.prepare("SELECT name FROM local_units WHERE id = ?").bind(g.local_unit_id).first();
+    category = await env.DB.prepare("SELECT id, name FROM grievance_categories WHERE id = ?").bind(g.category_id).first();
+  } catch (e) { /* names are optional */ }
+  await createNotices(env, origin, officers.map((o) => officerRecipient(o.id)), {
+    kind, key, officeTier: "DEPT", officeId: String(officeId), g, category, wardName: ward ? ward.name : null, data: data || null,
+  });
+  return officers;
+}
+
+// grieviq-34/35: a case was just forwarded to an office whose officers use
+// the department dashboard. Each officer gets an alert at once; one whose
+// phone or computer didn't take it (alerts not turned on) is emailed
+// instead (no details, only the link). key: the forwarding step's id.
+export async function notifyDeptForwarded(env, origin, officeId, key, g) {
+  const officers = await notifyDeptOfficers(env, origin, officeId, g, KIND.DEPT_O_NEW, "DEPTNEW:" + key);
+  if (!officers.length) return 0;
+  let pushed = new Set();
+  try {
+    const { results } = await env.DB.prepare("SELECT recipient FROM notifications WHERE dedupe_key IN (SELECT value FROM json_each(?)) AND pushed_at IS NOT NULL")
+      .bind(JSON.stringify(officers.map((o) => "DEPTNEW:" + key + "|" + officerRecipient(o.id)))).all();
+    pushed = new Set((results || []).map((r) => r.recipient));
+  } catch (e) { /* email everyone */ }
   const url = origin + "/dept";
+  let emailed = 0;
   for (const o of officers) {
+    if (pushed.has(officerRecipient(o.id))) continue;
     const html = "<p>Dear " + esc(o.name) + ",</p><p>A complaint has just been sent to your office on GrievIQ. Please open the department dashboard to see it and reply.</p>" +
       `<p><a href="${esc(url)}">Open the department dashboard</a></p>` +
+      "<p>To get these alerts on your phone instead, open the bell on the dashboard and turn on alerts.</p>" +
       "<p>For security, GrievIQ never puts complaint details in emails and never asks for your sign-in code.</p><hr>" +
       "<p>प्रिय " + esc(o.name) + ",</p><p>GrievIQ पर अभी आपके कार्यालय को एक शिकायत भेजी गई है। कृपया उसे देखने और उत्तर देने के लिए विभाग डैशबोर्ड खोलें।</p>" +
       `<p><a href="${esc(url)}">विभाग डैशबोर्ड खोलें</a></p>` +
+      "<p>ये सूचनाएँ अपने फ़ोन पर पाने के लिए डैशबोर्ड पर घंटी खोलें और सूचनाएँ चालू करें।</p>" +
       "<p>सुरक्षा के लिए GrievIQ ईमेल में शिकायत का विवरण नहीं भेजता और कभी आपका साइन-इन कोड नहीं माँगता।</p>";
     await queueEmail(env, o.email, "DEPT_NEW", "DEPTNEW:" + o.id + ":" + key, "GrievIQ: a new complaint for your office · आपके कार्यालय के लिए नई शिकायत", html, null);
+    emailed++;
   }
-  if (officers.length) await flushOutbox(env, 10);
+  if (emailed) await flushOutbox(env, 10);
   return officers.length;
 }
 

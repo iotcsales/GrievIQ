@@ -119,7 +119,7 @@ export async function onRequestPost(context) {
   // grieviq-34: the office's dashboard officers are emailed at once (however
   // the representative's office also contacted them).
   if (stepId && office && office.dashboard) {
-    const p = notifyDeptForwarded(env, new URL(request.url).origin, office.id, stepId).catch(() => {});
+    const p = notifyDeptForwarded(env, new URL(request.url).origin, office.id, stepId, grievance).catch(() => {});
     if (typeof context.waitUntil === "function") context.waitUntil(p); else await p;
   }
   return Response.json({ department, note, createdAt: now, officersEmailed: !!(stepId && office && office.dashboard) });

@@ -6,9 +6,16 @@
 // aria-expanded and a spoken unread count; Esc closes the panel and the
 // message window and returns focus; targets are at least 44 px; new
 // counts are announced politely; the message window traps focus.
+//
+// grieviq-35: also the bell on the department dashboard. The page sets
+// window.GIQN_CFG = { api, scope, keys, openCase } before this file loads:
+// api = the notices address, scope = where phone alerts belong (/dept),
+// keys = wording to use instead of the rep console's, openCase(id).
 (function () {
   'use strict';
-  var T = function (k, v) { return window.GIQ ? window.GIQ.t(k, v) : k; };
+  var CFG = window.GIQN_CFG || {};
+  var API = CFG.api || '/api/notifications', SCOPE = CFG.scope || '/rep';
+  var T = function (k, v) { var key = (CFG.keys && CFG.keys[k]) || k; return window.GIQ ? window.GIQ.t(key, v) : key; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
   var lang = function () { return window.GIQ && window.GIQ.lang === 'hi' ? 'hi' : 'en'; };
   var data = { unread: 0, items: [], push: { configured: false, key: null, devices: 0 } };
@@ -48,6 +55,10 @@
       case 'REPLY': return { t: T('rn.k_reply_t'), b: d.title || '' };
       case 'DEPT_OVERDUE': return { t: T('rn.k_dod_t', { who: d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept), ref: n.ref }), b: wt + ' · ' + T('rn.k_dod_b', { days: d.days }) };
       case 'DEPT_REPLY': { var who = d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept); return { t: T('rn.k_dr_t', { who: who, ref: n.ref }), b: wt + ' · ' + T('rn.k_dr_' + d.kind, { who: who, date: d.expectedDate || '' }) }; }
+      // grieviq-35: department officers
+      case 'DEPT_O_NEW': return { t: T('rn.k_onew_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_onew_b') };
+      case 'DEPT_O_BACK': return { t: T('rn.k_oback_t', { ref: n.ref }), b: wt + ' · ' + T(d.partly ? 'rn.k_oback_partly' : 'rn.k_oback_not') };
+      case 'DEPT_O_LATE': return { t: T('rn.k_olate_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_olate_b', { days: d.days }) };
       default: return { t: 'GrievIQ', b: '' };
     }
   }
@@ -142,7 +153,7 @@
   function device() { var u = navigator.userAgent; return (/Android/.test(u) ? 'Android' : isIos() ? 'iPhone/iPad' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'Computer') + ' · ' + (/Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'Browser'); }
   async function currentSub() {
     if (!supported()) return null;
-    try { var reg = await navigator.serviceWorker.getRegistration('/rep'); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; }
+    try { var reg = await navigator.serviceWorker.getRegistration(SCOPE); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; }
   }
   async function checkPush() {
     var sub = await currentSub();
@@ -169,13 +180,13 @@
   async function turnOn() {
     var btn = document.getElementById('rn-on'); if (btn) btn.disabled = true;
     try {
-      var reg = await navigator.serviceWorker.register('/sw.js', { scope: '/rep' });
+      var reg = await navigator.serviceWorker.register('/sw.js', { scope: SCOPE });
       var perm = await Notification.requestPermission();
       if (perm !== 'granted') { pstat(T('rn.push_denied'), true); if (btn) btn.disabled = false; return; }
       await waitActive(reg);
       var sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(data.push.key) }), 20000);
-      var res = await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON(), lang: lang(), device: device() }) });
+      var res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON(), lang: lang(), device: device() }) });
       if (!res.ok) { var j = {}; try { j = await res.json(); } catch (e) {} pstat(j.error || T('rn.push_failed'), true); if (btn) btn.disabled = false; return; }
       pushState = 'on'; redraw(); pstat(T('rn.push_done'));
       var f = document.getElementById('rn-test'); if (f) f.focus();
@@ -183,12 +194,12 @@
   }
   async function turnOff() {
     var sub = await currentSub();
-    if (sub) { try { await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }) }); } catch (e) {} try { await sub.unsubscribe(); } catch (e) {} }
+    if (sub) { try { await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }) }); } catch (e) {} try { await sub.unsubscribe(); } catch (e) {} }
     pushState = 'off'; redraw(); var b = document.getElementById('rn-on'); if (b) b.focus();
   }
   async function test() {
     pstat(T('rn.push_testing'));
-    try { var r = await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test' }) }); var j = await r.json(); pstat(j.ok ? T('rn.push_tested') : T('rn.push_failed'), !j.ok); } catch (e) { pstat(T('rn.push_failed'), true); }
+    try { var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test' }) }); var j = await r.json(); pstat(j.ok ? T('rn.push_tested') : T('rn.push_failed'), !j.ok); } catch (e) { pstat(T('rn.push_failed'), true); }
   }
 
   // ---- panel behaviour ----
@@ -211,7 +222,7 @@
     var ids = (data.items || []).filter(function (n) { return !n.read && !n.seen; }).map(function (n) { return n.id; });
     if (!ids.length) return;
     (data.items || []).forEach(function (n) { if (ids.indexOf(n.id) !== -1) n.seen = true; });
-    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'seen', ids: ids }) }).catch(function () {});
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'seen', ids: ids }) }).catch(function () {});
   }
   function close(focusBell) { if (!open) return; open = false; drawBell(); if (focusBell) { var b = document.getElementById('rn-bell'); if (b) b.focus(); } }
   document.addEventListener('keydown', function (e) {
@@ -226,7 +237,7 @@
     (data.items || []).forEach(function (n) { if (all || ids.indexOf(n.id) !== -1) n.read = true; });
     data.unread = all ? 0 : (data.items || []).filter(function (n) { return !n.read; }).length;
     redraw();
-    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(function () {});
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(function () {});
   }
 
   function go(id) {
@@ -237,13 +248,14 @@
     if (n.kind === 'ANNOUNCEMENT' || n.kind === 'REPLY') return openMessage(n.data && n.data.aid);
     if (n.kind === 'OBSERVATION') { location.hash = '#audit=' + encodeURIComponent((n.data && n.data.obsId) || ''); location.reload(); return; }
     if (n.kind === 'DAILY') { if (window.GIQ_REP && window.GIQ_REP.showCases) window.GIQ_REP.showCases(); return; }
+    if (n.caseId && CFG.openCase) return CFG.openCase(n.caseId);
     if (n.caseId && window.GIQ_REP && window.GIQ_REP.showCase) window.GIQ_REP.showCase(n.caseId);
   }
 
   // ---- data ----
   async function load() {
     try {
-      var r = await fetch('/api/notifications', { cache: 'no-store' });
+      var r = await fetch(API, { cache: 'no-store' });
       if (!r.ok) return;
       var j = await r.json();
       data = j;
@@ -337,11 +349,11 @@
       }
     },
     openMessage: openMessage,
-    markRead: function (id) { if (id) fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'read', ids: [id] }) }).then(load).catch(function () {}); },
+    markRead: function (id) { if (id) fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'read', ids: [id] }) }).then(load).catch(function () {}); },
     _text: text,
   };
   // The phone notification follows the language chosen in the console.
   document.addEventListener('giq:lang', function () {
-    currentSub().then(function (sub) { if (sub) fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'lang', lang: lang(), endpoint: sub.endpoint }) }).catch(function () {}); });
+    currentSub().then(function (sub) { if (sub) fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'lang', lang: lang(), endpoint: sub.endpoint }) }).catch(function () {}); });
   });
 })();

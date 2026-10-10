@@ -13,7 +13,7 @@
 // belong to a known browser push service. See _shared/citizen-push.js.
 
 import { pushConfigured } from "../_shared/webpush.js";
-import { allowedEndpoint } from "./notifications.js";
+import { allowedEndpoint } from "../_shared/notice-box.js";
 import { checkFilingPass, pushWelcome, MAX_DEVICES_PER_CASE } from "../_shared/citizen-push.js";
 
 const b64u = /^[A-Za-z0-9_-]+$/;

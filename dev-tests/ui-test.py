@@ -1129,6 +1129,94 @@ with sync_playwright() as pw:
             ok(not errs, "no script errors (grieviq-34 officer) " + tag, errs)
             ctx.close()
 
+    # ---------- The bell for department officers (grieviq-35) ----------
+    FAKE_PUSH = """(() => {
+      let sub = null;
+      const b64u = (a) => btoa(String.fromCharCode.apply(null, new Uint8Array(a))).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+      let perm = 'default';
+      if (window.Notification) {
+        Object.defineProperty(Notification, 'permission', { configurable: true, get: () => perm });
+        Notification.requestPermission = async () => { perm = 'granted'; return perm; };
+      }
+      if (window.PushManager) {
+        PushManager.prototype.getSubscription = async function () { return sub; };
+        PushManager.prototype.subscribe = async function () {
+          const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+          const raw = await crypto.subtle.exportKey('raw', kp.publicKey);
+          const keys = { p256dh: b64u(raw), auth: b64u(crypto.getRandomValues(new Uint8Array(16))) };
+          sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/ui-test-device', toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/ui-test-device', keys }), unsubscribe: async () => { sub = null; return true; } };
+          return sub;
+        };
+      }
+    })();"""
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme, permissions=["notifications"])
+                ok(dept_signin(ctx) == 200, "signed in " + tag)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                ctx.add_init_script(FAKE_PUSH)
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/dept"); p.wait_for_selector(".tiles"); p.wait_for_selector("#rn-bell")
+                p.wait_for_timeout(400)
+                badge = p.locator(".rn-badge")
+                ok(badge.count() == 1 and int(badge.inner_text()) >= 1, "bell shows unread alerts " + tag)
+                ok(p.get_attribute("#rn-bell", "aria-expanded") == "false", "bell is a closed disclosure " + tag)
+                p.click("#rn-bell"); p.wait_for_selector("#rn-panel .rn-item")
+                ok(p.evaluate("document.activeElement.id") == "rn-h", "focus moves to the list heading " + tag)
+                p.wait_for_selector("#rn-on"); p.wait_for_timeout(300)
+                txt = p.inner_text("#rn-panel")
+                if lang == "en":
+                    ok("Sent back after the check on site: GRV-DEPT23" in txt and "Past the target time: GRV-DEPT24" in txt and "Turn on alerts on this device" in txt, "officer's alerts listed " + tag, txt[:400])
+                else:
+                    ok("मौके की जाँच के बाद वापस भेजी गई: GRV-DEPT23" in txt and "इस डिवाइस पर सूचनाएँ चालू करें" in txt and not re.findall(r"(rn|dd)\.\w+_\w+", txt), "officer's alerts in Hindi " + tag, txt[:400])
+                ok("Sewer" not in txt and "9876522222" not in txt, "no complaint text in the bell " + tag)
+                ok(no_hscroll(p), "bell: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('rn-panel')", 1)); ok(not bad, "bell contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "bell targets >= 24px " + tag, small[:5])
+                shot(p, "37-dept-bell-" + tag, full=False)
+                if theme == "light" and width == 1280:
+                    # turn on alerts, send a test, then open an alert
+                    with p.expect_response(lambda r: "/api/dept/notifications" in r.url and r.request.method == "POST"): p.click("#rn-on")
+                    p.wait_for_selector("#rn-test")
+                    ok(("Turn off on this device" if lang == "en" else "इस डिवाइस पर बंद करें") in p.inner_text("#rn-panel"), "alerts on for this device " + tag)
+                    before = len(open(WORK + "/push.log").read().strip().split("\n"))
+                    p.click("#rn-test"); p.wait_for_function("document.getElementById('rn-pstat') && document.getElementById('rn-pstat').textContent.length > 12")
+                    after = open(WORK + "/push.log").read().strip().split("\n")
+                    ok(len(after) > before and "ui-test-device" in after[-1], "test alert went to the device " + tag)
+                    reg = p.evaluate("navigator.serviceWorker.getRegistration('/dept').then(r => r ? r.scope : null)")
+                    ok(reg and reg.endswith("/dept"), "alerts belong to the department dashboard " + tag, reg)
+                    n0 = int(p.inner_text(".rn-badge"))
+                    item = p.locator("#rn-panel .rn-item.unread [data-n]").filter(has_text="GRV-DEPT23").first
+                    item.click()
+                    p.wait_for_selector("#case-h"); p.wait_for_timeout(400)
+                    ok("GRV-DEPT23" in p.inner_text("#case-h"), "alert opens the case " + tag)
+                    nb = p.locator(".rn-badge")
+                    ok((nb.count() == 0 and n0 == 1) or (nb.count() == 1 and int(nb.inner_text()) == n0 - 1), "opened alert marked read " + tag)
+                    p.click("#rn-bell"); p.wait_for_selector("#rn-off"); p.click("#rn-off"); p.wait_for_selector("#rn-on")
+                    ok(True, "alerts turned off " + tag)
+                ok(not errs, "no script errors (dept bell) " + tag, errs)
+                ctx.close()
+    # A link from an alert (#case=..&n=..) opens the case and marks the alert read
+    ctx = br.new_context(viewport={"width": 390, "height": 900})
+    ok(dept_signin(ctx) == 200, "signed in for the alert link")
+    d = _sq.connect(WORK + "/test.db", timeout=10)
+    nid = d.execute("SELECT id FROM notifications WHERE kind = 'DEPT_O_LATE' AND grievance_id = 'g24' AND read_at IS NULL").fetchone()
+    d.close()
+    p = ctx.new_page(); errs = []
+    p.on("pageerror", lambda e: errs.append(str(e)))
+    if nid:
+        p.goto(B + "/dept#case=g24&n=" + nid[0]); p.wait_for_selector("#case-h"); p.wait_for_timeout(800)
+        d = _sq.connect(WORK + "/test.db", timeout=10)
+        ok(d.execute("SELECT read_at FROM notifications WHERE id = ?", (nid[0],)).fetchone()[0] is not None and "GRV-DEPT24" in p.inner_text("#case-h"), "alert link opens the case and marks it read")
+        d.close()
+    else:
+        ok(False, "an unread overdue alert to open")
+    ok(not errs, "no script errors (alert link)", errs)
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

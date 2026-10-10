@@ -24,13 +24,14 @@ import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { caseAccess, canManageCases, canWorkCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
 import { activeDeptKeys } from "../../../_shared/departments.js";
 import { MAX_PHOTOS } from "../../../_shared/resolution-evidence.js";
+import { notifyDeptOfficers, KIND } from "../../../_shared/notify.js";
 import {
   STEP, REPLY_KINDS, CHECK_KINDS, NOTE_MAX, CANT_DO_MIN, CHECK_NOTE_MIN, addStep, latestStep, stepsReady, istToday, validDate,
 } from "../../../_shared/dept-steps.js";
 
 const json = (body, status) => Response.json(body, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 
-export async function onRequestPost({ request, env, params }) {
+export async function onRequestPost({ request, env, params, waitUntil }) {
   const auth = await getVerifiedRep(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await stepsReady(env))) return json({ error: "This isn't set up yet. Run the database update part23-department-step.sql.", code: "NOT_SET_UP" }, 503);
@@ -102,11 +103,17 @@ export async function onRequestPost({ request, env, params }) {
         .bind(photoReportId, pid, g.id).run();
     }
   }
-  await addStep(env, { grievance_id: g.id, kind, department: last.department, office_id: last.office_id, office_name: last.office_name,
+  const stepId = await addStep(env, { grievance_id: g.id, kind, department: last.department, office_id: last.office_id, office_name: last.office_name,
     expected_date: expectedDate, suggested_department: suggested, note: note || null, photo_report_id: photoReportId,
     actor: auth.email, actor_role: access.role, by_office_tier: access.mandate.tier, by_office_id: access.mandate.id, created_at: now });
   await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
     onBehalf: onBehalfOf(access.mandate, auth), action: "DEPT_" + kind, grievanceId: g.id,
     detail: { department: last.department, office: last.office_name || null, expectedDate, suggested, photos: photoIds.length || undefined } });
+  // grieviq-35: a failed field check is sent back to the office; its
+  // dashboard officers get an alert at once.
+  if (isCheck && last.office_id) {
+    const p = notifyDeptOfficers(env, new URL(request.url).origin, last.office_id, g, KIND.DEPT_O_BACK, "DEPTBACK:" + stepId, { partly: kind === STEP.CHECK_PARTLY }).catch(() => {});
+    if (typeof waitUntil === "function") waitUntil(p); else await p;
+  }
   return json({ ok: true, kind });
 }

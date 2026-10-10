@@ -86,6 +86,9 @@ export async function dashboardOffices(env, officeIds) {
   } catch (e) { if (!isMissingDeptTables(e)) throw e; }
   return out;
 }
+// grieviq-35: an officer's notices and devices are filed under this name,
+// never under their email (which may also be a representative's).
+export function officerRecipient(officerId) { return "dept:" + String(officerId); }
 function usable(row) { return row && row.status === "ACTIVE" && !row.office_retired && row.agr_signed_on && !row.agr_ended; }
 
 // Step 1: a code by email. Returns { ok, status, body } and, when a code was
@@ -139,7 +142,9 @@ export async function verifyCode(env, emailIn, codeIn) {
 }
 
 // The signed-in officer for this request: { ok, officer } or { ok: false, status, error }.
-export async function getVerifiedOfficer(request, env) {
+// opts.noTouch: the bell checking every minute doesn't count as activity
+// (the 60-minute idle sign-out still happens, NIST SP 800-63B).
+export async function getVerifiedOfficer(request, env, opts) {
   const token = readCookie(request, COOKIE);
   if (!token || token.length < 20 || token.length > 100) return { ok: false, status: 401, error: "SIGNED_OUT" };
   let s;
@@ -166,7 +171,7 @@ export async function getVerifiedOfficer(request, env) {
     await env.DB.prepare("UPDATE dept_sessions SET ended_at = ?, end_reason = 'ACCESS_ENDED' WHERE id_hash = ?").bind(new Date(now).toISOString(), s.id_hash).run();
     return { ok: false, status: 401, error: "SIGNED_OUT" };
   }
-  if (now - Date.parse(s.last_seen_at) >= TOUCH_EVERY_MS) {
+  if (!(opts && opts.noTouch) && now - Date.parse(s.last_seen_at) >= TOUCH_EVERY_MS) {
     await env.DB.prepare("UPDATE dept_sessions SET last_seen_at = ? WHERE id_hash = ?").bind(new Date(now).toISOString(), s.id_hash).run();
   }
   return { ok: true, officer, sessionHash: s.id_hash };
@@ -186,6 +191,11 @@ export async function endOfficerSessions(env, officerIds, reason) {
   if (!officerIds || !officerIds.length) return;
   await env.DB.prepare("UPDATE dept_sessions SET ended_at = ?, end_reason = ? WHERE ended_at IS NULL AND officer_id IN (SELECT value FROM json_each(?))")
     .bind(new Date().toISOString(), reason, JSON.stringify(officerIds)).run();
+  // grieviq-35: their phones and computers stop getting alerts at once.
+  try {
+    await env.DB.prepare("DELETE FROM push_subscriptions WHERE email IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(officerIds.map(officerRecipient))).run();
+  } catch (e) { /* push table not there yet */ }
 }
 
 // The sign-in code email (both languages; the code and nothing about any case).

@@ -762,6 +762,103 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(fwdStep.channel === "DASHBOARD" && !fwdStep.photos, "forwarding step shows the channel", fwdStep);
 }
 
+// ---- alerts and the bell for department officers (grieviq-35) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const WORK = process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests";
+  const pushes = () => fs.readFileSync(WORK + "/push.log", "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const R = "r1@x.in", OFF2 = "ae.zone3@nic.in";
+  const now = new Date().toISOString();
+  const jal = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn === "Jal Kal Vibhag Lucknow");
+  const ravi = sdb.prepare("SELECT id FROM dept_officers WHERE email = ? AND status = 'ACTIVE'").get(OFF2).id;
+  const ME = "dept:" + ravi;
+  // sign in with a code made directly (the 3-codes-per-15-minutes limit is for asking)
+  const code = "246801";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api35", OFF2, createHash("sha256").update(OFF2 + ":" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: OFF2, code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  ok(vr.status === 200, "officer signed in for the bell tests");
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api35'").run();   // keep the browser tests under the code limit
+  const dn = async (method, body, ck) => { const x = await fetch(B + "/api/dept/notifications", { method, headers: { cookie: ck === undefined ? CK : ck, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, body: await x.json() }; };
+  // the forwarding in the grieviq-34 tests left an alert in the bell
+  let r = await dn("GET");
+  const n22 = r.body.items && r.body.items.find((x) => x.kind === "DEPT_O_NEW" && x.ref === "GRV-DEPT22");
+  ok(r.status === 200 && n22 && !n22.read && r.body.unread >= 1 && r.body.push.configured && r.body.push.key, "officer's bell: new complaint for the office", r.body.items && r.body.items.map((x) => x.kind + ":" + x.ref));
+  ok(!JSON.stringify(r.body).match(/Station Road|9876511111/), "bell has no complaint text or phone");
+  ok((await dn("GET", null, "")).status === 401, "bell needs the officer's sign-in");
+  const repBell = await call(R, "GET", "/api/notifications");
+  ok(!repBell.body.items.some((x) => /^DEPT_O_/.test(x.kind)), "officer alerts never in a representative's bell");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE recipient = ?").get(OFF2).n === 0, "filed under the officer, not the email");
+  r = await dn("POST", { action: "read", ids: [n22.id] });
+  ok(r.status === 200 && !(await dn("GET")).body.items.find((x) => x.id === n22.id).read === false, "marked read");
+  // phone alerts on
+  const kp = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const p256dh = Buffer.from(new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey))).toString("base64url");
+  const authKey = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64url");
+  const EP = "https://fcm.googleapis.com/fcm/send/ravi-phone-1";
+  r = await dn("POST", { action: "subscribe", subscription: { endpoint: "https://evil.example/x", keys: { p256dh, auth: authKey } } });
+  ok(r.status === 400 && r.body.code === "BAD_ENDPOINT", "only real push services", r.body);
+  r = await dn("POST", { action: "subscribe", subscription: { endpoint: EP, keys: { p256dh, auth: authKey } }, lang: "hi", device: "Android · Chrome" });
+  ok(r.status === 200 && sdb.prepare("SELECT email FROM push_subscriptions WHERE endpoint = ?").get(EP).email === ME, "alerts turned on for the officer's phone", r.body);
+  const p0 = pushes().length;
+  r = await dn("POST", { action: "test" });
+  ok(r.status === 200 && r.body.ok && pushes().length === p0 + 1 && pushes().slice(-1)[0].endpoint === EP && pushes().slice(-1)[0].auth.startsWith("vapid"), "test alert sent, signed", r.body);
+  // a new case forwarded: alert at once, no email to this officer
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, pin_lat, pin_lng, current_tier, created_at) VALUES ('g23','GRV-DEPT23','9876522222','lu-hazratganj','water-sanitation','OPEN','Sewer overflow near the school',26.85,80.94,'LOCAL',?)").run(now);
+  const mailsBefore = sdb.prepare("SELECT COUNT(*) n FROM email_outbox WHERE kind = 'DEPT_NEW' AND to_email = ?").get(OFF2).n;
+  const p1 = pushes().length;
+  r = await call(R, "POST", "/api/grievances/g23/add-followup", { department: "Water Supply", channel: "DASHBOARD", officeId: jal.id });
+  ok(r.status === 200, "forwarded", r.body);
+  let nrow = null;
+  for (let i = 0; i < 60 && !(nrow && nrow.pushed_at); i++) { await new Promise((z) => setTimeout(z, 100)); nrow = sdb.prepare("SELECT * FROM notifications WHERE recipient = ? AND grievance_id = 'g23' AND kind = 'DEPT_O_NEW'").get(ME); }
+  ok(nrow && nrow.pushed_at && pushes().length > p1 && pushes().slice(p1).some((x) => x.endpoint === EP), "officer's phone alerted at once", nrow);
+  await new Promise((z) => setTimeout(z, 300));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM email_outbox WHERE kind = 'DEPT_NEW' AND to_email = ?").get(OFF2).n === mailsBefore, "no email when the phone took the alert");
+  const nf = await import(WORK + "/build-8788/_shared/notify.js");
+  const t = nf.noticeText(nrow, "en"), th = nf.noticeText(nrow, "hi");
+  ok(t.title === "New complaint for your office: GRV-DEPT23" && !/Sewer|9876522222/.test(t.title + t.body) && /आपके कार्यालय/.test(th.title), "alert wording: reference, ward, type only", [t, th]);
+  ok(nf.noticeUrl(nrow) === "/dept#case=g23&n=" + nrow.id, "alert opens the case on the department dashboard");
+  // sent back after the field check
+  const dcall = async (path, body) => { const x = await fetch(B + path, { method: "POST", headers: { cookie: CK, "content-type": "application/json" }, body: JSON.stringify(body) }); return { status: x.status, body: await x.json() }; };
+  r = await dcall("/api/dept/reply", { id: "g23", kind: "DONE_CLAIMED", note: "Line cleared" });
+  ok(r.status === 200, "officer: work done", r.body);
+  sdb.prepare("INSERT INTO resolution_photos (id, grievance_id, report_id, r2_key, content_type, sha256, uploaded_by, created_at) VALUES ('ph23','g23',NULL,'x/ph23.jpg','image/jpeg','ab23',?,?)").run(R, now);
+  r = await call(R, "POST", "/api/grievances/g23/dept-step", { kind: "CHECK_PARTLY", note: "Overflow reduced but still there", photoIds: ["ph23"] });
+  ok(r.status === 200, "representative: partly fixed, sent back", r.body);
+  let back = null;
+  for (let i = 0; i < 60 && !back; i++) { await new Promise((z) => setTimeout(z, 100)); back = sdb.prepare("SELECT * FROM notifications WHERE recipient = ? AND grievance_id = 'g23' AND kind = 'DEPT_O_BACK'").get(ME); }
+  ok(back && JSON.parse(back.data).partly === true && /partly fixed/.test(nf.noticeText(back, "en").body), "officer alerted: sent back, partly fixed", back);
+  // past the target time: once
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g24','GRV-DEPT24','9','lu-hazratganj','water-sanitation','OPEN','Old leak',?,?)").run("LOCAL", now);
+  await call(R, "POST", "/api/grievances/g24/add-followup", { department: "Water Supply", channel: "PHONE", officeId: jal.id });
+  sdb.prepare("UPDATE case_dept_steps SET created_at = ? WHERE grievance_id = 'g24'").run(new Date(Date.now() - 30 * 86400000).toISOString());
+  const st2 = (sql, b) => ({ bind: (...y) => st2(sql, y), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((q) => ({ ...q })) }),
+    first: async () => { const q = sdb.prepare(sql).get(...(b || [])); return q ? { ...q } : null; }, run: async () => { const q = sdb.prepare(sql).run(...(b || [])); return { meta: { changes: Number(q.changes) } }; } });
+  const envD = { DB: { prepare: (sql) => st2(sql, []), batch: async (l) => Promise.all(l.map((q) => q.all())) } };
+  const jur = await import(WORK + "/build-8788/_shared/jurisdiction.js");
+  const g24 = sdb.prepare("SELECT * FROM grievances WHERE id = 'g24'").get();
+  const item = { g: { ...g24 }, category: { id: "water-sanitation", name: "Water Supply / Sanitation" }, chain: await jur.resolveChain(envD, "lu-hazratganj") };
+  await nf.deptOverdueNotices(envD, "https://grieviq.in", [item], Date.now());
+  await nf.deptOverdueNotices(envD, "https://grieviq.in", [item], Date.now());
+  const late = sdb.prepare("SELECT * FROM notifications WHERE recipient = ? AND grievance_id = 'g24' AND kind = 'DEPT_O_LATE'").all(ME);
+  ok(late.length === 1 && /Past the target time: GRV-DEPT24/.test(nf.noticeText(late[0], "en").title), "officer alerted once when past the target", late.length);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = 'g24' AND kind = 'DEPT_OVERDUE'").get().n >= 1, "representative's office still told too");
+  // the 6-hour reminder email never goes to an officer's notices
+  await nf.reminderEmails(envD, "https://grieviq.in", Date.now() + 7 * 3600000);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM email_outbox WHERE to_email LIKE 'dept:%'").get().n === 0, "no reminder email addressed to an officer's notices");
+  // removing an officer stops their alerts at once
+  r = await call(S, "POST", "/api/admin/dept-officers", { action: "officer_add", officeId: jal.id, name: "Sunil Rao", designation: "Junior Engineer", email: "je.zone4@nic.in" });
+  const sunil = r.body.id;
+  sdb.prepare("INSERT INTO push_subscriptions (id, email, endpoint, p256dh, auth, created_at) VALUES ('ps-sunil', ?, 'https://fcm.googleapis.com/fcm/send/sunil', ?, ?, ?)").run("dept:" + sunil, p256dh, authKey, now);
+  r = await call(S, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId: sunil, reason: "Moved to another zone office" });
+  ok(r.status === 200 && !sdb.prepare("SELECT id FROM push_subscriptions WHERE id = 'ps-sunil'").get() && sdb.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(EP), "removed officer's devices dropped; others kept");
+  r = await dn("POST", { action: "unsubscribe", endpoint: EP });
+  ok(r.status === 200 && !sdb.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(EP), "officer turns alerts off");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
