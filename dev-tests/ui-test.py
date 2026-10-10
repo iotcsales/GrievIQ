@@ -784,6 +784,7 @@ with sync_playwright() as pw:
     p.fill("#code", last_code("ae.zone3@nic.in")); p.click("#verify"); p.wait_for_selector(".tiles")
     ok("Ravi Kumar" in p.inner_text("#who") and "Jal Kal Vibhag Lucknow" in p.inner_text("#who"), "signed in: name and office shown")
     ok(p.locator('[data-open="g21"]').count() == 1, "new case listed")
+    ok("Your office's performance" in p.inner_text("main") and "First reply" in p.inner_text("main"), "officer: own office's performance shown")
     p.click('[data-open="g21"]'); p.wait_for_selector("#case-h")
     body = p.inner_text("main")
     ok("Second leak" in body and "9876500000" not in body and "citizen" in body.lower(), "case: complaint shown, no phone", body[:300])
@@ -909,6 +910,67 @@ with sync_playwright() as pw:
     p.evaluate("""() => { const c = currentCases[0]; c.deptSteps[1].byDept = true; c.deptSteps[1].byDeptName = 'Ravi Kumar'; renderContent(); }""")
     ok("Replied by the department (Ravi Kumar)" in p.inner_text("#ds-c9"), "rep console: department reply labelled with the officer")
     ctx.close()
+
+    # ---------- Department performance (grieviq-33) ----------
+    for theme in (None, "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme or "dark", lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-dept-performance.html"); p.wait_for_selector("table.pf")
+                txt = p.inner_text("main")
+                if lang == "en":
+                    ok("Department performance" in txt and "Jal Kal Vibhag Lucknow" in txt and "Too few cases" in txt and "no single score or ranking" in txt, "performance page " + tag, txt[:400])
+                else:
+                    ok("विभागों का प्रदर्शन" in txt and not re.findall(r"(adm\.pf_|perf\.)\w+", txt), "performance page in Hindi " + tag, txt[:300])
+                ok(no_hscroll(p), "performance page: no sideways page scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "performance page contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "performance page targets >= 24px " + tag, small[:5])
+                shot(p, "30-dept-perf-" + tag, full=(width == 375))
+                ok(not errs, "no script errors (performance) " + tag, errs)
+                ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-dept-performance.html"); p.wait_for_selector("table.pf")
+    with p.expect_response(lambda r: "detail=" in r.url): p.locator("[data-detail]").first.click()
+    p.wait_for_selector("#pf-d-h")
+    ok(p.evaluate("document.activeElement.id") == "pf-d-h" and p.locator("#pf-trend").count() == 1, "details: heading focused, 12-month chart shown")
+    p.click("#pf-close"); p.wait_for_timeout(100)
+    ok(p.locator("#pf-d-h").count() == 0 and p.evaluate("document.activeElement.dataset.detail") is not None, "details closed, focus back on the button")
+    with p.expect_response(lambda r: "by=type" in r.url): p.click('[data-by="type"]')
+    p.wait_for_timeout(300)
+    ok(p.get_attribute('[data-by="type"]', "aria-pressed") == "true" and "department type" in p.inner_text("table.pf thead").lower(), "switch to department types")
+    p.select_option("#pf-period", "custom"); p.wait_for_selector("#pf-from")
+    p.fill("#pf-from", "2026-10-01"); p.fill("#pf-to", "2026-09-01")
+    with p.expect_response(lambda r: "dept-performance" in r.url): p.click("#pf-apply")
+    p.wait_for_timeout(200)
+    ok("check the dates" in p.inner_text("main"), "wrong dates: message shown")
+    href = p.get_attribute("#pf-csv", "href")
+    ok("format=csv" in href, "CSV link")
+    ok(not errs, "no script errors (performance actions)", errs)
+    ctx.close()
+    ctx, p, errs = P("deo@test.in")
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_timeout(800)
+    ok(p.locator('a[href*="admin-dept-performance"]:visible').count() == 0, "data entry operator: no performance link")
+    ctx.close()
+    # Rep overview: departments on your cases
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme, lang)
+            ctx, p, errs = rep_page(lang, theme, 375)
+            p.evaluate("""() => { const dp = { min: 5, rows: [
+                { key: 'id:o1', name: 'Jal Kal Zone 3', department: 'Water Supply', m: { forwarded: 12, withNow: 3, overdueNow: 2, firstReply: { n: 10, median: 1.5 }, onTime: { n: 6, d: 9, pct: 66.7 }, toFixed: { n: 7, median: 6 }, fixedFirst: { n: 5, d: 7, pct: 71.4 }, reopened: { n: 0, d: 4, pct: null }, rating: { count: 6, average: 3.8, word: 'SATISFIED' }, ownReplies: { n: 8, d: 12, pct: 66.7 }, notOurs: 1, cantDo: 0 } },
+                { key: 'name:x', name: 'MVVNL sub-station', department: 'Electricity', m: { forwarded: 2, withNow: 1, overdueNow: 0, firstReply: { n: 2, median: null }, onTime: { n: 1, d: 2, pct: null }, toFixed: { n: 0, median: null }, fixedFirst: { n: 0, d: 0, pct: null }, reopened: { n: 0, d: 0, pct: null }, rating: { count: 0 }, ownReplies: { n: 0, d: 2, pct: null }, notOurs: 0, cantDo: 0 } } ] };
+              document.getElementById('content').innerHTML = '<div id="dp-test" style="padding:12px">' + renderOvDepts(dp) + '</div>'; }""")
+            t2 = p.inner_text("#dp-test")
+            if lang == "en":
+                ok("Departments on your cases" in t2 and "66.7%" in t2 and "6 of 9" in t2 and "Too few cases (2)" in t2 and "1.5 days" in t2, "rep: department table " + tag, t2[:400])
+            else:
+                ok("आपके मामलों पर विभाग" in t2 and not re.findall(r"(perf|rep\.ov_dp)\.?\w*_\w+", t2), "rep: department table in Hindi " + tag, t2[:300])
+            bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('dp-test')", 1)); ok(not bad, "rep department table contrast AA " + tag, bad[:5])
+            ok(no_hscroll(p), "rep department table: no page scroll " + tag)
+            shot(p, "31-rep-depts-" + tag, full=False)
+            ok(not errs, "no script errors (rep departments) " + tag, errs)
+            ctx.close()
 
     # ---------- themes, languages, widths: contrast + reflow ----------
     for theme in (None, "light"):

@@ -617,6 +617,8 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(rc.deptState.phase === "NEEDS_CHECK" && rs.byDept && rs.byDeptName === "Asha Verma" && rs.photos && rs.photos.length === 1, "rep console: needs the field check, shows who replied and the photo", rs);
   r = await dcall("GET", "/api/dept/cases");
   ok(r.body.cases.find((c) => c.id === "g20").bucket === "WAITING_CHECK", "officer sees: waiting for the check");
+  r = await dcall("GET", "/api/dept/performance");
+  ok(r.status === 200 && r.body.m.forwarded >= 1 && r.body.m.ownReplies.d >= 2 && r.body.trend.length === 12, "officer: own office's performance", r.body.m);
   // not ours: no more replies
   r = await dcall("POST", "/api/dept/reply", { id: "g20", kind: "NOT_OURS", suggestedDepartment: "Electricity" });
   ok(r.status === 200, "not ours", r.body);
@@ -652,6 +654,55 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(["dept_agreement_recorded", "dept_officer_added", "dept_officer_removed", "dept_agreement_ended"].every((a) => ev.includes(a)), "every change logged", ev);
   // restore for the browser tests: agreement back, second officer active
   await dp({ action: "agreement_save", officeId: jal.id, signedOn: "2026-10-01", signedBy: "R. K. Singh, Executive Engineer", documentRef: "JK/GRV/2026/14" });
+}
+
+// ---- department performance (grieviq-33) ----
+{
+  const dp = await import((process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/dept-performance.js");
+  const now = Date.now(), D = 86400000, t0 = now - 20 * D;
+  const S_ = (kind, ms, x) => Object.assign({ kind, created_at: new Date(ms).toISOString(), department: "Water Supply", office_id: "o1", office_name: "Office One", by_office_tier: "LOCAL", by_office_id: "lu-hazratganj", actor_role: "REPRESENTATIVE" }, x || {});
+  const G = (id, status) => ({ id, tracking_ref: "R-" + id, status: status || "OPEN", local_unit_id: "lu-hazratganj", reopen_count: 0 });
+  const cases = [
+    { g: G("c1", "RESOLVED"), steps: [S_("FORWARDED", t0), S_("SCHEDULED", t0 + D, { expected_date: new Date(t0 + 4 * D).toISOString().slice(0, 10) }), S_("DONE_CLAIMED", t0 + 5 * D), S_("CHECK_FIXED", t0 + 6 * D)] },
+    { g: G("c2", "RESOLVED"), steps: [S_("FORWARDED", t0), S_("DONE_CLAIMED", t0 + 10 * D), S_("CHECK_NOT_FIXED", t0 + 11 * D), S_("DONE_CLAIMED", t0 + 13 * D), S_("CHECK_FIXED", t0 + 14 * D)] },
+    { g: G("c3"), steps: [S_("FORWARDED", t0), S_("IN_PROGRESS", t0 + 2 * D)] },
+    { g: G("c4"), steps: [S_("FORWARDED", t0), S_("NOT_OURS", t0 + D), S_("FORWARDED", t0 + 2 * D, { office_id: "o2", office_name: "Office Two" })] },
+    { g: G("c5"), steps: [S_("FORWARDED", now - 2 * D)] },
+    { g: G("c6", "RESOLVED"), steps: [S_("FORWARDED", t0), S_("DONE_CLAIMED", t0 + 3 * D, { actor_role: "DEPARTMENT" }), S_("CHECK_FIXED", t0 + 4 * D)] },
+  ];
+  const as = dp.assignmentsOf(cases, { "Water Supply": 7 }, new Map([["c6", { dept_score: 2, department: "Water Supply" }]]), now);
+  const o1 = as.filter((a) => a.officeId === "o1"), o2 = as.filter((a) => a.officeId === "o2");
+  ok(o1.length === 6 && o2.length === 1 && o2[0].withNow, "each forwarding is its own assignment; 'not ours' starts fresh at the next office");
+  const m = dp.measures(o1, now - 30 * D, now);
+  ok(m.forwarded === 6 && m.withNow === 2 && m.overdueNow === 1, "volume: forwarded, with the office now, overdue now", m);
+  ok(m.onTime.d === 4 && m.onTime.n === 2 && m.onTime.pct === null, "on time: decided cases only, 'not ours' left out; no share below 5", m.onTime);
+  ok(m.firstReply.n === 5 && m.firstReply.median === 2, "first reply: median days", m.firstReply);
+  ok(m.fixedFirst.d === 3 && m.fixedFirst.n === 2 && m.toFixed.n === 3, "field check first time and time to fixed", { ff: m.fixedFirst, tf: m.toFixed });
+  ok(m.ownReplies.d === 7 && m.ownReplies.n === 1 && m.ownReplies.pct === 14.3, "replies made by the department itself", m.ownReplies);
+  ok(m.notOurs === 1 && m.rating.count === 1 && m.rating.average === null, "not ours counted; rating needs 5", m);
+  const big = dp.measures(o1.concat(o1, o1), now - 30 * D, now);
+  ok(big.onTime.pct === 50 && big.firstReply.median === 2, "shares and medians from 5 cases", big.onTime);
+  const tr = dp.monthlyDept(o1, new Date(now + 5.5 * 3600000).toISOString().slice(0, 10));
+  ok(tr.length === 12 && tr.reduce((s, x) => s + x.received, 0) === 6 && tr.reduce((s, x) => s + x.resolved, 0) === 3, "12 months: forwarded and fixed", tr.slice(-2));
+  // endpoints
+  let r = await call(S, "GET", "/api/admin/dept-performance?area=lucknow");
+  ok(r.status === 200 && r.body.rows.some((x) => x.name === "Jal Kal Vibhag Lucknow" && x.inDirectory) && r.body.total && r.body.min === 5, "admin: rows by office", r.body.rows && r.body.rows.map((x) => x.name));
+  ok(!JSON.stringify(r.body).match(/9876500000|citizen20@x\.in|Lane 4/), "no citizen data or complaint text");
+  const jalRow = r.body.rows.find((x) => x.name === "Jal Kal Vibhag Lucknow");
+  r = await call(S, "GET", "/api/admin/dept-performance?area=lucknow&detail=" + encodeURIComponent(jalRow.key));
+  ok(r.body.detail && r.body.detail.trend.length === 12 && Array.isArray(r.body.detail.overdue), "admin: office detail with 12 months", r.body.detail && r.body.detail.overdue);
+  r = await call(S, "GET", "/api/admin/dept-performance?area=lucknow&by=type");
+  ok(r.body.by === "type" && r.body.rows.some((x) => x.department === "Water Supply"), "admin: by department type", r.body.rows.map((x) => x.department));
+  r = await call(S, "GET", "/api/admin/dept-performance?from=2026-13-01");
+  ok(r.status === 400 && r.body.fields.from, "dates checked", r.body);
+  const csvR = await fetch(B + "/api/admin/dept-performance?area=lucknow&format=csv", { headers: { "test-email": S } });
+  const csvT = await csvR.text();
+  ok(csvR.headers.get("content-type").includes("text/csv") && csvT.includes("Work done on time %") && csvT.includes("Jal Kal Vibhag Lucknow"), "CSV download");
+  ok((await call(A, "GET", "/api/admin/dept-performance")).status === 200 && (await call(D, "GET", "/api/admin/dept-performance")).status === 403 && (await call(M, "GET", "/api/admin/dept-performance")).status === 403, "auditor reads; operators and moderators don't");
+  const ov = await call("r1@x.in", "GET", "/api/overview?office=LOCAL:lu-hazratganj");
+  ok(ov.body.departments && ov.body.departments.rows.some((x) => x.name === "Jal Kal Vibhag Lucknow"), "rep overview: departments on the office's cases", ov.body.departments);
+  const ovFw = await call("fw@x.in", "GET", "/api/overview?office=LOCAL:lu-hazratganj");
+  ok(ovFw.status === 403 || !ovFw.body.departments, "field worker: no department figures");
 }
 
 // ---- audit trail ----

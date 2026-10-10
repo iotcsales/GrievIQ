@@ -22,6 +22,7 @@ import { ROLE, parseOfficeKey, logTeam } from "../_shared/team.js";
 import { caseFacts, summarise, monthlyTrend, isDay, dayStartMs, dayEndMs, todayIst, pct, AGE_BUCKETS } from "../_shared/overview.js";
 import { toUtcMs } from "../_shared/time-limits.js";
 import { loadRatings, summarise as summariseRatings } from "../_shared/ratings.js";
+import { loadAssignments, measures as deptMeasures, officeKey as deptOfficeKey, MIN_CASES } from "../_shared/dept-performance.js";
 
 const MAX_DAYS = 3 * 366;
 const DAY = 86400000;
@@ -170,6 +171,29 @@ export async function onRequestGet({ request, env }) {
     ratings = summariseRatings(scores);
   }
 
+  // Department performance (grieviq-33): the departments this office
+  // forwarded cases to, counting only those forwardings. Rep and office managers.
+  let departments = null;
+  if (m.role === ROLE.REP || m.role === ROLE.OM) {
+    const mine = (await loadAssignments(env, { byOffice: { tier: m.tier, id: m.id } }))
+      .filter((a) => a.byOfficeTier === m.tier && a.byOfficeId === String(m.id));
+    const groups = new Map();
+    for (const a of mine) { const k = deptOfficeKey(a); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
+    const ids = Array.from(new Set(mine.map((a) => a.officeId).filter(Boolean)));
+    const names = new Map();
+    if (ids.length) {
+      const { results } = await env.DB.prepare("SELECT id, name_en, name_hi FROM dept_offices WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all();
+      for (const o of results || []) names.set(o.id, o);
+    }
+    departments = { min: MIN_CASES, rows: [] };
+    for (const [key, list] of groups) {
+      const a0 = list[0], o = a0.officeId ? names.get(a0.officeId) : null;
+      const mm = deptMeasures(list, fromMs, toMs);
+      if (mm.forwarded || mm.withNow) departments.rows.push({ key, name: o ? o.name_en : a0.officeName || "", nameHi: o ? o.name_hi || null : null, department: a0.department, m: mm });
+    }
+    departments.rows.sort((x, y) => (y.m.overdueNow - x.m.overdueNow) || (y.m.forwarded - x.m.forwarded) || String(x.name).localeCompare(String(y.name)));
+  }
+
   const officeOut = { key: m.tier + ":" + m.id, tier: m.tier, name: m.name, label: m.label };
   if (url.searchParams.get("format") === "csv") {
     await logTeam(env, { officeTier: m.tier, officeId: m.id, actor: auth.email, actorRole: m.role || ROLE.REP,
@@ -180,7 +204,7 @@ export async function onRequestGet({ request, env }) {
     office: officeOut, myRole: m.role || ROLE.REP, from, to, today, groupBy, mla: mlaId,
     mlaName: mlaId && rows.length ? await mlaNameOf(env, mlaId) : null,
     ages: AGE_BUCKETS.map(([lo, hi]) => ({ from: lo, to: hi === Infinity ? null : hi })),
-    rows, total, trend, workload, ratings,
+    rows, total, trend, workload, ratings, departments,
   }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 

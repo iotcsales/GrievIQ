@@ -95,6 +95,8 @@ export const PERMISSIONS = {
   // auditor reads the officers, agreements and their activity.
   view_dept_officers: ["super_admin", "operations_admin", "auditor"],
   manage_dept_officers: ["super_admin", "operations_admin"],
+  // Department performance (grieviq-33): counts and timings only.
+  view_dept_performance: ["super_admin", "operations_admin", "auditor"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -120,6 +122,7 @@ export const PAGES = {
   "admin-messages": "view_messages",
   "admin-departments": "view_departments",
   "admin-ratings": "view_ratings",
+  "admin-dept-performance": "view_dept_performance",
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

@@ -9,8 +9,8 @@
 <meta name="theme-color" content="#13233F">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title data-i18n="adm.cr_page_title">GrievIQ Admin — Ratings</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=33"></script><script src="/admin-nav.js?v=r9"></script><style>
+<title data-i18n="adm.pf_page_title">GrievIQ Admin — Department performance</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=33"></script><script src="/admin-nav.js?v=r9"></script><script src="/giq-charts.js?v=3"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -252,13 +252,47 @@
   /* WCAG 2.2 (2.5.8): links and the table toggle are at least 24px tall. */
   a.case-link { display: inline-flex; align-items: center; min-height: 28px; }
   details.panel > summary { min-height: 28px; display: flex; align-items: center; }
+
+  /* Department performance (grieviq-33) */
+  .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 14px; }
+  .filters > div { display: flex; flex-direction: column; gap: 4px; }
+  .filters label { font-size: 13px; font-weight: 600; }
+  .filters input[type=date] { padding: 7px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 36px; }
+  html.light-theme .filters input[type=date] { background: #fff; }
+  .filters select { min-height: 36px; }
+  .seg { display: inline-flex; gap: 6px; }
+  .seg button[aria-pressed="true"] { background: var(--rt-primary); border-color: var(--rt-primary); color: #fff; }
+  .scroll { overflow-x: auto; border: 1px solid var(--admin-border); border-radius: 8px; margin-bottom: 10px; }
+  table.pf { font-size: 13.5px; min-width: 1400px; }
+  table.pf thead th { min-width: 92px; }
+  .card .num.small { font-size: 26px; }
+  .card .few-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 2px; }
+  table.pf th, table.pf td { vertical-align: top; padding: 8px 8px; }
+  table.pf td.n { font-variant-numeric: tabular-nums; }
+  table.pf th[scope=row] { text-transform: none; letter-spacing: 0; font-size: 13.5px; color: var(--admin-text); font-weight: 600; min-width: 180px; }
+  table.pf .few { color: var(--admin-muted); font-size: 12.5px; }
+  table.pf .late { color: var(--admin-danger); font-weight: 700; }
+  table.pf tfoot th, table.pf tfoot td { font-weight: 700; border-top: 2px solid var(--admin-border); }
+  .tag.nd { margin-left: 4px; }
+  .pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+  @media (max-width: 900px) { .pf-grid { grid-template-columns: 1fr; } }
+  :root { --gc-ink: #e6e9ee; --gc-muted: #aab3c0; --gc-line: #2c3543; --gc-card: #1c222c; --gc-s1: #3987e5; --gc-s2: #d95926; --gc-bar: #3987e5; }
+  html.light-theme { --gc-ink: #14181f; --gc-muted: #5b6472; --gc-line: #dde1e6; --gc-card: #ffffff; --gc-s1: #2a78d6; --gc-s2: #c4501f; --gc-bar: #2a78d6; }
+  .defs dt { font-weight: 700; margin-top: 8px; font-size: 13.5px; }
+  .defs dd { margin: 2px 0 0; font-size: 13.5px; color: var(--admin-muted); line-height: 1.5; }
+  .detail { border-left: 4px solid var(--rt-primary); }
+  .od-list { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
+  .od-list a { color: var(--rt-link); }
+  a.btn { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--admin-border); background: #232a36; color: var(--admin-text); text-decoration: none; font-size: 13px; }
+  html.light-theme a.btn { background: #eef0f3; color: var(--admin-text); }
+  button.linkish { background: none; border: 0; padding: 0; color: var(--rt-link); text-decoration: underline; min-height: 28px; font-size: 13px; cursor: pointer; }
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
   <nav>
-    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-ratings.html" data-i18n="adm.nav_ratings" class="active" aria-current="page">Ratings</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-ratings.html" data-i18n="adm.nav_ratings">Ratings</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-departments.html" data-i18n="adm.nav_departments">Departments</a> <a href="/admin-dept-performance.html" data-i18n="adm.nav_dept_perf" class="active" aria-current="page">Department performance</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
     <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
     <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
     <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a>
@@ -267,118 +301,136 @@
 </header>
 
 <main id="main">
-  <h1 data-i18n="adm.cr_title">Citizen ratings</h1>
-  <p class="subtitle" data-i18n="adm.cr_sub">How citizens rated the handling of their closed cases. A rating of Dissatisfied or Very dissatisfied on either question comes here to be followed up.</p>
+  <h1 data-i18n="adm.pf_title">Department performance</h1>
+  <p class="subtitle" data-i18n="adm.pf_sub">How quickly department offices reply and get the work done, whether the work passes the field check, and what citizens think. Worked out live from the department steps on each case.</p>
+  <div class="note" data-i18n="adm.pf_note">During the pilot there is no single score or ranking: with small numbers a rank misleads. A share or median is shown only from 5 cases; below that you see the count. Each forwarding counts against the office it went to.</div>
   <div id="content"><p class="empty" data-i18n="adm.loading">Loading…</p></div>
 </main>
 
 <script>
 function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
 function loc() { return window.GIQ ? window.GIQ.locale() : "en-IN"; }
-function esc(s) {
-  return String(s === null || s === undefined ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+function hi() { return !!(window.GIQ && GIQ.lang === "hi"); }
+function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function num(v) { return Number(v).toLocaleString(loc()); }
+async function api(url) { try { const r = await fetch(url, { cache: "no-store" }); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; } catch (e) { return { ok: false, status: 0, body: {} }; } }
+const DAY = 86400000;
+function istDay(ms) { return new Date(ms + 5.5 * 3600000).toISOString().slice(0, 10); }
+let data = null, st = { area: "", period: "90", from: "", to: "", by: "office", detail: null }, err = null;
+function periodDates() {
+  const today = istDay(Date.now());
+  if (st.period === "custom") return [st.from || today, st.to || today];
+  if (st.period === "year") return [today.slice(0, 4) + "-01-01", today];
+  const n = Number(st.period) || 90;
+  return [istDay(Date.now() - (n - 1) * DAY), today];
 }
-function toDate(s) { if (!s) return null; const t = String(s); const d = new Date(t.indexOf("T") !== -1 ? t : t.replace(" ", "T") + "Z"); return isNaN(d) ? null : d; }
-function when(s) { const d = toDate(s); return d ? d.toLocaleString(loc(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : ""; }
-async function api(url, opts) {
-  try { const r = await fetch(url, opts); const b = await r.json().catch(() => ({})); return { ok: r.ok, status: r.status, body: b }; }
-  catch (e) { return { ok: false, status: 0, body: {} }; }
+function query(extra) {
+  const [f, t] = periodDates();
+  return "area=" + encodeURIComponent(st.area) + "&from=" + f + "&to=" + t + "&by=" + st.by + (st.detail ? "&detail=" + encodeURIComponent(st.detail) : "") + (extra || "");
 }
-const KEYS = ["VERY_SATISFIED", "SATISFIED", "NEITHER", "DISSATISFIED", "VERY_DISSATISFIED"];
-const TIER = { LOCAL: "adm.al_tier_LOCAL", MAYOR: "adm.al_tier_MAYOR", MLA: "adm.al_tier_MLA", MP: "adm.al_tier_MP" };
-let data = null, show = "OPEN", msg = null;
-const drafts = {}, errs = {};
-
-async function load() {
-  const r = await api("/api/admin/ratings?show=" + show);
-  if (!r.ok) {
-    data = null;
-    document.getElementById("content").innerHTML = '<div class="msg err" role="alert">' + esc(r.status === 0 ? T("adm.network") : r.body.code === "NOT_SET_UP" ? T("adm.cr_not_set_up") : T("adm.err_detail", { msg: r.body.error || r.status })) + "</div>";
-    return;
-  }
-  data = r.body;
+async function load(focusId) {
+  const r = await api("/api/admin/dept-performance?" + query());
+  if (!r.ok) { err = r.status === 0 ? T("adm.network") : r.body.fields ? T("adm.pf_e_dates") : T("adm.err_detail", { msg: r.body.error || r.status }); render(focusId); return; }
+  err = null; data = r.body; st.area = data.area;
   if (window.GIQ && data.deptNames) GIQ.addDepts(data.deptNames);
-  render();
+  render(focusId);
 }
-function ans(k) {
-  const low = k === "DISSATISFIED" || k === "VERY_DISSATISFIED";
-  return '<span' + (low ? ' class="rt-low"' : "") + ">" + esc(T("adm.cr_a_" + k)) + "</span>";
+// "80% (8 of 10)" / "Too few (3)" / "—"
+function shareCell(s) {
+  if (!s || !s.d) return '<span class="few">—</span>';
+  if (s.pct == null) return '<span class="few">' + esc(T("perf.too_few", { n: s.d })) + "</span>";
+  return esc(num(s.pct) + "%") + ' <span class="few">' + esc(T("perf.of", { n: s.n, d: s.d })) + "</span>";
 }
-function overallCard(sum, label) {
-  const big = sum.average != null ? T("adm.cr_a_" + sum.word) : T("adm.cr_few");
-  const small = sum.average != null ? T("adm.cr_avg", { avg: sum.average.toLocaleString(loc()), n: sum.count }) : T("adm.cr_few_h", { n: sum.count, need: sum.needed });
-  return '<div class="card"><div class="num">' + esc(big) + '</div><div class="label"><b>' + esc(label) + "</b><br>" + esc(small) + "</div></div>";
+function medCell(m) {
+  if (!m || !m.n) return '<span class="few">—</span>';
+  if (m.median == null) return '<span class="few">' + esc(T("perf.too_few", { n: m.n })) + "</span>";
+  return esc(T("perf.days", { n: num(m.median) })) + ' <span class="few">' + esc(T("perf.cases", { n: m.n })) + "</span>";
 }
-function render() {
-  if (!data) return;
-  const c = data.counts, o = data.overall;
-  const cards = '<div class="rt-cards">' + overallCard(o.office, T("adm.cr_o_office")) + overallCard(o.dept, T("adm.cr_o_dept")) +
-    '<div class="card"><div class="num">' + c.OPEN + '</div><div class="label"><b>' + esc(T("adm.cr_o_open")) + "</b><br>" + esc(T("adm.cr_o_open_h")) + "</div></div></div>";
-  const table = (o.office.count || o.dept.count) ? '<details class="panel"><summary>' + esc(T("adm.cr_table_t")) + '</summary><div class="table-wrap"><table><thead><tr><th scope="col">' + esc(T("adm.cr_answer")) + '</th><th scope="col" class="num">' + esc(T("adm.cr_o_office")) + '</th><th scope="col" class="num">' + esc(T("adm.cr_o_dept")) + "</th></tr></thead><tbody>" +
-    KEYS.map((k) => "<tr><th scope=\"row\">" + esc(T("adm.cr_a_" + k)) + '</th><td class="num">' + (o.office.byAnswer[k] || 0) + '</td><td class="num">' + (o.dept.byAnswer[k] || 0) + "</td></tr>").join("") +
-    '</tbody></table></div></details>' : "";
-  const tabs = '<div class="tabs" role="group" aria-label="' + esc(T("adm.cr_show")) + '">' +
-    [["OPEN", T("adm.cr_tab_open", { n: c.OPEN })], ["DONE", T("adm.cr_tab_done", { n: c.DONE })], ["ALL", T("adm.cr_tab_all", { n: c.ALL })]]
-      .map((t) => '<button type="button" data-tab="' + t[0] + '" aria-pressed="' + (show === t[0]) + '">' + esc(t[1]) + "</button>").join("") + "</div>";
-  const top = msg ? '<div class="msg ' + (msg.err ? "err" : "ok") + '" role="' + (msg.err ? "alert" : "status") + '" id="top-msg" tabindex="-1">' + esc(msg.text) + "</div>" : "";
-  const items = data.items.length ? data.items.map(item).join("") : '<p class="empty">' + esc(T(show === "OPEN" ? "adm.cr_none_open" : "adm.cr_none")) + "</p>";
-  document.getElementById("content").innerHTML = cards + table + top + '<h2 class="visually-hidden">' + esc(T("adm.cr_list_h")) + "</h2>" + tabs + items;
-  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { show = b.dataset.tab; msg = null; load(); }));
-  document.querySelectorAll("form.rt-follow").forEach((f) => f.addEventListener("submit", save));
-  document.querySelectorAll("form.rt-follow textarea").forEach((t) => t.addEventListener("input", () => { drafts[t.dataset.id] = t.value; }));
+function rateCell(r) {
+  if (!r || !r.count) return '<span class="few">—</span>';
+  if (r.average == null) return '<span class="few">' + esc(T("perf.too_few", { n: r.count })) + "</span>";
+  return esc(T("adm.cr_a_" + r.word)) + ' <span class="few">' + esc(T("perf.rating_avg", { avg: num(r.average), n: r.count })) + "</span>";
 }
-function item(it) {
-  const office = it.officeTier ? T(TIER[it.officeTier] || it.officeTier) + (it.officeName ? " — " + it.officeName : "") : T("adm.cr_office_unknown");
-  const deptLine = it.dept ? "<li>" + esc(T("adm.cr_k_dept", { dept: window.GIQ ? GIQ.dept(it.department) : it.department })) + ": " + ans(it.dept) + "</li>" : "";
-  const comment = it.comment ? '<div class="fb-msg">' + esc(it.comment) + "</div>" : '<div class="fb-msg none">' + esc(T("adm.cr_no_comment")) + "</div>";
-  let follow = "";
-  if (it.followedUpAt) {
-    follow = '<div class="rt-done"><b>' + esc(T("adm.cr_done_h")) + "</b> " + esc(it.followUpNote) + '<span class="who">' + esc(T("adm.cr_followed", { who: it.followedUpBy || "", date: when(it.followedUpAt) })) + "</span></div>";
-  } else if (data.canFollowUp) {
-    const e = errs[it.id] || "";
-    follow = '<form class="rt-follow" data-id="' + esc(it.id) + '" data-updated="' + esc(it.updatedAt) + '" novalidate>' +
-      '<label for="n-' + esc(it.id) + '">' + esc(T("adm.cr_note")) + '</label><p class="hint" id="h-n-' + esc(it.id) + '">' + esc(T("adm.cr_note_hint", { min: data.noteMin, max: data.noteMax })) + "</p>" +
-      '<textarea id="n-' + esc(it.id) + '" data-id="' + esc(it.id) + '" maxlength="' + data.noteMax + '" aria-describedby="h-n-' + esc(it.id) + " e-n-" + esc(it.id) + '"' + (e ? ' aria-invalid="true"' : "") + ">" + esc(drafts[it.id] || "") + "</textarea>" +
-      '<div class="field-err" id="e-n-' + esc(it.id) + '" role="alert">' + esc(e) + "</div>" +
-      '<div class="actions"><button type="submit" class="primary">' + esc(T("adm.cr_mark")) + "</button></div></form>";
-  } else {
-    follow = '<p class="muted">' + esc(T("adm.cr_waiting")) + "</p>";
+function rowName(r) {
+  if (data.by === "type") return window.GIQ ? GIQ.dept(r.department) : r.department;
+  return (hi() && r.nameHi) ? r.nameHi : r.name;
+}
+const COLS = ["forwarded", "with_now", "overdue_now", "first_reply", "on_time", "to_fixed", "fixed_first", "reopened", "rating", "own_replies", "not_ours", "cant_do"];
+function cells(m) {
+  return [
+    '<td class="n">' + num(m.forwarded) + "</td>", '<td class="n">' + num(m.withNow) + "</td>",
+    '<td class="n' + (m.overdueNow ? " late" : "") + '">' + num(m.overdueNow) + "</td>",
+    '<td class="n">' + medCell(m.firstReply) + "</td>", '<td class="n">' + shareCell(m.onTime) + "</td>", '<td class="n">' + medCell(m.toFixed) + "</td>",
+    '<td class="n">' + shareCell(m.fixedFirst) + "</td>", '<td class="n">' + shareCell(m.reopened) + "</td>", "<td>" + rateCell(m.rating) + "</td>",
+    '<td class="n">' + shareCell(m.ownReplies) + "</td>", '<td class="n">' + num(m.notOurs) + "</td>", '<td class="n">' + num(m.cantDo) + "</td>",
+  ].join("");
+}
+function render(focusId) {
+  const box = document.getElementById("content");
+  if (!data) { box.innerHTML = err ? '<div class="msg err" role="alert">' + esc(err) + "</div>" : '<p class="empty">' + esc(T("adm.loading")) + "</p>"; return; }
+  const [f, t] = periodDates();
+  const filters = '<div class="filters">' +
+    (data.areas.length ? '<div><label for="pf-area">' + esc(T("adm.cm_area")) + '</label><select id="pf-area">' + data.areas.map((a) => '<option value="' + esc(a.id) + '"' + (a.id === data.area ? " selected" : "") + ">" + esc(a.name) + "</option>").join("") + "</select></div>" : "") +
+    '<div><label for="pf-period">' + esc(T("adm.pf_period")) + '</label><select id="pf-period">' +
+      [["30", "adm.pf_p30"], ["90", "adm.pf_p90"], ["365", "adm.pf_p365"], ["year", "adm.pf_pyear"], ["custom", "adm.pf_pcustom"]].map((p) => '<option value="' + p[0] + '"' + (st.period === p[0] ? " selected" : "") + ">" + esc(T(p[1])) + "</option>").join("") + "</select></div>" +
+    (st.period === "custom" ? '<div><label for="pf-from">' + esc(T("adm.pf_from")) + '</label><input type="date" id="pf-from" value="' + esc(f) + '"></div><div><label for="pf-to">' + esc(T("adm.pf_to")) + '</label><input type="date" id="pf-to" value="' + esc(t) + '"></div><div><button type="button" id="pf-apply">' + esc(T("adm.pf_apply")) + "</button></div>" : "") +
+    '<div><span style="font-size:13px;font-weight:600" id="pf-by-l">' + esc(T("adm.pf_by")) + '</span><div class="seg" role="group" aria-labelledby="pf-by-l"><button type="button" data-by="office" aria-pressed="' + (data.by === "office") + '">' + esc(T("adm.pf_by_office")) + '</button><button type="button" data-by="type" aria-pressed="' + (data.by === "type") + '">' + esc(T("adm.pf_by_type")) + "</button></div></div>" +
+    '<div><a class="btn" id="pf-csv" href="/api/admin/dept-performance?' + esc(query("&format=csv")) + '" download>' + esc(T("adm.pf_csv")) + "</a></div></div>" +
+    (err ? '<div class="msg err" role="alert">' + esc(err) + "</div>" : "") +
+    '<p class="muted" style="margin:0 0 12px">' + esc(T("adm.pf_period_line", { from: new Date(data.from + "T00:00:00+05:30").toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }), to: new Date(data.to + "T00:00:00+05:30").toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric" }) })) + "</p>";
+  const m = data.total;
+  const tile = (v, l, late) => '<div class="card"><div class="num"' + (late ? ' style="color:var(--admin-danger)"' : "") + ">" + v + '</div><div class="label">' + esc(l) + "</div></div>";
+  // A share or median below 5 cases: a dash, with the count underneath.
+  const tile2 = (v, few, l) => '<div class="card"><div class="num">' + v + '</div><div class="label">' + esc(l) + "</div>" + (few ? '<div class="few-note">' + esc(few) + "</div>" : "") + "</div>";
+  const pctT = (s, l) => s.pct == null ? tile2("—", s.d ? T("perf.too_few", { n: s.d }) : "", l) : tile2(esc(num(s.pct) + "%"), T("perf.of", { n: s.n, d: s.d }), l);
+  const medT = (x, l) => x.median == null ? tile2("—", x.n ? T("perf.too_few", { n: x.n }) : "", l) : tile2(esc(T("perf.days", { n: num(x.median) })), T("perf.cases", { n: x.n }), l);
+  const tiles = '<div class="cards">' + tile(num(m.forwarded), T("perf.forwarded")) + tile(num(m.withNow), T("perf.with_now")) + tile(num(m.overdueNow), T("perf.overdue_now"), m.overdueNow > 0) +
+    medT(m.firstReply, T("perf.first_reply")) + pctT(m.onTime, T("perf.on_time")) + pctT(m.fixedFirst, T("perf.fixed_first")) + "</div>";
+  const firstCol = T(data.by === "type" ? "adm.pf_col_type" : "adm.pf_col_office");
+  const table = data.rows.length
+    ? '<h2 style="font-size:16px;margin:16px 0 8px" id="pf-table-h">' + esc(T("adm.pf_table_h", { n: data.rows.length })) + '</h2><div class="scroll" role="region" tabindex="0" aria-labelledby="pf-table-h"><table class="pf"><thead><tr><th scope="col">' + esc(firstCol) + "</th>" +
+      COLS.map((c) => '<th scope="col">' + esc(T("perf." + c)) + "</th>").join("") + '<th scope="col"><span class="sr-only">' + esc(T("adm.pf_details")) + "</span></th></tr></thead><tbody>" +
+      data.rows.map((r) => '<tr><th scope="row">' + esc(rowName(r)) + (data.by === "office" && !r.inDirectory ? ' <span class="tag nd">' + esc(T("adm.pf_not_dir")) + "</span>" : "") +
+        (data.by === "office" && r.activeOfficers != null ? '<div class="few" style="font-weight:400">' + esc(T("perf.active_officers", { n: r.activeOfficers })) + "</div>" : "") + "</th>" + cells(r.m) +
+        '<td><button type="button" class="linkish" data-detail="' + esc(r.key) + '" aria-expanded="' + (st.detail === r.key) + '">' + esc(T("adm.pf_details")) + '<span class="sr-only"> ' + esc(rowName(r)) + "</span></button></td></tr>").join("") +
+      '</tbody><tfoot><tr><th scope="row">' + esc(T("adm.pf_total")) + "</th>" + cells(m) + "<td></td></tr></tfoot></table></div>"
+    : '<p class="empty">' + esc(T("adm.pf_none")) + "</p>";
+  const barRows = (k) => data.rows.filter((r) => r.m[k].pct != null).map((r) => ({ name: rowName(r), value: r.m[k].pct, note: T("perf.of", { n: r.m[k].n, d: r.m[k].d }) }));
+  const C = window.GIQC, L = loc();
+  const on = barRows("onTime"), ff = barRows("fixedFirst");
+  const charts = data.rows.length ? '<div class="pf-grid"><div>' +
+    C.bars({ loc: L, title: T("adm.pf_chart_on_time"), rows: on, max: 100, suffix: "%", empty: T("adm.pf_chart_few"), nameCol: firstCol, valueCol: T("perf.on_time") + " %", tableLabel: T("chart.show_table"),
+      summary: on.length ? T("adm.pf_best", { name: on.slice().sort((a, b) => b.value - a.value)[0].name, v: num(on.slice().sort((a, b) => b.value - a.value)[0].value) }) : "", moreNote: (n, tt) => T("chart.more", { n, total: tt }) }) +
+    "</div><div>" +
+    C.bars({ loc: L, title: T("adm.pf_chart_fixed_first"), rows: ff, max: 100, suffix: "%", empty: T("adm.pf_chart_few"), nameCol: firstCol, valueCol: T("perf.fixed_first") + " %", tableLabel: T("chart.show_table"),
+      summary: ff.length ? T("adm.pf_best", { name: ff.slice().sort((a, b) => b.value - a.value)[0].name, v: num(ff.slice().sort((a, b) => b.value - a.value)[0].value) }) : "", moreNote: (n, tt) => T("chart.more", { n, total: tt }) }) +
+    "</div></div>" : "";
+  let detail = "";
+  if (st.detail && data.detail && data.detail.key === st.detail) {
+    const r = data.rows.find((x) => x.key === st.detail);
+    const d = data.detail;
+    detail = '<section class="panel detail" aria-labelledby="pf-d-h"><h2 id="pf-d-h" tabindex="-1">' + esc(r ? rowName(r) : "") + "</h2>" +
+      C.trend({ id: "pf-trend", loc: L, title: T("adm.pf_trend_t"), data: d.trend, received: T("perf.forwarded_short"), resolved: T("perf.fixed_short"), monthCol: T("chart.month"), keysHint: T("chart.keys"), tableLabel: T("chart.show_table") }) +
+      "<h3>" + esc(T("adm.pf_overdue_h", { n: d.overdue.length })) + "</h3>" +
+      (d.overdue.length ? '<ul class="od-list">' + d.overdue.map((x) => '<li><a href="/admin-cases.html?case=' + encodeURIComponent(x.id) + '">' + esc(x.ref) + "</a> · " + esc(T("adm.pf_overdue_by", { n: x.days })) + "</li>").join("") + "</ul>" : '<p class="muted">' + esc(T("adm.pf_overdue_none")) + "</p>") +
+      '<p><button type="button" id="pf-close">' + esc(T("adm.pf_close")) + "</button></p></section>";
   }
-  return '<article class="fb" aria-labelledby="h-' + esc(it.id) + '"><div class="fb-head"><div>' +
-      '<div class="fb-cat" id="h-' + esc(it.id) + '"><a class="case-link" href="/admin-cases.html?case=' + encodeURIComponent(it.caseId) + '">' + esc(it.trackingRef) + "</a></div>" +
-      '<div class="fb-meta">' + esc([it.ward, window.GIQ ? GIQ.category(it.categoryId, it.category) : it.category].filter(Boolean).join(" · ")) + "</div>" +
-      '<div class="fb-meta">' + esc(T("adm.cr_resolved_by", { office: office })) + "</div></div>" +
-      '<span class="st st-' + (it.followedUpAt ? "DONE" : "NEW") + '">' + esc(T(it.followedUpAt ? "adm.cr_st_done" : "adm.cr_st_open")) + "</span></div>" +
-    '<ul class="rt-ans"><li>' + esc(T("adm.cr_k_office")) + ": " + ans(it.office) + "</li>" + deptLine + "</ul>" +
-    comment +
-    '<div class="fb-meta">' + esc(T(it.changed ? "adm.cr_when_changed" : "adm.cr_when", { date: when(it.updatedAt || it.submittedAt) })) + "</div>" +
-    follow + "</article>";
+  const defs = '<details class="panel"><summary>' + esc(T("perf.defs_h")) + '</summary><dl class="defs">' +
+    ["assignment", "forwarded", "with_now", "overdue_now", "first_reply", "on_time", "to_fixed", "fixed_first", "reopened", "rating", "own_replies", "not_ours", "cant_do", "active_officers", "min"].map((k) => "<dt>" + esc(T("perf.d_" + k + "_t")) + "</dt><dd>" + esc(T("perf.d_" + k)) + "</dd>").join("") + "</dl></details>";
+  box.innerHTML = filters + tiles + table + detail + charts + defs;
+  C.attach(box, { loc: L, received: T("perf.forwarded_short"), resolved: T("perf.fixed_short") });
+  wire();
+  const el = focusId && document.getElementById(focusId); if (el) el.focus();
 }
-async function save(ev) {
-  ev.preventDefault();
-  const f = ev.target, id = f.dataset.id;
-  const note = (document.getElementById("n-" + id).value || "").trim();
-  if (note.length < data.noteMin) {
-    errs[id] = T("adm.cr_err_note", { min: data.noteMin });
-    render();
-    document.getElementById("n-" + id).focus();
-    return;
-  }
-  errs[id] = "";
-  const r = await api("/api/admin/ratings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, note, updatedAt: f.dataset.updated }) });
-  if (!r.ok && r.body.fields && r.body.fields.note) {
-    errs[id] = T("adm.cr_err_note", { min: data.noteMin });
-    render();
-    document.getElementById("n-" + id).focus();
-    return;
-  }
-  if (r.ok) delete drafts[id];
-  msg = r.ok ? { text: T("adm.cr_saved") } : { err: true, text: r.status === 0 ? T("adm.network") : r.body.code === "CHANGED" ? T("adm.cr_changed") : r.body.code === "ALREADY" ? T("adm.cr_already") : T("adm.err_detail", { msg: r.body.error || r.status }) };
-  await load();
-  const m = document.getElementById("top-msg"); if (m) m.focus();
+function wire() {
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  on("pf-area", "change", (e) => { st.area = e.target.value; st.detail = null; load("pf-area"); });
+  on("pf-period", "change", (e) => { st.period = e.target.value; if (st.period === "custom") { const [f, t] = periodDates(); st.from = data.from; st.to = data.to; render("pf-from"); return; } load("pf-period"); });
+  on("pf-apply", "click", () => { st.from = document.getElementById("pf-from").value; st.to = document.getElementById("pf-to").value; load("pf-apply"); });
+  document.querySelectorAll("[data-by]").forEach((b) => b.addEventListener("click", () => { st.by = b.dataset.by; st.detail = null; load(); setTimeout(() => { const x = document.querySelector('[data-by="' + st.by + '"]'); if (x) x.focus(); }, 300); }));
+  document.querySelectorAll("[data-detail]").forEach((b) => b.addEventListener("click", () => { st.detail = st.detail === b.dataset.detail ? null : b.dataset.detail; load(st.detail ? "pf-d-h" : null); }));
+  on("pf-close", "click", () => { const k = st.detail; st.detail = null; render(); const b = document.querySelector('[data-detail="' + CSS.escape(k) + '"]'); if (b) b.focus(); });
 }
-
 function applyTheme(theme) {
   document.documentElement.classList.toggle("light-theme", theme === "light");
   document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
@@ -391,12 +443,7 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
   try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
 });
-document.addEventListener("giq:lang", () => {
-  let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
-  applyTheme(th);
-  Object.keys(errs).forEach((k) => { if (errs[k]) errs[k] = T("adm.cr_err_note", { min: data ? data.noteMin : 10 }); });
-  if (data) render();
-});
+document.addEventListener("giq:lang", () => { let th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); render(); });
 load();
 </script>
 </body>

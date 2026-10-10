@@ -106,7 +106,7 @@
   footer a { color: var(--link); display: inline-block; min-height: 24px; padding-top: 3px; }
   [hidden] { display: none !important; }
 </style>
-<script src="/i18n.js?v=32"></script>
+<script src="/i18n.js?v=33"></script>
 </head>
 <body>
 <div class="trust-strip"><span data-i18n="dd.strip">GrievIQ for government departments</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -133,6 +133,7 @@
     catch (e) { return { ok: false, status: 0, body: {} }; }
   }
   var main = document.getElementById("main");
+  var PF = null;   // "Your office's performance" (grieviq-33)
   var S = { screen: "loading", email: "", emailErr: "", codeErr: "", msg: null, busy: false, data: null, filter: { ward: "", type: "", show: "OPEN" }, kase: null, reply: null };
 
   function today() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
@@ -213,6 +214,7 @@
     if (!r.ok) { S.screen = "email"; S.msg = { bad: true, text: r.status === 0 ? T("dd.e_network") : T("dd.e_generic") }; show("msg"); return; }
     S.data = r.body;
     if (GIQ.addDepts && S.data.deptNames) GIQ.addDepts(S.data.deptNames);
+    var pf = await api("/api/dept/performance"); PF = pf.ok ? pf.body : null;
     var m = /#case=([^&]+)/.exec(location.hash);
     if (m) { await openCase(decodeURIComponent(m[1])); return; }
     S.screen = "list"; show(focusId || null);
@@ -251,7 +253,25 @@
       '<div class="filters"><div><label for="f-show">' + esc(T("dd.f_show")) + '</label><select id="f-show"><option value="OPEN"' + (f.show === "OPEN" ? " selected" : "") + ">" + esc(T("dd.f_open")) + '</option><option value="CLOSED"' + (f.show === "CLOSED" ? " selected" : "") + ">" + esc(T("dd.f_closed")) + '</option><option value="ALL"' + (f.show === "ALL" ? " selected" : "") + ">" + esc(T("dd.f_all")) + "</option></select></div>" +
       '<div><label for="f-ward">' + esc(T("dd.f_ward")) + '</label><select id="f-ward"><option value="">' + esc(T("dd.f_any")) + "</option>" + opt(wards, f.ward) + "</select></div>" +
       '<div><label for="f-type">' + esc(T("dd.f_type")) + '</label><select id="f-type"><option value="">' + esc(T("dd.f_any")) + "</option>" + opt(types, f.type) + "</select></div></div>" +
-      '<h2 id="count" aria-live="polite">' + esc(T("dd.count", { n: rows.length })) + "</h2>" + list;
+      '<h2 id="count" aria-live="polite">' + esc(T("dd.count", { n: rows.length })) + "</h2>" + list + renderPerf();
+  }
+
+  // ---------------- your office's performance (own office only)
+  function renderPerf() {
+    if (!PF) return "";
+    var m = PF.m;
+    // Below 5 cases: a dash, with the count underneath.
+    var share = function (x) { return x.pct == null ? "—" : x.pct.toLocaleString(loc()) + "%"; };
+    var shareSub = function (x) { return !x.d ? "" : x.pct != null ? T("perf.of", { n: x.n, d: x.d }) : T("perf.too_few", { n: x.d }); };
+    var med = function (x) { return x.median == null ? "—" : T("perf.days", { n: x.median.toLocaleString(loc()) }); };
+    var medSub = function (x) { return !x.n ? "" : x.median != null ? T("perf.cases", { n: x.n }) : T("perf.too_few", { n: x.n }); };
+    var rate = m.rating.average == null ? "—" : T("rep.rate_a_" + m.rating.word);
+    var tile = function (v, l, sub) { return '<div class="tile"><div class="n" style="font-size:20px">' + esc(v) + '</div><div class="l">' + esc(l) + (sub ? "<br>" + esc(sub) : "") + "</div></div>"; };
+    return '<div class="card" style="margin-top:18px"><h2 id="perf-h">' + esc(T("dd.perf_h")) + '</h2><p class="lede">' + esc(T("dd.perf_lede", { from: day(PF.from), to: day(PF.to) })) + "</p>" +
+      '<div class="tiles">' + tile(String(m.forwarded), T("perf.forwarded")) + tile(med(m.firstReply), T("perf.first_reply"), medSub(m.firstReply)) + tile(share(m.onTime), T("perf.on_time"), shareSub(m.onTime)) +
+      tile(share(m.fixedFirst), T("perf.fixed_first"), shareSub(m.fixedFirst)) + tile(rate, T("perf.rating"), m.rating.average != null ? T("perf.rating_avg", { avg: m.rating.average.toLocaleString(loc()), n: m.rating.count }) : m.rating.count ? T("perf.too_few", { n: m.rating.count }) : "") + "</div>" +
+      "<details><summary style=\"cursor:pointer;font-weight:600;min-height:28px\">" + esc(T("perf.defs_h")) + '</summary><ul style="font-size:13.5px;line-height:1.5">' +
+      ["assignment", "first_reply", "on_time", "fixed_first", "rating", "min"].map(function (k) { return "<li><b>" + esc(T("perf.d_" + k + "_t")) + ":</b> " + esc(T("perf.d_" + k)) + "</li>"; }).join("") + "</ul></details></div>";
   }
 
   // ---------------- one case

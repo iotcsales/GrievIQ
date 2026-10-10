@@ -20,8 +20,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=32"></script>
-<script src="/giq-charts.js?v=2"></script>
+<script src="/i18n.js?v=33"></script>
+<script src="/giq-charts.js?v=3"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=32"></script>
 <!-- GOV.UK accessible autocomplete v3.0.2, self-hosted (alphagov/accessible-autocomplete) -->
@@ -2294,6 +2294,7 @@ function renderOverviewTab() {
   html += renderOvTrend(d.trend || []);
   html += renderOvCharts(d);
   html += renderOvRatings(d.ratings);
+  html += renderOvDepts(d.departments);
   if (d.workload) {
     html += '<h3 class="team-activity-t">' + esc(T('rep.ov_work_t')) + '</h3>';
     if (!d.workload.length) html += '<p class="ov-hint">' + esc(T('rep.ov_work_none')) + '</p>';
@@ -2319,6 +2320,40 @@ function renderOvRatings(r) {
     RATE_KEYS.map(function(k) { return '<tr><th scope="row" class="ov-name">' + esc(T('rep.rate_a_' + k)) + '</th><td class="num">' + (r.byAnswer[k] || 0) + '</td></tr>'; }).join('') + '</tbody></table>' : '';
   return '<h3 class="team-activity-t">' + esc(T('rep.ov_rate_t')) + '</h3><p class="ov-hint">' + esc(T('rep.ov_rate_hint')) + '</p>' +
     '<div class="ov-rate-row">' + head + table + '</div>';
+}
+// Department performance (grieviq-33): the departments this office forwarded
+// cases to, counting only this office's forwardings. Same definitions as the
+// admin page; a share or median only from 5 cases.
+function pfShare(x) {
+  if (!x || !x.d) return '<span class="ov-nd">—</span>';
+  if (x.pct == null) return '<span class="ov-nd">' + esc(T('perf.too_few', { n: x.d })) + '</span>';
+  return esc(x.pct.toLocaleString(loc()) + '%') + '<span class="ov-nd">' + esc(T('perf.of', { n: x.n, d: x.d })) + '</span>';
+}
+function pfMed(x) {
+  if (!x || !x.n) return '<span class="ov-nd">—</span>';
+  if (x.median == null) return '<span class="ov-nd">' + esc(T('perf.too_few', { n: x.n })) + '</span>';
+  return esc(T('perf.days', { n: x.median.toLocaleString(loc()) })) + '<span class="ov-nd">' + esc(T('perf.cases', { n: x.n })) + '</span>';
+}
+function pfRate(r) {
+  if (!r || !r.count) return '<span class="ov-nd">—</span>';
+  if (r.average == null) return '<span class="ov-nd">' + esc(T('perf.too_few', { n: r.count })) + '</span>';
+  return esc(T('rep.rate_a_' + r.word)) + '<span class="ov-nd">' + esc(T('perf.rating_avg', { avg: r.average.toLocaleString(loc()), n: r.count })) + '</span>';
+}
+function renderOvDepts(dp) {
+  if (!dp) return '';
+  var head = '<h3 class="team-activity-t">' + esc(T('rep.ov_dp_t')) + '</h3><p class="ov-hint">' + esc(T('rep.ov_dp_hint')) + '</p>';
+  if (!dp.rows.length) return head + '<p class="ov-hint">' + esc(T('rep.ov_dp_none')) + '</p>';
+  var cols = ['forwarded', 'overdue_now', 'first_reply', 'on_time', 'fixed_first', 'rating'];
+  return head + '<div class="ov-scroll" role="region" tabindex="0" aria-label="' + esc(T('rep.ov_dp_t')) + '"><table class="ov-table ov-dp"><thead><tr><th scope="col" class="ov-name">' + esc(T('rep.ov_dp_office')) + '</th>' +
+    cols.map(function(c) { return '<th scope="col">' + esc(T('perf.' + c)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    dp.rows.map(function(r) {
+      var m = r.m;
+      return '<tr><th scope="row" class="ov-name">' + esc((window.GIQ && GIQ.lang === 'hi' && r.nameHi) ? r.nameHi : r.name) + '<span class="ov-nd">' + esc(deptName(r.department)) + '</span></th>' +
+        '<td class="num">' + m.forwarded + '</td><td class="num' + (m.overdueNow ? ' ov-late' : '') + '">' + m.overdueNow + '</td><td class="num">' + pfMed(m.firstReply) + '</td>' +
+        '<td class="num">' + pfShare(m.onTime) + '</td><td class="num">' + pfShare(m.fixedFirst) + '</td><td>' + pfRate(m.rating) + '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+    '<details class="ov-how"><summary>' + esc(T('perf.defs_h')) + '</summary><ul>' +
+    ['assignment', 'first_reply', 'on_time', 'fixed_first', 'rating', 'min'].map(function(k) { return '<li><b>' + esc(T('perf.d_' + k + '_t')) + ':</b> ' + esc(T('perf.d_' + k)) + '</li>'; }).join('') + '</ul></details>';
 }
 // 12-month trend: two lines (received, resolved), a legend, end labels,
 // and a hover readout per month; the same numbers as a table below.

@@ -33,6 +33,7 @@
     '.gc-track{height:14px;display:block}' +
     '.gc-fill{display:block;height:14px;min-width:3px;background:var(--gc-bar);border-radius:0 4px 4px 0}' +
     '.gc-val{font-variant-numeric:tabular-nums;font-weight:700;min-width:2ch;text-align:right}' +
+    '.gc-n{font-weight:400;color:var(--gc-muted);font-size:12.5px}' +
     '@media (max-width:520px){.gc-bar{grid-template-columns:1fr auto}.gc-bar .gc-name{grid-column:1/-1;margin-bottom:-4px}}' +
     // stacked bar
     '.gc-stack{display:flex;gap:2px;height:28px;margin:4px 0 10px}' +
@@ -84,7 +85,7 @@
     var rows = (o.rows || []).slice().sort(function (a, b) { return b.value - a.value || String(a.name).localeCompare(String(b.name)); });
     var head = '<h3 class="gc-h">' + esc(o.title) + '</h3>';
     if (!rows.length) return head + '<p class="gc-sum">' + esc(o.empty) + '</p>';
-    var top = rows.slice(0, o.top || 10), max = Math.max.apply(null, top.map(function (r) { return r.value; })) || 1;
+    var top = rows.slice(0, o.top || 10), max = o.max || Math.max.apply(null, top.map(function (r) { return r.value; })) || 1;
     var list = '<ul class="gc-bars">' + top.map(function (r) {
       var w = Math.max(1, Math.round(r.value / max * 1000) / 10);
       return '<li class="gc-bar"><span class="gc-name">' + esc(r.name) + '</span><span class="gc-track" aria-hidden="true"><span class="gc-fill" style="width:' + w + '%"></span></span><span class="gc-val">' + esc(fmt(r.value, o.loc)) + '</span></li>';
