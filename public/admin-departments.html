@@ -10,7 +10,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.dp_page_title">GrievIQ Admin — Departments</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=36"></script><script src="/admin-nav.js?v=r9"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=37"></script><script src="/admin-nav.js?v=r9"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -298,6 +298,14 @@
   .op-person .sub { display: block; color: var(--admin-muted); font-size: 12.5px; margin-top: 2px; }
   .op-person.removed b { text-decoration: line-through; }
   .op-form { margin-top: 8px; }
+  /* grieviq-37: the agreement to print and its signed copy */
+  .op-doc { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 8px; font-size: 14px; }
+  .op-doc a { color: var(--admin-link, #8fb0ff); display: inline-flex; align-items: center; min-height: 32px; }
+  .op .op-copy { margin: 0 0 6px; font-size: 14px; }
+  .op .op-copy.missing { color: var(--admin-muted); }
+  .op-person .sub.rules-ok { color: var(--admin-ok, #7fd29a); }
+  .op-person .sub.rules-no { color: var(--admin-warn, #f0c46a); }
+  html.light-theme { --admin-link: #1F4A8A; --admin-ok: #1E6B3E; --admin-warn: #7A5A12; }
   .op-act ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
   .op-act summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; font-weight: 600; font-size: 13.5px; }
   html.light-theme { --admin-danger: #a8332a; --dp-link: #2a55c4; --dp-primary: #2a55c4; }
@@ -552,6 +560,20 @@ function renderOfficers(o) {
     if (active) agr = '<p class="op-agr">' + esc(T("adm.do_agr_on", { date: fmtDate(a.signedOn), by: a.signedBy, ref: a.documentRef })) + "</p>";
     else if (a) agr = '<p class="op-agr warn">' + esc(T("adm.do_agr_ended", { date: fmtDate(String(a.endedAt).slice(0, 10)), why: a.endReason || "" })) + "</p>";
     else agr = '<p class="op-agr warn">' + esc(T("adm.do_agr_none")) + "</p>";
+    // grieviq-37: the agreement to print, and the signed copy.
+    let doc = '<div class="op-doc"><a href="/admin-dept-agreement.html?office=' + encodeURIComponent(o.id) + '" target="_blank" rel="noopener" id="op-print">' + esc(T("adm.do_print")) + '<span class="sr-only"> ' + esc(T("adm.do_new_tab")) + "</span></a>";
+    if (a && a.copy) doc += '<a href="/api/admin/dept-agreement-copy?office=' + encodeURIComponent(o.id) + '" id="op-copy-open">' + esc(T("adm.do_copy_open")) + "</a>";
+    doc += "</div>";
+    if (a) doc += a.copy
+      ? '<p class="op-copy">✓ ' + esc(T("adm.do_copy_on", { type: a.copy.type === "application/pdf" ? "PDF" : String(a.copy.type).replace("image/", "").toUpperCase(), size: a.copy.size >= 1048576 ? (a.copy.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(a.copy.size / 1024)) + " KB", date: fmtDate(String(a.copy.uploadedAt).slice(0, 10)), who: a.copy.uploadedBy })) + "</p>"
+      : '<p class="op-copy missing">' + esc(T("adm.do_copy_none")) + "</p>";
+    if (a && manage) {
+      const ce = op.copyErr ? T("adm.do_copy_e_" + op.copyErr) : "";
+      doc += '<form id="op-copy-form" novalidate class="op-form"><div class="form-row"><label for="op-copy-file">' + esc(T(a.copy ? "adm.do_copy_l_replace" : "adm.do_copy_l")) + '</label><p class="hint" id="op-copy-hint">' + esc(T("adm.do_copy_h")) + "</p>" +
+        '<input type="file" id="op-copy-file" accept="application/pdf,image/jpeg,image/png,image/webp" aria-describedby="op-copy-hint' + (ce ? " op-copy-err" : "") + '"' + (ce ? ' aria-invalid="true"' : "") + ">" +
+        (ce ? '<div class="field-err" id="op-copy-err">' + esc(ce) + "</div>" : "") + '</div><div class="actions"><button type="submit" id="op-copy-go"' + (op.copyBusy ? " disabled" : "") + ">" + esc(T(op.copyBusy ? "adm.do_copy_busy" : "adm.do_copy_go")) + "</button></div></form>";
+    }
+    agr = agr + doc;   // the agreement's status first, then its documents
     const showAgrForm = manage && (op.agrOpen || !a);
     if (showAgrForm) {
       const f = op.agr, e = op.agrErr || {};
@@ -573,7 +595,11 @@ function renderOfficers(o) {
       const rm = op.removeFor && op.removeFor.id === x.id;
       return '<li class="op-person' + (x.status !== "ACTIVE" ? " removed" : "") + '"><div><b>' + esc(x.name) + "</b> · " + esc(x.designation) + '<span class="sub">' + esc(x.email) + "</span>" +
         '<span class="sub">' + esc(x.status === "ACTIVE" ? T("adm.do_added", { date: fmtDate(String(x.addedAt).slice(0, 10)), who: x.addedBy }) + " · " + (x.lastSignedIn ? T("adm.do_last_in", { date: fmtDate(String(x.lastSignedIn).slice(0, 10)) }) : T("adm.do_never_in"))
-          : T("adm.do_removed", { date: fmtDate(String(x.removedAt).slice(0, 10)), why: x.removeReason || "" })) + "</span></div>" +
+          : T("adm.do_removed", { date: fmtDate(String(x.removedAt).slice(0, 10)), why: x.removeReason || "" })) + "</span>" +
+        // grieviq-37: whether they accepted the rules for officers
+        (x.status === "ACTIVE" && d.rulesVersion ? (x.rulesVersion === d.rulesVersion
+          ? '<span class="sub rules-ok">✓ ' + esc(T("adm.do_rules_ok", { v: x.rulesVersion, date: fmtDate(String(x.rulesAcceptedAt || "").slice(0, 10)) })) + "</span>"
+          : '<span class="sub rules-no">' + esc(T(x.rulesVersion ? "adm.do_rules_old" : "adm.do_rules_none")) + "</span>") : "") + "</div>" +
         (manage && x.status === "ACTIVE" && !rm ? '<button type="button" class="danger" data-op-remove="' + esc(x.id) + '">' + esc(T("adm.do_remove")) + '<span class="sr-only"> ' + esc(x.name) + "</span></button>" : "") +
         (rm ? '<form id="op-rm-form" novalidate class="op-form" style="flex-basis:100%">' + opField("op-rm-reason", "reason", op.removeFor.reason, { label: T("adm.do_l_rm_reason"), area: true, max: 500, err: op.removeFor.err }) +
           '<div class="actions"><button type="submit" class="danger" id="op-rm-go">' + esc(T("adm.do_remove_go", { name: x.name })) + '</button><button type="button" id="op-rm-cancel">' + esc(T("adm.dp_cancel")) + "</button></div></form>" : "") +
@@ -631,6 +657,26 @@ function wireOfficers() {
     const res = await opPost(Object.assign({ action: "agreement_save", officeId: oid }, op.agr), T("adm.do_agr_saved"));
     if (res.fields) { op.agrErr = res.fields; const first = { signedOn: "op-signed-on", signedBy: "op-signed-by", documentRef: "op-doc", notes: "op-notes" }[Object.keys(res.fields)[0]]; render(first); return; }
     op.agrOpen = false; op.agrErr = {}; await loadOfficers(oid, "op-msg");
+  });
+  on("op-copy-form", "submit", async (e) => {
+    e.preventDefault();
+    const inp = document.getElementById("op-copy-file"), f = inp && inp.files && inp.files[0];
+    op.msg = null;
+    if (!f) { op.copyErr = "none"; render("op-copy-file"); return; }
+    if (f.size > 10 * 1024 * 1024) { op.copyErr = "big"; render("op-copy-file"); return; }
+    op.copyErr = null; op.copyBusy = true; render("op-copy-go");
+    const fd = new FormData(); fd.append("file", f);
+    let r;
+    try { const x = await fetch("/api/admin/dept-agreement-copy?office=" + encodeURIComponent(oid), { method: "POST", body: fd, credentials: "same-origin" }); r = { ok: x.ok, status: x.status, body: await x.json().catch(() => ({})) }; }
+    catch (err) { r = { ok: false, status: 0, body: {} }; }
+    op.copyBusy = false;
+    if (!r.ok) {
+      const c = r.body.code;
+      op.copyErr = c === "BAD_TYPE" ? "type" : c === "TOO_BIG" ? "big" : c === "NO_FILE" ? "none" : c === "NOT_SET_UP" ? "setup" : "generic";
+      render("op-copy-file"); return;
+    }
+    op.msg = { text: T("adm.do_copy_done") };
+    await loadOfficers(oid, "op-msg");
   });
   on("op-end-open", "click", () => { op.msg = null; op.endOpen = true; op.endReason = ""; op.endErr = null; render("op-end-reason"); });
   on("op-end-cancel", "click", () => { op.endOpen = false; render("op-end-open"); });

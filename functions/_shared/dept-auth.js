@@ -17,6 +17,7 @@
 // is recorded and not ended.
 
 import { randomToken, sha256Hex, readCookie } from "./rep-session.js";
+import { rulesPending } from "./dept-rules.js";
 
 export const COOKIE = "__Host-giq_dept";
 export const IDLE_MINUTES = 60;
@@ -142,6 +143,7 @@ export async function verifyCode(env, emailIn, codeIn) {
 }
 
 // The signed-in officer for this request: { ok, officer } or { ok: false, status, error }.
+// opts.allowRules: the rules page itself (grieviq-37).
 // opts.noTouch: the bell checking every minute doesn't count as activity
 // (the 60-minute idle sign-out still happens, NIST SP 800-63B).
 export async function getVerifiedOfficer(request, env, opts) {
@@ -171,6 +173,8 @@ export async function getVerifiedOfficer(request, env, opts) {
     await env.DB.prepare("UPDATE dept_sessions SET ended_at = ?, end_reason = 'ACCESS_ENDED' WHERE id_hash = ?").bind(new Date(now).toISOString(), s.id_hash).run();
     return { ok: false, status: 401, error: "SIGNED_OUT" };
   }
+  // grieviq-37: nothing but the rules until the officer has accepted them.
+  if (!(opts && opts.allowRules) && rulesPending(officer)) return { ok: false, status: 403, error: "RULES", officer };
   if (!(opts && opts.noTouch) && now - Date.parse(s.last_seen_at) >= TOUCH_EVERY_MS) {
     await env.DB.prepare("UPDATE dept_sessions SET last_seen_at = ? WHERE id_hash = ?").bind(new Date(now).toISOString(), s.id_hash).run();
   }

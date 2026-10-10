@@ -123,6 +123,7 @@ export const PAGES = {
   "admin-departments": "view_departments",
   "admin-ratings": "view_ratings",
   "admin-dept-performance": "view_dept_performance",
+  "admin-dept-agreement": "view_dept_officers",   // grieviq-37: the agreement to print (opened from Departments)
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

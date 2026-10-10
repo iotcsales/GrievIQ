@@ -573,6 +573,20 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   r = await call("", "POST", "/api/dept/verify", { email: OFF, code });
   ok(r.status === 401, "a code works once", r.body);
   ok((await dcall("GET", "/api/dept/cases", null, "")).status === 401, "no session: refused");
+  // grieviq-37: rules for officers first
+  r = await dcall("GET", "/api/dept/cases");
+  ok(r.status === 403 && r.body.error === "RULES", "no cases until the rules are accepted", r.body);
+  ok((await dcall("POST", "/api/dept/reply", { id: "g20", kind: "IN_PROGRESS" })).status === 403, "no replies until the rules are accepted");
+  r = await dcall("GET", "/api/dept/rules");
+  ok(r.status === 200 && r.body.version === "1" && r.body.pending === true && r.body.accepted === null, "rules: current version, not yet accepted", r.body);
+  r = await dcall("POST", "/api/dept/rules", { version: "1" });
+  ok(r.status === 400 && r.body.fields.agree, "rules: the box must be ticked", r.body);
+  r = await dcall("POST", "/api/dept/rules", { version: "0", agree: true });
+  ok(r.status === 409 && r.body.code === "VERSION", "rules: an old version can't be accepted", r.body);
+  r = await dcall("POST", "/api/dept/rules", { version: "1", agree: true });
+  ok(r.status === 200 && sdb.prepare("SELECT rules_version FROM dept_officers WHERE email = ?").get(OFF).rules_version === "1" &&
+    sdb.prepare("SELECT COUNT(*) n FROM dept_access_log WHERE action = 'RULES_ACCEPTED'").get().n === 1, "rules accepted, recorded on the officer and in the log", r.body);
+  ok((await dcall("GET", "/api/dept/rules")).body.accepted.version === "1", "rules: accepted version and date returned");
   // the list
   r = await dcall("GET", "/api/dept/cases");
   const row = r.body.cases && r.body.cases.find((c) => c.id === "g20");
@@ -737,6 +751,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: OFF2, code }) });
   const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
   ok(vr.status === 200 && CK, "second officer signed in");
+  await fetch(B + "/api/dept/rules", { method: "POST", headers: { cookie: CK, "content-type": "application/json" }, body: JSON.stringify({ version: "1", agree: true }) });
   const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9, 3, 4, 5, 6, 7, 8]);
   const fd = new FormData(); fd.append("photo", new Blob([png], { type: "image/png" }), "w.png");
   fd.append("dev_status", "OK"); fd.append("dev_lat", "26.4499"); fd.append("dev_lng", "80.3318"); fd.append("dev_acc", "12");
@@ -857,6 +872,45 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 200 && !sdb.prepare("SELECT id FROM push_subscriptions WHERE id = 'ps-sunil'").get() && sdb.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(EP), "removed officer's devices dropped; others kept");
   r = await dn("POST", { action: "unsubscribe", endpoint: EP });
   ok(r.status === 200 && !sdb.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(EP), "officer turns alerts off");
+}
+
+// ---- the agreement inside GrievIQ (grieviq-37) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const jal = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn === "Jal Kal Vibhag Lucknow");
+  const other = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn !== "Jal Kal Vibhag Lucknow" && !sdb.prepare("SELECT 1 FROM dept_agreements WHERE office_id = ?").get(o.id));
+  const upload = async (who, office, bytes, type) => {
+    const fd = new FormData(); fd.append("file", new Blob([bytes], { type: type || "application/pdf" }), "signed.pdf");
+    const x = await fetch(B + "/api/admin/dept-agreement-copy?office=" + encodeURIComponent(office), { method: "POST", headers: { "test-email": who }, body: fd });
+    return { status: x.status, body: await x.json() };
+  };
+  const pdf = new TextEncoder().encode("%PDF-1.4\n% signed agreement test\n%%EOF\n");
+  let r = await call(S, "GET", "/api/admin/dept-officers?office=" + jal.id);
+  ok(r.body.rulesVersion === "1" && r.body.office.areaName === "Lucknow" && r.body.agreement && r.body.agreement.copy === null, "admin: rules version, office place, no signed copy yet", r.body.office);
+  const ravi = r.body.officers.find((x) => x.email === "ae.zone3@nic.in");
+  ok(ravi && ravi.rulesVersion === "1" && ravi.rulesAcceptedAt, "admin sees the officer accepted the rules", ravi);
+  if (other) { r = await upload(S, other.id, pdf); ok(r.status === 409 && r.body.code === "NO_AGREEMENT", "no signed copy before the agreement is recorded", r.body); }
+  r = await upload(S, jal.id, new TextEncoder().encode("hello, not a pdf"), "application/pdf");
+  ok(r.status === 400 && r.body.code === "BAD_TYPE", "only PDF or images", r.body);
+  r = await upload(D, jal.id, pdf);
+  ok(r.status === 403, "data entry operator can't upload");
+  r = await upload(A, jal.id, pdf);
+  ok(r.status === 403, "auditor can't upload");
+  r = await upload(O, jal.id, pdf);
+  ok(r.status === 200 && r.body.copy.type === "application/pdf" && r.body.copy.size === pdf.length, "operations admin uploads the signed PDF", r.body);
+  const row = sdb.prepare("SELECT copy_key, copy_uploaded_by FROM dept_agreements WHERE office_id = ?").get(jal.id);
+  ok(/^agreements\//.test(row.copy_key) && row.copy_uploaded_by === O, "stored privately under agreements/");
+  r = await call(A, "GET", "/api/admin/dept-officers?office=" + jal.id);
+  ok(r.body.agreement.copy && !JSON.stringify(r.body).includes("agreements/"), "copy details shown, storage key never sent", r.body.agreement.copy);
+  const dl = await fetch(B + "/api/admin/dept-agreement-copy?office=" + jal.id, { headers: { "test-email": A } });
+  const dlb = new Uint8Array(await dl.arrayBuffer());
+  ok(dl.status === 200 && dl.headers.get("content-type") === "application/pdf" && /attachment; filename="agreement-Jal-Kal-Vibhag-Lucknow\.pdf"/.test(dl.headers.get("content-disposition") || "") && dl.headers.get("cache-control") === "no-store" && dlb.length === pdf.length, "auditor downloads it", dl.headers.get("content-disposition"));
+  ok((await fetch(B + "/api/admin/dept-agreement-copy?office=" + jal.id, { headers: { "test-email": D } })).status === 403, "data entry operator can't download");
+  r = await upload(S, jal.id, new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]), "image/jpeg");
+  ok(r.status === 200 && r.body.copy.type === "image/jpeg", "a photo of the signed page replaces it");
+  const ev = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'dept_agreement_copy%'").all().map((x) => x.action);
+  ok(ev.includes("dept_agreement_copy_uploaded") && ev.includes("dept_agreement_copy_replaced") && ev.includes("dept_agreement_copy_viewed"), "upload, replacement and download are logged", ev);
 }
 
 // ---- daily limits on filing complaints (grieviq-36) ----

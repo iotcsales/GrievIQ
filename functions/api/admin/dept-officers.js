@@ -14,6 +14,7 @@
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { officersReady, endOfficerSessions, EMAIL_RE } from "../../_shared/dept-auth.js";
+import { RULES_VERSION } from "../../_shared/dept-rules.js";
 
 const json = (b, s) => Response.json(b, { status: s || 200, headers: { "Cache-Control": "no-store" } });
 const NOT_SET_UP = { error: "The department dashboard isn't set up yet. Run the database update part25-department-officers.sql.", code: "NOT_SET_UP" };
@@ -26,11 +27,14 @@ async function logAdmin(env, actor, action, target, detail) {
 }
 function shapeAgreement(a) {
   return a ? { signedOn: a.signed_on, signedBy: a.signed_by, documentRef: a.document_ref, notes: a.notes || "", recordedBy: a.recorded_by, recordedAt: a.recorded_at,
-    updatedAt: a.updated_at, endedAt: a.ended_at || null, endedBy: a.ended_by || null, endReason: a.end_reason || null } : null;
+    updatedAt: a.updated_at, endedAt: a.ended_at || null, endedBy: a.ended_by || null, endReason: a.end_reason || null,
+    // grieviq-37: the signed copy (its storage key is never sent).
+    copy: a.copy_key ? { type: a.copy_type, size: a.copy_size, uploadedAt: a.copy_uploaded_at, uploadedBy: a.copy_uploaded_by } : null } : null;
 }
 function shapeOfficer(o) {
   return { id: o.id, name: o.name, designation: o.designation, email: o.email, status: o.status, addedBy: o.added_by, addedAt: o.added_at,
-    removedBy: o.removed_by || null, removedAt: o.removed_at || null, removeReason: o.remove_reason || null, lastSignedIn: o.last_signed_in || null };
+    removedBy: o.removed_by || null, removedAt: o.removed_at || null, removeReason: o.remove_reason || null, lastSignedIn: o.last_signed_in || null,
+    rulesVersion: o.rules_version || null, rulesAcceptedAt: o.rules_accepted_at || null };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -38,7 +42,7 @@ export async function onRequestGet({ request, env }) {
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await officersReady(env))) return json(Object.assign({ ready: false }, NOT_SET_UP), 503);
   const officeId = String(new URL(request.url).searchParams.get("office") || "");
-  const office = await env.DB.prepare("SELECT id, name_en, name_hi, retired_at FROM dept_offices WHERE id = ?").bind(officeId).first();
+  const office = await env.DB.prepare("SELECT d.id, d.name_en, d.name_hi, d.retired_at, d.address, d.area_id, ar.name AS area_name, ar.state AS area_state FROM dept_offices d LEFT JOIN areas ar ON ar.id = d.area_id WHERE d.id = ?").bind(officeId).first();
   if (!office) return json({ error: "NOT_FOUND" }, 404);
   const [a, os, log] = await env.DB.batch([
     env.DB.prepare("SELECT * FROM dept_agreements WHERE office_id = ?").bind(officeId),
@@ -50,7 +54,9 @@ export async function onRequestGet({ request, env }) {
   const nameOf = Object.fromEntries((os.results || []).map((o) => [o.id, o.name]));
   return json({
     ready: true, canManage: canManage(auth),
-    office: { id: office.id, nameEn: office.name_en, nameHi: office.name_hi || null, retired: !!office.retired_at },
+    office: { id: office.id, nameEn: office.name_en, nameHi: office.name_hi || null, retired: !!office.retired_at,
+      address: office.address || null, areaId: office.area_id || null, areaName: office.area_name || null, state: office.area_state || null },
+    rulesVersion: RULES_VERSION,
     agreement: shapeAgreement((a.results || [])[0]),
     officers,
     activity: (log.results || []).map((l) => {

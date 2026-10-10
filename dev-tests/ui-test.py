@@ -1258,6 +1258,100 @@ with sync_playwright() as pw:
     ok(not errs, "no script errors (blocked alerts)", errs)
     ctx.close()
 
+    # ---------- The agreement inside GrievIQ; rules for officers (grieviq-37) ----------
+    def reset_rules():
+        d = _sq.connect(WORK + "/test.db", timeout=10)
+        d.execute("UPDATE dept_officers SET rules_version = NULL, rules_accepted_at = NULL WHERE email = 'ae.zone3@nic.in'"); d.commit(); d.close()
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                reset_rules()
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ok(dept_signin(ctx) == 200, "signed in " + tag)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/dept"); p.wait_for_selector("#rules-h")
+                ok(p.locator("ol.rules li").count() == 7 and p.locator(".tiles").count() == 0, "rules shown first, no cases " + tag)
+                ok(p.evaluate("document.activeElement.id") == "rules-h", "focus on the rules heading " + tag)
+                txt = p.inner_text("main")
+                if lang == "en":
+                    ok("Rules for officers" in txt and "Never share your sign-in code" in txt and "security@grieviq.in" in txt, "rules wording " + tag, txt[:300])
+                else:
+                    ok("अधिकारियों के लिए नियम" in txt and not re.findall(r"dd\.\w+", txt), "rules in Hindi " + tag, txt[:300])
+                p.click("#rules-go"); p.wait_for_timeout(150)
+                ok(p.inner_text("#rules-err") != "" and p.get_attribute("#rules-agree", "aria-invalid") == "true" and p.evaluate("document.activeElement.id") == "rules-agree", "must tick the box; focus moves to it " + tag)
+                ok(no_hscroll(p), "rules: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "rules contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "rules targets >= 24px " + tag, small[:5])
+                shot(p, "39-rules-" + tag, full=(width == 375))
+                p.check("#rules-agree")
+                with p.expect_response(lambda r: "/api/dept/rules" in r.url and r.request.method == "POST"): p.click("#rules-go")
+                p.wait_for_selector(".tiles")
+                ok(p.locator("#rn-bell").count() == 1, "after accepting: cases and bell " + tag)
+                p.click("#rules-link"); p.wait_for_selector("#rules-h")
+                ok(("You accepted these rules (version 1) on" in p.inner_text("main")) if lang == "en" else ("आपने ये नियम (संस्करण 1)" in p.inner_text("main")), "footer link: rules with the date accepted " + tag)
+                p.click("#rules-back"); p.wait_for_selector(".tiles")
+                ok(not errs, "no script errors (rules) " + tag, errs)
+                ctx.close()
+    # Admin: the agreement to print, the signed copy, who accepted the rules
+    d = _sq.connect(WORK + "/test.db", timeout=10)
+    jal_id = d.execute("SELECT id FROM dept_offices WHERE name_en = 'Jal Kal Vibhag Lucknow'").fetchone()[0]
+    d.close()
+    for theme in (None, "light"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme or "dark", lang)
+            ctx, p, errs = P("super@test.in", theme=theme, lang=lang)
+            p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+            p.locator("article:has-text('Jal Kal Vibhag Lucknow') [data-officers]").click(); p.wait_for_selector(".op h5")
+            ptxt = p.inner_text(".op")
+            if lang == "en":
+                ok("Download agreement to sign" in ptxt and "Signed copy on file:" in ptxt and "Download signed copy" in ptxt and "Replace the signed copy" in ptxt, "agreement panel: print, signed copy, replace " + tag, ptxt[:500])
+                ok("Accepted the rules (v1)" in ptxt, "officer row: rules accepted " + tag)
+            else:
+                ok("हस्ताक्षर हेतु समझौता डाउनलोड करें" in ptxt and not re.findall(r"adm\.do_\w+", ptxt), "agreement panel in Hindi " + tag)
+            bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.op')", 1)); ok(not bad, "agreement panel contrast AA " + tag, bad[:5])
+            if lang == "en" and theme is None:
+                p.click("#op-copy-go"); p.wait_for_timeout(150)
+                ok(p.get_attribute("#op-copy-file", "aria-invalid") == "true" and "Choose the file" in p.inner_text("#op-copy-err"), "upload: file needed " + tag)
+                with p.expect_response(lambda r: "dept-agreement-copy" in r.url and r.request.method == "POST"):
+                    p.set_input_files("#op-copy-file", files=[{"name": "signed.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4\n%test\n%%EOF\n"}]); p.click("#op-copy-go")
+                p.wait_for_selector("#op-msg")
+                ok("Signed copy uploaded." in p.inner_text("#op-msg") and "Signed copy on file: PDF" in p.inner_text(".op"), "signed PDF uploaded from the page " + tag)
+                href = p.get_attribute("#op-print", "href")
+                ok(href == "/admin-dept-agreement.html?office=" + jal_id and p.get_attribute("#op-print", "target") == "_blank", "print link opens the agreement in a new tab " + tag)
+            p.locator(".op").screenshot(path=os.path.join(SHOTS, "40-agreement-panel-" + tag + ".png"))
+            ok(not errs, "no script errors (agreement panel) " + tag, errs)
+            ctx.close()
+    ctx, p, errs = P("audit@test.in")
+    p.goto(B + "/admin-departments.html?area=lucknow"); p.wait_for_selector(".office")
+    p.locator("article:has-text('Jal Kal Vibhag Lucknow') [data-officers]").click(); p.wait_for_selector(".op h5")
+    ok(p.locator("#op-copy-open").count() == 1 and p.locator("#op-copy-form").count() == 0, "auditor: can download the signed copy, can't upload")
+    ctx.close()
+    # The agreement to print
+    for width in (1280, 375):
+        ctx, p, errs = P("super@test.in", width=width)
+        p.goto(B + "/admin-dept-agreement.html?office=" + jal_id); p.wait_for_selector("article.sheet h1")
+        en = p.inner_text("article[lang=en]"); hi_t = p.inner_text("article[lang=hi]")
+        ok("GrievIQ Department Participation Agreement" in en and "Jal Kal Vibhag Lucknow" in en and "Lucknow, Uttar Pradesh" in en and "Ravi Kumar" in en, "agreement filled in for the office, officers listed (%d)" % width, en[:300])
+        ok("GrievIQ विभाग सहभागिता समझौता" in hi_t and "Ravi Kumar" in hi_t, "Hindi agreement on its own page (%d)" % width)
+        ok("Asha Verma" not in en, "removed officers not listed (%d)" % width)
+        ok(no_hscroll(p), "agreement page: no sideways scroll (%d)" % width)
+        bad = p.evaluate(CONTRAST_JS); ok(not bad, "agreement page contrast AA (%d)" % width, bad[:5])
+        ok(p.is_visible("#print"), "print button (%d)" % width)
+        p.emulate_media(media="print"); p.wait_for_timeout(100)
+        ok(not p.is_visible("#print") and not p.is_visible("#note"), "print: buttons and note hidden (%d)" % width)
+        p.emulate_media(media="screen")
+        shot(p, "41-agreement-%d" % width, full=False)
+        if width == 1280: p.pdf(path=os.path.join(SHOTS, "41-agreement.pdf"), format="A4") if hasattr(p, "pdf") else None
+        ok(not errs, "no script errors (agreement page %d)" % width, errs)
+        ctx.close()
+    ctx, p, errs = P("deo@test.in")
+    p.goto(B + "/admin-dept-agreement.html?office=" + jal_id); p.wait_for_selector(".err")
+    ok("can't open department agreements" in p.inner_text(".err"), "data entry operator: agreement page refused")
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))
