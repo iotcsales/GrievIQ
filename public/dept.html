@@ -88,9 +88,16 @@
   .desc { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--paper); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; }
   .photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .photos img { width: 104px; height: 104px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; }
+  /* grieviq-34: checks on the department's photos (distance from the spot, date, reuse). */
+  .photo-item { max-width: 260px; }
+  .ev-list { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13px; line-height: 1.4; }
+  .ev-list li { margin-top: 2px; }
+  .ev-list li.warn { color: var(--brick); font-weight: 600; }
+  .ev-list li.ok { color: var(--green); font-weight: 600; }
+  .ev-list li.info { color: var(--ink-soft); }
   ol.steps { list-style: none; margin: 0; padding: 0 0 0 4px; border-left: 2px solid var(--grey-line); }
-  ol.steps li { position: relative; padding: 2px 0 12px 16px; font-size: 14px; }
-  ol.steps li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--teal); }
+  ol.steps > li { position: relative; padding: 2px 0 12px 16px; font-size: 14px; }
+  ol.steps > li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--teal); }
   ol.steps .w { display: block; font-size: 12.5px; color: var(--ink-soft); }
   ol.steps .n { display: block; margin-top: 2px; overflow-wrap: anywhere; }
   fieldset { border: 0; padding: 0; margin: 10px 0 0; }
@@ -106,7 +113,8 @@
   footer a { color: var(--link); display: inline-block; min-height: 24px; padding-top: 3px; }
   [hidden] { display: none !important; }
 </style>
-<script src="/i18n.js?v=33"></script>
+<script src="/i18n.js?v=34"></script>
+<script src="/photo-tools.js?v=7c"></script>
 </head>
 <body>
 <div class="trust-strip"><span data-i18n="dd.strip">GrievIQ for government departments</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -124,6 +132,63 @@
   function T(k, v) { return window.GIQ ? GIQ.t(k, v) : k; }
   function loc() { return window.GIQ ? GIQ.locale() : "en-IN"; }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  // grieviq-34: the checks on a "work done" photo. who: "you" while adding
+  // it, "dept" in the history (any officer of the office may have added it).
+  var EV = { DATE_BEFORE_FILING: "rep.ev_date_before", DATE_FUTURE: "rep.ev_date_future", FAR_FROM_PIN: "rep.ev_far", NEAR_PIN: "rep.ev_near",
+    CITIZEN_PHOTO: "rep.ev_citizen", NO_DATE: "rep.ev_no_date", NO_LOCATION: "rep.ev_no_location", NO_PIN: "rep.ev_no_pin",
+    DEVICE_FAR_FROM_PIN: "rep.ev_dev_far", DEVICE_NEAR_PIN: "rep.ev_dev_near", DEVICE_OUTSIDE_WARD: "rep.ev_dev_outside", DEVICE_IN_WARD: "rep.ev_dev_in_ward",
+    PHOTO_OUTSIDE_WARD: "rep.ev_photo_outside", PHOTO_IN_WARD: "rep.ev_photo_in_ward", DEVICE_NOT_SHARED: "rep.ev_dev_not_shared", DEVICE_ROUGH: "rep.ev_dev_rough" };
+  var EVD = { DEVICE_FAR_FROM_PIN: "rep.evd_dev_far", DEVICE_NEAR_PIN: "rep.evd_dev_near", DEVICE_OUTSIDE_WARD: "rep.evd_dev_outside", DEVICE_IN_WARD: "rep.evd_dev_in_ward",
+    DEVICE_NOT_SHARED: "rep.evd_dev_not_shared", DEVICE_ROUGH: "rep.evd_dev_rough", NO_LOCATION: "rep.evd_no_location" };
+  var EV_OK = { DEVICE_NEAR_PIN: 1, DEVICE_IN_WARD: 1, NEAR_PIN: 1, PHOTO_IN_WARD: 1 };
+  function checkText(w, who) {
+    if (w.code === "REUSED_OTHER_CASE") return T(w.kind === "similar" ? "rep.ev_similar" : "rep.ev_reused");
+    var key = (who === "dept" && EVD[w.code]) || EV[w.code];
+    if (!key) return "";
+    if (w.metres != null && (w.code === "DEVICE_OUTSIDE_WARD" || w.code === "PHOTO_OUTSIDE_WARD")) key += "_d";
+    return T(key, { dist: window.GIQ && GIQ.distance ? GIQ.distance(w.metres) : w.metres + " m", acc: w.accuracy, date: w.takenAt ? day(w.takenAt) : "" });
+  }
+  function checksHtml(list, who) {
+    var rank = function (w) { return w.level === "warn" ? 0 : EV_OK[w.code] ? 1 : 2; };   // problems first
+    var items = (list || []).slice().sort(function (a, b) { return rank(a) - rank(b); }).map(function (w) {
+      var t = checkText(w, who);
+      if (!t) return "";
+      var cls = w.level === "warn" ? "warn" : EV_OK[w.code] ? "ok" : "info";
+      return '<li class="' + cls + '">' + (cls === "warn" ? "⚠ " : cls === "ok" ? "✓ " : "") + esc(t) + "</li>";
+    }).join("");
+    return items ? '<ul class="ev-list">' + items + "</ul>" : "";
+  }
+  // The phone's location, with the officer's permission (the browser asks).
+  // Same as the representative's page: a precise fix, then a rougher one.
+  function currentLocation() {
+    function ask(high, timeout) {
+      return new Promise(function (resolve) {
+        navigator.geolocation.getCurrentPosition(function (pos) { resolve({ status: "OK", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() }); },
+          function (err) { resolve({ status: err && err.code === 1 ? "DENIED" : "UNAVAILABLE", at: Date.now() }); },
+          { enableHighAccuracy: high, timeout: timeout, maximumAge: 60000 });
+      });
+    }
+    if (!navigator.geolocation) return Promise.resolve({ status: "UNAVAILABLE", at: Date.now() });
+    var safety = new Promise(function (resolve) { setTimeout(function () { resolve({ status: "UNAVAILABLE", at: Date.now() }); }, 120000); });
+    return Promise.race([ask(true, 20000).then(function (r) { return r.status === "UNAVAILABLE" ? ask(false, 20000) : r; }), safety]);
+  }
+  function locText(r) {
+    if (r.locating && !r.loc) return T("rep.r_loc_finding");
+    if (!r.loc) return "";
+    return r.loc.status === "OK" ? T("rep.r_loc_ok", { m: Math.round(r.loc.acc || 0) }) : r.loc.status === "DENIED" ? T("rep.r_loc_no") : T("rep.r_loc_unavailable");
+  }
+  function getLocation(r) {
+    if (r.loc && r.loc.status === "OK" && Date.now() - r.loc.at < 120000) return Promise.resolve(r.loc);
+    if (r.locPromise && r.locating) return r.locPromise;
+    r.locating = true;
+    var el = document.getElementById("r-loc"); if (el) el.textContent = locText(r);
+    r.locPromise = currentLocation().then(function (loc) {
+      r.loc = loc; r.locating = false;
+      var e2 = document.getElementById("r-loc"); if (e2) e2.textContent = locText(r);
+      return loc;
+    });
+    return r.locPromise;
+  }
   function day(d) { if (!d) return ""; var x = new Date(String(d).length === 10 ? d + "T00:00:00+05:30" : d); return isNaN(x) ? d : x.toLocaleDateString(loc(), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
   function dayTime(d) { var x = new Date(d); return isNaN(x) ? "" : x.toLocaleString(loc(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
   function dept(k) { return window.GIQ ? GIQ.dept(k) : k; }
@@ -299,7 +364,7 @@
     var map = c.pin ? '<a href="https://www.google.com/maps?q=' + c.pin.lat + "," + c.pin.lng + '" target="_blank" rel="noopener noreferrer">' + esc(T("dd.open_map")) + '<span class="sr-only"> ' + esc(T("dd.new_tab")) + "</span></a>" : esc(T("dd.no_pin"));
     var steps = '<ol class="steps">' + c.steps.map(function (x) {
       var by = x.by === "DEPARTMENT" ? T("dd.by_officer", { name: x.byName || "" }) : T("dd.by_office");
-      var ph = (x.photos || []).length ? '<div class="photos">' + x.photos.map(function (p, i) { return p.thumbUrl ? '<a href="' + esc(p.url || p.thumbUrl) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl) + '" alt="' + esc(T("dd.work_photo_alt", { n: i + 1 })) + '" loading="lazy"></a>' : ""; }).join("") + "</div>" : "";
+      var ph = (x.photos || []).length ? '<div class="photos">' + x.photos.map(function (p, i) { return p.thumbUrl ? '<div class="photo-item"><a href="' + esc(p.url || p.thumbUrl) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl) + '" alt="' + esc(T("dd.work_photo_alt", { n: i + 1 })) + '" loading="lazy"></a>' + checksHtml(p.warnings, "dept") + "</div>" : ""; }).join("") + "</div>" : "";
       return "<li>" + esc(stepText(x)) + '<span class="w">' + esc(dayTime(x.at) + " · " + by) + "</span>" + (x.note ? '<span class="n">' + esc(x.note) + "</span>" : "") + ph + "</li>";
     }).join("") + "</ol>";
     var form = "";
@@ -311,9 +376,10 @@
         '<div class="err" id="kind-err" role="alert">' + esc(e.kind || "") + "</div></fieldset>" +
         (r.kind === "SCHEDULED" ? '<label for="r-date">' + esc(T("dd.r_date")) + '</label><input type="date" id="r-date" min="' + today() + '" value="' + esc(r.date) + '" aria-describedby="date-err"' + (e.date ? ' aria-invalid="true"' : "") + '><div class="err" id="date-err" role="alert">' + esc(e.date || "") + "</div>" : "") +
         (r.kind === "NOT_OURS" ? '<label for="r-sugg">' + esc(T("dd.r_sugg")) + '</label><select id="r-sugg"><option value="">' + esc(T("dd.r_sugg_none")) + "</option>" + S.data.departments.map(function (k) { return '<option value="' + esc(k) + '"' + (r.sugg === k ? " selected" : "") + ">" + esc(dept(k)) + "</option>"; }).join("") + "</select>" : "") +
-        (r.kind === "DONE_CLAIMED" ? '<label for="r-photo">' + esc(T("dd.r_photos")) + '</label><p class="hint" id="photo-hint">' + esc(T("dd.r_photos_hint")) + '</p><input type="file" id="r-photo" accept="image/jpeg,image/png,image/webp" aria-describedby="photo-hint photo-err"' + (r.photos.length >= 3 ? " disabled" : "") + ">" +
+        (r.kind === "DONE_CLAIMED" ? '<label for="r-photo">' + esc(T("dd.r_photos")) + '</label><p class="hint" id="photo-hint">' + esc(T("dd.r_photos_hint")) + '</p><input type="file" id="r-photo" accept="image/jpeg,image/png,image/webp" aria-describedby="photo-hint loc-hint photo-err"' + (r.photos.length >= 3 ? " disabled" : "") + ">" +
+          '<p class="hint" id="loc-hint">' + esc(T("dd.r_loc_hint")) + '</p><p class="hint" id="r-loc" role="status" aria-live="polite">' + esc(locText(r)) + "</p>" +
           '<div class="err" id="photo-err" role="alert">' + esc(e.photos || "") + "</div>" +
-          (r.photos.length ? '<div class="photos">' + r.photos.map(function (p, i) { return '<div><img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T("dd.work_photo_alt", { n: i + 1 })) + '"><button type="button" class="linkish" data-rm-photo="' + i + '">' + esc(T("dd.r_remove_photo")) + '<span class="sr-only"> ' + (i + 1) + "</span></button></div>"; }).join("") + "</div>" : "") : "") +
+          (r.photos.length ? '<div class="photos">' + r.photos.map(function (p, i) { return '<div class="photo-item"><img src="' + esc(p.thumbUrl || p.url) + '" alt="' + esc(T("dd.work_photo_alt", { n: i + 1 })) + '">' + checksHtml(p.warnings, "you") + '<button type="button" class="linkish" data-rm-photo="' + i + '">' + esc(T("dd.r_remove_photo")) + '<span class="sr-only"> ' + (i + 1) + "</span></button></div>"; }).join("") + "</div>" : "") : "") +
         (r.kind ? '<label for="r-note">' + esc(T(r.kind === "CANT_DO" ? "dd.r_reason" : "dd.r_note")) + '</label><p class="hint" id="note-hint">' + esc(T(r.kind === "CANT_DO" ? "dd.r_reason_hint" : "dd.r_note_hint")) + '</p><textarea id="r-note" maxlength="500" aria-describedby="note-hint note-err"' + (e.note ? ' aria-invalid="true"' : "") + ">" + esc(r.note) + '</textarea><div class="err" id="note-err" role="alert">' + esc(e.note || "") + "</div>" : "") +
         '<div class="row"><button type="submit" class="primary" id="r-send"' + (r.busy ? " disabled" : "") + ">" + esc(T("dd.r_send")) + "</button></div></form>" +
         '<p class="note-box">' + esc(T("dd.reply_note")) + "</p></div>";
@@ -343,13 +409,23 @@
     var r = S.reply;
     r.errors.photos = "";
     if (file.size > 5 * 1024 * 1024) { r.errors.photos = T("dd.e_photo_big"); show("r-photo"); return; }
-    var fd = new FormData(); fd.append("photo", file);
     input.disabled = true;
+    var fd = new FormData(); fd.append("photo", file);
+    // grieviq-34: where the officer is now (asked once), and a small preview
+    // and fingerprint made on the phone, as for the representative's photos.
+    var loc = await getLocation(r);
+    fd.append("dev_status", loc ? loc.status : "UNAVAILABLE");
+    if (loc && loc.status === "OK") { fd.append("dev_lat", String(loc.lat)); fd.append("dev_lng", String(loc.lng)); fd.append("dev_acc", String(loc.acc)); }
+    if (window.GIQPhoto) {
+      var prev = await GIQPhoto.preview(file);
+      if (prev.dhash) fd.append("dhash", prev.dhash);
+      if (prev.thumb) fd.append("thumb", prev.thumb, "thumb.jpg");
+    }
     var res;
     try { var x = await fetch("/api/dept/photo?id=" + encodeURIComponent(S.kase.id), { method: "POST", body: fd, credentials: "same-origin" }); res = { ok: x.ok, status: x.status, body: await x.json().catch(function () { return {}; }) }; }
     catch (e) { res = { ok: false, status: 0, body: {} }; }
     if (!res.ok) { r.errors.photos = res.status === 0 ? T("dd.e_network") : res.body.code === "BAD_TYPE" ? T("dd.e_photo_type") : res.body.code === "TOO_BIG" ? T("dd.e_photo_big") : T("dd.e_photo_failed"); show("r-photo"); return; }
-    r.photos.push({ id: res.body.id, url: res.body.url, thumbUrl: res.body.thumbUrl });
+    r.photos.push({ id: res.body.id, url: res.body.url, thumbUrl: res.body.thumbUrl, warnings: res.body.warnings || [] });
     show("r-photo");
   }
   async function sendReply(ev) {

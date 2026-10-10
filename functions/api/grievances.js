@@ -20,11 +20,12 @@ import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../_share
 import { computeEscalation, visibleTiers } from "../_shared/escalation.js";
 import { timeLimitStatus } from "../_shared/time-limits.js";
 import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "../_shared/confirmation.js";
-import { shapeResolution, parseWard } from "../_shared/resolution-evidence.js";
+import { shapeResolution, parseWard, photoWarnings } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
 import { loadRatings, shapeForRep } from "../_shared/ratings.js";
 import { officerNames } from "../_shared/dept-cases.js";
+import { dashboardOffices } from "../_shared/dept-auth.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 
 export async function onRequestGet(context) {
@@ -205,6 +206,7 @@ export async function onRequestGet(context) {
   const chains = await Promise.all(neededUnits.map((u) => resolveChain(env, u)));
   neededUnits.forEach((u, i) => chainCache.set(u, chains[i]));
   const visible = [];
+  const evidenceCtx = new Map();
 
   for (const grievance of grievanceRows) {
     const myMandate = unitToMandate.get(grievance.local_unit_id);
@@ -261,6 +263,8 @@ export async function onRequestGet(context) {
       ? { note: sentBackRow.review_note || "", by: sentBackRow.reviewed_by, at: sentBackRow.reviewed_at, submittedBy: sentBackRow.created_by }
       : null;
 
+    // grieviq-34: what the department's photos are checked against.
+    evidenceCtx.set(grievance.id, { g: grievance, ward: parseWard(chain.localUnit.ward_boundary_geojson) });
     visible.push({
       id: grievance.id,
       // Item 8b: this person's role for the case, and the team workflow.
@@ -403,8 +407,19 @@ export async function onRequestGet(context) {
       if (st.actor_role === "DEPARTMENT") { sh.byDept = true; sh.byDeptName = deptOfficerNames[String(st.actor || "").toLowerCase()] || null; }
       if (st.photo_report_id && (st.kind === "CHECK_PARTLY" || st.kind === "CHECK_NOT_FIXED" || (st.kind === "DONE_CLAIMED" && st.actor_role === "DEPARTMENT"))) {
         const ph = photosByReport.get(st.photo_report_id) || [];
+        const ctx = evidenceCtx.get(c.id);
         sh.photos = [];
-        for (const p of ph) sh.photos.push(await photoMedia(env, p, "r"));
+        for (const p of ph) {
+          const m = await photoMedia(env, p, "r");
+          // grieviq-34: the department's "work done" photos get the same
+          // checks as everyone else's (distance from the spot, date, reuse).
+          if (st.actor_role === "DEPARTMENT" && ctx) {
+            m.warnings = photoWarnings(ctx.g, p, ctx.ward).map((w) => { const x = Object.assign({}, w); delete x.otherCaseId; return x; });
+            m.takenAt = p.taken_at || null;
+          }
+          sh.photos.push(m);
+        }
+        if (c.viewOnly) sh.photos = previewOnly(sh.photos, true);
       }
       c.deptSteps.push(sh);
     }
@@ -472,6 +487,9 @@ export async function directoryFor(env, unitIds) {
       website: o.website || null, address: o.address || null, hours: o.hours || null,
       officerName: o.officer_phone ? o.officer_name || null : null, officerPhone: o.officer_phone || null, lastChecked: o.last_checked,
     }));
+    // grieviq-34: offices whose officers use the department dashboard.
+    const dash = await dashboardOffices(env, out.offices.map((o) => o.id));
+    for (const o of out.offices) o.hasDashboard = dash.has(String(o.id));
   } catch (e) {
     if (!/no such table/i.test(String(e && e.message))) throw e;
   }

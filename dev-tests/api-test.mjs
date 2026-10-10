@@ -628,7 +628,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const st2 = (sql, b) => ({ bind: (...y) => st2(sql, y), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((q) => ({ ...q })) }),
     first: async () => { const q = sdb.prepare(sql).get(...(b || [])); return q ? { ...q } : null; }, run: async () => { const q = sdb.prepare(sql).run(...(b || [])); return { meta: { changes: Number(q.changes) } }; } });
   const envD = { DB: { prepare: (sql) => st2(sql, []), batch: async (l) => Promise.all(l.map((q) => q.all())) } };
-  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g21','GRV-DEPT21','9','lu-hazratganj','water-sanitation','OPEN','Second leak','LOCAL',?)").run(now);
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, pin_lat, pin_lng, current_tier, created_at) VALUES ('g21','GRV-DEPT21','9','lu-hazratganj','water-sanitation','OPEN','Second leak',26.85,80.94,'LOCAL',?)").run(now);
   await call(R, "POST", "/api/grievances/g21/add-followup", { department: "Water Supply", channel: "EMAIL", officeId: jal.id });
   const nf = await import((process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/build-8788/_shared/notify.js");
   const n1 = await nf.deptOfficerDigests(envD, "https://grieviq.in", Date.now());
@@ -703,6 +703,63 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(ov.body.departments && ov.body.departments.rows.some((x) => x.name === "Jal Kal Vibhag Lucknow"), "rep overview: departments on the office's cases", ov.body.departments);
   const ovFw = await call("fw@x.in", "GET", "/api/overview?office=LOCAL:lu-hazratganj");
   ok(ovFw.status === 403 || !ovFw.body.departments, "field worker: no department figures");
+}
+
+// ---- forwarding through the dashboard; checks on department photos (grieviq-34) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const R = "r1@x.in", OFF2 = "ae.zone3@nic.in";
+  const now = new Date().toISOString();
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, pin_lat, pin_lng, current_tier, created_at) VALUES ('g22','GRV-DEPT22','9876511111','lu-hazratganj','water-sanitation','OPEN','Broken main on Station Road',26.85,80.94,'LOCAL',?)").run(now);
+  const jal = (await get(S, "lucknow")).body.offices.find((o) => o.nameEn === "Jal Kal Vibhag Lucknow");
+  let list = await call(R, "GET", "/api/grievances");
+  const dir = list.body.deptDirectory.offices;
+  ok(dir.find((o) => o.id === jal.id).hasDashboard === true && dir.filter((o) => o.id !== jal.id).every((o) => o.hasDashboard === false), "directory says which offices use the dashboard", dir.map((o) => [o.nameEn, o.hasDashboard]));
+  let r = await call(R, "POST", "/api/grievances/g22/add-followup", { department: "Water Supply", channel: "DASHBOARD", officeName: "Some other office" });
+  ok(r.status === 400 && r.body.fields.channel === "NO_DASHBOARD", "dashboard only for an office on the dashboard", r.body);
+  const before = sdb.prepare("SELECT COUNT(*) n FROM email_outbox WHERE kind = 'DEPT_NEW'").get().n;
+  r = await call(R, "POST", "/api/grievances/g22/add-followup", { department: "Water Supply", channel: "DASHBOARD", officeId: jal.id, note: "Main burst near the station" });
+  ok(r.status === 200 && r.body.officersEmailed === true, "forwarded through the dashboard", r.body);
+  let ob = [];
+  for (let i = 0; i < 40 && ob.length < 1; i++) { await new Promise((z) => setTimeout(z, 100)); ob = sdb.prepare("SELECT * FROM email_outbox WHERE kind = 'DEPT_NEW'").all().slice(before); }
+  ok(ob.length === 1 && ob[0].to_email === OFF2 && !/GRV-|Station|burst|9876511111/i.test(ob[0].html) && /\/dept/.test(ob[0].html), "the office's officer emailed at once, link only", ob.map((x) => x.to_email));
+  let sent = false;
+  for (let i = 0; i < 150 && !sent; i++) { await new Promise((z) => setTimeout(z, 100)); sent = mails().some((m) => m.to && m.to[0] === OFF2 && /new complaint/i.test(m.subject)); }
+  ok(sent, "the email went out without waiting for the hourly job");
+  ok(sdb.prepare("SELECT channel FROM case_dept_steps WHERE grievance_id = 'g22' AND kind = 'FORWARDED'").get().channel === "DASHBOARD", "channel recorded");
+  // officer signs in, adds a photo from far away
+  await call("", "POST", "/api/dept/code", { email: OFF2 });
+  const code = /(\d{6})/.exec(mails().filter((m) => m.to && m.to[0] === OFF2).slice(-1)[0].subject)[1];
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: OFF2, code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  ok(vr.status === 200 && CK, "second officer signed in");
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9, 3, 4, 5, 6, 7, 8]);
+  const fd = new FormData(); fd.append("photo", new Blob([png], { type: "image/png" }), "w.png");
+  fd.append("dev_status", "OK"); fd.append("dev_lat", "26.4499"); fd.append("dev_lng", "80.3318"); fd.append("dev_acc", "12");
+  const up = await fetch(B + "/api/dept/photo?id=g22", { method: "POST", headers: { cookie: CK }, body: fd });
+  const upj = await up.json();
+  const far = (upj.warnings || []).find((w) => w.code === "DEVICE_FAR_FROM_PIN");
+  ok(up.status === 200 && far && far.metres > 50000 && far.accuracy === 12 && upj.warnings.some((w) => w.code === "NO_DATE"), "officer sees the checks at once: far from the spot, no date", upj.warnings);
+  const p2 = sdb.prepare("SELECT dev_status, dev_lat, dev_lng FROM resolution_photos WHERE id = ?").get(upj.id);
+  ok(p2.dev_status === "OK" && Math.abs(p2.dev_lat - 26.4499) < 1e-4, "officer's location kept with the photo", p2);
+  const fd2 = new FormData(); fd2.append("photo", new Blob([png.map((b, i) => (i === 15 ? 77 : b))], { type: "image/png" }), "x.png"); fd2.append("dev_status", "DENIED");
+  const up2 = await (await fetch(B + "/api/dept/photo?id=g22", { method: "POST", headers: { cookie: CK }, body: fd2 })).json();
+  ok(up2.warnings && up2.warnings.some((w) => w.code === "DEVICE_NOT_SHARED"), "location refused: said so, photo still added", up2);
+  r = await (async () => { const x = await fetch(B + "/api/dept/reply", { method: "POST", headers: { cookie: CK, "content-type": "application/json" }, body: JSON.stringify({ id: "g22", kind: "DONE_CLAIMED", photoIds: [upj.id] }) }); return { status: x.status, body: await x.json() }; })();
+  ok(r.status === 200, "work done with the photo", r.body);
+  const dc = await (await fetch(B + "/api/dept/case?id=g22", { headers: { cookie: CK } })).json();
+  const dstep = dc.case.steps.find((x) => x.kind === "DONE_CLAIMED");
+  ok(dstep.photos[0].warnings.some((w) => w.code === "DEVICE_FAR_FROM_PIN"), "officer's history keeps the checks", dstep.photos[0]);
+  list = await call(R, "GET", "/api/grievances");
+  const rc = list.body.grievances.find((c) => c.id === "g22");
+  const rs = rc.deptSteps.find((x) => x.kind === "DONE_CLAIMED");
+  ok(rs.photos[0].warnings && rs.photos[0].warnings.some((w) => w.code === "DEVICE_FAR_FROM_PIN") && !JSON.stringify(rs.photos[0].warnings).includes("otherCaseId"), "representative sees the same checks on the department's photo", rs.photos[0].warnings);
+  const fwdStep = rc.deptSteps.find((x) => x.kind === "FORWARDED");
+  ok(fwdStep.channel === "DASHBOARD" && !fwdStep.photos, "forwarding step shows the channel", fwdStep);
 }
 
 // ---- audit trail ----

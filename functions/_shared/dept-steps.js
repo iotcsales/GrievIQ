@@ -23,7 +23,9 @@ export const STEP = {
 // What the representative's office records when the department replies.
 export const REPLY_KINDS = [STEP.SCHEDULED, STEP.IN_PROGRESS, STEP.DONE_CLAIMED, STEP.NOT_OURS, STEP.CANT_DO];
 export const CHECK_KINDS = [STEP.CHECK_PARTLY, STEP.CHECK_NOT_FIXED];   // CHECK_FIXED comes with resolving the case
-export const CHANNELS = ["PHONE", "WHATSAPP", "EMAIL", "IN_PERSON", "LETTER"];
+// grieviq-34: DASHBOARD = sent only through GrievIQ, to an office whose
+// officers use the department dashboard (they are emailed at once).
+export const CHANNELS = ["DASHBOARD", "PHONE", "WHATSAPP", "EMAIL", "IN_PERSON", "LETTER"];
 export const DEFAULT_TARGET_DAYS = 7;
 export const MAX_TARGET_DAYS = 21;
 export const NOTE_MAX = 500;

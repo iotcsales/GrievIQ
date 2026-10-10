@@ -17,6 +17,7 @@
 import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "./photo-store.js";
 import { toUtcMs } from "./time-limits.js";
+import { photoWarnings, parseWard } from "./resolution-evidence.js";
 
 export const RECENT_CLOSED_DAYS = 30;
 const OPEN = ["OPEN", "ACKNOWLEDGED", "PENDING_CONFIRMATION"];
@@ -132,7 +133,13 @@ export async function officeCaseDetail(env, officer, g, nowMs) {
   const stepPhotos = {};
   if (deptReports.length) {
     const { results } = await env.DB.prepare("SELECT * FROM resolution_photos WHERE report_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(deptReports)).all();
-    for (const p of results || []) { (stepPhotos[p.report_id] = stepPhotos[p.report_id] || []).push(await photoMedia(env, p, "r")); }
+    const ward = parseWard(g.ward_boundary_geojson);
+    for (const p of results || []) {
+      const m = await photoMedia(env, p, "r");
+      // grieviq-34: the same checks the representative's office sees.
+      m.warnings = photoWarnings(g, p, ward).map((w) => { const x = Object.assign({}, w); delete x.otherCaseId; return x; });
+      (stepPhotos[p.report_id] = stepPhotos[p.report_id] || []).push(m);
+    }
   }
   const open = g.status === "OPEN" || g.status === "ACKNOWLEDGED";
   const last = steps[steps.length - 1] || null;

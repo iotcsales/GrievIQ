@@ -640,6 +640,33 @@ export async function notifyDeptReply(env, origin, g, info) {
   });
 }
 
+// grieviq-34: a case was just forwarded to an office whose officers use the
+// department dashboard. Each officer is emailed at once (no details, only
+// the link, as for every staff email). key: the forwarding step's id.
+export async function notifyDeptForwarded(env, origin, officeId, key) {
+  let officers = [];
+  try {
+    officers = (await env.DB.prepare(
+      `SELECT o.id, o.email, o.name FROM dept_officers o
+       JOIN dept_offices d ON d.id = o.office_id AND d.retired_at IS NULL
+       JOIN dept_agreements a ON a.office_id = o.office_id AND a.ended_at IS NULL
+       WHERE o.status = 'ACTIVE' AND o.office_id = ?`
+    ).bind(String(officeId)).all()).results || [];
+  } catch (e) { return 0; }
+  const url = origin + "/dept";
+  for (const o of officers) {
+    const html = "<p>Dear " + esc(o.name) + ",</p><p>A complaint has just been sent to your office on GrievIQ. Please open the department dashboard to see it and reply.</p>" +
+      `<p><a href="${esc(url)}">Open the department dashboard</a></p>` +
+      "<p>For security, GrievIQ never puts complaint details in emails and never asks for your sign-in code.</p><hr>" +
+      "<p>प्रिय " + esc(o.name) + ",</p><p>GrievIQ पर अभी आपके कार्यालय को एक शिकायत भेजी गई है। कृपया उसे देखने और उत्तर देने के लिए विभाग डैशबोर्ड खोलें।</p>" +
+      `<p><a href="${esc(url)}">विभाग डैशबोर्ड खोलें</a></p>` +
+      "<p>सुरक्षा के लिए GrievIQ ईमेल में शिकायत का विवरण नहीं भेजता और कभी आपका साइन-इन कोड नहीं माँगता।</p>";
+    await queueEmail(env, o.email, "DEPT_NEW", "DEPTNEW:" + o.id + ":" + key, "GrievIQ: a new complaint for your office · आपके कार्यालय के लिए नई शिकायत", html, null);
+  }
+  if (officers.length) await flushOutbox(env, 10);
+  return officers.length;
+}
+
 // grieviq-32: 9:00 am, one short email to each department officer whose
 // office has new or overdue cases. No details at all, only the counts and
 // the link (as for every staff email).

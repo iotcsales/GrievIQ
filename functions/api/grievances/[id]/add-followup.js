@@ -22,6 +22,8 @@ import { getLocalUnitIdsForMandate } from "../../../_shared/jurisdiction.js";
 import { activeDeptKeys } from "../../../_shared/departments.js";
 import { caseAccess, canManageCases, logTeam, onBehalfOf } from "../../../_shared/team.js";
 import { STEP, CHANNELS, addStep, stepsReady } from "../../../_shared/dept-steps.js";
+import { dashboardOffices } from "../../../_shared/dept-auth.js";
+import { notifyDeptForwarded } from "../../../_shared/notify.js";
 
 // The list is managed by admins (grieviq-25, _shared/departments.js); a
 // retired department can't be chosen for a new follow-up.
@@ -90,6 +92,11 @@ export async function onRequestPost(context) {
       if (nm.length < 3 || nm.length > 120) fields.officeName = "LENGTH";
       else office = { id: null, name: nm };
     }
+    // grieviq-34: "GrievIQ department dashboard" only for an office whose officers use it.
+    if (!fields.channel && !fields.office) {
+      if (office && office.id) office.dashboard = (await dashboardOffices(env, [office.id])).has(String(office.id));
+      if (channel === "DASHBOARD" && !(office && office.dashboard)) fields.channel = "NO_DASHBOARD";
+    }
     if (Object.keys(fields).length) return Response.json({ error: "Please check the highlighted fields.", fields }, { status: 400 });
   }
   if (note && note.length > 500) return Response.json({ error: "Keep the note to 500 characters.", fields: { note: "LENGTH" } }, { status: 400 });
@@ -101,12 +108,19 @@ export async function onRequestPost(context) {
      VALUES (?, ?, 'FOLLOW_UP', ?, ?, ?, ?)`
   ).bind(crypto.randomUUID(), grievanceId, auth.email, department, note, now).run();
 
+  let stepId = null;
   if (ready) {
-    await addStep(env, { grievance_id: grievanceId, kind: STEP.FORWARDED, department, office_id: office ? office.id : null,
+    stepId = await addStep(env, { grievance_id: grievanceId, kind: STEP.FORWARDED, department, office_id: office ? office.id : null,
       office_name: office ? office.name : null, channel, note, actor: auth.email, actor_role: access.role,
       by_office_tier: access.mandate.tier, by_office_id: access.mandate.id, created_at: now });
   }
   await logTeam(env, { officeTier: access.mandate.tier, officeId: access.mandate.id, actor: auth.email, actorRole: access.role,
     onBehalf: onBehalfOf(access.mandate, auth), action: "FORWARDED", grievanceId, detail: { department, office: office ? office.name : null, channel: channel || null } });
-  return Response.json({ department, note, createdAt: now });
+  // grieviq-34: the office's dashboard officers are emailed at once (however
+  // the representative's office also contacted them).
+  if (stepId && office && office.dashboard) {
+    const p = notifyDeptForwarded(env, new URL(request.url).origin, office.id, stepId).catch(() => {});
+    if (typeof context.waitUntil === "function") context.waitUntil(p); else await p;
+  }
+  return Response.json({ department, note, createdAt: now, officersEmailed: !!(stepId && office && office.dashboard) });
 }

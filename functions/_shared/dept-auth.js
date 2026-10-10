@@ -69,6 +69,23 @@ export async function activeOfficerByEmail(env, email) {
   ).bind(String(email || "").toLowerCase()).first();
   return row && usable(row) ? row : null;
 }
+// grieviq-34: which of these offices have at least one officer who may use
+// the department dashboard now (active, live agreement, office not retired).
+export async function dashboardOffices(env, officeIds) {
+  const ids = Array.from(new Set((officeIds || []).filter(Boolean).map(String)));
+  const out = new Set();
+  if (!ids.length) return out;
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT DISTINCT o.office_id FROM dept_officers o
+       JOIN dept_offices d ON d.id = o.office_id AND d.retired_at IS NULL
+       JOIN dept_agreements a ON a.office_id = o.office_id AND a.ended_at IS NULL
+       WHERE o.status = 'ACTIVE' AND o.office_id IN (SELECT value FROM json_each(?))`
+    ).bind(JSON.stringify(ids)).all();
+    for (const r of results || []) out.add(String(r.office_id));
+  } catch (e) { if (!isMissingDeptTables(e)) throw e; }
+  return out;
+}
 function usable(row) { return row && row.status === "ACTIVE" && !row.office_retired && row.agr_signed_on && !row.agr_ended; }
 
 // Step 1: a code by email. Returns { ok, status, body } and, when a code was

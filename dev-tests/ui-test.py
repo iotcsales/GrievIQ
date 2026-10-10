@@ -770,8 +770,8 @@ with sync_playwright() as pw:
             if m.get("to") and m["to"][0] == email:
                 return re.search(r"(\d{6})", m["subject"]).group(1)
         return None
-    # 1. Real sign-in with the emailed code
-    ctx = br.new_context(viewport={"width": 390, "height": 900})
+    # 1. Real sign-in with the emailed code (the phone shares its location: 50 km away)
+    ctx = br.new_context(viewport={"width": 390, "height": 900}, permissions=["geolocation"], geolocation={"latitude": 26.4499, "longitude": 80.3318, "accuracy": 14})
     p = ctx.new_page(); errs = []
     p.on("pageerror", lambda e: errs.append(str(e)))
     p.goto(B + "/dept"); p.wait_for_selector("#email")
@@ -804,6 +804,9 @@ with sync_playwright() as pw:
     with p.expect_response(lambda r: "/api/dept/photo" in r.url): p.set_input_files("#r-photo", files=[{"name": "work.png", "mimeType": "image/png", "buffer": png}])
     p.wait_for_selector("[data-rm-photo]")
     ok(p.locator("[data-rm-photo]").count() == 1, "work photo added")
+    chk = p.inner_text(".photo-item .ev-list")
+    ok("You added this photo about" in chk and "km" in chk and "No date in photo" in chk, "officer sees the checks under the photo (grieviq-34)", chk)
+    ok("Your location: shared" in p.inner_text("#r-loc"), "officer's location line", p.inner_text("#r-loc"))
     with p.expect_response(lambda r: "/api/dept/reply" in r.url): p.click("#r-send")
     p.wait_for_selector("#msg:has-text('check it on site')")
     ok("check it on site" in p.inner_text("#msg"), "work done sent", p.inner_text("#msg"))
@@ -1067,6 +1070,65 @@ with sync_playwright() as pw:
     ok(p.is_visible('#adm-drop-data a[href="/admin-departments.html"]'), "link on other admin pages")
     ok(not errs, "no script errors (areas)", errs)
     ctx.close()
+    # ---------- Forward through the dashboard; checks on department photos (grieviq-34) ----------
+    DIR34 = _json.loads(_json.dumps(DIR)); DIR34["offices"][1]["hasDashboard"] = True; DIR34["offices"][0]["hasDashboard"] = False
+    def show34(p, case):
+        p.evaluate("""([dir, c]) => { takeDepartments({ departments: ['Water Supply','Electricity','Health','Other'], deptDirectory: dir }); currentCases = [c];
+          const box = document.getElementById('content'); box.innerHTML = '<div id="ds-test" style="max-width:640px;padding:12px">' + renderFollowupControl(c) + '<p id="resolve-status" role="status"></p></div>';
+          renderContent = () => { const cc = currentCases[0]; document.getElementById('ds-test').innerHTML = renderFollowupControl(cc) + '<p id="resolve-status" role="status"></p>'; attachFollowupHandlers(); };
+          attachFollowupHandlers(); window.scrollTo(0, 0); }""", [DIR34, case])
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = rep_page(lang, theme, width)
+                fresh = steps_case([], "NONE"); fresh["deptSteps"] = []; fresh["deptState"] = None
+                show34(p, fresh)
+                ok(p.inner_text(".followup-btn") == ("Forward" if lang == "en" else "अग्रेषित करें"), "button says Forward " + tag, p.inner_text(".followup-btn"))
+                p.select_option("#followup-dept-c9", "Water Supply"); p.wait_for_timeout(50)
+                p.select_option("#followup-office-c9", "o1"); p.wait_for_timeout(50)
+                ok(p.locator('input.followup-ch[value="DASHBOARD"]').count() == 0, "no dashboard choice for an office without officers " + tag)
+                p.select_option("#followup-office-c9", "o2"); p.wait_for_timeout(50)
+                dash = p.locator('input.followup-ch[value="DASHBOARD"]')
+                ok(dash.count() == 1 and dash.is_checked(), "dashboard choice first and chosen " + tag)
+                hint = p.inner_text("#fwd-dash-hint-c9")
+                ok(("Jal Kal Zone 3's officers see it" in hint) if lang == "en" else ("तुरंत ईमेल" in hint), "dashboard hint " + tag, hint)
+                ok(no_hscroll(p), "forward form: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('ds-test')", 1)); ok(not bad, "forward form contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "forward form targets >= 24px " + tag, small[:5])
+                shot(p, "34-forward-" + tag, full=False)
+                p.click(".followup-btn"); p.wait_for_timeout(300)
+                ok(posts[-1][0] == "grievances/c9/add-followup" and posts[-1][1]["channel"] == "DASHBOARD" and posts[-1][1]["officeId"] == "o2", "sent through the dashboard " + tag, posts[-1:])
+                # forwarded before: "Forward again"; the department's photo with its checks
+                case = steps_case(["FORWARDED", "DONE_CLAIMED"], "NEEDS_CHECK")
+                case["deptSteps"][1].update({"byDept": True, "byDeptName": "Ravi Kumar", "photos": [{"url": "/logo-mark.svg", "thumbUrl": "/logo-mark.svg",
+                    "warnings": [{"code": "DEVICE_FAR_FROM_PIN", "level": "warn", "metres": 357000, "accuracy": 14}, {"code": "NO_DATE", "level": "info"}]}]})
+                show34(p, case)
+                ok(p.inner_text(".followup-btn") == ("Forward again" if lang == "en" else "फिर से अग्रेषित करें"), "button says Forward again " + tag)
+                ev = p.inner_text("#ds-c9 .ev-list")
+                ok(("The department added this photo about 357" in ev) if lang == "en" else ("विभाग ने यह फ़ोटो" in ev), "rep sees checks on the department's photo " + tag, ev)
+                ok(not re.findall(r"rep\.evd?_\w+", p.inner_text("#ds-test")), "no raw keys " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('ds-test')", 1)); ok(not bad, "department photo checks contrast AA " + tag, bad[:5])
+                shot(p, "35-dept-photo-checks-" + tag, full=False)
+                ok(not errs, "no script errors (grieviq-34 rep) " + tag, errs)
+                ctx.close()
+    # Officer: the checks on the reply form, every theme and language
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme, lang)
+            ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme, permissions=["geolocation"], geolocation={"latitude": 26.85, "longitude": 80.94, "accuracy": 10})
+            ok(dept_signin(ctx) == 200, "signed in " + tag)
+            ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+            p = ctx.new_page(); errs = []
+            p.on("pageerror", lambda e: errs.append(str(e)))
+            p.goto(B + "/dept#case=g21"); p.wait_for_selector("#case-h")
+            hist = p.locator(".steps .ev-list")
+            ok(hist.count() >= 1 and (("The department added this photo" in hist.first.inner_text() or "No location in the photo" in hist.first.inner_text()) if lang == "en" else "फ़ोटो" in hist.first.inner_text()), "history shows the checks " + tag, hist.first.inner_text() if hist.count() else "")
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "officer case with checks contrast AA " + tag, bad[:5])
+            shot(p, "36-dept-checks-" + tag, full=True)
+            ok(not errs, "no script errors (grieviq-34 officer) " + tag, errs)
+            ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))
