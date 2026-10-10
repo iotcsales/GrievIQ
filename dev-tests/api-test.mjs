@@ -859,6 +859,48 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 200 && !sdb.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(EP), "officer turns alerts off");
 }
 
+// ---- daily limits on filing complaints (grieviq-36) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const file = async (phone, dev, extra) => {
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-" + dev, "cf-connecting-ip": "10.9.0.1" },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: "lu-hazratganj", description: "Water pipe leaking near the park gate", citizen_phone: phone, consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, retry: x.headers.get("retry-after"), body: await x.json() };
+  };
+  let r, okN = 0;
+  for (let i = 0; i < 5; i++) { r = await file("+91 98111 00001", "A"); if (r.status === 200 && r.body.tracking_ref) okN++; }
+  ok(okN === 5, "5 complaints a day from one phone number are filed", r.body);
+  const before = sdb.prepare("SELECT COUNT(*) n FROM grievances WHERE citizen_phone LIKE '%9811100001'").get().n;
+  r = await file("9811100001", "A");
+  ok(r.status === 429 && r.body.code === "DAILY_LIMIT" && r.body.which === "PHONE" && r.body.max === 5 && r.retry && /limit is 5 a day/.test(r.body.error), "6th from the same number refused, same number in another format too", r.body);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM grievances WHERE citizen_phone LIKE '%9811100001'").get().n === before, "refused complaint not filed");
+  r = await file("9811100001", "B");
+  ok(r.status === 429 && r.body.which === "PHONE", "another device can't get round the phone limit");
+  r = await file("9811100002", "A");
+  ok(r.status === 200, "another number from the same device still files", r.body);
+  // device: 15 a day
+  let last = null;
+  for (let i = 0; i < 15; i++) last = await file("97222000" + String(10 + i), "C");
+  ok(last.status === 200, "15 complaints from one device are filed", last.body);
+  r = await file("9733300099", "C");
+  ok(r.status === 429 && r.body.which === "DEVICE" && /from this device/.test(r.body.error), "16th from the same device refused", r.body);
+  // bots still get the silent treatment, not the limit
+  r = await file("9811100001", "A", { website: "spam" });
+  ok(r.status === 200 && r.body.success, "honeypot answer unchanged");
+  // nothing readable is stored
+  const rows = sdb.prepare("SELECT fp FROM feedback_rate").all().map((x) => x.fp).join(" ");
+  ok(!/9811100001|98111|10\.9\.0\.1|ua-A/.test(rows) && /^[0-9a-f]{64}( [0-9a-f]{64})*$/.test(rows), "only one-way codes are stored");
+  // photos: 40 a day per device
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7, 7]);
+  const up = async () => { const fd = new FormData(); fd.append("photo", new Blob([png], { type: "image/png" }), "p.png"); const x = await fetch(B + "/api/grievances/upload-photo", { method: "POST", headers: { "user-agent": "ua-P", "cf-connecting-ip": "10.9.0.2" }, body: fd }); return { status: x.status, body: await x.json() }; };
+  let u, upOk = 0;
+  for (let i = 0; i < 40; i++) { u = await up(); if (u.status === 200) upOk++; }
+  ok(upOk === 40, "40 photos a day from one device", u.body);
+  u = await up();
+  ok(u.status === 429 && u.body.code === "DAILY_LIMIT", "41st photo refused", u.body);
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

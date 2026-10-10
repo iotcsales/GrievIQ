@@ -1217,6 +1217,47 @@ with sync_playwright() as pw:
     ok(not errs, "no script errors (alert link)", errs)
     ctx.close()
 
+    # ---------- Daily limit on filing complaints; blocked-alerts wording (grieviq-36) ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.route("**/api/grievances/submit", lambda rt: rt.fulfill(status=429, headers={"content-type": "application/json", "retry-after": "3600"},
+                        body='{"error":"limit","code":"DAILY_LIMIT","which":"PHONE","max":5}'))
+                p.goto(B + "/submit?ward=lu-hazratganj"); p.wait_for_timeout(900)
+                p.evaluate("""() => { document.getElementById('category').value = 'water-sanitation'; document.getElementById('localUnitId').value = 'lu-hazratganj'; }""")
+                p.fill("#description", "Water pipe leaking near the park gate since Monday")
+                p.fill("#phone", "9811100001"); p.check("#consent")
+                p.wait_for_timeout(3100)
+                p.click("#submitBtn"); p.wait_for_timeout(600)
+                lim = p.locator("#limitError")
+                txt = lim.inner_text() if lim.is_visible() else ""
+                if lang == "en":
+                    ok("You've filed 5 complaints today with this phone number" in txt and "limit is 5 a day" in txt, "limit message next to the button " + tag, txt or p.inner_text("#errorMessage"))
+                else:
+                    ok("आप आज इस फ़ोन नंबर से 5 शिकायतें" in txt, "limit message in Hindi " + tag, txt)
+                ok(p.input_value("#description").startswith("Water pipe leaking") and p.input_value("#phone") == "9811100001" and p.is_enabled("#submitBtn"), "form keeps what was typed " + tag)
+                ok(p.get_attribute("#limitError", "role") == "alert", "limit message is announced " + tag)
+                ok(no_hscroll(p), "limit message: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('limitError')", 1)); ok(not bad, "limit message contrast AA " + tag, bad[:5])
+                if width == 375: shot(p, "38-limit-" + tag, full=False) if False else p.locator("#limitError").screenshot(path=os.path.join(SHOTS, "38-limit-" + tag + ".png"))
+                ok(not errs, "no script errors (limit) " + tag, errs)
+                ctx.close()
+    # blocked alerts: the bell says what to do (Incognito or site settings)
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    ok(dept_signin(ctx) == 200, "signed in for the blocked-alerts check")
+    ctx.add_init_script("try{Object.defineProperty(Notification,'permission',{configurable:true,get:()=>'denied'})}catch(e){}")
+    p = ctx.new_page(); errs = []
+    p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/dept"); p.wait_for_selector("#rn-bell"); p.click("#rn-bell"); p.wait_for_selector("#rn-panel .rn-push")
+    ok("Incognito" in p.inner_text("#rn-panel .rn-push") and "site settings" in p.inner_text("#rn-panel .rn-push"), "blocked alerts: Incognito and site-settings advice", p.inner_text("#rn-panel .rn-push"))
+    ok(not errs, "no script errors (blocked alerts)", errs)
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

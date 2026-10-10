@@ -70,6 +70,8 @@
   textarea:focus, input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(31,74,138,0.15); }
   textarea { resize: vertical; min-height: 100px; }
   .field-error { color: var(--brick); font-size: 12.5px; margin: -14px 0 16px; display: none; }
+  /* grieviq-36: the daily limit, said next to the button. */
+  .limit-error { color: var(--ink); border-left: 4px solid var(--brick); background: var(--brick-dim, #FBE8E5); border-radius: 8px; padding: 10px 12px; font-size: 14px; line-height: 1.45; font-weight: 600; margin: 0 0 12px; }
   /* Readiness review, gap 5: the privacy notice and consent before filing (DPDP Act s.5-6). */
   .notice-box { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 6px 0 14px; background: #FBFAF7; }
   .notice-box h2 { font-size: 13.5px; margin: 0 0 8px; color: var(--ink); font-weight: 700; }
@@ -239,7 +241,7 @@
   .footer-links a:hover { text-decoration: underline; }
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
 </style>
-<script src="/i18n.js?v=35"></script>
+<script src="/i18n.js?v=36"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=17a" defer></script>
@@ -401,6 +403,7 @@
           <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
         </div>
 
+        <div class="limit-error" id="limitError" role="alert" hidden></div>
         <button type="submit" class="submit" id="submitBtn" data-i18n="submit.button">File complaint</button>
       </form>
 
@@ -1298,17 +1301,31 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.photo_id) {
-        throw new Error(GIQ.lang === 'en' && data.error ? data.error : GIQ.t('submit.photo_fail'));
+        const err = new Error(GIQ.lang === 'en' && data.error ? data.error : GIQ.t('submit.photo_fail'));
+        err.limit = data.code === 'DAILY_LIMIT';
+        err.shown = true;
+        throw err;
       }
       ids.push(data.photo_id);
     }
     return ids;
   }
 
+  // grieviq-36: the daily limit message next to the button (the form keeps everything).
+  let limitKey = null;
+  function showLimit(key, vars) {
+    const el = document.getElementById('limitError');
+    limitKey = key ? { key, vars } : null;
+    el.textContent = key ? GIQ.t(key, vars) : '';
+    el.hidden = !key;
+  }
+  document.addEventListener('giq:lang', () => { if (limitKey) showLimit(limitKey.key, limitKey.vars); });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     successBox.style.display = 'none';
     errorBox.style.display = 'none';
+    showLimit('');
 
     const description = document.getElementById('description').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -1430,6 +1447,13 @@
 
       const data = await res.json();
 
+      if (!res.ok && data.code === 'DAILY_LIMIT') {
+        showLimit(data.which === 'PHONE' ? 'submit.limit_phone' : 'submit.limit_device', { n: data.max });
+        document.getElementById('limitError').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        submitBtn.disabled = false;
+        submitBtn.textContent = GIQ.t('submit.button');
+        return;
+      }
       if (!res.ok && data.code === 'not_open') {
         // Shown next to the area, where it can be fixed.
         setAreaOpenError('submit.srv_not_open');
@@ -1480,9 +1504,16 @@
       form.style.display = 'none';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
+      if (err && err.limit) {
+        showLimit('submit.limit_photos');
+        submitBtn.disabled = false;
+        submitBtn.textContent = GIQ.t('submit.button');
+        return;
+      }
       errorBox.style.display = 'block';
+      // A photo that couldn't be added says why (not "network").
       document.getElementById('errorMessage').textContent =
-        GIQ.t('common.network');
+        err && err.shown ? err.message : GIQ.t('common.network');
       submitBtn.disabled = false;
       submitBtn.textContent = GIQ.t('submit.button');
     }

@@ -18,6 +18,7 @@
 // only if they are not already attached to another. photo_url is no longer
 // written (it held public links before 7c).
 
+import { checkDailyLimits, deviceParts, COMPLAINTS_PER_PHONE, COMPLAINTS_PER_DEVICE } from "../../_shared/daily-limit.js";
 import { notifyNewCase } from "../../_shared/notify.js";
 import { makeFilingPass } from "../../_shared/citizen-push.js";
 import { checkAttachedPhotos } from "../../_shared/citizen-photo-checks.js";
@@ -215,6 +216,23 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     const pin = pinForWard(readPin(pin_lat, pin_lng), localUnit.ward_boundary_geojson);
+
+    // grieviq-36: daily limits, per phone number and per device. Checked
+    // only for a complaint that would otherwise be filed; the form keeps
+    // everything the citizen typed.
+    const lim = await checkDailyLimits(env, [
+      { name: "complaint-phone", parts: [String(citizen_phone).replace(/\D/g, "").slice(-10)], max: COMPLAINTS_PER_PHONE },
+      { name: "complaint-device", parts: deviceParts(request), max: COMPLAINTS_PER_DEVICE },
+    ]);
+    if (!lim.ok) {
+      const byPhone = lim.hit === "complaint-phone";
+      return new Response(JSON.stringify({
+        error: byPhone
+          ? "You've filed " + lim.max + " complaints today with this phone number. To keep GrievIQ fair for everyone, the limit is " + lim.max + " a day. Please try again tomorrow. If it's urgent, call your representative's office."
+          : "Many complaints have been filed today from this device. Please try again tomorrow. If it's urgent, call your representative's office.",
+        code: "DAILY_LIMIT", which: byPhone ? "PHONE" : "DEVICE", max: lim.max,
+      }), { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "3600" } });
+    }
 
     // Generate a unique tracking ref (retry on the rare collision)
     let trackingRef;

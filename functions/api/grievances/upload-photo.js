@@ -28,6 +28,7 @@
 // Checks (OWASP file upload guidance): real type read from the first bytes
 // (JPEG, PNG or WEBP), size limits, file names chosen by us.
 
+import { checkDailyLimits, deviceParts, PHOTOS_PER_DEVICE } from "../../_shared/daily-limit.js";
 import { sniffImage, sha256Hex, validDhash } from "../../_shared/resolution-evidence.js";
 import { FULL_MAX_BYTES, THUMB_MAX_BYTES, stripJpegMetadata } from "../../_shared/photo-store.js";
 import { readExif } from "../../_shared/exif.js";
@@ -57,6 +58,9 @@ export async function onRequestPost({ request, env }) {
   let buf = new Uint8Array(await file.arrayBuffer());
   const type = sniffImage(buf.subarray(0, 16));
   if (!type) return reply(400, { error: "Only JPG, PNG or WEBP photos can be added.", code: "BAD_TYPE" });
+  // grieviq-36: at most PHOTOS_PER_DEVICE photos a day from one device.
+  const lim = await checkDailyLimits(env, [{ name: "photo-device", parts: deviceParts(request), max: PHOTOS_PER_DEVICE }]);
+  if (!lim.ok) return reply(429, { error: "Many photos have been added today from this device. Please try again tomorrow, or file the complaint without photos.", code: "DAILY_LIMIT" });
   if (type === "image/jpeg") buf = stripJpegMetadata(buf);
 
   let thumb = null;
