@@ -1497,8 +1497,8 @@ with sync_playwright() as pw:
 
     # Home page link and card; footer link on citizen pages
     ctx, p, errs = P("x@x.in")
-    p.goto(B + "/"); p.wait_for_selector("#offices-card")
-    ok(p.get_attribute("#offices-card", "href") == "/for-offices" and "For pradhans, councillors, mayors, MLAs, MPs and government offices" in p.inner_text("#offices-card") and "Run GrievIQ in your office" in p.inner_text("#offices-card"), "home: one band for offices")
+    p.goto(B + "/"); p.wait_for_selector(".home-more .feedback-card"); p.wait_for_timeout(300)
+    ok(p.locator("#offices-card").count() == 0 and p.locator("main a[href='/for-offices'], .home-grid a[href='/for-offices'], .home-more a[href='/for-offices'], .site-nav a[href='/for-offices']").count() == 0, "citizen home: nothing for offices except the footer (owner decision)")
     ok(p.locator(".footer-links a[href='/for-offices']").count() == 1, "footer link to For offices")
     p.goto(B + "/privacy"); p.wait_for_timeout(600)
     ok("Amit Singh" in p.inner_text("body") and "Sector-150, Noida" in p.inner_text("body"), "privacy page: Grievance Officer and address")
@@ -1935,19 +1935,17 @@ with sync_playwright() as pw:
                 ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
                 p = ctx.new_page(); errs = []
                 p.on("pageerror", lambda e: errs.append(str(e)))
-                p.goto(B + "/"); p.wait_for_selector("#offices-card"); p.wait_for_timeout(400)
+                p.goto(B + "/"); p.wait_for_selector(".home-more .feedback-card"); p.wait_for_timeout(400)
                 ok(p.locator(".stats, #stat-wards, #stat-device").count() == 0, "number boxes removed " + tag)
                 ok(p.evaluate("document.querySelector('.home-side').firstElementChild.id") == "loc-card", "Where is the problem? comes first on the right " + tag)
                 box = lambda sel: p.evaluate("(s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.top + scrollY, r.left, r.width, r.height]; }", sel)
-                em, fb, of, tr = box(".home-more .emergency"), box(".home-more .feedback-card"), box("#offices-card"), box('.home-side a[href="/status"]')
+                em, fb, tr = box(".home-more .emergency"), box(".home-more .feedback-card"), box('.home-side a[href="/status"]')
                 if width == 1280:
                     ok(abs(em[0] - fb[0]) < 2 and abs(em[3] - fb[3]) < 2 and em[1] < fb[1], "Emergency left, Feedback right, level and the same height " + tag, (em, fb))
-                    ok(of[0] > em[0] + em[3] and of[2] > 0.95 * (fb[1] + fb[2] - em[1]), "offices band full width below them " + tag, of)
-                    ok(of[3] < 70 if lang == "en" else True, "offices band on one line on a laptop " + tag, of)
+                    ok(p.locator(".site-nav a").count() == 3 and p.locator(".site-nav a[href='/for-offices']").count() == 0, "top bar: no For offices link " + tag)
                 else:
-                    ok(tr[0] < fb[0] < of[0] < em[0], "phone order: track, feedback, offices, emergency last " + tag, (tr, fb, of, em))
-                t = p.inner_text("#offices-card")
-                ok(("For pradhans, councillors, mayors, MLAs, MPs and government offices" in t) if lang == "en" else ("प्रधान, पार्षद, महापौर, विधायक, सांसद और सरकारी कार्यालयों के लिए" in t and "निःशुल्क पायलट" in t), "offices band wording " + tag, t)
+                    ok(tr[0] < fb[0] < em[0], "phone order: track, feedback, emergency last " + tag, (tr, fb, em))
+                ok(p.locator("#offices-card").count() == 0 and p.locator(".footer-links a[href='/for-offices']").count() == 1, "offices: only the small footer link " + tag)
                 ok(no_hscroll(p), "home: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS); ok(not bad, "home contrast AA " + tag, bad[:5])
                 small = p.evaluate("() => Array.from(document.querySelectorAll('.home-more a, .home-side a, .home-side button')).filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.height < 24 || r.width < 24); }).map(e => e.textContent.trim().slice(0, 30))")
@@ -1958,14 +1956,30 @@ with sync_playwright() as pw:
     # Reports saved on this device: one line with "Forget", only when there are some
     ctx = br.new_context(viewport={"width": 1280, "height": 900})
     ctx.add_init_script("try{if(!sessionStorage.getItem('x')){localStorage.setItem('griq-my-reports', JSON.stringify(['GRV-TEST01','GRV-TEST02']));sessionStorage.setItem('x','1')}}catch(e){}")
-    p = ctx.new_page(); p.goto(B + "/"); p.wait_for_selector("#offices-card"); p.wait_for_timeout(300)
+    p = ctx.new_page(); p.goto(B + "/"); p.wait_for_selector(".home-more .feedback-card"); p.wait_for_timeout(300)
     ok(p.is_visible("#device-note") and "2" in p.inner_text('.home-side a[href="/status"]'), "with saved reports: count on Track and the Forget line")
     p.click("#forget-device"); p.wait_for_timeout(100)
     ok(not p.is_visible("#device-note"), "Forget clears them and hides the line")
     ctx.close()
-    ctx = br.new_context(); p = ctx.new_page(); p.goto(B + "/"); p.wait_for_selector("#offices-card"); p.wait_for_timeout(300)
+    ctx = br.new_context(); p = ctx.new_page(); p.goto(B + "/"); p.wait_for_selector(".home-more .feedback-card"); p.wait_for_timeout(300)
     ok(not p.is_visible("#device-note"), "first visit: no device line")
     ctx.close()
+
+    # grieviq-43: offices find plans on the sign-in pages
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+            ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+            p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+            for path, sel in (("/rep", ".signin-new a"), ("/dept", ".new-office a")):
+                p.goto(B + path); p.wait_for_selector(sel, timeout=15000)
+                txt = p.inner_text(sel)
+                ok(p.get_attribute(sel, "href") == "/for-offices" and (("New to GrievIQ?" in txt) if lang == "en" else ("GrievIQ में नए हैं?" in txt)), "sign-in page links offices to plans %s %s %s" % (path, theme, lang), txt)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "sign-in page contrast %s %s %s" % (path, theme, lang), bad[:5])
+                small = p.evaluate("(s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.height < 24; }", sel); ok(not small, "sign-in link target %s %s" % (path, theme))
+                if lang == "en": shot(p, "60-signin%s-%s" % (path.replace("/", "-"), theme), full=False)
+            ok(not errs, "no script errors (sign-in pages %s %s)" % (theme, lang), errs)
+            ctx.close()
 
     br.close()
 

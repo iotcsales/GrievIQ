@@ -5027,7 +5027,8 @@
 "bill.reported": ["Payment of {amount} recorded (paid {date}, reference {utr}). GrievIQ will check it {cb}.", "{amount} का भुगतान दर्ज ({date} को, संदर्भ {utr})। GrievIQ इसकी जाँच {cb} करेगा।"],
 "bill.paid": ["Paid. GrievIQ confirmed your payment on {date}. Thank you.", "भुगतान हो चुका। GrievIQ ने {date} को आपके भुगतान की पुष्टि की। धन्यवाद।"],
 "bill.cancelled": ["This bill was cancelled: {reason}", "यह बिल रद्द किया गया: {reason}"],
-"bill.returned": ["A payment you recorded (reference {utr}) could not be matched: {reason}. Please check it and record it again.", "आपके द्वारा दर्ज भुगतान (संदर्भ {utr}) का मिलान नहीं हो सका: {reason}। कृपया जाँचकर फिर दर्ज करें।"]
+"bill.returned": ["A payment you recorded (reference {utr}) could not be matched: {reason}. Please check it and record it again.", "आपके द्वारा दर्ज भुगतान (संदर्भ {utr}) का मिलान नहीं हो सका: {reason}। कृपया जाँचकर फिर दर्ज करें।"],
+"common.new_office": ["New to GrievIQ? See plans and request a free pilot →", "GrievIQ में नए हैं? योजनाएँ देखें और निःशुल्क पायलट माँगें →"]
   };
   for (var ak in A) { if (Object.prototype.hasOwnProperty.call(A, ak)) D[ak] = A[ak]; }
 

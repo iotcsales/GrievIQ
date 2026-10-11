@@ -105,7 +105,7 @@
       if (!sn) { sn = document.createElement("nav"); sn.className = "site-nav"; hb.appendChild(sn); }
       sn.setAttribute("aria-label", t("common.site_nav", "Main"));
       sn.innerHTML = "";
-      [["/status", "common.nav_track", "Track my reports"], ["/time-limits", "common.time_limits", "Time limits"], ["/help", "common.help", "Help & contact"], ["/for-offices", "common.for_offices", "For offices"]].forEach(function (l) {
+      [["/status", "common.nav_track", "Track my reports"], ["/time-limits", "common.time_limits", "Time limits"], ["/help", "common.help", "Help & contact"]].forEach(function (l) {
         var a = document.createElement("a"); a.href = l[0]; a.textContent = t(l[1], l[2]);
         if (here === l[0]) a.setAttribute("aria-current", "page");
         sn.appendChild(a);

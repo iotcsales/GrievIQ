@@ -113,6 +113,7 @@
   .opt input { width: 20px; height: 20px; margin: 0; accent-color: var(--teal); flex: none; }
   .state { font-weight: 700; font-size: 15px; margin: 0 0 4px; }
   .state.late { color: var(--brick); }
+  .new-office { margin: 14px 0 0; font-size: 14px; } .new-office a { color: var(--link); font-weight: 600; display: inline-block; padding: 4px 0; min-height: 24px; }
   .note-box { background: var(--teal-tint); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; color: var(--teal-dark); margin-top: 12px; }
   .sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   footer { text-align: center; font-size: 12.5px; color: var(--ink-soft); margin-top: 28px; }
@@ -127,7 +128,7 @@
   .hdr-right { display: flex; align-items: center; gap: 12px; }
   #notif-slot .rn-bell { color: var(--ink); }
 </style>
-<script src="/i18n.js?v=41"></script>
+<script src="/i18n.js?v=43"></script>
 <script src="/guide-content.js?v=41"></script>
 <script src="/guide.js?v=40"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
@@ -261,7 +262,8 @@
       '<input type="email" id="email" autocomplete="email" maxlength="200" value="' + esc(S.email) + '" aria-describedby="email-hint email-err"' + (S.emailErr ? ' aria-invalid="true"' : "") + ">" +
       '<div class="err" id="email-err" role="alert">' + esc(S.emailErr) + "</div>" +
       '<div class="row"><button type="submit" class="primary" id="send"' + (S.busy ? " disabled" : "") + ">" + esc(T("dd.send_code")) + "</button></div></form>" +
-      '<p class="note-box">' + esc(T("dd.signin_note")) + "</p></div>";
+      '<p class="note-box">' + esc(T("dd.signin_note")) + "</p>" +
+      '<p class="new-office"><a href="/for-offices">' + esc(T("common.new_office")) + "</a></p></div>";
   }
   function renderCode() {
     return '<div class="card"><h1 id="h">' + esc(T("dd.code_h")) + '</h1><p class="lede">' + esc(T("dd.code_lede", { email: S.email })) + "</p>" + msgHtml() +
