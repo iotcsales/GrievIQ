@@ -67,9 +67,38 @@ export function withSecurityHeaders(res, pathname) {
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
+// grieviq-38: "Page not found". Cloudflare Pages answers any unknown address
+// with the home page (so ward links like /lucknow/ward-12 work). When that
+// happens for an address that is not "/" and not a ward link, the "Page not
+// found" page is sent instead, with status 404 (search engines don't list it).
+const HOME_MARK = '<meta name="giq-page" content="home">';
+const WARD_LINK = /^\/[a-z0-9-]{1,40}\/[^\/?#]+\/?$/i;
+export function mayBeUnknown(pathname) {
+  const p = pathname || "/";
+  return p !== "/" && p !== "/index" && p !== "/index.html" && !p.startsWith("/api/") && !p.startsWith("/cdn-cgi/") && !WARD_LINK.test(p);
+}
+export async function notFoundFor(request, res, env) {
+  if (!(request.method === "GET" || request.method === "HEAD") || res.status !== 200) return null;
+  const url = new URL(request.url);
+  if (!mayBeUnknown(url.pathname)) return null;
+  if (!/text\/html/i.test(res.headers.get("Content-Type") || "")) return null;
+  let text = "";
+  try { text = await res.clone().text(); } catch (e) { return null; }
+  if (!text.includes(HOME_MARK)) return null;
+  let page = "<!DOCTYPE html><title>Page not found — GrievIQ</title><h1>Page not found</h1><p><a href=\"/\">Go to the home page</a></p>";
+  try {
+    if (env && env.ASSETS) {
+      const nf = await env.ASSETS.fetch(new Request(new URL("/not-found", url).toString()));
+      if (nf.ok) page = await nf.text();
+    }
+  } catch (e) { /* the short page above */ }
+  return new Response(request.method === "HEAD" ? null : page, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
 export async function onRequest(context) {
   const res = await context.next();
   // Responses that must pass through untouched (e.g. protocol upgrades).
   if (res.status === 101 || res.webSocket) return res;
-  return withSecurityHeaders(res, new URL(context.request.url).pathname);
+  const nf = await notFoundFor(context.request, res, context.env);
+  return withSecurityHeaders(nf || res, new URL(context.request.url).pathname);
 }

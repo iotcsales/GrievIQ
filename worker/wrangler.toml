@@ -18,9 +18,10 @@ binding = "DB"
 database_name = "grieviq-db"
 database_id = "c8f69b35-d431-4cff-aae5-c2543b2f72ef"
 
-# Optional: lets the hourly retention batch also remove photos of cases
-# whose retention has ended (otherwise the admin Dashboard does it).
-# Put your private photo bucket's name (from: npx wrangler r2 bucket list).
-# [[r2_buckets]]
-# binding = "PRIVATE_PHOTOS"
-# bucket_name = "PASTE_BUCKET_NAME"
+# The private photo storage (grieviq-38): lets the hourly job remove photos
+# by the photo retention policy (unattached uploads, full-size photos a year
+# after closing, everything when a case's retention ends). Signed agreement
+# copies (agreements/) are never touched by it.
+[[r2_buckets]]
+binding = "PRIVATE_PHOTOS"
+bucket_name = "grieviq-private"

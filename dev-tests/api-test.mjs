@@ -551,6 +551,12 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "Junior Engineer, Zone 3", email: "JE.Zone3@nic.in" });
   ok(r.status === 200, "officer added", r.body);
   const officerId = r.body.id;
+  {
+    // grieviq-38: a welcome email, with no case content
+    const fsx = await import("node:fs");
+    const wm = fsx.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((m) => m.to && m.to[0] === OFF && /Welcome/.test(m.subject)).slice(-1)[0];
+    ok(r.body.welcomed === true && wm && /GrievIQ/.test(wm.html) && /स्वागत/.test(wm.subject) && /प्रिय/.test(wm.html) && /\/dept/.test(wm.html) && !/GRV-|Lane 4|9876500000/.test(wm.html), "officer gets a welcome email (English and Hindi, sign-in link, no case details)", wm && wm.subject);
+  }
   r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "JE", email: OFF });
   ok(r.status === 400 && r.body.fields.email === "ALREADY_HERE", "same officer twice refused", r.body);
   // sign in with an emailed code
@@ -661,7 +667,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 200, "agreement ended", r.body);
   await call("", "POST", "/api/dept/code", { email: "ae.zone3@nic.in" });
   const m2 = mails().slice(-1)[0];
-  ok(!m2.to || m2.to[0] !== "ae.zone3@nic.in", "no code emailed once the agreement ended");
+  ok(!(m2.to && m2.to[0] === "ae.zone3@nic.in" && /code/i.test(m2.subject)), "no code emailed once the agreement ended");
   const g = await call(S, "GET", "/api/admin/dept-officers?office=" + jal.id);
   ok(g.body.agreement.endedAt && g.body.officers.length === 2 && g.body.activity.some((x) => x.action === "REPLIED" && x.trackingRef === "GRV-DEPT20" && x.kind === "DONE_CLAIMED"), "admin sees the agreement, officers and activity", g.body.activity.slice(0, 3));
   const ev = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'dept_officer%' OR action LIKE 'dept_agreement%'").all().map((x) => x.action);
@@ -953,6 +959,28 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(upOk === 40, "40 photos a day from one device", u.body);
   u = await up();
   ok(u.status === 429 && u.body.code === "DAILY_LIMIT", "41st photo refused", u.body);
+}
+
+// ---- grieviq-38: page not found, scheduler photo clean-up ----
+{
+  const page = async (p) => { const x = await fetch(B + p); return { status: x.status, text: await x.text(), cache: x.headers.get("cache-control") }; };
+  let r = await page("/no-such-page");
+  ok(r.status === 404 && /nf\.title/.test(r.text) && /noindex/.test(r.text), "unknown address answers 404 with the Page not found page", r.status);
+  r = await page("/admin/old/thing/here");
+  ok(r.status === 404, "deep unknown address is 404 too", r.status);
+  for (const p of ["/", "/submit", "/status", "/help", "/privacy", "/rep", "/dept", "/lucknow/lu-hazratganj", "/lucknow/lu-hazratganj/"]) {
+    r = await page(p);
+    ok(r.status === 200, "still opens: " + p, r.status);
+  }
+  r = await page("/no-such-page.js");
+  ok(r.status === 404, "missing file is 404", r.status);
+  const fs = await import("node:fs");
+  const w = fs.readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
+  ok(/import \{ purgeDuePhotos \}/.test(w) && /purgeDuePhotos\(env, 500, "system"\)/.test(w), "hourly job removes due photos");
+  const t = fs.readFileSync(new URL("../worker/wrangler.toml", import.meta.url), "utf8");
+  ok(/^\[\[r2_buckets\]\]\s*\nbinding = "PRIVATE_PHOTOS"\s*\nbucket_name = "grieviq-private"/m.test(t), "hourly job can reach the private photo store");
+  const mw = await import(new URL("../functions/_middleware.js", import.meta.url).href);
+  ok(mw.mayBeUnknown("/x") && !mw.mayBeUnknown("/") && !mw.mayBeUnknown("/api/x") && !mw.mayBeUnknown("/kanpur/ward-12"), "only page addresses are checked");
 }
 
 // ---- audit trail ----

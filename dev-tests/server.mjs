@@ -138,11 +138,25 @@ http.createServer(async (req, res) => {
       res.writeHead(out.status, h);
       return res.end(Buffer.from(await out.arrayBuffer()));
     }
-    let p = path.join(repo, "public", decodeURIComponent(url.pathname));
-    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, "index.html");
-    if (!fs.existsSync(p) && fs.existsSync(p + ".html")) p += ".html";
-    if (!fs.existsSync(p)) { res.writeHead(404); return res.end("not found"); }
-    res.writeHead(200, { "content-type": TYPES[path.extname(p)] || "application/octet-stream" });
+    // Like Cloudflare Pages: a file, a page without ".html", or else (for a
+    // page address) the home page; then the site's "Page not found" check.
+    const asset = (pathname) => {
+      let p = path.join(repo, "public", decodeURIComponent(pathname));
+      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, "index.html");
+      if (!fs.existsSync(p) && fs.existsSync(p + ".html")) p += ".html";
+      return fs.existsSync(p) ? p : null;
+    };
+    let p = asset(url.pathname);
+    if (!p && !path.extname(url.pathname)) p = path.join(repo, "public", "index.html");
+    if (!p) { res.writeHead(404); return res.end("not found"); }
+    const type = TYPES[path.extname(p)] || "application/octet-stream";
+    if (type.startsWith("text/html")) {
+      const mw = await import(pathToFileURL(path.join(repo, "functions", "_middleware.js")).href);
+      const assets = { fetch: async (r) => { const a = asset(new URL(r.url).pathname); return a ? new Response(fs.readFileSync(a), { headers: { "content-type": "text/html; charset=utf-8" } }) : new Response("", { status: 404 }); } };
+      const nf = await mw.notFoundFor(new Request(url.href, { method: req.method }), new Response(fs.readFileSync(p), { headers: { "content-type": type } }), { ASSETS: assets });
+      if (nf) { res.writeHead(404, { "content-type": "text/html; charset=utf-8" }); return res.end(Buffer.from(await nf.arrayBuffer())); }
+    }
+    res.writeHead(200, { "content-type": type });
     res.end(fs.readFileSync(p));
   } catch (e) {
     console.error(e);

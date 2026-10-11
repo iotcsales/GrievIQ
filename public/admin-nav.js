@@ -232,7 +232,7 @@
       ".adm-drop{display:grid!important;position:static;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0;border:0;background:none!important;box-shadow:none!important;min-width:0}" +
       ".adm-drop-h{display:block;grid-column:1/-1;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--admin-muted,#9aa4b2);margin:2px 0 0}" +
       "#adm-menu a{min-height:44px;background:rgba(127,127,127,.12);white-space:normal;line-height:1.25;padding:6px 12px}" +
-      "#adm-menu a[aria-current=page],#adm-menu a.active{background:var(--admin-accent,#4c7cf0);color:#fff!important}" +
+      "#adm-menu a[aria-current=page],#adm-menu a.active{background:var(--admin-accent-fill,#3d6be0);color:#fff!important}" +
       "#adm-tools button{min-height:44px}#adm-tools .adm-acct{width:100%;justify-content:space-between;margin-top:0}" +
       "main{padding-left:14px!important;padding-right:14px!important}" +
     "}" +
@@ -377,7 +377,7 @@
     "html.light-theme .adm-idle-box{background:#fff;color:#1b1f24}" +
     ".adm-idle-box h2{margin:0 0 10px;font-size:1.15rem}.adm-idle-box p{margin:0 0 16px;line-height:1.5}" +
     ".adm-idle-box button{font:inherit;padding:8px 14px;border-radius:6px;cursor:pointer;margin-right:8px;border:1px solid var(--admin-border,#334);background:none;color:inherit}" +
-    ".adm-idle-box button.primary{background:var(--admin-accent,#3b6ff0);border-color:var(--admin-accent,#3b6ff0);color:#fff}";
+    ".adm-idle-box button.primary{background:var(--admin-accent-fill,#3d6be0);border-color:var(--admin-accent-fill,#3d6be0);color:#fff}";
   function getLast() { try { return Number(localStorage.getItem(KEY)) || 0; } catch (e) { return 0; } }
   var lastLocal = Date.now();
   function touch() {
@@ -432,7 +432,7 @@
     }
     a.textContent = t("common.skip");
   }
-  style.textContent += ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:var(--admin-accent,#3b6ff0);color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}.skip-link:focus{top:10px;outline:3px solid #fff;outline-offset:2px}";
+  style.textContent += ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:var(--admin-accent-fill,#3d6be0);color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}.skip-link:focus{top:10px;outline:3px solid #fff;outline-offset:2px}";
   ready(drawSkip);
 
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })

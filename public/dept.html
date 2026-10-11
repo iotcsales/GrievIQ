@@ -126,7 +126,7 @@
   .hdr-right { display: flex; align-items: center; gap: 12px; }
   #notif-slot .rn-bell { color: var(--ink); }
 </style>
-<script src="/i18n.js?v=37"></script>
+<script src="/i18n.js?v=38"></script>
 <script src="/photo-tools.js?v=7c"></script>
 </head>
 <body>
@@ -329,7 +329,13 @@
     if (r.status === 401) { S.data = null; S.screen = "email"; show(); return; }
     if (r.status === 409) { await openRules("accept"); return; }
     if (!r.ok) { R.err = r.status === 0 ? T("dd.e_network") : T("dd.e_generic"); show("rules-agree"); return; }
+    var first = !R.accepted;
     S.rules = null; await loadList("h");
+    // grieviq-38: a welcome the first time an officer comes in.
+    if (first && S.data && S.screen === "list") {
+      S.msg = { text: T("dd.welcome", { name: S.data.me.name, city: S.data.office.areaName || (GIQ.lang === "hi" ? "आपका शहर" : "your city") }) };
+      show("msg");
+    }
   }
 
   // ---------------- list

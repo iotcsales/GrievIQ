@@ -12,9 +12,12 @@ export async function onRequestGet({ request, env }) {
   let departments = [];
   try { departments = JSON.parse(o.office_departments || "[]"); } catch (e) { departments = []; }
   const types = await deptTypes(env);
+  // grieviq-38: the city, for the welcome line.
+  let area = null;
+  try { area = o.area_id ? await env.DB.prepare("SELECT name FROM areas WHERE id = ?").bind(o.area_id).first() : null; } catch (e) { area = null; }
   return Response.json({
     me: { name: o.name, designation: o.designation, email: o.email },
-    office: { id: o.office_id, nameEn: o.office_name_en, nameHi: o.office_name_hi || null, departments },
+    office: { id: o.office_id, nameEn: o.office_name_en, nameHi: o.office_name_hi || null, departments, areaName: area ? area.name : null },
     deptNames: namesOf(types), departments: types.filter((t) => !t.retired).map((t) => t.key),
     tiles: list.tiles, cases: list.cases,
   }, { headers: { "Cache-Control": "no-store" } });

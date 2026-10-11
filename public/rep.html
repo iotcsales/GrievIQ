@@ -20,7 +20,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=37"></script>
+<script src="/i18n.js?v=38"></script>
 <script src="/giq-charts.js?v=3"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=35"></script>
@@ -805,6 +805,14 @@
     .case-main > .case-actions { grid-column: 2; grid-row: 1 / span 30; border-left: 1px solid var(--line); padding-left: 24px; }
     .case-actions:empty { display: none; }
   }
+  /* grieviq-38: first-time welcome */
+  .welcome-card { margin: 0 0 16px; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--brand); background: var(--brand-tint); color: var(--ink); }
+  .welcome-card h2 { margin: 0 0 6px; font-size: 18px; font-family: "Source Serif 4", Georgia, serif; }
+  .welcome-card p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; }
+  .welcome-card .welcome-steps-h { font-weight: 600; margin-top: 10px; }
+  .welcome-card ol { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.6; }
+  .welcome-go { min-height: 44px; padding: 0 18px; border-radius: 9px; border: 1px solid var(--brand); background: var(--brand); color: var(--card); font: inherit; font-weight: 600; cursor: pointer; }
+  .welcome-go:focus-visible { outline: 3px solid #FFDD00; outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -3107,6 +3115,20 @@ window.GIQ_REP = {
   },
 };
 
+// grieviq-38: a welcome for someone opening the console for the first time
+// on this device; "Get started" puts it away for good.
+function welcomeKey() { return 'giq-welcome-' + String((currentMe && currentMe.email) || '').toLowerCase(); }
+function welcomeCard() {
+  if (!currentMe || !myMandates().length) return '';
+  try { if (localStorage.getItem(welcomeKey())) return ''; } catch (e) { return ''; }
+  var m = myMandates()[0], isRep = myMandates().some(function(x) { return (x.role || 'REPRESENTATIVE') === 'REPRESENTATIVE'; });
+  var title = isRep ? T('rep.wel_title') : T('rep.wel_team_title', { office: m.name || m.label || '' });
+  var body = isRep ? T('rep.wel_body') : T('rep.wel_team_body');
+  var steps = '<li>' + esc(T('rep.wel_s1')) + '</li>' + (teamOffices().length ? '<li>' + esc(T('rep.wel_s2')) + '</li>' : '') + '<li>' + esc(T('rep.wel_s3')) + '</li>';
+  return '<section class="welcome-card no-print" id="welcome-card" aria-labelledby="welcome-h"><h2 id="welcome-h">' + esc(title) + '</h2><p>' + esc(body) + '</p>' +
+    '<p class="welcome-steps-h">' + esc(T('rep.wel_steps')) + '</p><ol>' + steps + '</ol>' +
+    '<button type="button" class="welcome-go" id="welcome-go">' + esc(T('rep.wel_close')) + '</button></section>';
+}
 function renderShell() {
   document.getElementById('app').innerHTML =
     '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
@@ -3129,7 +3151,7 @@ function renderShell() {
       (teamOffices().length ? '<button type="button" class="tab-btn" data-tab="team">' + esc(T('rep.tab_team')) + '</button>' : '') +
       (hasAuditTab() ? '<button type="button" class="tab-btn" data-tab="audit">' + auditTabLabel() + '</button>' : '') +
     '</div>' +
-    '<main><div id="filter-slot"></div><div id="content"></div></main>';
+    '<main>' + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
   if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
   var soBtn = document.getElementById('signout-btn');
@@ -3138,6 +3160,12 @@ function renderShell() {
   updateSummary();
   updateTabs();
   if (window.GIQN) window.GIQN.mount();   // the notification bell (rep-notify.js)
+  var wGo = document.getElementById('welcome-go');
+  if (wGo) wGo.addEventListener('click', function() {
+    try { localStorage.setItem(welcomeKey(), '1'); } catch (e) {}
+    var card = document.getElementById('welcome-card'); if (card) card.remove();
+    var cases = document.querySelector('.tab-btn[data-tab="cases"]'); if (cases) cases.focus();
+  });
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var tab = btn.getAttribute('data-tab');

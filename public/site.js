@@ -60,7 +60,7 @@
       ".site-nav a:hover{background:var(--grey-fill,#EDEAE0)}.site-nav a[aria-current=page]{font-weight:700;color:var(--teal-dark,#13233F)}" +
       "html[data-layout=form] .app-card{max-width:680px;margin-left:auto;margin-right:auto;box-sizing:border-box}" +
       "html[data-layout=text] .app-card{max-width:760px;margin-left:auto;margin-right:auto;box-sizing:border-box}" +
-      ".footer-block{text-align:center}.footer-links{justify-content:center;font-size:13px!important;gap:10px 20px!important}.footer-note{max-width:680px;margin-left:auto;margin-right:auto}" +
+      ".footer-thanks{font-size:13px;font-weight:600;line-height:1.5;margin:6px auto 8px;max-width:680px;color:inherit}.footer-block{text-align:center}.footer-links{justify-content:center;font-size:13px!important;gap:10px 20px!important}.footer-note{max-width:680px;margin-left:auto;margin-right:auto}" +
     "}";
   document.head.appendChild(style);
 
@@ -118,6 +118,10 @@
         if (here === l[0]) a.setAttribute("aria-current", "page");
         box.appendChild(a);
       });
+      // grieviq-38: a thank-you line for citizens, on every citizen page.
+      var th = box.parentNode.querySelector(".footer-thanks");
+      if (!th) { th = document.createElement("p"); th.className = "footer-thanks"; box.parentNode.insertBefore(th, box.nextSibling); }
+      th.textContent = t("common.thanks", "Thank you for using GrievIQ, free for every citizen, always.");
       var meta = document.querySelector('meta[name="last-updated"]');
       var up = box.parentNode.querySelector(".footer-updated");
       if (meta) {

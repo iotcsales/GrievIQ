@@ -767,7 +767,7 @@ with sync_playwright() as pw:
         for line in reversed(open(WORK + "/mail.log", encoding="utf-8").read().strip().split("\n")):
             if not line: continue
             m = _json.loads(line)
-            if m.get("to") and m["to"][0] == email:
+            if m.get("to") and m["to"][0] == email and re.search(r"(\d{6})", m["subject"]):
                 return re.search(r"(\d{6})", m["subject"]).group(1)
         return None
     # 1. Real sign-in with the emailed code (the phone shares its location: 50 km away)
@@ -1290,6 +1290,8 @@ with sync_playwright() as pw:
                 with p.expect_response(lambda r: "/api/dept/rules" in r.url and r.request.method == "POST"): p.click("#rules-go")
                 p.wait_for_selector(".tiles")
                 ok(p.locator("#rn-bell").count() == 1, "after accepting: cases and bell " + tag)
+                wel = p.inner_text("#msg") if p.locator("#msg").count() else ""
+                ok(("Welcome to GrievIQ, Ravi Kumar" in wel and "Lucknow" in wel) if lang == "en" else ("GrievIQ में आपका स्वागत है, Ravi Kumar" in wel), "officer welcomed on first acceptance " + tag, wel)
                 p.click("#rules-link"); p.wait_for_selector("#rules-h")
                 ok(("You accepted these rules (version 1) on" in p.inner_text("main")) if lang == "en" else ("आपने ये नियम (संस्करण 1)" in p.inner_text("main")), "footer link: rules with the date accepted " + tag)
                 p.click("#rules-back"); p.wait_for_selector(".tiles")
@@ -1351,6 +1353,84 @@ with sync_playwright() as pw:
     p.goto(B + "/admin-dept-agreement.html?office=" + jal_id); p.wait_for_selector(".err")
     ok("can't open department agreements" in p.inner_text(".err"), "data entry operator: agreement page refused")
     ctx.close()
+
+    # ---------- grieviq-38: page not found, thanks, welcome, admin buttons ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                resp = p.goto(B + "/this-page-is-not-here"); p.wait_for_selector("h1")
+                ok(resp.status == 404, "unknown address: 404 " + tag, resp.status)
+                txt = p.inner_text("main")
+                if lang == "en":
+                    ok("Page not found" in txt and "error 404" in txt.lower(), "not-found wording " + tag, txt[:200])
+                else:
+                    ok("पृष्ठ नहीं मिला" in txt and not re.findall(r"nf\.\w+", txt), "not-found in Hindi " + tag, txt[:200])
+                hrefs = p.eval_on_selector_all("main a", "a => a.map(x => x.getAttribute('href'))")
+                ok(all(h in hrefs for h in ("/", "/status", "/submit", "/help")), "ways out: home, track, file, help " + tag, hrefs)
+                ok(p.locator(".footer-thanks").count() == 1 and ("Thank you for using GrievIQ" in p.inner_text(".footer-thanks") if lang == "en" else "धन्यवाद" in p.inner_text(".footer-thanks")), "footer thank-you " + tag)
+                ok(no_hscroll(p), "not-found: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "not-found contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS.replace("!e.closest('dd,", "!e.closest('.footer-links, dd,", 1)); ok(not small, "not-found targets >= 24px " + tag, small[:5])
+                shot(p, "42-not-found-" + tag, full=(width == 375))
+                ok(not errs, "no script errors (not found %s)" % tag, errs)
+                ctx.close()
+    ctx = br.new_context(); p = ctx.new_page()
+    p.goto(B + "/submit"); p.wait_for_selector("form")
+    ok(p.locator("p.done-thanks[data-i18n='submit.done_thanks']").count() == 1 and "Thank you for speaking up" in p.locator("p.done-thanks").text_content(), "thank-you line on the complaint-filed screen")
+    ctx.close()
+
+    # Rep welcome card: once per person per device
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/rep"); p.wait_for_selector(".welcome-card", timeout=15000)
+                txt = p.inner_text(".welcome-card")
+                if lang == "en":
+                    ok("Congratulations, and welcome to GrievIQ." in txt and "a better India" in txt, "rep welcome wording " + tag, txt[:300])
+                else:
+                    ok("बधाई हो" in txt and not re.findall(r"rep\.wel_\w+", txt), "rep welcome in Hindi " + tag, txt[:300])
+                ok(no_hscroll(p), "welcome: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card contrast AA " + tag, bad[:5])
+                shot(p, "43-rep-welcome-" + tag, full=False)
+                p.click("#welcome-go"); p.wait_for_timeout(200)
+                ok(p.locator(".welcome-card").count() == 0, "Get started closes the card " + tag)
+                ok(p.evaluate("document.activeElement.dataset.tab") == "cases", "focus moves to the Cases tab " + tag)
+                p.reload(); p.wait_for_selector(".tab-btn", timeout=15000); p.wait_for_timeout(500)
+                ok(p.locator(".welcome-card").count() == 0, "not shown again on this device " + tag)
+                ok(not errs, "no script errors (welcome %s)" % tag, errs)
+                ctx.close()
+
+    # Admin primary buttons: readable in light and dark
+    for theme in ("light", "dark"):
+        for pg in ("/admin-departments.html", "/admin-staff.html", "/admin-cases.html", "/admin-dashboard.html"):
+            ctx, p, errs = P("super@test.in", theme=theme)
+            p.goto(B + pg); p.wait_for_load_state("networkidle"); p.wait_for_timeout(300)
+            res = p.evaluate(r"""() => {
+              function rgb(s){const m=s.match(/rgba?\(([^)]+)\)/); const p=m[1].split(',').map(Number); return p;}
+              function lum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);}
+              const out=[];
+              document.querySelectorAll('button.primary, .admin-nav a[aria-current=page], [aria-pressed=true], [aria-selected=true]').forEach(b=>{
+                const cs=getComputedStyle(b); const r=b.getBoundingClientRect(); if(r.width<2) return;
+                const bgc=rgb(cs.backgroundColor); if(bgc.length>3 && bgc[3]===0) return;
+                const L1=lum(rgb(cs.color)),L2=lum(bgc); const ratio=(Math.max(L1,L2)+0.05)/(Math.min(L1,L2)+0.05);
+                out.push([b.textContent.trim().slice(0,30), ratio]);
+              });
+              return out;
+            }""")
+            low = [x for x in res if x[1] < 4.5]
+            ok(not low, "filled admin buttons >= 4.5:1 %s %s" % (theme, pg), low[:5])
+            ctx.close()
 
     br.close()
 

@@ -17,7 +17,8 @@
     --admin-border: #2c3543;
     --admin-text: #e6e9ee;
     --admin-muted: #9aa4b2;
-    --admin-accent: #4c7cf0;
+    --admin-accent: #6f95f2;
+    --admin-accent-fill: #3d6be0;
     --admin-danger: #e2564f;
     --admin-danger-bg: #3a2323;
     --admin-success: #7fce8f;
@@ -80,7 +81,7 @@
     font-family: inherit;
   }
   button:hover { background: #2b3341; }
-  button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
   button.primary:hover { background: #3d6be0; }
   button.small { padding: 5px 12px; font-size: 13px; }
   button:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -198,7 +199,8 @@
     --admin-border: #dde1e6;
     --admin-text: #14181f;
     --admin-muted: #5b6472;
-    --admin-accent: #3d6be0;
+    --admin-accent: #3563d8;
+    --admin-accent-fill: #3563d8;
     --admin-danger: #c9463c;
     --admin-danger-bg: #fbe7e5;
     --admin-success: #2e7d45;
@@ -214,7 +216,7 @@
   html.light-theme nav a.active { color: var(--admin-text); }
   html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
   html.light-theme button:hover { background: #e2e5ea; }
-  html.light-theme button.primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+  html.light-theme button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
   html.light-theme button.primary:hover { background: #2f5bd0; }
   html.light-theme .bar-fill.low { background: #c98a00; }
   html.light-theme .notice.ok { border-color: #b7dcc2; }
@@ -307,7 +309,7 @@
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
-<script src="/i18n.js?v=37"></script>
+<script src="/i18n.js?v=38"></script>
 <script src="/admin-nav.js?v=r9"></script>
 </head>
 <body>

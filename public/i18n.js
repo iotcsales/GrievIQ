@@ -918,10 +918,7 @@
 "Marked resolved — waiting for your confirmation",
 "निस्तारित बताया गया — आपकी पुष्टि की प्रतीक्षा है"
 ],
-"status.outcome_confirmed": [
-"You confirmed this was fixed. Thank you for letting us know.",
-"आपने पुष्टि की कि समस्या हल हो गई है। बताने के लिए धन्यवाद।"
-],
+"status.outcome_confirmed": ["You confirmed this was fixed. Thank you for helping improve your neighbourhood.", "आपने पुष्टि की कि समस्या हल हो गई है। अपने मोहल्ले को बेहतर बनाने में मदद के लिए धन्यवाद।"],
 "status.outcome_not_confirmed": [
 "Closed as resolved. We didn't hear back from you within 7 days of the representative marking it resolved, so it was closed without your confirmation.",
 "निस्तारित मानकर बंद। जनप्रतिनिधि द्वारा निस्तारित बताए जाने के 7 दिन के भीतर आपका उत्तर नहीं मिला, इसलिए इसे आपकी पुष्टि के बिना बंद किया गया।"
@@ -930,10 +927,7 @@
 "Closed as resolved. It was closed on the representative's word, as no email was given to ask for confirmation.",
 "निस्तारित मानकर बंद। पुष्टि के लिए कोई ईमेल नहीं दिया गया था, इसलिए इसे जनप्रतिनिधि की सूचना के आधार पर बंद किया गया।"
 ],
-"status.confirmed": [
-"Thanks for confirming — this case is now marked resolved.",
-"पुष्टि के लिए धन्यवाद — यह शिकायत अब निस्तारित मानी गई है।"
-],
+"status.confirmed": ["Thank you for confirming. This case is now marked resolved, and you've helped improve your neighbourhood.", "पुष्टि के लिए धन्यवाद। यह शिकायत अब निस्तारित मानी गई है, और आपने अपने मोहल्ले को बेहतर बनाने में मदद की है।"],
 "status.disputed": [
 "Thanks — we've reopened this case and shared your note with the representative.",
 "धन्यवाद — यह शिकायत पुनः खोल दी गई है और आपकी टिप्पणी जनप्रतिनिधि को भेज दी गई है।"
@@ -2736,6 +2730,29 @@
 "adm.ag_e_office": ["This office wasn't found. Open the agreement from the Departments page.", "यह कार्यालय नहीं मिला। विभाग पृष्ठ से समझौता खोलें।"],
 "adm.ag_e_role": ["Your role can't open department agreements.", "आपकी भूमिका विभाग समझौते नहीं खोल सकती।"],
 "adm.ag_e_load": ["The agreement couldn't be prepared. Please reload the page.", "समझौता तैयार नहीं हो सका। कृपया पृष्ठ फिर से लोड करें।"],
+// grieviq-38: "Page not found", welcome and thank-you lines.
+"nf.page_title": ["Page not found — GrievIQ", "पृष्ठ नहीं मिला — GrievIQ"],
+"nf.code": ["Error 404", "त्रुटि 404"],
+"nf.title": ["Page not found", "पृष्ठ नहीं मिला"],
+"nf.text": ["The address may be mistyped, or the page has moved. Check the address, or choose where to go:", "पता गलत टाइप हुआ हो सकता है, या पृष्ठ हट गया है। पता जाँचें, या चुनें कि कहाँ जाना है:"],
+"nf.nav": ["Where to go", "कहाँ जाएँ"],
+"nf.home": ["Go to the home page", "मुख्य पृष्ठ पर जाएँ"],
+"nf.track": ["Track your complaint", "अपनी शिकायत की स्थिति देखें"],
+"nf.file": ["File a complaint", "शिकायत दर्ज करें"],
+"nf.help": ["Help and contact", "सहायता और संपर्क"],
+"nf.staff": ["For staff: representatives sign in at <a href=\"/rep\">grieviq.in/rep</a>, department officers at <a href=\"/dept\">grieviq.in/dept</a>.", "स्टाफ़ के लिए: जनप्रतिनिधि <a href=\"/rep\">grieviq.in/rep</a> पर और विभागीय अधिकारी <a href=\"/dept\">grieviq.in/dept</a> पर साइन इन करें।"],
+"common.thanks": ["Thank you for using GrievIQ, free for every citizen, always.", "GrievIQ उपयोग करने के लिए धन्यवाद, हर नागरिक के लिए हमेशा निःशुल्क।"],
+"submit.done_thanks": ["Thank you for speaking up. Your complaint has reached your representative's office. Reporting problems is how our cities get better, and you've done your part.", "आवाज़ उठाने के लिए धन्यवाद। आपकी शिकायत आपके जनप्रतिनिधि के कार्यालय तक पहुँच गई है। समस्याएँ बताने से ही हमारे शहर बेहतर बनते हैं, और आपने अपना काम कर दिया है।"],
+"rep.wel_title": ["Congratulations, and welcome to GrievIQ.", "बधाई हो, GrievIQ में आपका स्वागत है।"],
+"rep.wel_body": ["Thank you for joining a growing movement of representatives who answer every citizen on time. Every complaint your office resolves builds trust in our democracy and a better India.", "समय पर हर नागरिक की सुनवाई करने वाले जनप्रतिनिधियों के इस बढ़ते अभियान से जुड़ने के लिए धन्यवाद। आपके कार्यालय द्वारा हल की गई हर शिकायत हमारे लोकतंत्र में विश्वास और एक बेहतर भारत का निर्माण करती है।"],
+"rep.wel_team_title": ["Welcome to {office}'s team on GrievIQ.", "GrievIQ पर {office} की टीम में आपका स्वागत है।"],
+"rep.wel_team_body": ["Thank you for helping the citizens of your area get their problems solved.", "अपने क्षेत्र के नागरिकों की समस्याएँ हल करने में मदद के लिए धन्यवाद।"],
+"rep.wel_steps": ["To get started:", "शुरुआत के लिए:"],
+"rep.wel_s1": ["Turn on alerts with the bell at the top, so new complaints reach your phone at once.", "ऊपर घंटी से सूचनाएँ चालू करें, ताकि नई शिकायतें तुरंत आपके फ़ोन पर आएँ।"],
+"rep.wel_s2": ["Add your team (office manager, field workers) from the Team tab.", "टीम टैब से अपनी टीम (कार्यालय प्रबंधक, फ़ील्ड कर्मी) जोड़ें।"],
+"rep.wel_s3": ["Open the Cases tab to see and act on complaints.", "शिकायतें देखने और कार्यवाही करने के लिए शिकायतें टैब खोलें।"],
+"rep.wel_close": ["Get started", "शुरू करें"],
+"dd.welcome": ["Welcome to GrievIQ, {name}. Thank you for working with your elected representatives to fix citizens' problems quickly. Every case you complete makes {city} a better place to live.", "GrievIQ में आपका स्वागत है, {name}। जनप्रतिनिधियों के साथ मिलकर नागरिकों की समस्याएँ जल्दी हल करने के लिए धन्यवाद। आपका पूरा किया हर काम {city} को रहने के लिए बेहतर बनाता है।"],
 "dd.r_loc_hint": ["When you add a photo, we ask your phone's location once, with your permission, to show it was taken at the spot. It is saved with the photo, and the representative's office sees how far it was from the complaint's spot. You can say no and still add the photo.", "तस्वीर जोड़ते समय हम आपकी अनुमति से एक बार आपके फ़ोन की लोकेशन माँगते हैं, ताकि दिखे कि तस्वीर मौके पर ली गई। यह तस्वीर के साथ सहेजी जाती है, और जनप्रतिनिधि का कार्यालय देखता है कि यह शिकायत के स्थान से कितनी दूर थी। आप मना कर सकते हैं और फिर भी तस्वीर जोड़ सकते हैं।"],
 "dd.r_checks_h": ["Checks on this photo", "इस तस्वीर की जाँच"],
 "rep.fc_btn": ["Record field check", "मौके पर जाँच दर्ज करें"],
@@ -3120,7 +3137,7 @@
 "status.rate_err_office": ["Please choose an answer to the first question.", "कृपया पहले प्रश्न का एक उत्तर चुनें।"],
 "status.rate_err_comment": ["Please keep your comment to 500 characters.", "कृपया टिप्पणी 500 अक्षरों के भीतर रखें।"],
 "status.rate_thanks_title": ["Thank you", "धन्यवाद"],
-"status.rate_thanks": ["Your rating has been recorded.", "आपकी रेटिंग दर्ज कर ली गई है।"],
+"status.rate_thanks": ["Your rating has been recorded. Thank you — it helps everyone serve citizens better.", "आपकी रेटिंग दर्ज कर ली गई है। धन्यवाद — इससे सभी को नागरिकों की बेहतर सेवा करने में मदद मिलती है।"],
 "status.rate_yours": ["Your rating", "आपकी रेटिंग"],
 "status.rate_sum_office": ["Representative's office: {answer}", "जनप्रतिनिधि का कार्यालय: {answer}"],
 "status.rate_sum_dept": ["{dept}: {answer}", "{dept}: {answer}"],

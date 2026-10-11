@@ -13,7 +13,7 @@
 //   officer_remove { officerId, reason }           signed out at once
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
-import { officersReady, endOfficerSessions, EMAIL_RE } from "../../_shared/dept-auth.js";
+import { officersReady, endOfficerSessions, EMAIL_RE, officerWelcomeEmail, sendEmailNow } from "../../_shared/dept-auth.js";
 import { RULES_VERSION } from "../../_shared/dept-rules.js";
 
 const json = (b, s) => Response.json(b, { status: s || 200, headers: { "Cache-Control": "no-store" } });
@@ -128,7 +128,10 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("INSERT INTO dept_officers (id, office_id, email, name, designation, status, added_by, added_at) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)")
       .bind(id, office.id, email, name, designation, auth.email, now).run();
     await logAdmin(env, auth.email, "dept_officer_added", id, { office: office.name_en, name, designation, email });
-    return json({ ok: true, id });
+    // grieviq-38: a welcome email with where to sign in.
+    const w = officerWelcomeEmail(name, office.name_en, new URL(request.url).origin);
+    const sent = await sendEmailNow(env, email, w.subject, w.html);
+    return json({ ok: true, id, welcomed: sent });
   }
 
   if (action === "officer_remove") {

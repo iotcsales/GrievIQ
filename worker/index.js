@@ -16,6 +16,7 @@
 import { runNotifications } from "../functions/_shared/notify.js";
 import { settleOverdueConfirmations } from "../functions/_shared/confirmation.js";
 import { runRetention, RUN_BATCH } from "../functions/_shared/retention.js";
+import { purgeDuePhotos } from "../functions/_shared/photo-store.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -23,7 +24,13 @@ export async function runScheduled(env, nowMs) {
   const notices = await runNotifications(env, origin, nowMs);
   let retention = null;
   try { retention = await runRetention(env, { limit: RUN_BATCH, actor: "system", kind: "AUTO", request: new Request(origin + "/") }); } catch (e) { retention = { errors: 1 }; }
-  return { notices, retention };
+  // grieviq-38: every hour, photo files of removed complaints, photos never
+  // attached to a complaint, and photos past their keeping time are deleted.
+  let photos = null;
+  if (env.PRIVATE_PHOTOS) {
+    try { photos = await purgeDuePhotos(env, 500, "system"); } catch (e) { photos = { errors: 1 }; }
+  }
+  return { notices, retention, photos };
 }
 
 export default {
