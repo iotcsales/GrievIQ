@@ -339,7 +339,11 @@
   .need-box { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 6px 0 0; }
   .need-box strong { color: var(--ink); }
   .emergency { margin-top: 14px; font-size: 12.5px; line-height: 1.5; border-radius: 12px; padding: 10px 13px; background: var(--brick-dim); color: var(--ink); border: 1px solid var(--brick); }
-  .emergency strong { color: var(--brick); }
+  /* grieviq-42: a slightly deeper red in light mode for 4.5:1 on the pink box. */
+  :root { --brick-strong: #94291B; }
+  :root[data-theme="dark"] { --brick-strong: #F08A7E; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --brick-strong: #F08A7E; } }
+  .emergency strong { color: var(--brick-strong); }
   .device-note { font-size: 11.5px; color: var(--ink-soft); margin: -4px 0 12px; }
   .device-note button { background: none; border: none; padding: 0; font: inherit; color: var(--teal-dark); text-decoration: underline; cursor: pointer; }
   .rep-link { margin-top: 10px; font-size: 11px; }
@@ -397,8 +401,11 @@
   .home-grid { display: flex; flex-direction: column; }
   .home-main, .home-side { display: contents; }
   .home-main > h1 { order: 1; } .home-main > .intro { order: 2; } .home-side > .loc-card { order: 3; }
-  .home-main > .stats { order: 4; } .home-side > #report-task { order: 5; } .home-side > .task-card:not(#report-task) { order: 6; }
-  .home-main > .device-note { order: 7; } .home-main > .need-box { order: 8; } .home-main > .emergency { order: 9; } .home-main > .feedback-card { order: 10; }
+  .home-side > #report-task { order: 5; } .home-side > .task-card:not(#report-task) { order: 6; }
+  .home-side > .device-note { order: 7; } .home-main > .need-box { order: 8; }
+  .home-more { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+  .home-more > .feedback-card { order: 1; margin-top: 0; } .home-more > .offices-card { order: 2; margin-top: 0; } .home-more > .emergency { order: 3; margin-top: 0; }
+  .home-side > .device-note { margin: 0 2px 12px; }
   .how { display: none; }
   @media (min-width: 1024px) {
     .app-card { background: transparent; border: 0; box-shadow: none; padding: 8px 0 0; max-width: none; }
@@ -415,10 +422,17 @@
     .how-s a { color: var(--teal-dark); }
     .home-side .loc-card { background: var(--card); border-radius: 20px; padding: 26px; box-shadow: var(--shadow); margin-top: 0; }
     .home-side .task-card { margin-bottom: 12px; }
-    .home-main .emergency, .home-main .need-box { font-size: 13.5px; }
+    .home-main .need-box { font-size: 13.5px; }
+    /* Emergency (left) and feedback (right) level, in the same two columns; offices band full width below. */
+    .home-more { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); column-gap: 48px; row-gap: 16px; margin-top: 8px; align-items: stretch; }
+    .home-more > .emergency { order: 0; grid-column: 1; grid-row: 1; font-size: 13.5px; }
+    .home-more > .feedback-card { order: 0; grid-column: 2; grid-row: 1; font-size: 13.5px; }
+    .home-more > .offices-card { order: 0; grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 16px 20px; }
+    .home-more > .offices-card .offices-s { margin-top: 0; flex: 1 1 auto; }
+    .home-more > .offices-card .task-arrow { margin-left: auto; }
   }
 </style>
-<script src="/i18n.js?v=41"></script>
+<script src="/i18n.js?v=42"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
@@ -454,19 +468,7 @@
     </ol>
 
 
-    <div class="stats" aria-label="GrievIQ at a glance" data-i18n-aria="home.glance">
-      <div class="stat"><div class="stat-value" id="stat-wards">–</div><div class="stat-label" id="stat-wards-label">Wards reachable</div></div>
-      <div class="stat"><div class="stat-value" data-i18n="home.stat_levels_value">Up to 4</div><div class="stat-label" data-i18n="home.stat_levels">Escalation levels</div></div>
-      <div class="stat"><div class="stat-value" id="stat-device">0</div><div class="stat-label" data-i18n="home.stat_device">Reports on this device</div></div>
-    </div>
-
-    <p class="device-note" id="device-note" style="display:none;"><span data-i18n="home.device_note">Tracking numbers are saved only on this device.</span> <button type="button" id="forget-device" data-i18n="home.forget">Forget reports on this device</button></p>
-
     <p class="need-box" data-i18n-html="home.need"><strong>What you'll need:</strong> your phone number. Add your email to get updates and track your report online.</p>
-
-    <div class="emergency" data-i18n-html="home.emergency"><strong>Emergency?</strong> For fire, gas leaks, accidents or anyone in danger, call <strong>112</strong>. Don't wait for GrievIQ.</div>
-
-    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n-html="common.feedback_card">Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
     </div>
     <div class="home-side">
     <section class="loc-card" id="loc-card" aria-labelledby="loc-q">
@@ -506,12 +508,19 @@
       <span><span class="task-title" data-i18n="home.track_title">Track my reports</span><span class="task-sub" style="display:block" id="track-sub">Check progress with the email you gave</span></span>
       <span class="task-arrow" aria-hidden="true">→</span>
     </a>
+    <p class="device-note" id="device-note" style="display:none;"><span data-i18n="home.device_note">Tracking numbers are saved only on this device.</span> <button type="button" id="forget-device" data-i18n="home.forget">Forget reports on this device</button></p>
+    </div>
+   </div>
+   <!-- grieviq-42 (owner's layout, 11 Oct 2026): emergency and feedback side by side, offices in one band below.
+        Phones: feedback, offices, then the emergency note last. -->
+   <div class="home-more">
+    <div class="emergency" data-i18n-html="home.emergency"><strong>Emergency?</strong> For fire, gas leaks, accidents or anyone in danger, call <strong>112</strong>. Don't wait for GrievIQ.</div>
+    <a href="/feedback" class="feedback-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-i18n-html="common.feedback_card">Problem with the app itself? <strong>Send feedback</strong> — separate from reporting a civic issue.</span></a>
     <a class="offices-card" href="/for-offices" id="offices-card">
-      <span class="offices-t" data-i18n="home.offices_t">Run GrievIQ in your office or department</span>
-      <span class="offices-s" data-i18n="home.offices_s">For pradhans, councillors, mayors, MLAs, MPs and government offices: prices and a free pilot.</span>
+      <span class="offices-t" data-i18n="home.offices_t">For pradhans, councillors, mayors, MLAs, MPs and government offices</span>
+      <span class="offices-s" data-i18n="home.offices_s">Run GrievIQ in your office: prices and a free pilot</span>
       <span class="task-arrow" aria-hidden="true">→</span>
     </a>
-    </div>
    </div>
   </div>
 
@@ -533,7 +542,6 @@
   }
   function showDevice() {
     const n = savedReports().length;
-    document.getElementById('stat-device').textContent = n;
     document.getElementById('track-sub').textContent = n
       ? GIQ.t('home.track_sub_some', { n: n })
       : GIQ.t('home.track_sub_none');
@@ -549,7 +557,7 @@
   // Live count of wards citizens can file in (same list the complaint form uses).
   fetch('/api/intake-options')
     .then(r => r.ok ? r.json() : null)
-    .then(d => { if (d && Array.isArray(d.localUnits)) { window.GIQ_INTAKE = d; document.getElementById('stat-wards').textContent = d.localUnits.length; document.dispatchEvent(new Event('giq:intake')); } })
+    .then(d => { if (d && Array.isArray(d.localUnits)) { window.GIQ_INTAKE = d; document.dispatchEvent(new Event('giq:intake')); } })
     .catch(() => {});
 })();
 
