@@ -20,9 +20,12 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=40"></script>
-<script src="/guide-content.js?v=40"></script>
+<script src="/i18n.js?v=41"></script>
+<script src="/guide-content.js?v=41"></script>
 <script src="/guide.js?v=40"></script>
+<script src="/vendor/qrcode/qrcode.js?v=1"></script>
+<script src="/pay.js?v=41"></script>
+<script src="/billing.js?v=41"></script>
 <script src="/giq-charts.js?v=3"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=35"></script>
@@ -2467,6 +2470,8 @@ function mLabel(m) {
 }
 function isManagerRole(r) { return r === 'REPRESENTATIVE' || r === 'OFFICE_MANAGER' || !r; }
 function canSeeReport() { return myMandates().some(function(m) { return m.role !== 'FIELD_WORKER'; }); }
+// grieviq-41: bills are for the representative and the office manager only (owner decision 11 Oct 2026).
+function billingOffices() { return myMandates().filter(function(m) { return (m.role || 'REPRESENTATIVE') === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER'; }); }
 function teamOffices() { return myMandates().filter(function(m) { return m.role === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER' || !m.role; }); }
 
 function casesInView() {
@@ -2658,7 +2663,7 @@ function renderFilters() {
   if (activeTab === 'report' && (!reportData || reportData.error)) return;   // built once data is in
   if (activeTab === 'team') { renderTeamFilter(slot); return; }
   if (activeTab === 'overview') { renderOverviewFilter(slot); return; }
-  if (activeTab === 'audit') { slot.innerHTML = ''; return; }
+  if (activeTab === 'audit' || activeTab === 'billing') { slot.innerHTML = ''; return; }
   var key = activeTab + '|' + mandateIdForApi() + '|' + reportFrom + '|' + reportTo;
   if (key === filterKey && slot.innerHTML) return;   // keep the box (and keyboard focus) as it is
   filterKey = key;
@@ -3161,6 +3166,7 @@ function renderShell() {
       (canSeeReport() ? '<button type="button" class="tab-btn" data-tab="report">' + esc(T('rep.tab_report')) + '</button>' : '') +
       (teamOffices().length ? '<button type="button" class="tab-btn" data-tab="team">' + esc(T('rep.tab_team')) + '</button>' : '') +
       (hasAuditTab() ? '<button type="button" class="tab-btn" data-tab="audit">' + auditTabLabel() + '</button>' : '') +
+      (billingOffices().length ? '<button type="button" class="tab-btn" data-tab="billing">' + esc(T('rep.tab_billing')) + '</button>' : '') +
     '</div>' +
     '<main>' + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
@@ -3191,6 +3197,7 @@ function renderShell() {
       else if (activeTab === 'team') { updateSummary(); renderFilters(); loadTeamTab(); }
       else if (activeTab === 'overview') { updateSummary(); renderFilters(); loadOverview(); }
       else if (activeTab === 'audit') { updateSummary(); auditNotice = ''; renderContent(); var ah = document.getElementById(auditId ? 'au-d-title' : 'au-title'); if (ah) ah.focus(); }
+      else if (activeTab === 'billing') { updateSummary(); renderContent(); }
       else { updateSummary(); renderFilters(); renderContent(); }
     });
   });
@@ -3220,6 +3227,11 @@ function renderContent() {
   if (activeTab === 'overview') {
     el.innerHTML = renderOverviewTab();
     attachOverviewHandlers();
+    return;
+  }
+  if (activeTab === 'billing') {
+    el.innerHTML = '<section id="billing-box" class="billing-box"></section>';
+    if (window.GIQBilling) window.GIQBilling.mount(document.getElementById('billing-box'), { api: '/api/billing', h: 2 });
     return;
   }
   if (activeTab === 'audit') {

@@ -152,8 +152,10 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=40"></script>
-<script src="/admin-nav.js?v=r11"></script>
+<script src="/i18n.js?v=41"></script>
+<script src="/admin-nav.js?v=r12"></script>
+<script src="/vendor/qrcode/qrcode.js?v=1"></script>
+<script src="/pay.js?v=41"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -225,6 +227,13 @@
   .pr-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
   .pr-form .fld { min-width: 180px; flex: 1; }
   .pr-form select { min-height: 38px; }
+  /* grieviq-41: Payment details */
+  .pay-wait { border: 2px solid #c98a00; border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; }
+  .pay-wait p { margin: 0 0 8px; }
+  .pay-now { margin: 0 0 16px; padding-left: 20px; } .pay-now li { margin: 4px 0; overflow-wrap: anywhere; }
+  .pay-qr { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .pay-qr .giq-qr { width: 132px; height: 132px; border-radius: 6px; }
+  .name-warn { font-size: 13px; border-left: 3px solid #c98a00; padding-left: 8px; color: var(--admin-text); }
   @media (max-width: 640px) { .pub input { min-width: 0; width: 100%; } .pr-card dl { grid-template-columns: 1fr; } .pr-card dt { margin-top: 6px; } }
 </style>
 </head>
@@ -260,7 +269,7 @@ function timeText(s) { if (!s) return ""; var d = new Date(s); return isNaN(d) ?
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 var S = { info: null, W: null, tab: "plans", fields: {}, msg: null, dirty: false, view: null, busy: false };
-var TABS = ["plans", "gst", "discounts", "company", "policies", "claims", "history"];
+var TABS = ["plans", "gst", "discounts", "company", "payments", "policies", "claims", "history"];
 
 // ---- the working copy: every input has data-path ("plans.0.monthly") ----
 function getPath(o, path) { return path.split(".").reduce(function (x, k) { return x == null ? x : x[k]; }, o); }
@@ -361,11 +370,12 @@ function renderErrors() {
 }
 function tabOf(k) {
   var top = k.split(".")[0];
-  return { plans: "plans", gst: "gst", yearly: "discounts", pilot: "discounts", offers: "discounts", company: "company", policies: "policies", claims: "claims" }[top] || "plans";
+  return { plans: "plans", gst: "gst", yearly: "discounts", pilot: "discounts", offers: "discounts", company: "company", payments: "payments", policies: "policies", claims: "claims" }[top] || "plans";
 }
 function labelOf(k) {
   var ps = k.split("."), top = ps[0];
   if (top === "plans" && ps.length > 2) { var p = S.W.plans[+ps[1]]; return (p ? (hi() ? p.nameHi : p.nameEn) || T("adm.ss_new_plan") : "") + " — " + T("adm.ss_f_" + ps.slice(2).join("_")); }
+  if (top === "payments" && ps.length > 3) { var pm = S.W.payments.methods[+ps[2]]; return (pm ? T(pm.kind === "BANK" ? "adm.ss_pm_bank" : "adm.ss_pm_upi") + " " + (+ps[2] + 1) : "") + " — " + T("adm.ss_pm_f_" + ps[3]); }
   if (top === "offers" && ps.length > 2) { var o = S.W.offers[+ps[1]]; return (o ? (hi() ? o.nameHi : o.nameEn) || T("adm.ss_new_offer") : "") + " — " + T("adm.ss_o_" + ps[2]); }
   return T("adm.ss_f_" + k.replace(/\./g, "_"));
 }
@@ -379,7 +389,7 @@ function render() {
   var tabs = '<div class="tabs" role="tablist" aria-label="' + esc(T("adm.ss_tabs")) + '">' + TABS.map(function (t) {
     return '<button type="button" role="tab" id="tab-' + t + '" aria-controls="panel-' + t + '" aria-selected="' + (S.tab === t) + '" tabindex="' + (S.tab === t ? 0 : -1) + '" data-tab="' + t + '">' + esc(T("adm.ss_tab_" + t)) + (countErr(t) ? ' <span class="tab-err">(' + countErr(t) + ")</span>" : "") + "</button>";
   }).join("") + "</div>";
-  var body = { plans: plansTab, gst: gstTab, discounts: discountsTab, company: companyTab, policies: policiesTab, claims: claimsTab, history: historyTab }[S.tab]();
+  var body = { plans: plansTab, gst: gstTab, discounts: discountsTab, company: companyTab, payments: paymentsTab, policies: policiesTab, claims: claimsTab, history: historyTab }[S.tab]();
   app.innerHTML = tabs + '<section class="panel tabpanel" role="tabpanel" id="panel-' + S.tab + '" aria-labelledby="tab-' + S.tab + '" tabindex="-1">' + body + "</section>";
   app.querySelectorAll('[role="tab"]').forEach(function (b) {
     b.addEventListener("click", function () { S.tab = b.getAttribute("data-tab"); render(); document.getElementById("tab-" + S.tab).focus(); });
@@ -389,6 +399,17 @@ function render() {
     });
   });
   wire(app);
+  bind("pay-cancel", cancelPayChange);
+}
+async function cancelPayChange() {
+  if (!confirm(T("adm.ss_pm_cancel_q"))) return;
+  try {
+    var r = await post({ action: "cancel_payment_change" });
+    if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); return; }
+    S.dirty = false; S.fields = {};
+    await load(true);
+    S.msg = { text: function () { return T("adm.ss_pm_cancelled"); } }; render(); focusMsg();
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
 }
 function countErr(t) { return Object.keys(S.fields).filter(function (k) { return tabOf(k) === t; }).length; }
 
@@ -497,6 +518,47 @@ function companyTab() {
     input("company.callbackHi", "adm.ss_f_company_callbackHi", { req: true, max: 60, lang: "hi" }) + "</div>";
 }
 
+// grieviq-41: where offices pay. Never public; new or changed details wait 24 hours.
+function plainName(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+function payLine(m) {
+  if (m.kind === "UPI") return T("adm.ss_pm_line_upi", { id: m.upiId, name: m.payeeName });
+  return T("adm.ss_pm_line_bank", { name: m.accountName, bank: m.bankName, no: m.accountNumber, ifsc: m.ifsc });
+}
+function paymentsTab() {
+  var W = S.W, I = S.info, ps = I.payState || { current: [], pending: null, delayHours: 24 };
+  if (!W.payments) W.payments = { methods: [] };
+  var h = '<h2 class="sec-h">' + esc(T("adm.ss_pm_h")) + '</h2><p class="muted">' + esc(T("adm.ss_pm_help", { h: ps.delayHours })) + "</p>";
+  if (ps.pending && S.view == null) {
+    h += '<div class="pay-wait" id="pay-wait"><p><b>' + esc(T("adm.ss_pm_wait", { when: timeText(ps.pending.activeFrom), who: ps.pending.by || "" })) + "</b></p><p>" + esc(T("adm.ss_pm_wait_p")) + "</p>" +
+      (I.canEdit && I.ready ? '<button type="button" class="danger" id="pay-cancel">' + esc(T("adm.ss_pm_cancel")) + "</button>" : "") + "</div>";
+  }
+  if (S.view == null) {
+    var shown = ps.current.filter(function (m) { return m.shown; });
+    h += '<h3 class="sub-h">' + esc(T("adm.ss_pm_now_h")) + "</h3>" + (shown.length ? '<ul class="pay-now">' + shown.map(function (m) { return "<li>" + esc(payLine(m)) + "</li>"; }).join("") + "</ul>" : '<p class="muted">' + esc(T("adm.ss_pm_none_now")) + "</p>");
+  }
+  h += '<h3 class="sub-h">' + esc(T(ps.pending ? "adm.ss_pm_edit_h_wait" : "adm.ss_pm_edit_h")) + "</h3>";
+  var legal = plainName(W.company && W.company.legalName);
+  h += W.payments.methods.map(function (m, i) {
+    var at = "payments.methods." + i + ".", title = T(m.kind === "BANK" ? "adm.ss_pm_bank" : "adm.ss_pm_upi") + " " + (i + 1);
+    var nm = m.kind === "BANK" ? m.accountName : m.payeeName;
+    var warn = nm && legal && plainName(nm) !== legal ? '<p class="name-warn">' + esc(T("adm.ss_pm_name_warn", { name: W.company.legalName })) + "</p>" : "";
+    var body = m.kind === "UPI"
+      ? '<div class="grid">' + input(at + "upiId", "adm.ss_pm_f_upiId", { req: true, max: 150, help: T("adm.ss_pm_h_upi") }) + input(at + "payeeName", "adm.ss_pm_f_payeeName", { req: true, max: 60, help: T("adm.ss_pm_h_payee") }) + "</div>" + warn +
+        (m.upiId && m.payeeName && !S.fields[at + "upiId"] ? '<div class="pay-qr">' + GIQPay.qrSvg(GIQPay.upiUrl(m, null, ""), T("adm.ss_pm_qr_a", { id: m.upiId })) + '<p class="hint">' + esc(T("adm.ss_pm_qr_help")) + "</p></div>" : "")
+      : '<div class="grid">' + input(at + "accountName", "adm.ss_pm_f_accountName", { req: true, max: 100 }) + input(at + "bankName", "adm.ss_pm_f_bankName", { req: true, max: 80 }) +
+        input(at + "accountNumber", "adm.ss_pm_f_accountNumber", { req: true, max: 30, mode: "numeric" }) + input(at + "ifsc", "adm.ss_pm_f_ifsc", { req: true, max: 11, help: T("adm.ss_pm_h_ifsc") }) +
+        input(at + "branch", "adm.ss_pm_f_branch", { max: 120 }) + "</div>" +
+        radios(at + "accountType", "acct-" + i, "adm.ss_pm_f_accountType", [["CURRENT", "adm.ss_pm_current"], ["SAVINGS", "adm.ss_pm_savings"]]) + warn;
+    return '<fieldset class="card' + (m.shown ? "" : " retired") + '"><legend>' + esc(title) + (m.shown ? "" : ' <span class="badge">' + esc(T("adm.ss_pm_hidden")) + "</span>") + "</legend>" + body +
+      check(at + "shown", "adm.ss_pm_f_shown", T("adm.ss_pm_h_shown")) +
+      (ro() ? "" : '<div class="acts small"><button type="button" class="danger" data-act="delpay" data-i="' + i + '" aria-label="' + esc(T("adm.ss_pm_remove_a", { name: title })) + '">' + esc(T("adm.ss_pm_remove")) + "</button></div>") + "</fieldset>";
+  }).join("");
+  if (!W.payments.methods.length) h += '<p class="muted">' + esc(T("adm.ss_pm_none")) + "</p>";
+  if (!ro()) h += '<div class="acts"><button type="button" class="primary" data-act="addupi"' + (W.payments.methods.length >= 6 ? " disabled" : "") + ">" + esc(T("adm.ss_pm_add_upi")) + "</button>" +
+    '<button type="button" class="primary" data-act="addbank"' + (W.payments.methods.length >= 6 ? " disabled" : "") + ">" + esc(T("adm.ss_pm_add_bank")) + "</button></div>";
+  return h;
+}
+
 function policiesTab() {
   return '<h2 class="sec-h">' + esc(T("adm.ss_pay_h")) + '</h2><div class="grid">' +
     input("policies.payEn", "adm.ss_f_policies_payEn", { max: 160, lang: "en" }) + input("policies.payHi", "adm.ss_f_policies_payHi", { max: 160, lang: "hi" }) + "</div>" +
@@ -543,6 +605,13 @@ function wire(root) {
       if (el.type === "radio" || /\.(shown|pilot|audited)$/.test(path) || path === "claims.audited") { render(); var again = document.getElementById(el.id); if (again) again.focus(); }
       else if (/^(plans\.\d+\.(monthly|yearly|next\.)|gst\.rate|yearly\.)/.test(path)) updateToday(path);
     });
+    // Payment names and UPI IDs: the QR preview and the name check are drawn again when the field is left.
+    if (/^payments\.methods\.\d+\.(upiId|payeeName|accountName)$/.test(el.getAttribute("data-path"))) el.addEventListener("change", function () {
+      setTimeout(function () {   // after focus has moved on, so it stays where the person went
+        var a = document.activeElement, id = a && a.id; render();
+        var again = id && document.getElementById(id); if (again) again.focus();
+      }, 0);
+    });
   });
   root.querySelectorAll("[data-offer]").forEach(function (el) {
     el.addEventListener("change", function () {
@@ -577,11 +646,20 @@ function act(a, i, v) {
     W.offers.push({ id: "o" + Date.now().toString(36), nameEn: "", nameHi: "", type: "PERCENT", value: "", plans: [], start: today(), end: "", withYearly: false });
   }
   else if (a === "deloffer") { if (!confirm(T("adm.ss_o_remove_q"))) return; W.offers.splice(i, 1); }
+  else if (a === "addupi" || a === "addbank") {
+    var nm = (W.company && W.company.legalName) || "";
+    W.payments.methods.push(a === "addupi" ? { id: "pm" + Date.now().toString(36), kind: "UPI", upiId: "", payeeName: nm.replace(/[^A-Za-z0-9 .,&()'\/-]/g, "").slice(0, 60), shown: true }
+      : { id: "pm" + Date.now().toString(36), kind: "BANK", accountName: nm, bankName: "", accountNumber: "", ifsc: "", branch: "", accountType: "CURRENT", shown: true });
+  }
+  else if (a === "delpay") { if (!confirm(T("adm.ss_pm_remove_q"))) return; W.payments.methods.splice(i, 1); }
   else if (a === "view") { return viewVersion(v); }
   else if (a === "restore") { return restore(v); }
   else return;
   S.fields = {}; markDirty(); render();
-  var focus = a === "addplan" ? document.getElementById(idFor("plans." + (W.plans.length - 1) + ".nameEn")) : a === "addoffer" ? document.getElementById(idFor("offers." + (W.offers.length - 1) + ".nameEn")) :
+  var focus = a === "addplan" ? document.getElementById(idFor("plans." + (W.plans.length - 1) + ".nameEn")) :
+    a === "addupi" ? document.getElementById(idFor("payments.methods." + (W.payments.methods.length - 1) + ".upiId")) :
+    a === "addbank" ? document.getElementById(idFor("payments.methods." + (W.payments.methods.length - 1) + ".bankName")) :
+    a === "delpay" ? document.querySelector('[data-act="addupi"]') : a === "addoffer" ? document.getElementById(idFor("offers." + (W.offers.length - 1) + ".nameEn")) :
     document.querySelector('[data-act="' + (a === "up" ? "up" : a === "down" ? "down" : a) + '"][data-i="' + (a === "up" ? i - 1 : a === "down" ? i + 1 : i) + '"]') || document.getElementById("tab-" + S.tab);
   if (focus && !focus.disabled) focus.focus(); else document.getElementById("panel-" + S.tab).focus();
 }
@@ -598,6 +676,7 @@ function failText(r) {
   if (e === "NOT_READY") return T("adm.ss_not_ready");
   if (e === "NO_CHANGES") return T("adm.ss_e_nochange");
   if (e === "NO_DRAFT") return T("adm.ss_e_nodraft");
+  if (e === "NO_PENDING") return T("adm.ss_pm_e_nopending");
   return T("adm.ss_e_generic");
 }
 async function saveDraft() {
@@ -627,9 +706,9 @@ async function publish() {
     var r = await post({ action: "publish", note: note });
     if (r.status === 400 && r.data.fields) { S.fields = r.data.fields; S.msg = { bad: true, text: function () { return T("adm.ss_e_check"); } }; S.tab = tabOf(Object.keys(S.fields)[0]); render(); document.getElementById("ss-errors").focus(); return; }
     if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); return; }
-    var v = r.data.version;
+    var v = r.data.version, pk = r.data.payments, pa = r.data.payActiveFrom;
     await load(true);
-    S.msg = { text: function () { return T("adm.ss_published", { v: v }); } }; render(); focusMsg();
+    S.msg = { text: function () { return T("adm.ss_published", { v: v }) + (pk === "LATER" ? " " + T("adm.ss_pm_pub_later", { when: timeText(pa) }) : pk === "NOW" ? " " + T("adm.ss_pm_pub_now") : pk === "CANCELLED" ? " " + T("adm.ss_pm_cancelled") : ""); } }; render(); focusMsg();
   } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
 }
 async function discard() {
@@ -671,7 +750,9 @@ async function load(keepTab) {
   }
   S.info = data;
   S.W = clone(data.draft ? data.draft.data : data.live.data);
-  if (!keepTab) S.tab = "plans";
+  // A draft saved before payment details existed keeps what is live.
+  if (!S.W.payments) S.W.payments = clone(data.live.data.payments || { methods: [] });
+  if (!keepTab) S.tab = location.hash === "#payments" ? "payments" : "plans";
   render();
 }
 

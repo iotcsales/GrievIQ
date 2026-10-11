@@ -195,7 +195,7 @@
     { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-ratings", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-dept-performance", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
-    { id: "offices", key: "adm.nav_g_offices", pages: ["admin-site-settings", "admin-pilot-requests"] },
+    { id: "offices", key: "adm.nav_g_offices", pages: ["admin-site-settings", "admin-bills", "admin-pilot-requests"] },
   ];
   var TOP = ["admin-dashboard"], TAIL = ["admin-visitors"];
   style.textContent +=
@@ -317,7 +317,7 @@
   }
   // Prices & site details and Pilot requests (grieviq-39), at the end.
   function addOfficeLinks(nav) {
-    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"]].forEach(function (x) {
+    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"], ["admin-bills", "adm.nav_bills"]].forEach(function (x) {
       if (nav.querySelector('a[href*="' + x[0] + '"]')) return;
       var a = document.createElement("a");
       a.href = "/" + x[0] + ".html";
@@ -392,7 +392,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=40", "/guide.js?v=40"].forEach(function (src) {
+      ["/guide-content.js?v=41", "/guide.js?v=40"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };

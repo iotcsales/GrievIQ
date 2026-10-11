@@ -60,9 +60,19 @@ export const DEFAULTS = {
   },
   policies: { refundEn: "", refundHi: "", payEn: "UPI AutoPay, card or bank transfer", payHi: "UPI AutoPay, कार्ड या बैंक ट्रांसफ़र" },
   claims: { gem: false, india: false, audited: false, auditedOn: "", auditedBy: "" },
+  // grieviq-41: where offices pay (UPI ID and bank accounts). Never public:
+  // shown only to signed-in representatives, office managers and department
+  // officers on their bills. `pending` is set by the server only (see
+  // settlePayments): new or changed details wait 24 hours.
+  payments: { methods: [], pending: null },
 };
 
-export const LIMITS = { plans: 20, offers: 10, price: 100000000 };
+export const LIMITS = { plans: 20, offers: 10, price: 100000000, payMethods: 6 };
+export const PAY_DELAY_HOURS = 24;
+const UPI_RE = /^[a-z0-9][a-z0-9._-]{1,99}@[a-z][a-z0-9.-]{1,49}$/i;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const ACCOUNT_RE = /^[0-9]{9,18}$/;
+const PAYEE_RE = /^[A-Za-z0-9 .,&()'\/-]{2,60}$/;   // plain letters: the name goes into the UPI QR code
 const EMAIL_RE = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9_]{2,30}$/;
@@ -237,8 +247,90 @@ export function cleanSettings(raw) {
     else if (out.claims.auditedOn > istToday()) f["claims.auditedOn"] = "FUTURE";
     if (!out.claims.auditedBy) f["claims.auditedBy"] = "REQUIRED";
   }
+  // Payment details (grieviq-41)
+  const pm = r.payments && Array.isArray(r.payments.methods) ? r.payments.methods : [];
+  if (pm.length > LIMITS.payMethods) f["payments"] = "TOO_MANY";
+  const pseen = new Set();
+  out.payments = { methods: pm.slice(0, LIMITS.payMethods).map((m, i) => {
+    m = m || {};
+    const at = "payments.methods." + i + ".";
+    const q = {};
+    q.id = str(m.id, 30).toLowerCase() || ("pm" + (i + 1));
+    if (!ID_RE.test(q.id)) f[at + "id"] = "FORMAT"; else if (pseen.has(q.id)) f[at + "id"] = "DUPLICATE";
+    pseen.add(q.id);
+    q.kind = m.kind === "BANK" ? "BANK" : "UPI";
+    q.shown = m.shown !== false;
+    if (q.kind === "UPI") {
+      q.upiId = need(at + "upiId", m.upiId, 150, true).toLowerCase().replace(/\s+/g, "");
+      if (q.upiId && !f[at + "upiId"] && !UPI_RE.test(q.upiId)) f[at + "upiId"] = "FORMAT";
+      q.payeeName = need(at + "payeeName", m.payeeName, 60, true);
+      if (q.payeeName && !f[at + "payeeName"] && !PAYEE_RE.test(q.payeeName)) f[at + "payeeName"] = "PLAIN";
+    } else {
+      q.accountName = need(at + "accountName", m.accountName, 100, true);
+      q.bankName = need(at + "bankName", m.bankName, 80, true);
+      q.branch = need(at + "branch", m.branch, 120, false);
+      q.accountNumber = str(m.accountNumber, 30).replace(/[\s-]/g, "");
+      if (!q.accountNumber) f[at + "accountNumber"] = "REQUIRED"; else if (!ACCOUNT_RE.test(q.accountNumber)) f[at + "accountNumber"] = "FORMAT";
+      q.ifsc = str(m.ifsc, 20).toUpperCase().replace(/\s+/g, "");
+      if (!q.ifsc) f[at + "ifsc"] = "REQUIRED"; else if (!IFSC_RE.test(q.ifsc)) f[at + "ifsc"] = "FORMAT";
+      q.accountType = m.accountType === "SAVINGS" ? "SAVINGS" : "CURRENT";
+    }
+    return q;
+  }), pending: null };
   return { data: out, fields: f };
 }
+
+// ---- Payment details: the 24-hour rule (grieviq-41) ----
+// Payment-diversion fraud works by quietly swapping the account people pay
+// into. So new or changed details go live only PAY_DELAY_HOURS after they are
+// published; every super admin is emailed and any of them can cancel the
+// change meanwhile. Taking details down (hiding or removing) is safe and
+// happens at once.
+function payKey(m) { const c = Object.assign({}, m); delete c.id; delete c.shown; return JSON.stringify(c, Object.keys(c).sort()); }
+// What offices see now, and the change waiting (if any).
+export function paymentState(data, nowMs) {
+  const p = (data && data.payments) || { methods: [], pending: null };
+  const now = nowMs == null ? Date.now() : nowMs;
+  if (p.pending && Date.parse(p.pending.activeFrom) <= now) return { current: p.pending.methods || [], pending: null, changedAt: p.pending.activeFrom };
+  return { current: p.methods || [], pending: p.pending || null };
+}
+// The list the super admin edits: the waiting change if there is one.
+export function editablePayments(data) {
+  const p = (data && data.payments) || {};
+  return clone(p.pending ? p.pending.methods || [] : p.methods || []);
+}
+// Same settings with payments as plain "what is wanted" (for comparing versions).
+export function forCompare(data) {
+  const c = clone(data || {});
+  c.payments = { methods: editablePayments(data) };
+  return c;
+}
+// Decide how new payment details (target) take effect against what is live.
+// Returns { payments, kind } with kind NONE | KEEP | NOW | LATER | CANCELLED.
+export function settlePayments(liveData, target, nowMs, actor) {
+  const now = nowMs == null ? Date.now() : nowMs;
+  const st = paymentState(liveData, now);
+  const cur = st.current;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (same(target, cur)) return { payments: { methods: clone(cur), pending: null }, kind: st.pending ? "CANCELLED" : "NONE" };
+  if (st.pending && same(target, st.pending.methods)) return { payments: { methods: clone(cur), pending: clone(st.pending) }, kind: "KEEP" };
+  const shownNow = new Set(cur.filter((m) => m.shown).map(payKey));
+  if (target.filter((m) => m.shown).every((m) => shownNow.has(payKey(m)))) return { payments: { methods: clone(target), pending: null }, kind: "NOW" };
+  const activeFrom = new Date(now + PAY_DELAY_HOURS * 3600000).toISOString();
+  return { payments: { methods: clone(cur), pending: { methods: clone(target), activeFrom, by: actor || null, at: new Date(now).toISOString() } }, kind: "LATER" };
+}
+// Account numbers partly hidden (for logs, emails and other admin roles).
+export function maskAccount(n) { n = String(n || ""); return n.length > 4 ? "X".repeat(n.length - 4) + n.slice(-4) : n; }
+export function maskPayments(data) {
+  if (!data || !data.payments) return data;
+  const c = clone(data);
+  const m = (list) => (list || []).map((x) => x.kind === "BANK" ? Object.assign({}, x, { accountNumber: maskAccount(x.accountNumber) }) : x);
+  c.payments.methods = m(c.payments.methods);
+  if (c.payments.pending) c.payments.pending.methods = m(c.payments.pending.methods);
+  return c;
+}
+// One line per method, for emails: "UPI iotc@hdfcbank" / "Bank account XXXX4321, HDFC Bank".
+export function payLine(m) { return m.kind === "UPI" ? "UPI " + m.upiId : "Bank account " + maskAccount(m.accountNumber) + ", " + m.bankName + " (" + m.ifsc + ")"; }
 
 // ---- Storage ----
 export async function liveVersion(env) {

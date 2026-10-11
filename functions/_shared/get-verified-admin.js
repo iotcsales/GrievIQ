@@ -106,6 +106,10 @@ export const PERMISSIONS = {
   // the office back; the auditor reads (mobile numbers partly hidden).
   view_pilot_requests: ["super_admin", "operations_admin", "auditor"],
   manage_pilot_requests: ["super_admin", "operations_admin"],
+  // grieviq-41: bills for offices (UPI / bank transfer). Making bills and
+  // checking payments: super and operations admins; the auditor looks.
+  view_bills: ["super_admin", "operations_admin", "auditor"],
+  manage_bills: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -135,6 +139,7 @@ export const PAGES = {
   "admin-dept-agreement": "view_dept_officers",   // grieviq-37: the agreement to print (opened from Departments)
   "admin-site-settings": "view_site_settings",     // grieviq-39
   "admin-pilot-requests": "view_pilot_requests",   // grieviq-39
+  "admin-bills": "view_bills",                     // grieviq-41
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

@@ -132,6 +132,15 @@
             ["**Report**: the performance report; download it as a PDF to share.", "**रिपोर्ट**: प्रदर्शन रिपोर्ट; PDF डाउनलोड कर साझा करें।"],
             ["**Audit**: reply to any observation GrievIQ's auditor raises about your office.", "**ऑडिट**: GrievIQ ऑडिटर की टिप्पणियों का उत्तर दें।"],
           ] },
+        { id: "billing", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Pay a bill", "बिल का भुगतान"],
+          who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
+          steps: [
+            ["Open **Billing**. Each bill shows the plan, the period, GST and the **total to pay**.", "**बिलिंग** खोलें। हर बिल में योजना, अवधि, GST और **कुल देय राशि** दिखती है।"],
+            ["Check that the name shown is GrievIQ's company name. **Pay only to the details shown there**: GrievIQ never asks you to pay elsewhere by phone, WhatsApp or email.", "जाँचें कि दिखाया गया नाम GrievIQ की कंपनी का नाम है। **भुगतान केवल वहीं दिखाए विवरण पर करें**: GrievIQ कभी फ़ोन, व्हाट्सऐप या ईमेल से कहीं और भुगतान करने को नहीं कहता।"],
+            ["Pay by **UPI** (scan the QR code: the amount and bill number are filled in) or by **bank transfer** (write the bill number, such as GIQ-PAY-000001, in the remarks).", "**UPI** से (QR कोड स्कैन करें: राशि और बिल संख्या अपने-आप भरती है) या **बैंक ट्रांसफ़र** से भुगतान करें (रिमार्क में बिल संख्या, जैसे GIQ-PAY-000001, लिखें)।"],
+            ["Under **I have paid**, enter the transaction reference (UTR), the amount and the date, and send.", "**मैंने भुगतान कर दिया है** में लेन-देन संदर्भ (UTR), राशि और तारीख़ लिखें और भेजें।"],
+            ["GrievIQ checks it with the bank statement and marks the bill **Paid**; you get an email. If it can't be matched, you're told why and can record it again.", "GrievIQ बैंक विवरण से जाँचकर बिल को **भुगतान हो चुका** करता है; आपको ईमेल मिलता है। मिलान न हो तो कारण बताया जाता है और आप फिर दर्ज कर सकते हैं।"],
+          ] },
       ],
       problems: [
         [["Google sign-in refused", "Google साइन-इन अस्वीकार"], ["Use the exact Google account GrievIQ has on record; if it changed, ask GrievIQ staff to update it.", "GrievIQ में दर्ज वही Google खाता उपयोग करें; बदला हो तो स्टाफ़ से अद्यतन कराएँ।"]],
@@ -184,6 +193,15 @@
           steps: [
             ["The dashboard shows cases received, first-reply time, work done within the target time, fixed at the first check, and citizens' ratings.", "डैशबोर्ड पर प्राप्त शिकायतें, पहले उत्तर का समय, लक्ष्य समय में काम, पहली जाँच में ठीक, और नागरिकों की रेटिंग दिखती है।"],
             ["During the pilot, offices are not ranked against each other.", "पायलट में कार्यालयों की रैंकिंग नहीं होती।"],
+          ] },
+        { id: "billing", title: ["Pay a bill", "बिल का भुगतान"],
+          who: ["The officer who handles the office's payments.", "कार्यालय के भुगतान देखने वाले अधिकारी।"],
+          steps: [
+            ["On the dashboard, tap **Open billing**. Each bill shows the plan, the period, GST and the **total to pay**.", "डैशबोर्ड पर **बिलिंग खोलें** दबाएँ। हर बिल में योजना, अवधि, GST और **कुल देय राशि** दिखती है।"],
+            ["Check that the name shown is GrievIQ's company name. **Pay only to the details shown there**: GrievIQ never asks you to pay elsewhere by phone, WhatsApp or email.", "जाँचें कि दिखाया गया नाम GrievIQ की कंपनी का नाम है। **भुगतान केवल वहीं दिखाए विवरण पर करें**: GrievIQ कभी फ़ोन, व्हाट्सऐप या ईमेल से कहीं और भुगतान करने को नहीं कहता।"],
+            ["Pay by **UPI** (scan the QR code: the amount and bill number are filled in) or by **bank transfer** (write the bill number, such as GIQ-PAY-000001, in the remarks).", "**UPI** से (QR कोड स्कैन करें: राशि और बिल संख्या अपने-आप भरती है) या **बैंक ट्रांसफ़र** से भुगतान करें (रिमार्क में बिल संख्या, जैसे GIQ-PAY-000001, लिखें)।"],
+            ["Under **I have paid**, enter the transaction reference (UTR), the amount and the date, and send.", "**मैंने भुगतान कर दिया है** में लेन-देन संदर्भ (UTR), राशि और तारीख़ लिखें और भेजें।"],
+            ["GrievIQ checks it with the bank statement and marks the bill **Paid**; you get an email. If it can't be matched, you're told why and can record it again.", "GrievIQ बैंक विवरण से जाँचकर बिल को **भुगतान हो चुका** करता है; आपको ईमेल मिलता है। मिलान न हो तो कारण बताया जाता है और आप फिर दर्ज कर सकते हैं।"],
           ] },
       ],
       problems: [
@@ -243,6 +261,13 @@
             ["In **Prices & site details**, make changes, tap **Save draft**, check **Preview the public page**, then **Publish** with a note. **History** brings back any earlier version.", "**शुल्क और साइट विवरण** में बदलाव करें, **ड्राफ़्ट सहेजें**, **पूर्वावलोकन** देखें, फिर टिप्पणी के साथ **प्रकाशित करें**। **इतिहास** से पुराना संस्करण वापस आता है।"],
             ["Switch on a claim (GeM, India data storage, security audit) only when it is true and you hold the proof.", "कोई दावा तभी चालू करें जब सच हो और प्रमाण आपके पास हो।"],
             ["In **Pilot requests**, call each office within the promised time and set **Contacted** or **Closed** with a note.", "**पायलट अनुरोध** में वादे के समय में फ़ोन करें और टिप्पणी के साथ **संपर्क किया** या **बंद** करें।"],
+          ] },
+        { id: "bills", roles: ["super_admin", "operations_admin", "auditor"], title: ["Bills and payments", "बिल और भुगतान"],
+          who: ["Super or operations admin; the auditor can look.", "सुपर या संचालन एडमिन; ऑडिटर देख सकता है।"],
+          steps: [
+            ["**Payment details** (super admin, in Prices & site details): add the company's UPI ID and bank account. New or changed details go live **24 hours** after publishing; every super admin is emailed and can cancel. Hiding details works at once.", "**भुगतान विवरण** (सुपर एडमिन, शुल्क और साइट विवरण में): कंपनी की UPI आईडी और बैंक खाता जोड़ें। नया या बदला विवरण प्रकाशन के **24 घंटे** बाद लागू होता है; हर सुपर एडमिन को ईमेल जाता है और वह रद्द कर सकता है। छिपाना तुरंत लागू होता है।"],
+            ["In **Bills**, find the office, choose the plan, one month or one year and the start date, then **Make the bill**. The amount comes from the published prices; the office is emailed.", "**बिल** में कार्यालय खोजें, योजना, एक माह या एक वर्ष और आरंभ तिथि चुनें, फिर **बिल बनाएँ**। राशि प्रकाशित शुल्क से आती है; कार्यालय को ईमेल जाता है।"],
+            ["When an office records a payment, **find it in the bank statement** (reference, amount, date) before you confirm it. If it doesn't match, **turn it back** with a reason.", "जब कार्यालय भुगतान दर्ज करे, तो पुष्टि से पहले **उसे बैंक विवरण में खोजें** (संदर्भ, राशि, तारीख़)। मेल न खाए तो कारण सहित **लौटाएँ**।"],
           ] },
         { id: "audit", roles: ["super_admin", "auditor"], title: ["Audit and data retention", "ऑडिट और डेटा संग्रहण"],
           who: ["Auditor and super admin.", "ऑडिटर और सुपर एडमिन।"],

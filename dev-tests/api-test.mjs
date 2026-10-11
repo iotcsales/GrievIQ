@@ -1141,6 +1141,170 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await ss(S, { action: "save_draft", data: DEFAULTS })).status === 200 && (await ss(S, { action: "publish", note: "back to the starting details" })).status === 200, "starting details published again");
 }
 
+// ---- grieviq-41: payment details (24-hour rule) and bills ----
+{
+  const fs = await import("node:fs");
+  const { createHash } = await import("node:crypto");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const ss = (who, b) => call(who, "POST", "/api/admin/site-settings", b);
+  const liveData = async () => (await call(S, "GET", "/api/admin/site-settings")).body.live.data;
+  const UPI = { id: "pm1", kind: "UPI", upiId: "iotc@hdfcbank", payeeName: "IOTC Indus Overseas Tech Corp", shown: true };
+  const BANK = { id: "pm2", kind: "BANK", accountName: "IOTC (Indus Overseas Tech. Corp.)", bankName: "HDFC Bank", branch: "Sector 18, Noida", accountNumber: "50200012345678", ifsc: "HDFC0001234", accountType: "CURRENT", shown: true };
+  const withPay = async (methods) => { const d = await liveData(); d.payments = { methods }; return d; };
+  const pubPay = async (methods, note) => { const a = await ss(S, { action: "save_draft", data: await withPay(methods) }); const b = await ss(S, { action: "publish", note: note || "pay test" }); return { a, b }; };
+  const officeView = async () => (await call("r1@x.in", "GET", "/api/billing")).body.pay.methods;
+  // A waiting change made live now, as if 24 hours had passed (versions can't be edited: a new one is added).
+  const mature = () => {
+    const r = sdb.prepare("SELECT version, data FROM site_settings_versions ORDER BY version DESC LIMIT 1").get();
+    const d = JSON.parse(r.data); d.payments.pending.activeFrom = new Date(Date.now() - 1000).toISOString();
+    sdb.prepare("INSERT INTO site_settings_versions (version, data, created_at, created_by, note) VALUES (?, ?, ?, 'test', 'time passes')").run(r.version + 1, JSON.stringify(d), new Date().toISOString());
+  };
+
+  // checks on the details
+  let r = await ss(S, { action: "save_draft", data: await withPay([{ kind: "UPI", upiId: "not a upi", payeeName: "आईओटीसी" }, { kind: "BANK", accountName: "", bankName: "HDFC", accountNumber: "12AB", ifsc: "HDFC123" }]) });
+  const pf = r.body.fields || {};
+  ok(r.status === 400 && pf["payments.methods.0.upiId"] === "FORMAT" && pf["payments.methods.0.payeeName"] === "PLAIN" && pf["payments.methods.1.accountName"] === "REQUIRED" && pf["payments.methods.1.accountNumber"] === "FORMAT" && pf["payments.methods.1.ifsc"] === "FORMAT", "payment details checked (UPI ID, plain name, account number, IFSC)", pf);
+  // new details wait 24 hours; every super admin is told
+  let before = mails().length;
+  r = await pubPay([UPI, BANK], "company accounts");
+  const due = Date.parse(r.b.body.payActiveFrom || 0) - Date.now();
+  ok(r.b.status === 200 && r.b.body.payments === "LATER" && due > 23.9 * 3600000 && due <= 24 * 3600000, "new payment details go live in 24 hours", r.b.body);
+  let m = mails().slice(before);
+  ok(m.some((x) => x.to[0] === "super@test.in" && /payment details changed/.test(x.subject) && /XXXXXXXXXX5678/.test(x.html) && !/50200012345678/.test(x.html)), "every super admin emailed (account number partly hidden)", m.map((x) => x.to[0] + ":" + x.subject));
+  ok((await officeView()).length === 0, "offices don't see waiting details");
+  let g = await call(S, "GET", "/api/admin/site-settings");
+  ok(g.body.payState.pending && g.body.payState.pending.count === 2 && g.body.live.data.payments.methods.length === 2 && g.body.live.data.payments.methods[1].accountNumber === "50200012345678", "super admin sees the waiting change in full", g.body.payState);
+  const ga = await call(A, "GET", "/api/admin/site-settings");
+  ok(ga.body.live.data.payments.methods[1].accountNumber === "XXXXXXXXXX5678", "auditor sees the account number partly hidden");
+  const pub = await (await fetch(B + "/api/site-info")).text();
+  ok(!/hdfcbank|5020001234|HDFC0001234/i.test(pub), "payment details never on the public site information");
+  ok((await ss(O, { action: "cancel_payment_change" })).status === 403, "operations admin can't cancel (super admin only)");
+  // cancel
+  before = mails().length;
+  r = await ss(S, { action: "cancel_payment_change" });
+  ok(r.status === 200 && !(await call(S, "GET", "/api/admin/site-settings")).body.payState.pending, "waiting change cancelled", r.body);
+  ok(mails().slice(before).some((x) => /cancelled/.test(x.subject)), "super admins told about the cancel");
+  ok((await ss(S, { action: "cancel_payment_change" })).body.error === "NO_PENDING", "nothing left to cancel");
+  // again, and the 24 hours pass
+  r = await pubPay([UPI, BANK]);
+  ok(r.b.body.payments === "LATER", "published again: waiting");
+  r = await pubPay([UPI, BANK]);
+  ok(r.b.status === 409 && r.b.body.error === "NO_CHANGES", "publishing the same again changes nothing (clock not restarted)", r.b.body);
+  mature();
+  ok((await officeView()).length === 2, "after 24 hours offices see UPI and bank");
+  // hiding is safe: at once
+  before = mails().length;
+  r = await pubPay([UPI, Object.assign({}, BANK, { shown: false })], "bank hidden");
+  ok(r.b.body.payments === "NOW" && (await officeView()).length === 1 && (await officeView())[0].kind === "UPI", "hiding a method works at once", r.b.body);
+  ok(mails().slice(before).some((x) => /taken down/.test(x.subject)), "super admins told about the take-down");
+  // showing it again, or changing the UPI ID, waits
+  r = await pubPay([Object.assign({}, UPI, { upiId: "someone@okaxis" }), Object.assign({}, BANK, { shown: false })], "UPI changed");
+  ok(r.b.body.payments === "LATER" && (await officeView())[0].upiId === "iotc@hdfcbank", "a changed UPI ID waits; offices keep the old one", r.b.body);
+  // bringing back an old version follows the same rule
+  const hist = (await call(S, "GET", "/api/admin/site-settings")).body.history;
+  const hidden = hist.find((h) => h.note === "bank hidden");
+  r = await ss(S, { action: "restore", version: hidden.version });
+  ok(r.status === 200 && r.body.payments === "CANCELLED" && (await officeView())[0].upiId === "iotc@hdfcbank", "bringing back the earlier version drops the waiting change", r.body);
+  r = await pubPay([UPI, BANK], "bank shown again");
+  ok(r.b.body.payments === "LATER", "showing the bank again waits 24 hours");
+  mature();
+  ok((await officeView()).length === 2, "both shown after 24 hours");
+  const evs = sdb.prepare("SELECT detail FROM admin_events WHERE action = 'site_settings_published' ORDER BY rowid DESC LIMIT 6").all().map((x) => x.detail).join(" ");
+  ok(/XXXXXXXXXX5678/.test(evs) && !/50200012345678/.test(evs), "log shows account numbers partly hidden");
+
+  // ---- bills ----
+  const bl = (who, b) => call(who, "POST", "/api/admin/bills", b);
+  ok((await call(D, "GET", "/api/admin/bills")).status === 403 && (await call(M, "GET", "/api/admin/bills")).status === 403, "data entry operator and moderator can't see bills");
+  g = await call(A, "GET", "/api/admin/bills");
+  ok(g.status === 200 && g.body.ready && !g.body.canManage && g.body.plans.some((p) => p.id === "councillor") && !g.body.plans.some((p) => p.id === "dept_city"), "auditor reads bills; quote-only plans can't be billed", g.body.plans);
+  ok((await bl(A, { action: "create" })).status === 403, "auditor can't make bills");
+  r = await bl(S, { action: "create" });
+  ok(r.status === 400 && ["office", "plan", "period", "from"].every((k) => r.body.fields[k]), "empty bill: each field named", r.body);
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-aishbagh", planId: "councillor", period: "MONTH", from: today });
+  ok(r.body.fields && r.body.fields.office === "NO_REP", "office with no representative email refused", r.body);
+  const found = await call(S, "GET", "/api/admin/bills?offices=REP&q=Hazrat");
+  ok(found.body.offices.length === 1 && found.body.offices[0].canSee && found.body.offices[0].suggest === "councillor", "office search suggests the plan", found.body);
+  ok((await call(S, "GET", "/api/admin/bills?quote=1&plan=councillor&period=YEAR")).body.quote.total === 23588, "yearly quote: 10 months + GST");
+  before = mails().length;
+  r = await bl(O, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-hazratganj", planId: "councillor", period: "MONTH", from: "2026-10-01", amount: 1, note: "October" });
+  ok(r.status === 200 && r.body.total === 2359 && /^GIQ-PAY-\d{6}$/.test(r.body.ref) && r.body.emailed === 2, "operations admin makes a bill; price from the published plan (amount can't be sent)", r.body);
+  const bill1 = r.body.id, ref1 = r.body.ref;
+  m = mails().slice(before);
+  ok(m.some((x) => x.to[0] === "r1@x.in" && x.subject.includes(ref1) && /Pay only to the GrievIQ payment details/.test(x.html)) && m.some((x) => x.to[0] === "om@x.in") && !m.some((x) => x.to[0] === "fw@x.in"), "representative and office manager emailed, field worker not", m.map((x) => x.to[0]));
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-hazratganj", planId: "councillor", period: "MONTH", from: "2026-10-01" });
+  ok(r.body.fields && r.body.fields.from === "TWICE" && r.body.ref === ref1, "same office, same start: refused", r.body);
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-hazratganj", planId: "councillor", period: "YEAR", from: "2026-11-01", dueDays: 61 });
+  ok(r.body.fields && r.body.fields.dueDays === "RANGE", "days to pay 1–60");
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-hazratganj", planId: "councillor", period: "YEAR", from: "2026-11-01" });
+  ok(r.status === 200 && r.body.total === 23588, "yearly bill", r.body);
+  const bill2 = r.body.id;
+  const jalId = sdb.prepare("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").get().office_id;
+  r = await bl(S, { action: "create", officeType: "DEPT", officeId: jalId, planId: "dept_office", period: "MONTH", from: today });
+  ok(r.body.fields && r.body.fields.period === "NO_PRICE", "a yearly-only plan can't be billed by the month");
+  r = await bl(S, { action: "create", officeType: "DEPT", officeId: jalId, planId: "dept_office", period: "YEAR", from: today });
+  ok(r.status === 200 && r.body.total === 49560 && r.body.emailed >= 1, "department office billed for a year", r.body);
+  const bill3 = r.body.id;
+
+  // offices see their own bills: representative and office manager only
+  ok((await call("fw@x.in", "GET", "/api/billing")).status === 403, "field worker: no billing");
+  const ob = await call("om@x.in", "GET", "/api/billing");
+  ok(ob.status === 200 && ob.body.bills.length === 2 && ob.body.pay.methods.length === 2 && ob.body.pay.company.legalName, "office manager sees the office's bills and payment details", ob.body);
+  const r2 = await call("r2@x.in", "GET", "/api/billing");
+  ok(r2.status === 200 && r2.body.bills.length === 0, "another office's representative sees none of them");
+  const rep = (who, b) => call(who, "POST", "/api/billing", b);
+  ok((await rep("r2@x.in", { billId: bill1, method: "UPI", utr: "612345678901", amount: 2359, paidOn: today })).status === 404, "can't record a payment on another office's bill");
+  r = await rep("r1@x.in", { billId: bill1, method: "UPI", utr: "12-34", amount: 0, paidOn: "2099-01-01" });
+  ok(r.status === 400 && r.body.fields.utr === "FORMAT" && r.body.fields.amount === "RANGE" && r.body.fields.paidOn === "FUTURE", "payment details checked", r.body);
+  r = await rep("r1@x.in", { billId: bill1, method: "UPI", utr: "6123 4567 8901", amount: 2359, paidOn: today });
+  ok(r.status === 200 && !r.body.mismatch, "representative records a UPI payment", r.body);
+  ok((await rep("om@x.in", { billId: bill1, method: "UPI", utr: "612345678902", amount: 2359, paidOn: today })).body.error === "ALREADY_REPORTED", "one payment waiting at a time");
+  ok(mails().some((x) => x.to[0] === "support@grieviq.in" && x.subject.includes(ref1) && /ending 8901/.test(x.html)), "GrievIQ support told a payment is waiting");
+  // turned back, recorded again, confirmed
+  let pay1 = (await call(S, "GET", "/api/admin/bills")).body.bills.find((b) => b.id === bill1).payments[0];
+  ok(pay1.utr === "612345678901" && pay1.status === "REPORTED", "staff see the payment (UTR without spaces)", pay1);
+  ok((await bl(A, { action: "confirm", paymentId: pay1.id })).status === 403, "auditor can't confirm");
+  ok((await bl(S, { action: "return", paymentId: pay1.id, reason: "no" })).status === 400, "turning back needs a reason");
+  before = mails().length;
+  r = await bl(S, { action: "return", paymentId: pay1.id, reason: "Not in the statement for that date" });
+  ok(r.status === 200 && r.body.status === "DUE", "payment turned back; bill due again");
+  ok(mails().slice(before).some((x) => x.to[0] === "r1@x.in" && /Not in the statement/.test(x.html)), "office told why");
+  r = await rep("om@x.in", { billId: bill1, method: "UPI", utr: "612345678901", amount: 2000, paidOn: today });
+  ok(r.status === 200 && r.body.mismatch, "recorded again (same reference allowed after turning back); different amount flagged", r.body);
+  pay1 = (await call(S, "GET", "/api/admin/bills?status=REPORTED")).body.bills.find((b) => b.id === bill1).payments.find((p) => p.status === "REPORTED");
+  before = mails().length;
+  r = await bl(O, { action: "confirm", paymentId: pay1.id });
+  ok(r.status === 200 && r.body.status === "PAID", "operations admin confirms; bill paid");
+  ok(mails().slice(before).some((x) => x.to[0] === "r1@x.in" && /payment received/.test(x.subject)), "office emailed: payment received");
+  ok((await bl(S, { action: "confirm", paymentId: pay1.id })).body.error === "ALREADY_CHECKED", "can't confirm twice");
+  ok((await rep("r1@x.in", { billId: bill1, method: "BANK", utr: "HDFCN52026101112345", amount: 2359, paidOn: today })).body.error === "ALREADY_PAID", "paid bill takes no more payments");
+  ok((await rep("r1@x.in", { billId: bill2, method: "UPI", utr: "612345678901", amount: 23588, paidOn: today })).body.fields.utr === "DUPLICATE", "a reference already used can't be recorded again");
+  // cancel
+  ok((await bl(S, { action: "cancel", id: bill2, reason: "x" })).status === 400, "cancelling needs a reason");
+  ok((await bl(S, { action: "cancel", id: bill2, reason: "Made by mistake" })).status === 200 && (await bl(S, { action: "cancel", id: bill1, reason: "Paid bill" })).body.error === "NOT_OPEN", "open bill cancelled; a paid one can't be");
+  // department office
+  const code = "975310";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api41", "ae.zone3@nic.in", createHash("sha256").update("ae.zone3@nic.in:" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "ae.zone3@nic.in", code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api41'").run();
+  const db2 = async (method, body) => { const x = await fetch(B + "/api/dept/billing", { method, headers: { cookie: CK, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, body: await x.json() }; };
+  g = await db2("GET");
+  ok(g.status === 200 && g.body.bills.length === 1 && g.body.bills[0].total === 49560 && g.body.pay.methods.length === 2, "department officer sees the office's bill", g.body);
+  ok((await db2("POST", { billId: bill1, method: "UPI", utr: "612345670000", amount: 1, paidOn: today })).status === 404, "officer can't touch a representative's bill");
+  r = await db2("POST", { billId: bill3, method: "BANK", utr: "SBIN026285123456", amount: 49560, paidOn: today });
+  ok(r.status === 200, "officer records a bank transfer", r.body);
+  ok((await fetch(B + "/api/dept/billing")).status === 401, "department billing needs the officer's sign-in");
+  // the record
+  const ev = sdb.prepare("SELECT action, COUNT(*) n FROM bill_events GROUP BY action").all().reduce((o, x) => (o[x.action] = x.n, o), {});
+  ok(ev.ISSUED === 3 && ev.PAYMENT_REPORTED === 3 && ev.PAYMENT_RETURNED === 1 && ev.PAYMENT_CONFIRMED === 1 && ev.CANCELLED === 1, "every step in the bill record", ev);
+  let threw2 = false; try { sdb.prepare("DELETE FROM bill_events").run(); } catch (e) { threw2 = true; }
+  ok(threw2, "bill record can't be deleted");
+  ok((await fetch(B + "/admin-bills.html")).status === 200, "page opens: /admin-bills.html");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
