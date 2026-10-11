@@ -92,10 +92,13 @@ async function sendInvite(env, request, to, name, office, role, inviter) {
           <p>${escHtml(inviter)} has added you as <strong>${roleEn}</strong> for <strong>${escHtml(office.label)}, ${escHtml(office.name)}</strong> on GrievIQ.</p>
           <p>To start, open <a href="${url}">${url}</a> and choose <strong>Sign in with Google</strong> with the Google account for this email address (${escHtml(to)}).</p>
           <p>The office keeps your name, mobile number and (if given) employee ID on GrievIQ, so the team can reach you about the work and every action can be traced to the right person.</p>
+          <p>For a step-by-step guide to your part of the work, tap <strong>Help</strong> at the top of the console.</p>
           <hr><p>नमस्ते ${escHtml(name)},</p>
           <p>${escHtml(inviter)} ने आपको GrievIQ पर <strong>${escHtml(office.name)}</strong> के कार्यालय में <strong>${roleHi}</strong> के रूप में जोड़ा है।</p>
           <p>शुरू करने के लिए <a href="${url}">${url}</a> खोलें और इस ईमेल पते (${escHtml(to)}) वाले Google खाते से <strong>Google से साइन इन करें</strong> चुनें।</p>
-          <p>कार्यालय GrievIQ पर आपका नाम, मोबाइल नंबर और (यदि दी गई हो) कर्मचारी आईडी रखता है, ताकि टीम काम के बारे में आपसे संपर्क कर सके और हर कार्य सही व्यक्ति तक पहुँचे।</p>`,
+          <p>कार्यालय GrievIQ पर आपका नाम, मोबाइल नंबर और (यदि दी गई हो) कर्मचारी आईडी रखता है, ताकि टीम काम के बारे में आपसे संपर्क कर सके और हर कार्य सही व्यक्ति तक पहुँचे।</p>
+          <p>अपने काम की चरण-दर-चरण मार्गदर्शिका के लिए कंसोल में ऊपर <strong>सहायता</strong> दबाएँ।</p>
+          <hr><p style="color:#555;font-size:13px">GrievIQ · Constituency Service &amp; Grievance Redressal Platform · क्षेत्र सेवा एवं शिकायत निवारण मंच</p>`,
       }),
     });
     return res.ok;

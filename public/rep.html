@@ -20,7 +20,9 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=39"></script>
+<script src="/i18n.js?v=40"></script>
+<script src="/guide-content.js?v=40"></script>
+<script src="/guide.js?v=40"></script>
 <script src="/giq-charts.js?v=3"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/rep-notify.js?v=35"></script>
@@ -407,6 +409,11 @@
   .who-signed { font-size: 12px; color: var(--steel-2); margin-top: 4px; }
   .signout-btn { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer; }
   .signout-btn:hover { background: var(--paper); }
+  /* grieviq-40: the Help guide (public/guide.js) and "how this works" links next to the actions. */
+  .help-btn { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 0 12px; min-height: 36px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; margin-right: 10px; }
+  .help-btn:hover { background: var(--paper); }
+  .guide-ctx { background: none; border: none; padding: 4px 2px; min-height: 24px; font: inherit; font-size: 13px; color: var(--brand); text-decoration: underline; cursor: pointer; text-align: left; }
+  .guide-ctx-row { flex-basis: 100%; margin: 0; }
   .photo-removed { font-size: 12px; color: var(--steel-2); align-self: center; }
   .photo-thumb {
     width: 52px;
@@ -1066,7 +1073,8 @@ function renderResolveControl(c) {
   var check = c.deptState && c.deptState.phase === 'NEEDS_CHECK';
   var needPhotos = !!(c.deptSteps && c.deptSteps.length);
   if (!d || !d.open) {
-    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(check ? 'rep.fc_btn' : (isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved'))) + '</button>';
+    return '<button type="button" class="resolve-btn mark-resolved-btn" data-id="' + id + '" aria-expanded="false">' + esc(T(check ? 'rep.fc_btn' : (isFW ? 'rep.fw_submit_btn' : 'rep.mark_resolved'))) + '</button>' +
+      ' <button type="button" class="guide-ctx" data-guide="rep" data-guide-focus="' + (check || isFW ? 'fieldcheck' : 'resolve') + '">' + esc(T(check || isFW ? 'guide.how_fieldcheck' : 'guide.how_resolve')) + '</button>';
   }
   var outcome = check ? (d.outcome || '') : 'FIXED';
   var failed = outcome === 'PARTLY' || outcome === 'NOT_FIXED';
@@ -1396,6 +1404,7 @@ function renderFollowupControl(c) {
   }).join('');
   return card + progress + deptLine + history +
     '<div class="followup-form fwd-form" id="fwd-form-' + id + '">' +
+      '<p class="guide-ctx-row"><button type="button" class="guide-ctx" data-guide="rep" data-guide-focus="forward">' + esc(T('guide.how_forward')) + '</button></p>' +
       '<div class="followup-field"><label for="followup-dept-' + id + '">' + esc(T(steps.length ? 'rep.forward_again' : 'rep.forward_to')) + '</label>' +
         '<select class="followup-dept" id="followup-dept-' + id + '" data-id="' + id + '"' + (e.dept ? ' aria-invalid="true"' : '') + '>' + options + '</select></div>' +
       '<div class="followup-field"><label for="followup-office-' + id + '">' + esc(T('rep.fwd_office')) + '</label>' +
@@ -1565,6 +1574,7 @@ function renderAssignControl(c) {
   }).join('');
   var sel = st.value != null ? st.value : current;
   return '<div class="followup-form assign-form">' +
+    '<p class="guide-ctx-row"><button type="button" class="guide-ctx" data-guide="rep" data-guide-focus="daily">' + esc(T('guide.how_assign')) + '</button></p>' +
     '<div class="followup-field"><label for="assign-' + id + '">' + esc(T('rep.assign_label')) + '</label>' +
       '<p class="hint" id="assign-hint-' + id + '">' + esc(T('rep.assign_hint')) + '</p>' +
       '<select class="assign-select" id="assign-' + id + '" data-id="' + id + '" aria-describedby="assign-hint-' + id + ' assign-heavy-' + id + ' assign-err-' + id + '"' + (st.error ? ' aria-invalid="true"' : '') + '>' + opts + '</select>' +
@@ -3127,6 +3137,7 @@ function welcomeCard() {
   var steps = '<li>' + esc(T('rep.wel_s1')) + '</li>' + (teamOffices().length ? '<li>' + esc(T('rep.wel_s2')) + '</li>' : '') + '<li>' + esc(T('rep.wel_s3')) + '</li>';
   return '<section class="welcome-card no-print" id="welcome-card" aria-labelledby="welcome-h"><h2 id="welcome-h">' + esc(title) + '</h2><p>' + esc(body) + '</p>' +
     '<p class="welcome-steps-h">' + esc(T('rep.wel_steps')) + '</p><ol>' + steps + '</ol>' +
+    '<p><button type="button" class="guide-ctx" id="welcome-guide" data-guide="rep">' + esc(T('guide.read_2min')) + '</button></p>' +
     '<button type="button" class="welcome-go" id="welcome-go">' + esc(T('rep.wel_close')) + '</button></section>';
 }
 function renderShell() {
@@ -3138,7 +3149,7 @@ function renderShell() {
         '<div class="console-icon">' + LAYERS_ICON + '</div>' +
         '<div><p class="console-title">' + esc(T('rep.title')) + '</p><p class="console-subtitle">' + esc(T('rep.subtitle')) + '</p></div>' +
       '</div>' +
-      '<div class="console-header-right"><span id="notif-slot"></span>' +
+      '<div class="console-header-right"><button type="button" class="help-btn no-print" id="help-btn" data-guide="rep">' + esc(T('guide.help')) + '</button><span id="notif-slot"></span>' +
         (currentMe && currentMe.via === 'google' ? '<div class="who-signed">' + esc(currentMe.email) + ' &middot; <button type="button" class="signout-btn" id="signout-btn">' + esc(T('rep.signout')) + '</button></div>' : '') +
       '</div>' +
     '</div></div>' +
@@ -3153,6 +3164,7 @@ function renderShell() {
     '</div>' +
     '<main>' + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
+  if (window.GIQGuide) window.GIQGuide.setRoles('rep', myMandates().map(function(m) { return m.role || 'REPRESENTATIVE'; }));
   if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
   var soBtn = document.getElementById('signout-btn');
   if (soBtn) soBtn.addEventListener('click', signOut);

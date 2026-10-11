@@ -23,6 +23,7 @@
   var LINKS = [
     ["/about", "common.about", "About us"],
     ["/help", "common.help", "Help & contact"],
+    ["/guide", "common.guide", "How to use GrievIQ"],
     ["/privacy", "common.privacy", "Privacy policy"],
     ["/terms", "common.terms", "Terms"],
     ["/accessibility", "common.accessibility", "Accessibility"],

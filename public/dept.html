@@ -122,11 +122,14 @@
   ol.rules { margin: 6px 0 12px; padding-left: 22px; line-height: 1.55; font-size: 15px; }
   ol.rules li { margin-bottom: 8px; }
   footer .linkish { font-size: 12.5px; min-height: 24px; }
+  .guide-row { margin: -4px 0 10px; } .guide-row .linkish { font-size: 13.5px; font-weight: 500; }
   .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .hdr-right { display: flex; align-items: center; gap: 12px; }
   #notif-slot .rn-bell { color: var(--ink); }
 </style>
-<script src="/i18n.js?v=39"></script>
+<script src="/i18n.js?v=40"></script>
+<script src="/guide-content.js?v=40"></script>
+<script src="/guide.js?v=40"></script>
 <script src="/photo-tools.js?v=7c"></script>
 </head>
 <body>
@@ -138,7 +141,7 @@
     <div class="hdr-right"><span id="notif-slot" hidden></span><div class="who" id="who" hidden></div></div>
   </header>
   <main id="main" tabindex="-1"><p class="empty" data-i18n="dd.loading">Loading…</p></main>
-  <footer><span id="rules-foot" hidden><button type="button" class="linkish" id="rules-link" data-i18n="dd.rules_link">Rules for officers</button> · </span><a href="/privacy" data-i18n="common.privacy">Privacy policy</a> · <a href="mailto:support@grieviq.in">support@grieviq.in</a></footer>
+  <footer><button type="button" class="linkish" id="guide-link" data-guide="dept" data-i18n="guide.help_dept">How to use (guide)</button> · <span id="rules-foot" hidden><button type="button" class="linkish" id="rules-link" data-i18n="dd.rules_link">Rules for officers</button> · </span><a href="/privacy" data-i18n="common.privacy">Privacy policy</a> · <a href="mailto:support@grieviq.in">support@grieviq.in</a></footer>
 </div>
 <script>
 (function () {
@@ -437,7 +440,8 @@
     var form = "";
     if (c.canReply) {
       var kinds = ["SCHEDULED", "IN_PROGRESS", "DONE_CLAIMED", "NOT_OURS", "CANT_DO"];
-      form = '<div class="card"><h2 id="reply-h">' + esc(T("dd.reply_h")) + "</h2>" + (S.msg && S.screen === "case" ? msgHtml() : "") +
+      form = '<div class="card"><h2 id="reply-h">' + esc(T("dd.reply_h")) + "</h2>" +
+        '<p class="guide-row"><button type="button" class="linkish" id="guide-reply" data-guide="dept" data-guide-focus="reply">' + esc(T("guide.how_reply")) + "</button></p>" + (S.msg && S.screen === "case" ? msgHtml() : "") +
         '<form id="f-reply" novalidate><fieldset aria-describedby="kind-err"><legend>' + esc(T("dd.reply_what")) + "</legend>" +
         kinds.map(function (k) { return '<label class="opt"><input type="radio" name="kind" value="' + k + '"' + (r.kind === k ? " checked" : "") + "> " + esc(T("dd.k_" + k)) + "</label>"; }).join("") +
         '<div class="err" id="kind-err" role="alert">' + esc(e.kind || "") + "</div></fieldset>" +

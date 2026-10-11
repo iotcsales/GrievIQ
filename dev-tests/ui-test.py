@@ -1611,6 +1611,157 @@ with sync_playwright() as pw:
     ok("does not have access" in p.inner_text("main"), "data entry operator: no access to pilot requests")
     ctx.close()
 
+    # ---------- grieviq-40: guides (SOPs) inside the apps, positioning line ----------
+    DLG_CONTRAST = CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.gq-drawer')", 1)
+    DLG_TARGETS = r"""() => Array.from(document.querySelectorAll('.gq-drawer button, .gq-drawer a')).filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.height < 24 || r.width < 24); }).map(e => e.textContent.trim().slice(0, 30))"""
+    def sop_ids(p): return p.eval_on_selector_all(".gq-drawer .gq-sop", "els => els.map(e => e.id)")
+    # Citizen guide page
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                resp = p.goto(B + "/guide"); p.wait_for_selector("#gq-page .gq-sop")
+                ok(resp.status == 200, "guide page opens " + tag)
+                txt = p.inner_text("main")
+                if lang == "en":
+                    ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "How a complaint moves" in txt and "112" in txt, "citizen guide in English " + tag, txt[:200])
+                else:
+                    ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
+                ok(p.locator("#gq-page .gq-sop").count() == 4 and p.locator("#gq-page ol.gq-flow li").count() == 5, "four guides and the five-step journey " + tag)
+                ok(p.locator("#gq-page strong").count() > 5 and p.locator("#gq-page script").count() == 0, "bold words drawn, nothing else " + tag)
+                ok(no_hscroll(p), "guide page: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "guide page contrast AA " + tag, bad[:6])
+                small = p.evaluate(TARGET_JS.replace("!e.closest('dd,", "!e.closest('.footer-links, dd,", 1)); ok(not small, "guide page targets >= 24px " + tag, small[:6])
+                if width == 375 or lang == "en": shot(p, "48-guide-page-" + tag, full=(width == 375))
+                ok(not errs, "no script errors (guide page %s)" % tag, errs)
+                ctx.close()
+    ctx, p, errs = P("x@x.in")
+    p.goto(B + "/guide#gq-track"); p.wait_for_selector("#gq-track"); p.wait_for_timeout(200)
+    ok(p.evaluate("document.activeElement.id") == "gq-track", "link to a part of the guide focuses it")
+    p.click("a[data-gq-jump=rate]"); ok(p.evaluate("document.activeElement.id") == "gq-rate" and p.evaluate("location.hash") == "#gq-rate", "contents link moves focus")
+    p.evaluate("() => { window.__printed = 0; window.print = () => { window.__printed++; }; }"); p.click("#gq-print")
+    ok(p.evaluate("window.__printed") == 1, "print / save as PDF")
+    p.click("[data-lang-toggle]"); p.wait_for_timeout(200)
+    ok("शिकायत दर्ज करें" in p.inner_text("#gq-page") and "File a complaint" not in p.inner_text("#gq-page"), "switching language redraws the guide")
+    p.click("[data-lang-toggle]"); p.wait_for_timeout(200)
+    p.goto(B + "/"); p.wait_for_timeout(500)
+    ok(p.locator(".footer-links a[href='/guide']").count() == 1, "footer link to the guide")
+    p.goto(B + "/submit"); p.wait_for_timeout(500)
+    ok(p.get_attribute(".guide-link a", "href") == "/guide#gq-file", "file page: how filing works")
+    p.goto(B + "/status"); p.wait_for_timeout(500)
+    ok(p.get_attribute(".guide-link a", "href") == "/guide#gq-track", "track page: how tracking works")
+    for pg in ("/submit", "/status"):
+        for th in ("light", "dark"):
+            c2 = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=th); p2 = c2.new_page(); p2.goto(B + pg); p2.wait_for_timeout(600)
+            bad = p2.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.guide-link')", 1)); ok(not bad, "how-it-works link contrast %s %s" % (pg, th), bad)
+            c2.close()
+    p.goto(B + "/for-offices"); p.wait_for_selector(".eyebrow")
+    ok(p.inner_text(".eyebrow").lower() in ("constituency service & grievance redressal platform", "क्षेत्र सेवा एवं शिकायत निवारण मंच") and ("Constituency Service" in p.title() or "क्षेत्र सेवा" in p.title()), "For offices: the positioning line", p.inner_text(".eyebrow"))
+    ctx.close()
+
+    # Representative console: Help panel
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000)
+                sub = p.inner_text(".console-subtitle")
+                ok(sub == ("Constituency Service & Grievance Redressal Platform" if lang == "en" else "क्षेत्र सेवा एवं शिकायत निवारण मंच"), "console subtitle: positioning line " + tag, sub)
+                ok(p.locator("#welcome-guide").count() == 1, "welcome card links to the guide " + tag)
+                ok(no_hscroll(p), "rep header with Help: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.console-header')", 1)); ok(not bad, "rep header contrast " + tag, bad)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
+                p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
+                ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-reports"], "representative sees all seven guides " + tag, sop_ids(p))
+                ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
+                if lang == "hi": ok(not re.findall(r"guide\.\w+", p.inner_text(".gq-drawer")) and "सहायता" in p.inner_text("#help-btn"), "Help in Hindi " + tag)
+                ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1") and p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "Help panel: no sideways scroll " + tag)
+                bad = p.evaluate(DLG_CONTRAST); ok(not bad, "Help panel contrast AA " + tag, bad[:6])
+                ok(not p.evaluate(DLG_TARGETS), "Help panel targets >= 24px " + tag, p.evaluate(DLG_TARGETS))
+                shot(p, "49-rep-help-" + tag, full=False)
+                p.keyboard.press("Shift+Tab"); ok(p.evaluate("document.activeElement.closest('.gq-drawer') !== null"), "Shift+Tab stays in the panel " + tag)
+                p.keyboard.press("Escape"); p.wait_for_timeout(100)
+                ok(p.locator(".gq-drawer").count() == 0 and p.evaluate("document.activeElement.id") == "help-btn" and p.evaluate("document.getElementById('app').inert") is False, "Esc closes; focus back on Help " + tag)
+                ok(not errs, "no script errors (rep help %s)" % tag, errs)
+                ctx.close()
+    # Contextual links and role filtering
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}); ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000)
+    p.click("#welcome-guide"); p.wait_for_selector(".gq-drawer")
+    ok(p.evaluate("document.activeElement.id") == "gq-dtitle", "welcome guide link opens the guide"); p.keyboard.press("Escape")
+    ok(p.evaluate("document.activeElement.id") == "welcome-guide", "focus back on the welcome link")
+    p.evaluate("GIQGuide.open('rep', { focus: 'forward' })"); p.wait_for_selector(".gq-drawer")
+    ok(p.evaluate("document.activeElement.id") == "gqd-forward", "a 'how this works' link opens the guide at that part")
+    p.click(".gq-drawer [data-gq-jump=team]"); ok(p.evaluate("document.activeElement.id") == "gqd-team", "contents inside the panel move focus")
+    p.evaluate("() => { window.__cls = ''; window.print = () => { window.__cls = document.documentElement.className; }; }"); p.click("[data-gq-print]")
+    ok("gq-print" in p.evaluate("window.__cls"), "Print prints only the guide")
+    p.evaluate("document.documentElement.classList.add('gq-print')"); p.emulate_media(media="print")
+    ok(p.evaluate("getComputedStyle(document.getElementById('app')).display") == "none" and p.evaluate("getComputedStyle(document.querySelector('.gq-dbody')).overflowY") == "visible", "printout holds only the guide")
+    p.emulate_media(media="screen"); p.evaluate("document.documentElement.classList.remove('gq-print')")
+    p.click("[data-gq-close]"); p.wait_for_timeout(100)
+    ok(p.locator(".gq-drawer").count() == 0, "Close button closes")
+    ctxs = p.locator("[data-guide-focus]").count()
+    if ctxs:
+        b = p.locator("[data-guide-focus]").first; f = b.get_attribute("data-guide-focus"); b.click(); p.wait_for_selector(".gq-drawer")
+        ok(p.evaluate("document.activeElement.id") == "gqd-" + f, "the link next to the action opens its guide (%s)" % f)
+        p.keyboard.press("Escape")
+    ok(not errs, "no script errors (rep contextual)", errs)
+    ctx.close()
+    ctx = br.new_context(viewport={"width": 375, "height": 900}); ctx.add_cookies([{"name": "test_email", "value": "fw@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000)
+    p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
+    ok(sop_ids(p) == ["gqd-signin", "gqd-fieldcheck"], "field worker sees only sign-in and field check", sop_ids(p))
+    shot(p, "50-fw-help", full=False)
+    ok(not errs, "no script errors (field worker help)", errs)
+    ctx.close()
+
+    # Department dashboard
+    for theme in ("light", "dark"):
+        ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+        ok(dept_signin(ctx) == 200, "dept signed in " + theme)
+        p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/dept"); p.wait_for_selector(".tiles")
+        p.click("#guide-link"); p.wait_for_selector(".gq-drawer")
+        ok(sop_ids(p) == ["gqd-signin", "gqd-reply", "gqd-officers", "gqd-performance"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
+        bad = p.evaluate(DLG_CONTRAST); ok(not bad, "dept Help contrast AA " + theme, bad[:6])
+        shot(p, "51-dept-help-" + theme, full=False)
+        p.keyboard.press("Escape"); ok(p.evaluate("document.activeElement.id") == "guide-link", "focus back on the guide link " + theme)
+        p.goto(B + "/dept#case=g24"); p.wait_for_selector("#case-h"); p.wait_for_timeout(300)
+        if p.locator("#guide-reply").count():
+            bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.guide-row')", 1)); ok(not bad, "how to reply link contrast " + theme, bad)
+            p.click("#guide-reply"); p.wait_for_selector(".gq-drawer")
+            ok(p.evaluate("document.activeElement.id") == "gqd-reply", "How to reply opens that part " + theme)
+        ok(not errs, "no script errors (dept help %s)" % theme, errs)
+        ctx.close()
+
+    # Admin console: Help shows the parts for the person's role
+    for who, want in (("super@test.in", 7), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-audit"])):
+        for theme in ("dark", "light"):
+            ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
+            p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
+            if not p.is_visible("#adm-help"): p.click("#adm-menu-btn")
+            p.click("#adm-help"); p.wait_for_selector(".gq-drawer")
+            ids = sop_ids(p)
+            ok((len(ids) == want) if isinstance(want, int) else (ids == want), "admin Help for %s %s" % (who, theme), ids)
+            bad = p.evaluate(DLG_CONTRAST); ok(not bad, "admin Help contrast AA %s %s" % (who, theme), bad[:6])
+            if who.startswith("super"): ok("underline" in p.evaluate("getComputedStyle(document.querySelector('.gq-toc a')).textDecorationLine"), "admin Help: contents look like links " + theme)
+            if who.startswith("super"): shot(p, "52-admin-help-" + theme, full=False)
+            p.keyboard.press("Escape"); ok(p.evaluate("document.activeElement.id") == "adm-help", "admin: focus back on Help " + theme)
+            ok(not errs, "no script errors (admin help %s)" % who, errs)
+            ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

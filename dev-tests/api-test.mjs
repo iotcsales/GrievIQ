@@ -556,6 +556,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
     const fsx = await import("node:fs");
     const wm = fsx.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((m) => m.to && m.to[0] === OFF && /Welcome/.test(m.subject)).slice(-1)[0];
     ok(r.body.welcomed === true && wm && /GrievIQ/.test(wm.html) && /स्वागत/.test(wm.subject) && /प्रिय/.test(wm.html) && /\/dept/.test(wm.html) && !/GRV-|Lane 4|9876500000/.test(wm.html), "officer gets a welcome email (English and Hindi, sign-in link, no case details)", wm && wm.subject);
+    ok(wm && /Constituency Service &amp; Grievance Redressal Platform/.test(wm.html) && /How to use \(guide\)/.test(wm.html), "officer welcome: positioning line and where the guide is");
   }
   r = await dp({ action: "officer_add", officeId: jal.id, name: "Asha Verma", designation: "JE", email: OFF });
   ok(r.status === 400 && r.body.fields.email === "ALREADY_HERE", "same officer twice refused", r.body);

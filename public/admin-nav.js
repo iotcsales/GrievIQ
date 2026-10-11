@@ -379,11 +379,36 @@
     }
     var who = info ? (info.name ? info.name + (info.employeeId ? " (" + info.employeeId + ")" : "") : info.email) : "";
     box.innerHTML = (who ? '<span class="adm-who">' + esc(t("adm.nav_signed_in_as", { who: who })) + "</span> " : "") +
+      '<button type="button" class="adm-signout adm-help" id="adm-help">' + esc(t("guide.help")) + "</button>" +
       '<button type="button" class="adm-signout" id="adm-signout">' + esc(t("adm.nav_signout")) + "</button>";
     document.getElementById("adm-signout").addEventListener("click", function () { signOut(""); });
+    document.getElementById("adm-help").addEventListener("click", function () { openHelp(this); });
+  }
+  // grieviq-40: the staff guide (public/guide-content.js + guide.js), loaded
+  // only when someone asks for it, showing the parts for this person's roles.
+  var guideLoading = null;
+  function loadGuide(cb) {
+    if (window.GIQGuide && window.GIQ_GUIDES) { cb(); return; }
+    if (!guideLoading) {
+      guideLoading = [];
+      var left = 2;
+      ["/guide-content.js?v=40", "/guide.js?v=40"].forEach(function (src) {
+        var sc = document.createElement("script"); sc.src = src; sc.async = false;
+        sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
+        sc.onerror = function () { guideLoading = null; };
+        document.head.appendChild(sc);
+      });
+    }
+    guideLoading.push(cb);
+  }
+  function openHelp(btn) {
+    loadGuide(function () {
+      window.GIQGuide.setRoles("admin", (info && info.roles) || null);
+      window.GIQGuide.open("admin", { opener: btn });
+    });
   }
   style.textContent += ".adm-acct{display:inline-flex;align-items:center;gap:10px;margin-left:20px;font-size:13px;color:var(--admin-muted,#889);flex-shrink:0}" +
-    ".adm-who{white-space:nowrap}.adm-signout{white-space:nowrap}" +
+    ".adm-who{white-space:nowrap}.adm-signout{white-space:nowrap}.adm-help{margin-right:-2px}" +
     "@media (max-width:760px){header{flex-wrap:wrap}.adm-acct{margin-left:0;margin-top:10px;width:100%;justify-content:space-between}.adm-who{white-space:normal}}" +
     ".adm-signout{background:none;border:1px solid var(--admin-border,#334);border-radius:6px;color:var(--admin-text,inherit);font:inherit;font-size:13px;padding:5px 10px;cursor:pointer;min-height:30px}" +
     ".adm-signout:hover,.adm-signout:focus-visible{border-color:var(--admin-text,#fff);outline:none}" +

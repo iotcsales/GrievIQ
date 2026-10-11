@@ -221,10 +221,13 @@ export function officerWelcomeEmail(name, office, origin) {
   const url = String(origin || "https://grieviq.in") + "/dept", host = url.replace(/^https?:\/\//, "");
   const html = "<p>Dear " + escH(name) + ",</p><p>You have been added to GrievIQ for <b>" + escH(office) + "</b>. Thank you for being part of this mission to make public services answer every citizen.</p>" +
     `<p>Sign in at <a href="${escH(url)}">${escH(host)}</a> with this email address. A one-time code will be sent to you each time.</p>` +
+    "<p>For a step-by-step guide, choose <b>How to use (guide)</b> at the bottom of the dashboard.</p>" +
     "<p>For security, GrievIQ never puts complaint details in emails and never asks for your sign-in code.</p><hr>" +
     "<p>प्रिय " + escH(name) + ",</p><p>आपको <b>" + escH(office) + "</b> के लिए GrievIQ से जोड़ा गया है। हर नागरिक की सुनवाई करने वाली सार्वजनिक सेवाओं के इस अभियान का हिस्सा बनने के लिए धन्यवाद।</p>" +
     `<p><a href="${escH(url)}">${escH(host)}</a> पर इसी ईमेल पते से साइन इन करें। हर बार आपको एक एकबारी कोड भेजा जाएगा।</p>` +
-    "<p>सुरक्षा के लिए GrievIQ ईमेल में शिकायत का विवरण नहीं भेजता और कभी आपका साइन-इन कोड नहीं माँगता।</p>";
+    "<p>चरण-दर-चरण मार्गदर्शिका के लिए डैशबोर्ड में नीचे <b>उपयोग कैसे करें (मार्गदर्शिका)</b> चुनें।</p>" +
+    "<p>सुरक्षा के लिए GrievIQ ईमेल में शिकायत का विवरण नहीं भेजता और कभी आपका साइन-इन कोड नहीं माँगता।</p>" +
+    '<hr><p style="color:#555;font-size:13px">GrievIQ · Constituency Service &amp; Grievance Redressal Platform · क्षेत्र सेवा एवं शिकायत निवारण मंच</p>';
   return { subject: "Welcome to GrievIQ · GrievIQ में आपका स्वागत है", html };
 }
 export async function sendEmailNow(env, to, subject, html) {
