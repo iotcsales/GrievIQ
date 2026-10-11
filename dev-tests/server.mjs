@@ -108,7 +108,7 @@ function findFunction(parts) {
   }
   return walk(build, parts, {});
 }
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".webmanifest": "application/manifest+json", ".csv": "text/csv" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".webmanifest": "application/manifest+json", ".csv": "text/csv", ".webp": "image/webp" };
 
 function emailOf(req) {
   if (req.headers["test-email"]) return req.headers["test-email"];

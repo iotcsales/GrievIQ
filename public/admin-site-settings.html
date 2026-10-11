@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.ss_page_title">GrievIQ Admin — Prices & site details</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #6f95f2;
+    --admin-accent-fill: #3d6be0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3563d8;
+    --admin-accent-fill: #3563d8;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+</style>
+<script src="/i18n.js?v=39"></script>
+<script src="/admin-nav.js?v=r10"></script>
+<style>
+  /* grieviq-39: Prices & site details / Pilot requests */
+  button.danger { color: #ff8f87; }
+  html.light-theme button.danger { color: #a8322a; }
+  main.ss-main { max-width: 1080px; }
+  .vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .ss-status p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+  .st-warn { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .unsaved { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); font-size: 12px; font-weight: 600; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .acts.small { margin-top: 12px; }
+  .acts button, .acts .btnlink, .row-actions button { min-height: 36px; }
+  .btnlink { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 6px; border: 1px solid var(--admin-border); color: var(--admin-text); text-decoration: none; font-size: 13px; }
+  .pub { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pub label { font-size: 13px; color: var(--admin-muted); }
+  .pub input { min-height: 36px; min-width: 200px; }
+  .st-msg { font-weight: 600; }
+  .st-msg.error { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .st-msg.success { color: var(--admin-text); border-left: 4px solid #2f9e5b; padding-left: 10px; }
+  .ss-errors { border: 2px solid var(--admin-danger); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; background: var(--admin-panel); }
+  .ss-errors h2 { font-size: 15px; margin: 0 0 6px; }
+  .ss-errors ul { margin: 0; padding-left: 20px; } .ss-errors li { margin: 4px 0; }
+  .ss-errors a { color: var(--admin-accent); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border); }
+  .tabs [role=tab] { background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; color: var(--admin-muted); font-size: 14px; padding: 8px 12px; min-height: 40px; }
+  .tabs [role=tab][aria-selected=true] { color: var(--admin-text); border-bottom-color: var(--admin-accent); font-weight: 600; background: rgba(127,127,127,.10); }
+  .tabs [role=tab]:hover { color: var(--admin-text); background: rgba(127,127,127,.10); }
+  .tab-err { color: var(--admin-text); font-weight: 700; }
+  .tabpanel:focus { outline: none; }
+  .panel .sec-h { font-size: 15px; margin: 28px 0 8px; } .panel .sec-h:first-child { margin-top: 0; }
+  .sub-h { font-weight: 600; font-size: 13px; margin: 10px 0 6px; }
+  fieldset.card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; min-width: 0; }
+  fieldset.card.retired { border-style: dashed; }
+  fieldset.card legend { padding: 0 6px; font-weight: 600; font-size: 15px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-text); vertical-align: middle; }
+  .code { margin: 0 0 8px; font-size: 12px; color: var(--admin-muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 10px 16px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .fld.wide { grid-column: 1 / -1; }
+  .fld label, fieldset.rad legend { font-size: 13px; font-weight: 600; }
+  .req { color: var(--admin-text); }
+  .hint { font-size: 12px; color: var(--admin-muted); }
+  .fld input, .fld textarea, .pub input { background: #11151c; border: 1px solid #5d6878; color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 14px; min-height: 38px; width: 100%; box-sizing: border-box; }
+  .fld textarea { min-height: 110px; resize: vertical; }
+  .fld input[aria-invalid=true], .fld textarea[aria-invalid=true] { border: 2px solid var(--admin-danger); }
+  .fld input:disabled, .fld textarea:disabled { color: var(--admin-text); -webkit-text-fill-color: var(--admin-text); opacity: 1; border-style: dashed; }
+  .ferr { font-size: 13px; font-weight: 600; color: var(--admin-text); border-left: 3px solid var(--admin-danger); padding-left: 8px; }
+  fieldset.rad { border: 0; padding: 0; margin: 10px 0; min-width: 0; }
+  fieldset.rad legend { padding: 0; margin-bottom: 6px; }
+  .ropt { display: inline-flex; align-items: center; gap: 6px; margin: 0 16px 6px 0; min-height: 28px; }
+  .ropt input, .chk input { width: 20px; height: 20px; margin: 0; accent-color: var(--admin-accent-fill); }
+  .ropt label, .chk label { font-size: 14px; }
+  .chks { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 10px; }
+  .chk { display: grid; grid-template-columns: 20px 1fr; column-gap: 8px; align-items: center; margin: 8px 0; }
+  .chk .hint { grid-column: 2; }
+  .today { margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
+  .sched { margin-top: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--admin-border); }
+  .link-btn { background: none !important; border: 0 !important; color: var(--admin-accent) !important; text-decoration: underline; padding: 6px 0 !important; margin-top: 8px; font-size: 14px; }
+  .table-wrap table td, .table-wrap table th { vertical-align: top; }
+  html.light-theme .fld input, html.light-theme .fld textarea, html.light-theme .pub input { background: #fff; border-color: #8a94a3; color: var(--admin-text); }
+  html.light-theme .btnlink { background: #eef0f3; }
+  html.light-theme .link-btn { background: none !important; }
+  .pr-filter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+  .pr-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .pr-card h2 { font-size: 15px; margin: 0 0 4px; }
+  .pr-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .pr-card dt { color: var(--admin-muted); } .pr-card dd { margin: 0; overflow-wrap: anywhere; }
+  .pr-card a { color: var(--admin-accent); }
+  .pr-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+  .pr-form .fld { min-width: 180px; flex: 1; }
+  .pr-form select { min-height: 38px; }
+  @media (max-width: 640px) { .pub input { min-width: 0; width: 100%; } .pr-card dl { grid-template-columns: 1fr; } .pr-card dt { margin-top: 6px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a> <a href="/admin-site-settings.html" data-i18n="adm.nav_site_settings" class="active" aria-current="page">Prices &amp; site details</a> <a href="/admin-pilot-requests.html" data-i18n="adm.nav_pilot_requests">Pilot requests</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main class="ss-main">
+  <h1><span data-i18n="adm.nav_site_settings">Prices &amp; site details</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
+  <p class="subtitle" data-i18n="adm.ss_sub">What GrievIQ publishes for offices: plans and prices, GST, discounts, the company's details and contacts, payment policy and claims.</p>
+  <div class="note" data-i18n-html="adm.ss_note">Changes are saved as a <b>draft</b> first; nothing public changes until the super admin presses <b>Publish</b>. Every published version is kept and can be brought back. Discounts belong to a plan, never to one office or party, so every party pays the same.</div>
+  <div id="ss-status" class="panel ss-status" aria-live="polite"></div>
+  <div id="ss-errors" class="ss-errors" role="alert" tabindex="-1" hidden></div>
+  <div id="ss-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
+</main>
+
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function hi() { return window.GIQ && GIQ.lang === "hi"; }
+function rupees(n) { return n === null || n === undefined || n === "" ? "—" : "₹" + Number(n).toLocaleString("en-IN"); }
+function dateText(s) { if (!s) return ""; var d = new Date(s.length === 10 ? s + "T00:00:00+05:30" : s); return isNaN(d) ? s : d.toLocaleDateString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
+function timeText(s) { if (!s) return ""; var d = new Date(s); return isNaN(d) ? s : d.toLocaleString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+var S = { info: null, W: null, tab: "plans", fields: {}, msg: null, dirty: false, view: null, busy: false };
+var TABS = ["plans", "gst", "discounts", "company", "policies", "claims", "history"];
+
+// ---- the working copy: every input has data-path ("plans.0.monthly") ----
+function getPath(o, path) { return path.split(".").reduce(function (x, k) { return x == null ? x : x[k]; }, o); }
+function setPath(o, path, v) { var ks = path.split("."), last = ks.pop(); var t = ks.reduce(function (x, k) { if (x[k] == null) x[k] = {}; return x[k]; }, o); t[last] = v; }
+
+// Prices worked out the same way as the public page (functions/_shared/site-settings.js).
+function today() { return S.info ? S.info.today : new Date(Date.now() + 19800000).toISOString().slice(0, 10); }
+function num(v) { if (v === "" || v == null) return null; var n = Number(String(v).replace(/[,₹\s]/g, "")); return isFinite(n) ? n : null; }
+function gstOf(p) { var r = num(S.W.gst.rate) || 0; return p == null ? null : Math.round(p * (100 + r) / 100); }
+function pricesOf(p) {
+  var d = today(), nx = p.next && p.next.from && p.next.from <= d;
+  var m = p.billing === "MONTHLY" ? num(nx && p.next.monthly ? p.next.monthly : p.monthly) : null;
+  var y = null;
+  if (p.billing === "MONTHLY" && m != null) y = S.W.yearly.mode === "PERCENT" ? Math.round(m * 12 * (100 - (num(S.W.yearly.percent) || 0)) / 100) : m * (num(S.W.yearly.months) || 12);
+  if (p.billing === "YEARLY") y = num(nx && p.next.yearly ? p.next.yearly : p.yearly);
+  return { m: m, y: y };
+}
+
+function fieldErr(path) {
+  var c = S.fields[path];
+  return c ? T("adm.ss_e_" + c) : "";
+}
+function idFor(path) { return "f-" + path.replace(/[^a-zA-Z0-9]/g, "-"); }
+function ro() { return !S.info || !S.info.canEdit || !S.info.ready || S.view != null; }
+function dis() { return ro() ? " disabled" : ""; }
+
+function input(path, labelKey, opts) {
+  opts = opts || {};
+  var id = idFor(path), v = getPath(S.W, path), err = fieldErr(path);
+  var help = opts.help ? '<span class="hint" id="' + id + '-h">' + esc(opts.help) + "</span>" : "";
+  var desc = [opts.help ? id + "-h" : "", err ? id + "-e" : ""].filter(Boolean).join(" ");
+  var attrs = ' id="' + id + '" data-path="' + esc(path) + '"' + (desc ? ' aria-describedby="' + desc + '"' : "") + (err ? ' aria-invalid="true"' : "") + dis() +
+    (opts.lang ? ' lang="' + opts.lang + '"' : "") + (opts.max ? ' maxlength="' + opts.max + '"' : "") + (opts.req ? " required" : "");
+  var ctl;
+  if (opts.type === "textarea") ctl = '<textarea rows="5"' + attrs + ">" + esc(v) + "</textarea>";
+  else ctl = '<input type="' + (opts.type || "text") + '"' + attrs + (opts.type === "number" ? ' inputmode="numeric" min="' + (opts.min != null ? opts.min : 0) + '"' + (opts.maxn ? ' max="' + opts.maxn + '"' : "") + ' step="1"' : "") +
+    (opts.mode ? ' inputmode="' + opts.mode + '"' : "") + (opts.ac ? ' autocomplete="' + opts.ac + '"' : ' autocomplete="off"') + ' value="' + esc(v == null ? "" : v) + '">';
+  return '<div class="fld' + (opts.wide ? " wide" : "") + '"><label for="' + id + '">' + esc(T(labelKey)) + (opts.req ? ' <span class="req" aria-hidden="true">*</span>' : "") + "</label>" + help + ctl +
+    (err ? '<span class="ferr" id="' + id + '-e">' + esc(err) + "</span>" : "") + "</div>";
+}
+function check(path, labelKey, help) {
+  var id = idFor(path);
+  return '<div class="chk"><input type="checkbox" id="' + id + '" data-path="' + esc(path) + '"' + (getPath(S.W, path) ? " checked" : "") + dis() + (help ? ' aria-describedby="' + id + '-h"' : "") + '><label for="' + id + '">' + esc(T(labelKey)) + "</label>" +
+    (help ? '<span class="hint" id="' + id + '-h">' + esc(help) + "</span>" : "") + "</div>";
+}
+function radios(path, name, legendKey, options) {
+  var v = getPath(S.W, path), err = fieldErr(path);
+  return '<fieldset class="rad"' + (err ? ' aria-invalid="true"' : "") + "><legend>" + esc(T(legendKey)) + "</legend>" + options.map(function (o) {
+    var id = idFor(path) + "-" + o[0];
+    return '<span class="ropt"><input type="radio" name="' + esc(name) + '" id="' + id + '" value="' + o[0] + '" data-path="' + esc(path) + '"' + (v === o[0] ? " checked" : "") + dis() + '><label for="' + id + '">' + esc(T(o[1])) + "</label></span>";
+  }).join("") + (err ? '<span class="ferr">' + esc(err) + "</span>" : "") + "</fieldset>";
+}
+
+// ---- status bar: live version, draft, actions ----
+function renderStatus() {
+  var el = document.getElementById("ss-status");
+  var I = S.info;
+  if (!I) { el.innerHTML = ""; return; }
+  var h = '<p class="st-line"><b>' + esc(T("adm.ss_live")) + "</b> " + esc(I.live.version ? T("adm.ss_live_v", { v: I.live.version, when: timeText(I.live.publishedAt), who: I.live.publishedBy }) : T("adm.ss_live_default")) + "</p>";
+  if (!I.ready) h += '<p class="st-warn">' + esc(T("adm.ss_not_ready")) + "</p>";
+  if (S.view != null) {
+    h += '<p class="st-line"><b>' + esc(T("adm.ss_viewing", { v: S.view })) + '</b></p><div class="acts"><button type="button" id="ss-back">' + esc(T("adm.ss_back_current")) + "</button>" +
+      (I.canEdit && I.ready && S.view !== I.live.version ? '<button type="button" class="primary" id="ss-restore-this">' + esc(T("adm.ss_restore", { v: S.view })) + "</button>" : "") + "</div>";
+  } else if (I.canEdit && I.ready) {
+    h += '<p class="st-line">' + (I.draft ? esc(T("adm.ss_draft_line", { n: I.draft.changes, when: timeText(I.draft.updatedAt), who: I.draft.updatedBy })) : esc(T("adm.ss_no_draft"))) +
+      (S.dirty ? ' <span class="unsaved">' + esc(T("adm.ss_unsaved")) + "</span>" : "") + "</p>" +
+      '<div class="acts"><button type="button" class="primary" id="ss-save">' + esc(T("adm.ss_save_draft")) + "</button>" +
+      '<a class="btnlink" id="ss-preview" href="/for-offices?preview=draft" target="_blank" rel="noopener">' + esc(T("adm.ss_preview")) + "</a>" +
+      (I.draft ? '<span class="pub"><label for="ss-note">' + esc(T("adm.ss_note_label")) + '</label><input type="text" id="ss-note" maxlength="200" autocomplete="off"><button type="button" class="primary" id="ss-publish">' + esc(T("adm.ss_publish")) + "</button></span>" +
+        '<button type="button" class="danger" id="ss-discard">' + esc(T("adm.ss_discard")) + "</button>" : "") + "</div>";
+  }
+  if (S.msg) h += '<p class="st-msg ' + (S.msg.bad ? "error" : "success") + '" id="ss-msg" tabindex="-1">' + esc(S.msg.text()) + "</p>";
+  el.innerHTML = h;
+  bind("ss-save", saveDraft); bind("ss-publish", publish); bind("ss-discard", discard);
+  bind("ss-back", function () { S.view = null; S.W = clone(S.info.draft ? S.info.draft.data : S.info.live.data); render(); });
+  bind("ss-restore-this", function () { restore(S.view); });
+  var pv = document.getElementById("ss-preview");
+  if (pv) pv.addEventListener("click", function (e) { if (S.dirty) { e.preventDefault(); S.msg = { bad: true, text: function () { return T("adm.ss_save_first"); } }; renderStatus(); focusMsg(); } });
+}
+function bind(id, fn) { var b = document.getElementById(id); if (b) b.addEventListener("click", fn); }
+function focusMsg() { var m = document.getElementById("ss-msg"); if (m) m.focus(); }
+
+function renderErrors() {
+  var box = document.getElementById("ss-errors");
+  var keys = Object.keys(S.fields);
+  if (!keys.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = "<h2>" + esc(T("adm.ss_err_h", { n: keys.length })) + "</h2><ul>" + keys.map(function (k) {
+    return '<li><a href="#' + idFor(k) + '" data-tab="' + tabOf(k) + '" data-go="' + esc(k) + '">' + esc(labelOf(k)) + ": " + esc(fieldErr(k)) + "</a></li>";
+  }).join("") + "</ul>";
+  box.querySelectorAll("a[data-go]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      e.preventDefault(); S.tab = a.getAttribute("data-tab"); render();
+      var el = document.getElementById(idFor(a.getAttribute("data-go"))) || document.querySelector('[data-path="' + a.getAttribute("data-go") + '"]');
+      if (el) el.focus();
+    });
+  });
+}
+function tabOf(k) {
+  var top = k.split(".")[0];
+  return { plans: "plans", gst: "gst", yearly: "discounts", pilot: "discounts", offers: "discounts", company: "company", policies: "policies", claims: "claims" }[top] || "plans";
+}
+function labelOf(k) {
+  var ps = k.split("."), top = ps[0];
+  if (top === "plans" && ps.length > 2) { var p = S.W.plans[+ps[1]]; return (p ? (hi() ? p.nameHi : p.nameEn) || T("adm.ss_new_plan") : "") + " — " + T("adm.ss_f_" + ps.slice(2).join("_")); }
+  if (top === "offers" && ps.length > 2) { var o = S.W.offers[+ps[1]]; return (o ? (hi() ? o.nameHi : o.nameEn) || T("adm.ss_new_offer") : "") + " — " + T("adm.ss_o_" + ps[2]); }
+  return T("adm.ss_f_" + k.replace(/\./g, "_"));
+}
+
+// ---- tabs ----
+function render() {
+  if (!S.info) return;
+  document.getElementById("readonly-tag").hidden = !ro() || S.view != null;
+  renderStatus(); renderErrors();
+  var app = document.getElementById("ss-app");
+  var tabs = '<div class="tabs" role="tablist" aria-label="' + esc(T("adm.ss_tabs")) + '">' + TABS.map(function (t) {
+    return '<button type="button" role="tab" id="tab-' + t + '" aria-controls="panel-' + t + '" aria-selected="' + (S.tab === t) + '" tabindex="' + (S.tab === t ? 0 : -1) + '" data-tab="' + t + '">' + esc(T("adm.ss_tab_" + t)) + (countErr(t) ? ' <span class="tab-err">(' + countErr(t) + ")</span>" : "") + "</button>";
+  }).join("") + "</div>";
+  var body = { plans: plansTab, gst: gstTab, discounts: discountsTab, company: companyTab, policies: policiesTab, claims: claimsTab, history: historyTab }[S.tab]();
+  app.innerHTML = tabs + '<section class="panel tabpanel" role="tabpanel" id="panel-' + S.tab + '" aria-labelledby="tab-' + S.tab + '" tabindex="-1">' + body + "</section>";
+  app.querySelectorAll('[role="tab"]').forEach(function (b) {
+    b.addEventListener("click", function () { S.tab = b.getAttribute("data-tab"); render(); document.getElementById("tab-" + S.tab).focus(); });
+    b.addEventListener("keydown", function (e) {
+      var i = TABS.indexOf(S.tab), n = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1 : null;
+      if (n == null) return; e.preventDefault(); S.tab = TABS[(n + TABS.length) % TABS.length]; render(); document.getElementById("tab-" + S.tab).focus();
+    });
+  });
+  wire(app);
+}
+function countErr(t) { return Object.keys(S.fields).filter(function (k) { return tabOf(k) === t; }).length; }
+
+function plansTab() {
+  var W = S.W;
+  var h = '<h2 class="vh">' + esc(T("adm.ss_tab_plans")) + '</h2><p class="muted">' + esc(T("adm.ss_plans_help")) + "</p>";
+  h += W.plans.map(function (p, i) {
+    var at = "plans." + i + ".", pr = pricesOf(p);
+    var title = (hi() ? p.nameHi : p.nameEn) || T("adm.ss_new_plan");
+    var state = p.retired ? T("adm.ss_retired") : p.shown ? T("adm.ss_shown") : T("adm.ss_hidden");
+    var today = "";
+    if (p.billing === "MONTHLY" && pr.m != null) today = T("adm.ss_today_m", { m: rupees(pr.m), mg: rupees(gstOf(pr.m)), y: rupees(pr.y), yg: rupees(gstOf(pr.y)) });
+    else if (p.billing === "YEARLY" && pr.y != null) today = T("adm.ss_today_y", { y: rupees(pr.y), yg: rupees(gstOf(pr.y)) });
+    else if (p.billing === "QUOTE") today = T("adm.ss_today_q");
+    var nx = p.next;
+    var sched = nx ? '<div class="sched"><p class="sub-h">' + esc(T("adm.ss_sched_h")) + "</p><div class=\"grid\">" +
+        input(at + "next.from", "adm.ss_f_next_from", { type: "date" }) +
+        input(at + "next." + (p.billing === "YEARLY" ? "yearly" : "monthly"), p.billing === "YEARLY" ? "adm.ss_f_next_yearly" : "adm.ss_f_next_monthly", { type: "number", min: 1, mode: "numeric" }) +
+        "</div>" + (ro() ? "" : '<button type="button" class="link-btn" data-act="unsched" data-i="' + i + '">' + esc(T("adm.ss_sched_remove")) + "</button>") + "</div>"
+      : (ro() || p.billing === "QUOTE" ? "" : '<button type="button" class="link-btn" data-act="sched" data-i="' + i + '">' + esc(T("adm.ss_sched_add")) + "</button>");
+    return '<fieldset class="card' + (p.retired ? " retired" : "") + '"><legend><span class="ttl">' + esc(title) + '</span> <span class="badge">' + esc(state) + "</span></legend>" +
+      '<p class="code">' + esc(T("adm.ss_code", { id: p.id })) + "</p>" +
+      '<div class="grid">' +
+        input(at + "nameEn", "adm.ss_f_nameEn", { req: true, max: 60, lang: "en" }) + input(at + "nameHi", "adm.ss_f_nameHi", { req: true, max: 60, lang: "hi" }) +
+        input(at + "forEn", "adm.ss_f_forEn", { max: 120, lang: "en" }) + input(at + "forHi", "adm.ss_f_forHi", { max: 120, lang: "hi" }) +
+      "</div>" +
+      radios(at + "billing", "billing-" + i, "adm.ss_f_billing", [["MONTHLY", "adm.ss_b_monthly"], ["YEARLY", "adm.ss_b_yearly"], ["QUOTE", "adm.ss_b_quote"]]) +
+      '<div class="grid">' +
+        (p.billing === "MONTHLY" ? input(at + "monthly", "adm.ss_f_monthly", { type: "number", min: 1, req: true, help: T("adm.ss_h_gst_excl") }) : "") +
+        (p.billing === "YEARLY" ? input(at + "yearly", "adm.ss_f_yearly", { type: "number", min: 1, req: true, help: T("adm.ss_h_gst_excl") }) : "") +
+        (p.billing === "QUOTE" ? input(at + "quoteEn", "adm.ss_f_quoteEn", { req: true, max: 120, lang: "en" }) + input(at + "quoteHi", "adm.ss_f_quoteHi", { req: true, max: 120, lang: "hi" }) : "") +
+        input(at + "seats", "adm.ss_f_seats", { type: "number", min: 1, maxn: 1000, help: T("adm.ss_h_blank_hidden") }) +
+        (p.billing !== "QUOTE" ? input(at + "extraSeat", "adm.ss_f_extraSeat", { type: "number", min: 0, help: T("adm.ss_h_blank_hidden") }) : "") +
+      "</div>" +
+      (today ? '<p class="today" aria-live="polite">' + esc(today) + "</p>" : "") +
+      '<div class="grid">' + input(at + "descEn", "adm.ss_f_descEn", { max: 200, lang: "en", wide: true }) + input(at + "descHi", "adm.ss_f_descHi", { max: 200, lang: "hi", wide: true }) + "</div>" +
+      '<div class="chks">' + (p.retired ? "" : check(at + "shown", "adm.ss_f_shown")) + (p.billing !== "QUOTE" ? check(at + "pilot", "adm.ss_f_pilot", T("adm.ss_h_pilot", { d: S.W.pilot.days })) : "") + "</div>" +
+      sched +
+      (ro() ? "" : '<div class="acts small"><button type="button" data-act="up" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ' aria-label="' + esc(T("adm.ss_up_a", { name: title })) + '">' + esc(T("adm.ss_up")) + "</button>" +
+        '<button type="button" data-act="down" data-i="' + i + '"' + (i === W.plans.length - 1 ? " disabled" : "") + ' aria-label="' + esc(T("adm.ss_down_a", { name: title })) + '">' + esc(T("adm.ss_down")) + "</button>" +
+        (p.retired ? '<button type="button" data-act="unretire" data-i="' + i + '">' + esc(T("adm.ss_unretire")) + "</button>"
+          : '<button type="button" class="danger" data-act="retire" data-i="' + i + '">' + esc(T("adm.ss_retire")) + "</button>") + "</div>") +
+      "</fieldset>";
+  }).join("");
+  if (!ro()) h += '<button type="button" class="primary" data-act="addplan"' + (W.plans.length >= 20 ? " disabled" : "") + ">" + esc(T("adm.ss_add_plan")) + "</button>";
+  if (fieldErr("plans")) h += '<p class="ferr">' + esc(fieldErr("plans")) + "</p>";
+  return h;
+}
+
+function gstTab() {
+  return '<h2 class="vh">' + esc(T("adm.ss_tab_gst")) + '</h2><div class="grid">' +
+    input("gst.rate", "adm.ss_f_gst_rate", { type: "number", min: 0, maxn: 28, req: true, help: T("adm.ss_h_gst_rate") }) +
+    input("gst.gstin", "adm.ss_f_gst_gstin", { max: 15, help: T("adm.ss_h_gstin") }) +
+    input("gst.sac", "adm.ss_f_gst_sac", { max: 8, mode: "numeric", help: T("adm.ss_h_sac") }) + "</div>";
+}
+
+function discountsTab() {
+  var W = S.W, d = today();
+  var h = '<h2 class="sec-h">' + esc(T("adm.ss_yearly_h")) + "</h2>" +
+    radios("yearly.mode", "ymode", "adm.ss_f_yearly_mode", [["MONTHS", "adm.ss_y_months"], ["PERCENT", "adm.ss_y_percent"]]) + '<div class="grid">' +
+    (W.yearly.mode === "PERCENT" ? input("yearly.percent", "adm.ss_f_yearly_percent", { type: "number", min: 0, maxn: 90, req: true }) : input("yearly.months", "adm.ss_f_yearly_months", { type: "number", min: 1, maxn: 12, req: true, help: T("adm.ss_h_months") })) + "</div>" +
+    '<h2 class="sec-h">' + esc(T("adm.ss_pilot_h")) + '</h2><div class="grid">' + input("pilot.days", "adm.ss_f_pilot_days", { type: "number", min: 0, maxn: 365, req: true, help: T("adm.ss_h_pilot_days") }) + "</div>" +
+    check("pilot.oncePerOffice", "adm.ss_f_pilot_once") +
+    '<h2 class="sec-h">' + esc(T("adm.ss_offers_h")) + '</h2><p class="muted">' + esc(T("adm.ss_offers_help")) + "</p>";
+  if (!W.offers.length) h += '<p class="muted">' + esc(T("adm.ss_no_offers")) + "</p>";
+  h += W.offers.map(function (o, i) {
+    var at = "offers." + i + ".";
+    var st = !o.end || !o.start ? "" : d < o.start ? T("adm.ss_o_starts", { d: dateText(o.start) }) : d > o.end ? T("adm.ss_o_ended", { d: dateText(o.end) }) : T("adm.ss_o_running", { d: dateText(o.end) });
+    var title = (hi() ? o.nameHi : o.nameEn) || T("adm.ss_new_offer");
+    var plansErr = fieldErr(at + "plans");
+    return '<fieldset class="card"><legend><span class="ttl">' + esc(title) + "</span>" + (st ? ' <span class="badge">' + esc(st) + "</span>" : "") + "</legend>" +
+      '<div class="grid">' + input(at + "nameEn", "adm.ss_o_nameEn", { req: true, max: 60, lang: "en" }) + input(at + "nameHi", "adm.ss_o_nameHi", { req: true, max: 60, lang: "hi" }) + "</div>" +
+      radios(at + "type", "otype-" + i, "adm.ss_o_type", [["PERCENT", "adm.ss_o_pct"], ["AMOUNT", "adm.ss_o_amt"]]) +
+      '<div class="grid">' + input(at + "value", o.type === "AMOUNT" ? "adm.ss_o_value_amt" : "adm.ss_o_value_pct", { type: "number", min: 1, maxn: o.type === "AMOUNT" ? null : 90, req: true }) +
+        input(at + "start", "adm.ss_o_start", { type: "date", req: true }) + input(at + "end", "adm.ss_o_end", { type: "date", req: true, help: T("adm.ss_h_end") }) + "</div>" +
+      '<fieldset class="rad plans-pick"' + (plansErr ? ' aria-invalid="true"' : "") + "><legend>" + esc(T("adm.ss_o_plans")) + "</legend>" +
+        W.plans.filter(function (p) { return p.billing !== "QUOTE"; }).map(function (p) {
+          var id = "op-" + i + "-" + p.id;
+          return '<span class="ropt"><input type="checkbox" id="' + id + '" data-offer="' + i + '" data-plan="' + esc(p.id) + '"' + (o.plans.indexOf(p.id) >= 0 ? " checked" : "") + dis() + '><label for="' + id + '">' + esc(hi() ? p.nameHi : p.nameEn) + "</label></span>";
+        }).join("") + (plansErr ? '<span class="ferr" id="' + idFor(at + "plans") + '">' + esc(plansErr) + "</span>" : "") + "</fieldset>" +
+      check(at + "withYearly", "adm.ss_o_withYearly", T("adm.ss_h_withYearly")) +
+      (ro() ? "" : '<div class="acts small"><button type="button" class="danger" data-act="deloffer" data-i="' + i + '">' + esc(T("adm.ss_o_remove")) + "</button></div>") +
+      "</fieldset>";
+  }).join("");
+  if (!ro()) h += '<button type="button" class="primary" data-act="addoffer"' + (W.offers.length >= 10 ? " disabled" : "") + ">" + esc(T("adm.ss_add_offer")) + "</button>";
+  return h;
+}
+
+function companyTab() {
+  return '<h2 class="sec-h">' + esc(T("adm.ss_co_h")) + '</h2><div class="grid">' +
+    input("company.legalName", "adm.ss_f_company_legalName", { req: true, max: 120, wide: true }) +
+    input("company.address", "adm.ss_f_company_address", { req: true, max: 240, wide: true, ac: "street-address" }) +
+    input("company.cin", "adm.ss_f_company_cin", { max: 30, help: T("adm.ss_h_blank_hidden") }) + "</div>" +
+    '<h2 class="sec-h">' + esc(T("adm.ss_go_h")) + '</h2><p class="muted">' + esc(T("adm.ss_go_help")) + '</p><div class="grid">' +
+    input("company.goName", "adm.ss_f_company_goName", { req: true, max: 80 }) +
+    input("company.goEmail", "adm.ss_f_company_goEmail", { req: true, type: "email", max: 120 }) +
+    input("company.goPhone", "adm.ss_f_company_goPhone", { type: "tel", max: 20, help: T("adm.ss_h_blank_hidden") }) + "</div>" +
+    '<h2 class="sec-h">' + esc(T("adm.ss_ct_h")) + '</h2><div class="grid">' +
+    input("company.supportEmail", "adm.ss_f_company_supportEmail", { req: true, type: "email", max: 120, help: T("adm.ss_h_support") }) +
+    input("company.securityEmail", "adm.ss_f_company_securityEmail", { req: true, type: "email", max: 120 }) +
+    input("company.phone", "adm.ss_f_company_phone", { type: "tel", max: 20, help: T("adm.ss_h_blank_hidden") }) +
+    input("company.whatsapp", "adm.ss_f_company_whatsapp", { type: "tel", max: 20, help: T("adm.ss_h_blank_hidden") }) +
+    input("company.hoursEn", "adm.ss_f_company_hoursEn", { max: 120, lang: "en", help: T("adm.ss_h_blank_hidden") }) +
+    input("company.hoursHi", "adm.ss_f_company_hoursHi", { max: 120, lang: "hi" }) +
+    input("company.callbackEn", "adm.ss_f_company_callbackEn", { req: true, max: 60, lang: "en", help: T("adm.ss_h_callback") }) +
+    input("company.callbackHi", "adm.ss_f_company_callbackHi", { req: true, max: 60, lang: "hi" }) + "</div>";
+}
+
+function policiesTab() {
+  return '<h2 class="sec-h">' + esc(T("adm.ss_pay_h")) + '</h2><div class="grid">' +
+    input("policies.payEn", "adm.ss_f_policies_payEn", { max: 160, lang: "en" }) + input("policies.payHi", "adm.ss_f_policies_payHi", { max: 160, lang: "hi" }) + "</div>" +
+    '<h2 class="sec-h">' + esc(T("adm.ss_refund_h")) + '</h2><p class="muted">' + esc(T("adm.ss_refund_help")) + '</p><div class="grid">' +
+    input("policies.refundEn", "adm.ss_f_policies_refundEn", { type: "textarea", max: 1500, lang: "en", wide: true }) +
+    input("policies.refundHi", "adm.ss_f_policies_refundHi", { type: "textarea", max: 1500, lang: "hi", wide: true }) + "</div>";
+}
+
+function claimsTab() {
+  var c = S.W.claims;
+  return '<h2 class="sec-h">' + esc(T("adm.ss_claims_h")) + '</h2><p class="muted">' + esc(T("adm.ss_claims_help")) + "</p>" +
+    check("claims.gem", "adm.ss_f_claims_gem", T("adm.ss_h_gem")) +
+    check("claims.india", "adm.ss_f_claims_india", T("adm.ss_h_india")) +
+    check("claims.audited", "adm.ss_f_claims_audited", T("adm.ss_h_audited")) +
+    (c.audited ? '<div class="grid">' + input("claims.auditedOn", "adm.ss_f_claims_auditedOn", { type: "date", req: true }) + input("claims.auditedBy", "adm.ss_f_claims_auditedBy", { req: true, max: 120 }) + "</div>" : "");
+}
+
+function historyTab() {
+  var H = S.info.history;
+  if (!H.length) return '<h2 class="vh">' + esc(T("adm.ss_tab_history")) + '</h2><p class="muted">' + esc(T("adm.ss_hist_none")) + "</p>";
+  return '<h2 class="vh">' + esc(T("adm.ss_tab_history")) + '</h2><div class="table-wrap"><table><caption class="vh">' + esc(T("adm.ss_tab_history")) + "</caption><thead><tr>" +
+    ["adm.ss_h_v", "adm.ss_h_when", "adm.ss_h_who", "adm.ss_h_note", "adm.ss_h_act"].map(function (k) { return '<th scope="col">' + esc(T(k)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+    H.map(function (r) {
+      var live = r.version === S.info.live.version;
+      return "<tr><td>" + esc(r.version) + (live ? ' <span class="badge">' + esc(T("adm.ss_is_live")) + "</span>" : "") + "</td><td>" + esc(timeText(r.createdAt)) + "</td><td>" + esc(r.createdBy) + "</td><td>" +
+        esc(r.restoredFrom ? T("adm.ss_restored_from", { v: r.restoredFrom }) + (r.note ? " · " + r.note : "") : r.note) + '</td><td class="row-actions">' +
+        '<button type="button" data-act="view" data-v="' + r.version + '" aria-label="' + esc(T("adm.ss_view_a", { v: r.version })) + '">' + esc(T("adm.ss_view")) + "</button>" +
+        (S.info.canEdit && S.info.ready && !live ? '<button type="button" data-act="restore" data-v="' + r.version + '" aria-label="' + esc(T("adm.ss_restore", { v: r.version })) + '">' + esc(T("adm.ss_restore_short")) + "</button>" : "") +
+        "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+}
+
+// ---- events ----
+function wire(root) {
+  root.querySelectorAll("[data-path]").forEach(function (el) {
+    var ev = el.type === "checkbox" || el.type === "radio" ? "change" : "input";
+    el.addEventListener(ev, function () {
+      var path = el.getAttribute("data-path");
+      var v = el.type === "checkbox" ? el.checked : el.value;
+      setPath(S.W, path, v);
+      markDirty();
+      if (S.fields[path]) { delete S.fields[path]; }
+      // Choices that change what the form shows are drawn again.
+      if (el.type === "radio" || /\.(shown|pilot|audited)$/.test(path) || path === "claims.audited") { render(); var again = document.getElementById(el.id); if (again) again.focus(); }
+      else if (/^(plans\.\d+\.(monthly|yearly|next\.)|gst\.rate|yearly\.)/.test(path)) updateToday(path);
+    });
+  });
+  root.querySelectorAll("[data-offer]").forEach(function (el) {
+    el.addEventListener("change", function () {
+      var o = S.W.offers[+el.getAttribute("data-offer")], id = el.getAttribute("data-plan");
+      o.plans = o.plans.filter(function (x) { return x !== id; }); if (el.checked) o.plans.push(id);
+      markDirty();
+    });
+  });
+  root.querySelectorAll("[data-act]").forEach(function (b) { b.addEventListener("click", function () { act(b.getAttribute("data-act"), +b.getAttribute("data-i"), +b.getAttribute("data-v")); }); });
+}
+function updateToday() {
+  // Redraw the "today" lines without losing the cursor in the field being typed in.
+  document.querySelectorAll(".card").forEach(function (card, i) {
+    var p = S.W.plans[i]; if (!p) return; var el = card.querySelector(".today"); if (!el) return; var pr = pricesOf(p);
+    el.textContent = p.billing === "MONTHLY" ? T("adm.ss_today_m", { m: rupees(pr.m), mg: rupees(gstOf(pr.m)), y: rupees(pr.y), yg: rupees(gstOf(pr.y)) }) : p.billing === "YEARLY" ? T("adm.ss_today_y", { y: rupees(pr.y), yg: rupees(gstOf(pr.y)) }) : T("adm.ss_today_q");
+  });
+}
+function markDirty() { if (!S.dirty) { S.dirty = true; renderStatus(); } }
+
+function act(a, i, v) {
+  var W = S.W;
+  if (a === "up" && i > 0) { var t = W.plans[i - 1]; W.plans[i - 1] = W.plans[i]; W.plans[i] = t; }
+  else if (a === "down" && i < W.plans.length - 1) { var t2 = W.plans[i + 1]; W.plans[i + 1] = W.plans[i]; W.plans[i] = t2; }
+  else if (a === "retire") { if (!confirm(T("adm.ss_retire_q"))) return; W.plans[i].retired = true; W.plans[i].shown = false; }
+  else if (a === "unretire") { W.plans[i].retired = false; }
+  else if (a === "sched") { var p = W.plans[i]; p.next = { from: "", monthly: p.billing === "MONTHLY" ? p.monthly : null, yearly: p.billing === "YEARLY" ? p.yearly : null }; }
+  else if (a === "unsched") { W.plans[i].next = null; }
+  else if (a === "addplan") {
+    W.plans.push({ id: "p" + Date.now().toString(36), nameEn: "", nameHi: "", forEn: "", forHi: "", billing: "MONTHLY", monthly: "", yearly: null, quoteEn: "", quoteHi: "", seats: "", extraSeat: "", descEn: "", descHi: "", shown: false, retired: false, pilot: true, next: null });
+  }
+  else if (a === "addoffer") {
+    W.offers.push({ id: "o" + Date.now().toString(36), nameEn: "", nameHi: "", type: "PERCENT", value: "", plans: [], start: today(), end: "", withYearly: false });
+  }
+  else if (a === "deloffer") { if (!confirm(T("adm.ss_o_remove_q"))) return; W.offers.splice(i, 1); }
+  else if (a === "view") { return viewVersion(v); }
+  else if (a === "restore") { return restore(v); }
+  else return;
+  S.fields = {}; markDirty(); render();
+  var focus = a === "addplan" ? document.getElementById(idFor("plans." + (W.plans.length - 1) + ".nameEn")) : a === "addoffer" ? document.getElementById(idFor("offers." + (W.offers.length - 1) + ".nameEn")) :
+    document.querySelector('[data-act="' + (a === "up" ? "up" : a === "down" ? "down" : a) + '"][data-i="' + (a === "up" ? i - 1 : a === "down" ? i + 1 : i) + '"]') || document.getElementById("tab-" + S.tab);
+  if (focus && !focus.disabled) focus.focus(); else document.getElementById("panel-" + S.tab).focus();
+}
+
+// ---- server calls ----
+async function post(body) {
+  var res = await fetch("/api/admin/site-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  var data = {}; try { data = await res.json(); } catch (e) {}
+  return { ok: res.ok, status: res.status, data: data };
+}
+function failText(r) {
+  var e = r.data && r.data.error;
+  if (e === "INSUFFICIENT_ROLE" || e === "NOT_ADMIN") return T("adm.ss_e_role");
+  if (e === "NOT_READY") return T("adm.ss_not_ready");
+  if (e === "NO_CHANGES") return T("adm.ss_e_nochange");
+  if (e === "NO_DRAFT") return T("adm.ss_e_nodraft");
+  return T("adm.ss_e_generic");
+}
+async function saveDraft() {
+  if (S.busy) return; S.busy = true;
+  S.msg = { text: function () { return T("adm.saving"); } }; renderStatus();
+  try {
+    var r = await post({ action: "save_draft", data: S.W });
+    if (r.status === 400 && r.data.fields) {
+      S.fields = r.data.fields; S.msg = { bad: true, text: function () { return T("adm.ss_e_check"); } };
+      var first = Object.keys(S.fields)[0]; S.tab = tabOf(first); render();
+      var box = document.getElementById("ss-errors"); if (box) box.focus();
+    } else if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); }
+    else {
+      S.fields = {}; S.dirty = false;
+      await load(true);
+      var n = r.data.changes;
+      S.msg = { text: function () { return T("adm.ss_saved", { n: n }); } }; render(); focusMsg();
+    }
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
+  S.busy = false;
+}
+async function publish() {
+  if (S.dirty) { S.msg = { bad: true, text: function () { return T("adm.ss_save_first_pub"); } }; renderStatus(); focusMsg(); return; }
+  if (!confirm(T("adm.ss_publish_q"))) return;
+  var note = (document.getElementById("ss-note") || {}).value || "";
+  try {
+    var r = await post({ action: "publish", note: note });
+    if (r.status === 400 && r.data.fields) { S.fields = r.data.fields; S.msg = { bad: true, text: function () { return T("adm.ss_e_check"); } }; S.tab = tabOf(Object.keys(S.fields)[0]); render(); document.getElementById("ss-errors").focus(); return; }
+    if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); return; }
+    var v = r.data.version;
+    await load(true);
+    S.msg = { text: function () { return T("adm.ss_published", { v: v }); } }; render(); focusMsg();
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
+}
+async function discard() {
+  if (!confirm(T("adm.ss_discard_q"))) return;
+  try {
+    var r = await post({ action: "discard_draft" });
+    if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); return; }
+    S.dirty = false; S.fields = {};
+    await load(true);
+    S.msg = { text: function () { return T("adm.ss_discarded"); } }; render(); focusMsg();
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
+}
+async function restore(v) {
+  if (!confirm(T("adm.ss_restore_q", { v: v }))) return;
+  try {
+    var r = await post({ action: "restore", version: v });
+    if (!r.ok) { S.msg = { bad: true, text: function () { return failText(r); } }; renderStatus(); focusMsg(); return; }
+    var nv = r.data.version;
+    S.view = null; S.dirty = false; S.fields = {};
+    await load(true);
+    S.msg = { text: function () { return T("adm.ss_restored", { v: v, nv: nv }); } }; render(); focusMsg();
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); focusMsg(); }
+}
+async function viewVersion(v) {
+  try {
+    var res = await fetch("/api/admin/site-settings?version=" + v); var data = await res.json();
+    if (!res.ok) { S.msg = { bad: true, text: function () { return T("adm.ss_e_generic"); } }; renderStatus(); return; }
+    if (S.dirty && !confirm(T("adm.ss_leave_q"))) return;
+    S.view = v; S.dirty = false; S.W = data.data; S.fields = {}; S.tab = "plans"; S.msg = null; render();
+    document.getElementById("ss-status").scrollIntoView(); var b = document.getElementById("ss-back"); if (b) b.focus();
+  } catch (e) { S.msg = { bad: true, text: function () { return T("adm.ss_e_net"); } }; renderStatus(); }
+}
+async function load(keepTab) {
+  var res = await fetch("/api/admin/site-settings"); var data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    document.getElementById("ss-app").innerHTML = '<p class="muted" id="ss-load-err">' + esc(data.error === "NOT_ADMIN" || data.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load")) + "</p>";
+    S.info = null; return;
+  }
+  S.info = data;
+  S.W = clone(data.draft ? data.draft.data : data.live.data);
+  if (!keepTab) S.tab = "plans";
+  render();
+}
+
+window.addEventListener("beforeunload", function (e) { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("light-theme", theme === "light");
+  document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light");
+}
+var savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", function () {
+  var cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", function () {
+  var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  applyTheme(th);
+  if (S.info) render(); else if (document.getElementById("ss-load-err")) load();
+});
+load().catch(function () { document.getElementById("ss-app").innerHTML = '<p class="muted" id="ss-load-err">' + esc(T("adm.ss_e_load")) + "</p>"; });
+</script>
+</body>
+</html>

@@ -983,6 +983,163 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(mw.mayBeUnknown("/x") && !mw.mayBeUnknown("/") && !mw.mayBeUnknown("/api/x") && !mw.mayBeUnknown("/kanpur/ward-12"), "only page addresses are checked");
 }
 
+// ---- grieviq-39: Prices & site details, For offices page, pilot requests ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const { DEFAULTS } = await import(new URL("../functions/_shared/site-settings.js", import.meta.url).href);
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const ist = (days) => new Date(Date.now() + 5.5 * 3600000 + (days || 0) * 86400000).toISOString().slice(0, 10);
+  const info = async () => { const x = await fetch(B + "/api/site-info"); return { status: x.status, cache: x.headers.get("cache-control"), body: await x.json() }; };
+  const ss = (who, b) => call(who, "POST", "/api/admin/site-settings", b);
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const plan = (i, id) => i.body.plans.find((p) => p.id === id);
+
+  let I = await info();
+  ok(I.status === 200 && I.body.version === 0 && /max-age=300/.test(I.cache), "public details before anything is published", I.body.version);
+  let pr = plan(I, "pradhan");
+  ok(pr && pr.monthly === 999 && pr.monthlyGst === 1179 && pr.yearly === 9990 && pr.yearlyGst === 11788 && pr.seats === 3, "Gram Pradhan ₹999 a month, ₹1,179 with GST, yearly 10 months", pr);
+  ok(plan(I, "councillor").monthly === 1999 && plan(I, "councillor").monthlyGst === 2359 && plan(I, "mla").monthly === 7999 && plan(I, "mp_mayor").yearly === 119990 && plan(I, "mp_mayor").yearlyGst === 141588, "published prices and GST worked out");
+  ok(plan(I, "dept_office").billing === "YEARLY" && plan(I, "dept_office").yearly === 42000 && plan(I, "dept_office").yearlyGst === 49560 && plan(I, "dept_city").billing === "QUOTE", "department plans");
+  const c0 = I.body.company;
+  ok(c0.goName === "Amit Singh" && c0.address === "Plot no. SC 01/B8, Sector-150, Noida, Uttar Pradesh, 201310" && c0.supportEmail === "support@grieviq.in" && c0.callbackEn === "within 2 working days", "Grievance Officer, address, contact email, callback time", c0);
+  ok(!I.body.claims.gem && !I.body.claims.india && !I.body.claims.audited, "GeM, India-hosting and audit claims switched off");
+  ok(!("sac" in I.body.gst) && !("draft" in I.body), "public view has no internal fields");
+
+  // who can see and change
+  let r = await call(A, "GET", "/api/admin/site-settings");
+  ok(r.status === 200 && r.body.canEdit === false && r.body.draft === null && r.body.live.data.plans.length === 6, "auditor reads, can't edit", r.body.canEdit);
+  ok((await call(D, "GET", "/api/admin/site-settings")).status === 200 && (await call(M, "GET", "/api/admin/site-settings")).status === 200, "every admin role can read");
+  ok((await ss(O, { action: "save_draft", data: DEFAULTS })).status === 403 && (await ss(A, { action: "publish" })).status === 403, "only the super admin changes prices");
+  ok((await call(A, "GET", "/api/admin/site-settings?preview=draft")).status === 403, "only the super admin previews the draft");
+  ok((await call("", "GET", "/api/admin/site-settings")).status === 401, "signed-out can't read the admin view");
+
+  // checks
+  const bad = clone(DEFAULTS);
+  bad.plans[0].monthly = -5; bad.plans[1].nameHi = ""; bad.plans[2].id = "pradhan";
+  bad.offers = [{ id: "o1", nameEn: "Test", nameHi: "परीक्षण", type: "PERCENT", value: 95, plans: ["pradhan"], start: ist(0), end: "" }];
+  bad.company.goEmail = "not-an-email"; bad.gst.rate = 40; bad.gst.gstin = "123"; bad.yearly.months = 13;
+  bad.claims.audited = true;
+  bad.policies.refundEn = "Refund within 7 days.";
+  r = await ss(S, { action: "save_draft", data: bad });
+  const f = r.body.fields || {};
+  ok(r.status === 400 && f["plans.0.monthly"] === "RANGE" && f["plans.1.nameHi"] === "REQUIRED" && f["plans.2.id"] === "DUPLICATE" && f["offers.0.value"] === "RANGE" && f["offers.0.end"] === "REQUIRED" &&
+     f["company.goEmail"] === "FORMAT" && f["gst.rate"] === "RANGE" && f["gst.gstin"] === "FORMAT" && f["yearly.months"] === "RANGE" && f["claims.auditedOn"] === "DATE" && f["claims.auditedBy"] === "REQUIRED" && f["policies.refundHi"] === "BOTH",
+     "every field checked, nothing saved", f);
+  ok((await call(S, "GET", "/api/admin/site-settings")).body.draft === null, "a refused draft isn't kept");
+  const end1 = clone(DEFAULTS); end1.offers = [{ id: "o1", nameEn: "A", nameHi: "अ", type: "PERCENT", value: 10, plans: ["pradhan"], start: ist(5), end: ist(1) }];
+  r = await ss(S, { action: "save_draft", data: end1 });
+  ok(r.status === 400 && r.body.fields["offers.0.end"] === "BEFORE_START", "offer can't end before it starts", r.body);
+  ok((await ss(S, { action: "publish" })).body.error === "NO_DRAFT", "nothing to publish without a draft");
+
+  // a draft changes nothing public
+  const d1 = clone(DEFAULTS);
+  d1.plans[0].monthly = "1,099";
+  d1.offers = [{ id: "diwali", nameEn: "Diwali offer", nameHi: "दीवाली ऑफ़र", type: "PERCENT", value: 20, plans: ["pradhan"], start: ist(0), end: ist(10), withYearly: false }];
+  d1.plans.push({ id: "nagar_panchayat", nameEn: "Nagar Panchayat Chairman office", nameHi: "नगर पंचायत अध्यक्ष कार्यालय", forEn: "", forHi: "", billing: "MONTHLY", monthly: 2999, seats: 5, extraSeat: 499, descEn: "", descHi: "", shown: true, retired: false, pilot: true });
+  d1.plans.push({ id: "hidden_one", nameEn: "Hidden plan", nameHi: "छिपी योजना", billing: "MONTHLY", monthly: 5, shown: false });
+  r = await ss(S, { action: "save_draft", data: d1 });
+  ok(r.status === 200 && r.body.changes >= 3 && r.body.data.plans[0].monthly === 1099, "draft saved; ₹ and commas accepted", r.body.changes);
+  I = await info();
+  ok(plan(I, "pradhan").monthly === 999 && I.body.offers.length === 0 && !plan(I, "nagar_panchayat"), "draft is not public");
+  r = await call(S, "GET", "/api/admin/site-settings?preview=draft");
+  ok(r.status === 200 && r.body.preview && r.body.plans.find((p) => p.id === "pradhan").monthly === 1099 && r.body.plans.find((p) => p.id === "pradhan").monthlyOffer.price === 879, "super admin previews the draft with the offer", r.body.plans && r.body.plans[0]);
+  r = await call(S, "GET", "/api/admin/site-settings");
+  ok(r.body.draft && r.body.draft.changes >= 3 && r.body.draft.updatedBy === S, "draft shown to the super admin");
+
+  // publish
+  r = await ss(S, { action: "publish", note: "Pradhan price and Diwali offer" });
+  ok(r.status === 200 && r.body.version === 1, "published as version 1", r.body);
+  I = await info();
+  pr = plan(I, "pradhan");
+  ok(I.body.version === 1 && pr.monthly === 1099 && pr.monthlyOffer && pr.monthlyOffer.price === 879 && pr.monthlyOffer.priceGst === 1037 && pr.yearlyOffer === null && pr.yearly === 10990, "new price live; offer on monthly only", pr);
+  ok(I.body.offers.length === 1 && I.body.offers[0].end === ist(10) && plan(I, "nagar_panchayat") && !plan(I, "hidden_one"), "offer listed with its end date; new plan shown, hidden plan not");
+  ok((await call(S, "GET", "/api/admin/site-settings")).body.draft === null, "draft cleared after publishing");
+  const pub = sdb.prepare("SELECT detail FROM admin_events WHERE action = 'site_settings_published' ORDER BY rowid DESC").get();
+  const det = JSON.parse(pub.detail);
+  ok(det.version === 1 && det.note === "Pradhan price and Diwali offer" && det.changes.some((c) => c.path === "plans.[pradhan].monthly" && c.before === 999 && c.after === 1099), "every change logged with before and after", det.changes.slice(0, 3));
+  let threw = 0;
+  try { sdb.prepare("UPDATE site_settings_versions SET data = '{}'").run(); } catch (e) { threw++; }
+  try { sdb.prepare("DELETE FROM site_settings_versions").run(); } catch (e) { threw++; }
+  ok(threw === 2, "published versions can't be changed or deleted");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n >= 30, "trigger count includes the two new ones");
+
+  // same as live: nothing to publish
+  r = await ss(S, { action: "save_draft", data: (await call(S, "GET", "/api/admin/site-settings")).body.live.data });
+  ok(r.status === 200 && r.body.changes === 0, "saving what is live: 0 changes");
+  ok((await ss(S, { action: "publish" })).body.error === "NO_CHANGES", "nothing to publish when nothing changed");
+  ok((await ss(S, { action: "discard_draft" })).status === 200 && (await call(S, "GET", "/api/admin/site-settings")).body.draft === null, "draft discarded");
+
+  // offers never stack; ended offers switch off; scheduled prices
+  const d2 = clone((await call(S, "GET", "/api/admin/site-settings")).body.live.data);
+  d2.offers = [
+    { id: "ten", nameEn: "Ten off", nameHi: "दस छूट", type: "PERCENT", value: 10, plans: ["councillor"], start: ist(-2), end: ist(5), withYearly: true },
+    { id: "flat", nameEn: "Flat 300", nameHi: "300 छूट", type: "AMOUNT", value: 300, plans: ["councillor"], start: ist(-2), end: ist(5), withYearly: false },
+    { id: "over", nameEn: "Ended", nameHi: "समाप्त", type: "PERCENT", value: 50, plans: ["mla"], start: ist(-10), end: ist(-1), withYearly: true },
+    { id: "later", nameEn: "Later", nameHi: "बाद में", type: "PERCENT", value: 50, plans: ["mla"], start: ist(3), end: ist(9), withYearly: true },
+  ];
+  const mp = d2.plans.find((p) => p.id === "mp_mayor"); mp.next = { from: ist(0), monthly: 12999 };
+  const mla = d2.plans.find((p) => p.id === "mla"); mla.next = { from: ist(30), monthly: 8999 };
+  d2.plans.find((p) => p.id === "nagar_panchayat").retired = true;
+  d2.claims.gem = true;
+  ok((await ss(S, { action: "save_draft", data: d2 })).status === 200 && (await ss(S, { action: "publish" })).body.version === 2, "version 2 published");
+  I = await info();
+  const co = plan(I, "councillor");
+  ok(co.monthlyOffer.id === "flat" && co.monthlyOffer.price === 1699 && co.yearlyOffer.id === "ten" && co.yearlyOffer.price === 17991, "the bigger saving applies; offers never add up", [co.monthlyOffer, co.yearlyOffer]);
+  ok(plan(I, "mla").monthlyOffer === null && plan(I, "mla").monthly === 7999 && plan(I, "mla").upcoming && plan(I, "mla").upcoming.monthly === 8999 && plan(I, "mla").upcoming.from === ist(30), "ended and future offers don't apply; upcoming price shown");
+  ok(plan(I, "mp_mayor").monthly === 12999 && plan(I, "mp_mayor").monthlyGst === 15339 && plan(I, "mp_mayor").upcoming === null, "scheduled price starts on its day");
+  ok(!plan(I, "nagar_panchayat") && I.body.offers.map((o) => o.id).sort().join() === "flat,ten" && I.body.claims.gem === true, "retired plan gone; only running offers listed; GeM claim on");
+
+  // history and bringing back a version
+  r = await call(A, "GET", "/api/admin/site-settings");
+  ok(r.body.history.length === 2 && r.body.history[0].version === 2 && r.body.history[1].note === "Pradhan price and Diwali offer", "history of versions", r.body.history);
+  r = await call(A, "GET", "/api/admin/site-settings?version=1");
+  ok(r.status === 200 && r.body.data.plans[0].monthly === 1099, "auditor opens an earlier version");
+  ok((await ss(S, { action: "restore", version: 2 })).body.error === "ALREADY_LIVE", "can't bring back the live version");
+  r = await ss(S, { action: "restore", version: 1, note: "back to v1" });
+  ok(r.status === 200 && r.body.version === 3 && r.body.restoredFrom === 1, "version 1 brought back as version 3", r.body);
+  I = await info();
+  ok(I.body.version === 3 && plan(I, "mp_mayor").monthly === 11999 && I.body.claims.gem === false && plan(I, "nagar_panchayat"), "public page shows version 1 again");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'site_settings_restored'").get().n === 1, "bringing back is logged");
+
+  // Pilot requests
+  const pilot = (b, ip) => fetch(B + "/api/pilot-request", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": ip || "10.39.0.1", "user-agent": "pilot-test" }, body: JSON.stringify(b) }).then(async (x) => ({ status: x.status, body: await x.json() }));
+  r = await pilot({ name: "A", office: "KING", place: "x", mobile: "12345", email: "bad@", consent: false });
+  ok(r.status === 400 && r.body.fields.name && r.body.fields.office && r.body.fields.place && r.body.fields.mobile === "FORMAT" && r.body.fields.email === "FORMAT" && r.body.fields.consent, "pilot form fields checked", r.body.fields);
+  const before = sdb.prepare("SELECT COUNT(*) n FROM pilot_requests").get().n;
+  r = await pilot({ name: "Bot", office: "MLA", place: "Somewhere", mobile: "9876543210", consent: true, website: "spam" });
+  ok(r.status === 200 && sdb.prepare("SELECT COUNT(*) n FROM pilot_requests").get().n === before, "bots get a thank-you, nothing saved");
+  const m0 = mails().length;
+  r = await pilot({ name: "Ram Kumar", office: "PRADHAN", place: "Gram Panchayat Bakshi Ka Talab, Lucknow", mobile: "+91 98765 43210", email: "Ram@Example.in", consent: true, lang: "hi" });
+  ok(r.status === 200 && r.body.sent && r.body.callbackEn === "within 2 working days", "pilot request sent", r.body);
+  const row = sdb.prepare("SELECT * FROM pilot_requests ORDER BY created_at DESC").get();
+  ok(row.mobile === "9876543210" && row.email === "ram@example.in" && row.office_kind === "PRADHAN" && row.lang === "hi" && /मैं सहमत हूँ/.test(row.consent_text) && row.status === "NEW", "saved with the consent wording shown", row);
+  const pm = mails().slice(m0).find((m) => /pilot request/i.test(m.subject));
+  ok(pm && pm.to[0] === "support@grieviq.in" && !/Ram Kumar|98765|Bakshi|example\.in/i.test(pm.html) && /admin-pilot-requests/.test(pm.html), "contact email told, with no personal details", pm && pm.subject);
+  r = await pilot({ name: "Ram Kumar", office: "PRADHAN", place: "Bakshi Ka Talab", mobile: "09876543210", consent: true }, "10.39.0.2");
+  ok(r.status === 200, "second request from the same number", r.body);
+  r = await pilot({ name: "Ram Kumar", office: "PRADHAN", place: "Bakshi Ka Talab", mobile: "9876543210", consent: true }, "10.39.0.3");
+  ok(r.status === 429 && r.body.which === "MOBILE", "third from the same number today refused", r.body);
+  sdb.prepare("INSERT INTO pilot_requests (id, created_at, name, office_kind, place, mobile, lang, consent_at, consent_text) VALUES ('old1', ?, 'Old', 'MP', 'Old place', '9000000000', 'en', ?, 'x')").run(new Date(Date.now() - 400 * 86400000).toISOString(), new Date(Date.now() - 400 * 86400000).toISOString());
+  r = await call(O, "GET", "/api/admin/pilot-requests");
+  ok(r.status === 200 && r.body.canManage && r.body.requests.length === 2 && r.body.requests[0].mobile === "9876543210" && !r.body.requests.find((x) => x.id === "old1"), "operations admin sees full details; year-old requests deleted", r.body.requests.length);
+  r = await call(A, "GET", "/api/admin/pilot-requests");
+  ok(r.status === 200 && !r.body.canManage && r.body.requests[0].mobile === "98XXXXXX10" && r.body.requests.every((x) => !x.email || /\*\*\*@/.test(x.email)), "auditor sees mobile and email partly hidden", r.body.requests[0]);
+  ok((await call(D, "GET", "/api/admin/pilot-requests")).status === 403, "data entry operator can't see pilot requests");
+  ok((await call(A, "POST", "/api/admin/pilot-requests", { id: row.id, status: "CONTACTED" })).status === 403, "auditor can't change a request");
+  r = await call(O, "POST", "/api/admin/pilot-requests", { id: row.id, status: "CONTACTED", note: "Called, demo on Monday" });
+  ok(r.status === 200 && sdb.prepare("SELECT status, note, status_by FROM pilot_requests WHERE id = ?").get(row.id).status_by === O, "request marked contacted", r.body);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'pilot_request_updated'").get().n === 1, "change logged");
+
+  // pages
+  for (const pth of ["/for-offices", "/admin-site-settings.html", "/admin-pilot-requests.html"]) ok((await fetch(B + pth)).status === 200, "page opens: " + pth);
+
+  // leave the published details as they started, for the browser tests
+  ok((await ss(S, { action: "save_draft", data: DEFAULTS })).status === 200 && (await ss(S, { action: "publish", note: "back to the starting details" })).status === 200, "starting details published again");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

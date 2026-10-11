@@ -195,6 +195,7 @@
     { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-ratings", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-dept-performance", "admin-jurisdiction", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-audit", "admin-retention", "admin-photos"] },
+    { id: "offices", key: "adm.nav_g_offices", pages: ["admin-site-settings", "admin-pilot-requests"] },
   ];
   var TOP = ["admin-dashboard"], TAIL = ["admin-visitors"];
   style.textContent +=
@@ -246,6 +247,7 @@
     addDepartmentsLink(nav);
     addRatingsLink(nav);
     addPerfLink(nav);
+    addOfficeLinks(nav);
     var links = {};
     nav.querySelectorAll("a[href]").forEach(function (a) { var k = pageKey(a.getAttribute("href")); if (k) links[k] = a; if (a.classList.contains("active")) a.setAttribute("aria-current", "page"); });
     var tools = document.createElement("div"); tools.id = "adm-tools";
@@ -311,6 +313,19 @@
     a.textContent = t("adm.nav_dept_perf");
     var d = nav.querySelector('a[href*="admin-departments"]');
     if (d && d.nextSibling) nav.insertBefore(a, d.nextSibling); else nav.appendChild(a);
+    if (info) applyMenu();
+  }
+  // Prices & site details and Pilot requests (grieviq-39), at the end.
+  function addOfficeLinks(nav) {
+    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"]].forEach(function (x) {
+      if (nav.querySelector('a[href*="' + x[0] + '"]')) return;
+      var a = document.createElement("a");
+      a.href = "/" + x[0] + ".html";
+      a.setAttribute("data-i18n", x[1]);
+      a.textContent = t(x[1]);
+      var last = nav.querySelector("button");
+      if (last) nav.insertBefore(a, last); else nav.appendChild(a);
+    });
     if (info) applyMenu();
   }
   // Citizen ratings (grieviq-30): the Ratings page, after Feedback.

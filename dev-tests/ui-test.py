@@ -1432,6 +1432,185 @@ with sync_playwright() as pw:
             ok(not low, "filled admin buttons >= 4.5:1 %s %s" % (theme, pg), low[:5])
             ctx.close()
 
+    # ---------- grieviq-39: For offices page, Prices & site details, Pilot requests ----------
+    import urllib.request as _ur
+    def api(method, path, body=None, email="super@test.in"):
+        req = _ur.Request(B + path, method=method, data=json.dumps(body).encode() if body is not None else None, headers={"content-type": "application/json", "test-email": email})
+        try:
+            with _ur.urlopen(req) as r: return r.status, json.loads(r.read() or b"{}")
+        except _ur.HTTPError as e: return e.code, json.loads(e.read() or b"{}")
+    def live(): return api("GET", "/api/admin/site-settings")[1]["live"]["data"]
+    def publish(data, note="ui test"):
+        s1, b1 = api("POST", "/api/admin/site-settings", {"action": "save_draft", "data": data}); s2, b2 = api("POST", "/api/admin/site-settings", {"action": "publish", "note": note})
+        return s1, s2
+    START = live()
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []
+                p.on("pageerror", lambda e: errs.append(str(e)))
+                resp = p.goto(B + "/for-offices"); p.wait_for_selector(".price-table tbody tr")
+                ok(resp.status == 200, "for offices page opens " + tag)
+                txt = p.inner_text("main"); allt = p.evaluate("() => { const c = document.body.cloneNode(true); c.querySelectorAll('script,style').forEach(x => x.remove()); return c.textContent; }")
+                if lang == "en":
+                    ok("tracked to resolution" in p.inner_text("h1") and "Gram Pradhan office" in txt and "₹999" in txt and "₹1,179 including GST" in txt and "₹42,000" in txt and "Request a free 90-day pilot" in txt, "headline, Pradhan price with GST, department price " + tag, txt[:300])
+                    ok("Amit Singh" in txt and "Sector-150, Noida" in txt and "within 2 working days" in txt and "support@grieviq.in" in txt, "Grievance Officer, address, callback, contact " + tag)
+                else:
+                    ok("प्रमाण सहित" in p.inner_text("h1") and "ग्राम प्रधान कार्यालय" in txt and "GST सहित ₹1,179" in txt and "90 दिन का निःशुल्क पायलट माँगें" in txt and not re.findall(r"lp\.\w+", allt), "Hindi page, no missing text " + tag, txt[:300])
+                ok("GeM" not in allt and "data centres in India" not in allt and "भारत स्थित डेटा" not in allt and "security audit by" not in allt, "claims held back " + tag)
+                ok(p.locator(".price-table tbody tr").count() == 6, "six plans listed " + tag)
+                ok(no_hscroll(p), "for offices: no sideways scroll " + tag)
+                for d in p.locator("details").all(): d.evaluate("e => e.open = true")
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "for offices contrast AA " + tag, bad[:6])
+                small = p.evaluate(TARGET_JS.replace("!e.closest('dd,", "!e.closest('.footer-links, .hp, label, dd,", 1)); ok(not small, "for offices targets >= 24px " + tag, small[:6])
+                shot(p, "44-for-offices-" + tag, full=True)
+                ok(not errs, "no script errors (for offices %s)" % tag, errs)
+                ctx.close()
+
+    # The pilot request form: errors, then a sent request
+    for lang in ("en", "hi"):
+        ctx = br.new_context(viewport={"width": 1280, "height": 900})
+        ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/for-offices#pilot"); p.wait_for_selector(".price-table")
+        p.wait_for_timeout(2100)
+        p.click("#pf-send"); p.wait_for_timeout(150)
+        ok(p.evaluate("document.activeElement.id") == "err-box" and p.locator("#err-box li").count() == 5, "empty form: 5 errors listed, focus on the list " + lang)
+        ok(p.get_attribute("#pf-name", "aria-invalid") == "true" and p.get_attribute("#pf-mobile", "aria-invalid") == "true" and "pe-mobile" in (p.get_attribute("#pf-mobile", "aria-describedby") or ""), "fields marked and described " + lang)
+        if lang == "hi": ok("अपना नाम लिखें।" in p.inner_text("#err-box"), "errors in Hindi")
+        bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('pilot')", 1)); ok(not bad, "form errors contrast AA " + lang, bad[:5])
+        p.fill("#pf-name", "Sita Devi"); p.check("input[name=office][value=PRADHAN]"); p.fill("#pf-place", "Gram Panchayat Malihabad, Lucknow")
+        p.fill("#pf-mobile", "98765 1234")
+        p.click("#pf-send"); p.wait_for_timeout(150)
+        ok(p.locator("#err-box li").count() == 2 and p.get_attribute("#pf-name", "aria-invalid") is None, "fixed fields cleared; mobile format and consent left " + lang)
+        p.fill("#pf-mobile", "98765 1234" + ("5" if lang == "en" else "6")); p.check("#pf-consent")
+        with p.expect_response(lambda r: "/api/pilot-request" in r.url): p.click("#pf-send")
+        p.wait_for_selector("#done-h")
+        ok(p.evaluate("document.activeElement.id") == "done-h" and ("within 2 working days" in p.inner_text(".done") if lang == "en" else "2 कार्य-दिवसों के भीतर" in p.inner_text(".done")), "request sent; thank-you with callback time " + lang)
+        shot(p, "45-pilot-sent-" + lang, full=False)
+        ok(not errs, "no script errors (pilot form %s)" % lang, errs)
+        ctx.close()
+
+    # Home page link and card; footer link on citizen pages
+    ctx, p, errs = P("x@x.in")
+    p.goto(B + "/"); p.wait_for_selector("#offices-card")
+    ok(p.get_attribute("#offices-card", "href") == "/for-offices" and "Run GrievIQ in your office" in p.inner_text("#offices-card"), "home: one card for offices")
+    ok(p.locator(".footer-links a[href='/for-offices']").count() == 1, "footer link to For offices")
+    p.goto(B + "/privacy"); p.wait_for_timeout(600)
+    ok("Amit Singh" in p.inner_text("body") and "Sector-150, Noida" in p.inner_text("body"), "privacy page: Grievance Officer and address")
+    p.goto(B + "/help"); p.wait_for_timeout(600)
+    ok("Amit Singh" in p.inner_text("body"), "help page: Grievance Officer")
+    ctx.close()
+    # Changing the details in settings changes those pages
+    d = json.loads(json.dumps(START)); d["company"]["goName"] = "Neha Verma"; d["company"]["goEmail"] = "dpo@grieviq.in"; d["company"]["address"] = "12 Test Road, Lucknow, 226001"
+    ok(publish(d) == (200, 200), "details changed and published")
+    for lang in ("en", "hi"):
+        ctx, p, errs = P("x@x.in", lang=lang)
+        p.goto(B + "/privacy"); p.wait_for_function("document.body.innerText.indexOf('Neha Verma') >= 0", timeout=5000)
+        t = p.inner_text("body")
+        ok("Neha Verma" in t and "12 Test Road" in t and "dpo@grieviq.in" in t and p.locator("a[href='mailto:dpo@grieviq.in']").count() >= 1, "privacy page follows the settings " + lang)
+        if lang == "hi":
+            p.click("[data-lang-toggle]"); p.wait_for_timeout(300)
+            p.wait_for_timeout(200); ok("Neha Verma" in p.inner_text("body"), "still filled in after switching language")
+        ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-dept-agreement.html?office=" + jal_id); p.wait_for_selector("article.sheet h1")
+    ok("12 Test Road, Lucknow, 226001" in p.inner_text("article[lang=en]"), "agreement shows the registered address from settings")
+    ctx.close()
+    ok(publish(START) == (200, 200), "starting details published again")
+
+    # Admin: Prices & site details
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("[role=tab]")
+                ok(p.locator("[role=tab]").count() == 7 and p.get_attribute("#tab-plans", "aria-selected") == "true", "seven tabs, Plans open " + tag)
+                for t in ("plans", "discounts", "company", "claims", "history"):
+                    p.click("#tab-" + t); p.wait_for_timeout(100)
+                    ok(no_hscroll(p), "settings %s: no sideways scroll %s" % (t, tag))
+                    bad = p.evaluate(CONTRAST_JS); ok(not bad, "settings %s contrast AA %s" % (t, tag), bad[:5])
+                    small = p.evaluate(TARGET_JS); ok(not small, "settings %s targets %s" % (t, tag), small[:5])
+                    if t in ("plans", "discounts"): shot(p, "46-settings-%s-%s" % (t, tag), full=False)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "settings in Hindi, nothing missing " + tag)
+                ok(not errs, "no script errors (settings %s)" % tag, errs)
+                ctx.close()
+    # The flow: change, check, save, preview, publish, bring back
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("[role=tab]")
+    p.focus("#tab-plans"); p.keyboard.press("ArrowRight")
+    ok(p.evaluate("document.activeElement.id") == "tab-gst" and p.get_attribute("#tab-gst", "aria-selected") == "true", "arrow keys move between tabs")
+    p.click("#tab-plans")
+    p.fill("#f-plans-0-monthly", "1199"); p.wait_for_timeout(100)
+    ok("₹1,199 a month (₹1,415 with GST)" in p.inner_text(".card .today >> nth=0") and p.locator(".unsaved").count() == 1, "price worked out as you type; marked not saved")
+    p.fill("#f-plans-1-nameEn", "")
+    p.click("#ss-save"); p.wait_for_selector("#ss-errors:not([hidden])")
+    ok(p.evaluate("document.activeElement.id") == "ss-errors" and p.get_attribute("#f-plans-1-nameEn", "aria-invalid") == "true" and "(1)" in p.inner_text("#tab-plans"), "error list focused, field marked, tab shows the count")
+    p.click("#ss-errors a"); ok(p.evaluate("document.activeElement.id") == "f-plans-1-nameEn", "error link goes to the field")
+    p.fill("#f-plans-1-nameEn", "Ward Councillor office")
+    with p.expect_response(lambda r: "/api/admin/site-settings" in r.url and r.request.method == "POST"): p.click("#ss-save")
+    p.wait_for_selector("#ss-publish")
+    ok("Draft saved: 1 change" in p.inner_text("#ss-msg") and p.evaluate("document.activeElement.id") == "ss-msg", "draft saved message, focused")
+    ok(api("GET", "/api/site-info")[1]["plans"][0]["monthly"] == 999, "draft not public yet")
+    with ctx.expect_page() as pv: p.click("#ss-preview")
+    pp = pv.value; pp.wait_for_selector(".price-table")
+    ok(pp.is_visible("#preview-bar") and "₹1,199" in pp.inner_text(".price-table"), "preview shows the draft with a notice")
+    pp.close()
+    p.fill("#ss-note", "Pradhan price test")
+    with p.expect_response(lambda r: "/api/admin/site-settings" in r.url and r.request.method == "POST"): p.click("#ss-publish")
+    p.wait_for_timeout(300)
+    ok("Published as version" in p.inner_text("#ss-msg") and api("GET", "/api/site-info")[1]["plans"][0]["monthly"] == 1199, "published; public price changed")
+    p.click("#tab-history"); p.wait_for_selector("table")
+    ok("Pradhan price test" in p.inner_text("table") and p.locator("[data-act=restore]").count() >= 1, "history lists the version with its note")
+    p.locator("[data-act=view]").nth(1).click(); p.wait_for_selector("#ss-back")
+    ok(p.locator("#f-plans-0-monthly").is_disabled() and "read only" in p.inner_text("#ss-status"), "an earlier version opens read only")
+    with p.expect_response(lambda r: "/api/admin/site-settings" in r.url and r.request.method == "POST"): p.click("#ss-restore-this")
+    p.wait_for_timeout(300)
+    ok("is live again" in p.inner_text("#ss-msg") and api("GET", "/api/site-info")[1]["plans"][0]["monthly"] == 999, "earlier version brought back")
+    ok(not errs, "no script errors (settings flow)", errs)
+    ctx.close()
+    # Preview signed out: told, public page shown
+    ctx = br.new_context(); p = ctx.new_page(); p.goto(B + "/for-offices?preview=draft"); p.wait_for_selector(".price-table")
+    ok(p.is_visible("#preview-bar") and "isn't available" in p.inner_text("#preview-bar"), "preview needs the super admin")
+    ctx.close()
+    # Read only for others
+    ctx, p, errs = P("audit@test.in")
+    p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("[role=tab]")
+    ok(p.is_visible("#readonly-tag") and p.locator("#ss-save").count() == 0 and p.locator("#f-plans-0-monthly").is_disabled() and p.locator("[data-act=addplan]").count() == 0, "auditor: view only")
+    bad = p.evaluate(CONTRAST_JS); ok(not bad, "view-only settings contrast AA", bad[:5])
+    ctx.close()
+    # Pilot requests
+    for who in ("ops@test.in", "audit@test.in"):
+        for theme in ("dark", "light"):
+            ctx, p, errs = P(who, theme=theme)
+            p.goto(B + "/admin-pilot-requests.html"); p.wait_for_selector(".pr-card")
+            t = p.inner_text("main")
+            if who.startswith("ops"):
+                ok("Sita Devi" in t and p.locator("a[href^='tel:+91']").count() >= 1 and p.locator("select").count() >= 1, "operations admin: full details and status " + theme)
+            else:
+                ok("XXXXXX" in t and p.locator("select").count() == 0 and p.is_visible("#readonly-tag"), "auditor: numbers partly hidden, view only " + theme)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "pilot requests contrast AA %s %s" % (who, theme), bad[:5])
+            ok(no_hscroll(p), "pilot requests: no sideways scroll")
+            shot(p, "47-pilot-requests-%s-%s" % (who[:3], theme), full=False)
+            ok(not errs, "no script errors (pilot requests)", errs)
+            ctx.close()
+    ctx, p, errs = P("ops@test.in")
+    p.goto(B + "/admin-pilot-requests.html"); p.wait_for_selector(".pr-card")
+    first = p.locator(".pr-card").first
+    first.locator("select").select_option("CONTACTED"); first.locator("input[type=text]").fill("Demo booked")
+    with p.expect_response(lambda r: "/api/admin/pilot-requests" in r.url and r.request.method == "POST"): first.locator("[data-save]").click()
+    p.wait_for_timeout(300)
+    ok("Saved." in p.inner_text("main") and "Demo booked" in p.inner_text("main"), "status and note saved")
+    ctx, p, errs = P("deo@test.in")
+    p.goto(B + "/admin-pilot-requests.html"); p.wait_for_timeout(800)
+    ok("does not have access" in p.inner_text("main"), "data entry operator: no access to pilot requests")
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

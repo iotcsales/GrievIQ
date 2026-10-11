@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+<link rel="stylesheet" href="/theme.css?v=22">
+<script src="/theme.js?v=22"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="lp.page_title">GrievIQ for offices — every complaint tracked to resolution, with proof</title>
+<meta name="description" content="GrievIQ gives a Gram Pradhan, councillor, Mayor, MLA, MP or government department office one place to receive citizens' complaints, assign them, check the work on the ground and show what was resolved. Published prices; free for citizens.">
+<meta name="last-updated" content="2026-10-11">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
+    --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7; --brick: #A5301F;
+    --border: #E7E4DC; --gold: #8A6100; --grey-fill: #EDEAE0;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  :lang(hi) body, body:lang(hi) { line-height: 1.7; }
+  .trust-strip { background: var(--ink); color: #C7C2B8; font-size: 12px; padding: 7px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  /* Header: stays at the top, never covers what has focus (scroll-padding above). */
+  .lp-head { position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--border); }
+  .lp-head .wrap { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-height: 64px; padding-top: 8px; padding-bottom: 8px; }
+  .lp-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; margin-right: auto; }
+  .lp-logo .logo-mark { width: 34px; height: 34px; border-radius: 9px; background: #13233F; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+  .lp-logo .logo-mark svg { width: 24px; height: 24px; }
+  .lp-logo b { font-family: 'Source Serif 4', serif; font-size: 18px; }
+  .lp-logo small { display: block; font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+  .lp-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .lp-nav a { color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 10px; border-radius: 8px; min-height: 44px; display: inline-flex; align-items: center; }
+  .lp-nav a:hover { background: var(--grey-fill); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 12px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1.5px solid var(--teal); color: var(--teal-dark); background: var(--card); cursor: pointer; font-family: inherit; text-align: center; }
+  .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .btn.primary:hover { background: #193D73; }
+  .lp-nav .btn { min-height: 44px; padding: 0 14px; font-size: 14px; }
+  @media (max-width: 760px) { .lp-head { position: static; } .lp-nav { width: 100%; } .lp-nav .btn { margin-left: auto; } html { scroll-padding-top: 8px; } }
+  .preview-bar { background: #FFF4D6; color: #3D2E00; border-bottom: 2px solid #8A6100; padding: 10px 16px; font-size: 14px; font-weight: 600; text-align: center; }
+  main { display: block; }
+  main:focus { outline: none; }
+  section { padding: 40px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: 0; }
+  h1, h2, h3 { font-family: 'Source Serif 4', serif; color: var(--ink); }
+  h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.2; margin: 0 0 14px; }
+  h2 { font-size: clamp(22px, 3.4vw, 30px); line-height: 1.25; margin: 0 0 14px; }
+  h3 { font-size: 18px; margin: 0 0 8px; }
+  p, li, dd { font-size: 16px; line-height: 1.65; color: var(--ink-soft); }
+  p { margin: 0 0 14px; }
+  .lead { font-size: 18px; color: var(--ink); max-width: 760px; }
+  a { color: var(--teal-dark); }
+  .hero { padding-top: 44px; }
+  .hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: center; }
+  .who { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 14px; }
+  .citizen-line { font-size: 15px; }
+  .trust-line { font-size: 13.5px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .shot { margin: 0; position: relative; }
+  .shot img { width: 100%; height: auto; display: block; border-radius: 14px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .shot figcaption { font-size: 13px; margin-top: 8px; color: var(--ink-soft); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--ink); color: #fff; position: absolute; top: 10px; left: 10px; }
+  .steps { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; counter-reset: s; }
+  .steps li { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin: 0; font-size: 15px; counter-increment: s; }
+  .steps li::before { content: counter(s); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--teal-tint); color: var(--teal-dark); font-weight: 700; margin-bottom: 10px; }
+  .ladder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 14px; padding: 0; list-style: none; }
+  .ladder li { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+  .ladder li + li::before { content: "→"; margin-right: 8px; color: var(--ink-soft); font-weight: 400; }
+  .cards2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+  .card ul, .ticks { margin: 0; padding-left: 0; list-style: none; }
+  .card li, .ticks li { margin: 0 0 10px; padding-left: 26px; position: relative; font-size: 15.5px; color: var(--ink); }
+  .card li::before, .ticks li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 10px; height: 6px; border-left: 2.5px solid var(--teal); border-bottom: 2.5px solid var(--teal); transform: rotate(-45deg); }
+  .fact { background: var(--teal-tint); border-radius: 14px; padding: 16px 18px; color: var(--teal-dark); }
+  .fact p { color: var(--teal-dark); margin: 0 0 6px; font-size: 15px; }
+  .fact p:last-child { margin: 0; }
+  /* Prices: a table on wide screens, one block per plan on phones */
+  .offer-bar { border: 2px solid var(--gold); border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; background: var(--card); }
+  .offer-bar p { margin: 0; color: var(--ink); font-size: 15px; }
+  .price-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); font-size: 15px; }
+  .price-table caption { text-align: left; font-size: 14px; color: var(--ink-soft); padding: 0 2px 8px; background: var(--paper); }
+  .nw { white-space: nowrap; }
+  .price-table th, .price-table td { text-align: left; vertical-align: top; padding: 14px; border-bottom: 1px solid var(--border); color: var(--ink); }
+  .price-table thead th { font-size: 13px; color: var(--ink-soft); font-weight: 600; background: var(--grey-fill); }
+  .price-table tbody th { font-weight: 700; }
+  .price-table tbody th small, .price-table td small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 13px; margin-top: 3px; line-height: 1.45; }
+  .amt { font-weight: 700; font-size: 17px; white-space: nowrap; }
+  .amt.q { white-space: normal; }
+  .was { text-decoration: line-through; color: var(--ink-soft); font-weight: 500; font-size: 14px; margin-right: 6px; }
+  .offer-tag { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 700; color: var(--ink); border: 1.5px solid var(--gold); border-radius: 999px; padding: 1px 8px; }
+  .notes { margin: 16px 0 0; padding-left: 20px; }
+  .notes li { font-size: 14.5px; margin: 0 0 8px; }
+  @media (max-width: 760px) {
+    .price-table, .price-table tbody, .price-table tr, .price-table th, .price-table td { display: block; width: 100%; }
+    .price-table caption { display: block; width: 100%; }
+    .price-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .price-table tr { border-bottom: 6px solid var(--paper); }
+    .price-table td { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+    .price-table td::before { content: attr(data-label); display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+    .price-table tbody th { border-bottom: 0; padding-bottom: 4px; }
+  }
+  .neutral { columns: 2 320px; column-gap: 32px; }
+  .neutral li { break-inside: avoid; }
+  details { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin: 0 0 10px; }
+  summary { cursor: pointer; padding: 14px 16px; font-weight: 600; font-size: 16px; color: var(--ink); min-height: 48px; list-style-position: inside; }
+  details p { padding: 0 16px; margin: 0 0 14px; }
+  /* Pilot request form */
+  .form-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: start; }
+  form.card { box-shadow: none; }
+  .fld { margin: 0 0 16px; }
+  .fld label, fieldset legend { display: block; font-weight: 600; font-size: 15px; color: var(--ink); margin: 0 0 6px; }
+  .fld .hint { display: block; font-size: 13.5px; color: var(--ink-soft); margin: -2px 0 6px; }
+  .fld input[type=text], .fld input[type=tel], .fld input[type=email] { width: 100%; min-height: 48px; border: 1.5px solid var(--field-line, #8C8578); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; background: var(--card); color: var(--ink); }
+  .fld input[aria-invalid=true] { border: 2px solid var(--brick); }
+  fieldset { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+  .radios { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  .radios label { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1.5px solid var(--border); border-radius: 10px; font-weight: 500; font-size: 15px; color: var(--ink); cursor: pointer; margin: 0; background: var(--card); }
+  .radios input, .consent input { width: 20px; height: 20px; accent-color: var(--teal); margin: 0; flex-shrink: 0; }
+  .radios label:has(input:checked) { border-color: var(--teal); background: var(--teal-tint); }
+  .consent { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; margin: 0 0 16px; }
+  .consent label { font-size: 14.5px; color: var(--ink); font-weight: 500; line-height: 1.55; }
+  .ferr { display: block; font-size: 14px; font-weight: 600; color: var(--brick); margin-top: 6px; }
+  .err-box { border: 2px solid var(--brick); border-radius: 12px; padding: 12px 14px; margin: 0 0 16px; background: var(--card); }
+  .err-box h3 { font-family: inherit; font-size: 16px; margin: 0 0 6px; }
+  .err-box ul { margin: 0; padding-left: 20px; } .err-box li { font-size: 15px; margin: 0 0 4px; }
+  .err-box:focus { outline: 3px solid var(--teal); outline-offset: 2px; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .done { border: 2px solid var(--teal); }
+  .done h3 { font-size: 22px; }
+  .contact dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; }
+  .contact dt { font-weight: 600; color: var(--ink); font-size: 15px; }
+  .contact dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+  .closing { text-align: center; }
+  .closing .ctas { justify-content: center; }
+  .footer-block { padding: 26px 0 40px; text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; font-size: 13px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; padding: 4px 0; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; max-width: 680px; margin: 0 auto 6px; }
+  .footer-owner { font-size: 12.5px; color: var(--ink-soft); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  @media (max-width: 900px) { .hero-grid, .form-grid { grid-template-columns: 1fr; } .steps { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .steps, .cards2 { grid-template-columns: 1fr; } section { padding: 30px 0; } .contact dl { grid-template-columns: 1fr; } .contact dd { margin-bottom: 6px; } .ctas .btn { width: 100%; } }
+  /* Dark display (theme.css sets the colour tokens) */
+  @media screen { :root[data-theme="dark"] { --gold: #E0B860; } :root[data-theme="dark"] .preview-bar { background: #33291A; color: #F3E3BF; border-color: #E0B860; } :root[data-theme="dark"] .tag { background: #ECEAE4; color: #131518; } :root[data-theme="dark"] .btn.primary:hover { background: #2C5596; } }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gold: #E0B860; } :root:not([data-theme="light"]) .preview-bar { background: #33291A; color: #F3E3BF; border-color: #E0B860; } :root:not([data-theme="light"]) .tag { background: #ECEAE4; color: #131518; } :root:not([data-theme="light"]) .btn.primary:hover { background: #2C5596; } }
+</style>
+<script src="/i18n.js?v=39"></script>
+<script src="/site.js?v=39" defer></script>
+</head>
+<body>
+<div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
+<div id="preview-bar" class="preview-bar" role="status" hidden></div>
+<header class="lp-head">
+  <div class="wrap">
+    <a class="lp-logo" href="/for-offices" aria-label="GrievIQ for offices">
+      <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>
+      <span><b>GrievIQ</b><small data-i18n="lp.for_offices">For offices</small></span>
+    </a>
+    <nav class="lp-nav" aria-label="GrievIQ for offices" data-i18n-aria="lp.nav">
+      <a href="/" data-i18n="lp.nav_file">File a complaint (free)</a>
+      <a href="#prices" data-i18n="lp.nav_prices">Prices</a>
+      <a href="/rep" data-i18n="lp.nav_signin">Sign in</a>
+      <a class="btn primary" href="#pilot" data-i18n="lp.nav_pilot">Request a pilot</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <section class="hero" aria-labelledby="h-hero"><div class="wrap hero-grid">
+    <div>
+      <h1 id="h-hero" data-i18n="lp.h1">Every complaint in your area, tracked to resolution — with proof.</h1>
+      <p class="lead" data-i18n="lp.hero_body">GrievIQ gives your office one place to receive citizens' complaints, assign them to your team, check the work on the ground with location-verified photos, and show what was resolved and how fast.</p>
+      <p class="who" data-i18n="lp.who">For Gram Pradhans, ward councillors, the Mayor's office, MLAs, MPs and government department offices in Uttar Pradesh.</p>
+      <div class="ctas"><a class="btn primary" href="#pilot" id="cta-pilot">Request a free pilot</a><a class="btn" href="#prices" data-i18n="lp.cta_prices">See prices</a></div>
+      <p class="citizen-line"><a href="/" data-i18n="lp.citizen_line">Have a complaint? File or track it here — always free for citizens.</a></p>
+      <p class="trust-line" id="trust-line"></p>
+    </div>
+    <figure class="shot">
+      <span class="tag" data-i18n="lp.sample">Sample data</span>
+      <img src="/img/console-sample.webp" width="1100" height="720" alt="The GrievIQ representative console with a sample complaint: its reference number, time limits, who handles it, and the form to forward it to a department." id="shot-img" decoding="async" fetchpriority="high">
+      <figcaption data-i18n="lp.shot_cap">The representative console, with sample complaints.</figcaption>
+    </figure>
+  </div></section>
+
+  <section aria-labelledby="h-problem"><div class="wrap">
+    <h2 id="h-problem" data-i18n="lp.problem_h">Complaints arrive from everywhere. Proof of work is hard to show.</h2>
+    <p class="lead" data-i18n="lp.problem_body">Petitions come on paper, by phone and on WhatsApp — to you, your staff and your personal number. Some get lost. A department says the job is done, but nobody checks on the ground. When a citizen asks "what happened?", there is no record to show.</p>
+  </div></section>
+
+  <section aria-labelledby="h-how"><div class="wrap">
+    <h2 id="h-how" data-i18n="lp.how_h">How it works</h2>
+    <ol class="steps">
+      <li data-i18n="lp.how1">A citizen files a complaint with a photo and location — free, in Hindi or English — and gets a reference number.</li>
+      <li data-i18n="lp.how2">Your office gets an alert, acknowledges the complaint and assigns it to a team member.</li>
+      <li data-i18n="lp.how3">The department replies: scheduled, started, done, not ours, or can't do. Your field worker checks on site and uploads a location-checked photo.</li>
+      <li data-i18n="lp.how4">The citizen confirms and rates the result. If a time limit passes at any level, the complaint moves up automatically.</li>
+    </ol>
+    <p class="sr-only" data-i18n="lp.ladder_sr">The levels a complaint moves through:</p>
+    <ol class="ladder" aria-label="Levels" data-i18n-aria="lp.ladder_label">
+      <li data-i18n="lp.l_local">Ward or village</li><li data-i18n="lp.l_mayor">Mayor</li><li data-i18n="lp.l_mla">MLA</li><li data-i18n="lp.l_mp">MP</li>
+    </ol>
+    <p><a href="/time-limits" data-i18n="lp.how_link">See the published time limits for each level →</a></p>
+  </div></section>
+
+  <section aria-labelledby="h-get"><div class="wrap">
+    <h2 id="h-get" data-i18n="lp.get_h">What your office gets</h2>
+    <div class="cards2">
+      <div class="card"><h3 data-i18n="lp.a_h">For a representative's office</h3><ul>
+        <li data-i18n="lp.a1">Every complaint numbered and tracked on one dashboard.</li>
+        <li data-i18n="lp.a2">Your team, not your personal phone: office manager, field worker and assistant roles.</li>
+        <li data-i18n="lp.a3">Push alerts and assignments, so nothing waits unseen.</li>
+        <li data-i18n="lp.a4">Reports and charts you can download and share.</li>
+        <li data-i18n="lp.a5">A record of your work that cannot be altered.</li></ul></div>
+      <div class="card"><h3 data-i18n="lp.b_h">For a government department office</h3><ul>
+        <li data-i18n="lp.b1">Only the complaints that are yours, with location and photo.</li>
+        <li data-i18n="lp.b2">Reply in one tap — and say "not ours" when it isn't.</li>
+        <li data-i18n="lp.b3">Location-checked photos show the work was done on the ground.</li>
+        <li data-i18n="lp.b4">Performance figures for your office — not ranked against others during the pilot.</li>
+        <li data-i18n="lp.b5">Clear, written rules for officers, agreed in a signed agreement.</li></ul></div>
+    </div>
+  </div></section>
+
+  <section aria-labelledby="h-citizens"><div class="wrap">
+    <h2 id="h-citizens" data-i18n="lp.cit_h">What your citizens get</h2>
+    <p class="lead" data-i18n="lp.cit_body">Free filing in Hindi or English, a reference number, status updates, a published time limit at every level, and a say in whether the job was really done. Their phone number stays hidden.</p>
+  </div></section>
+
+  <section aria-labelledby="h-today"><div class="wrap">
+    <h2 id="h-today" data-i18n="lp.today_h">Where GrievIQ stands today</h2>
+    <p class="lead" id="today-body"></p>
+    <div class="fact" id="fact"></div>
+    <p style="margin-top:16px"><a class="btn" href="#pilot" data-i18n="lp.walkthrough">Book a 20-minute walkthrough</a></p>
+  </div></section>
+
+  <section id="prices" aria-labelledby="h-prices" tabindex="-1"><div class="wrap">
+    <h2 id="h-prices" data-i18n="lp.prices_h">One public price list for every office</h2>
+    <p class="lead" id="prices-intro"></p>
+    <div id="offer-bar"></div>
+    <div id="price-box"><p data-i18n="lp.loading">Loading prices…</p></div>
+    <ul class="notes" id="price-notes"></ul>
+  </div></section>
+
+  <section aria-labelledby="h-neutral"><div class="wrap">
+    <h2 id="h-neutral" data-i18n="lp.neutral_h">Neutral by design. Accountable by record.</h2>
+    <ul class="ticks neutral" id="neutral"></ul>
+  </div></section>
+
+  <section aria-labelledby="h-faq"><div class="wrap">
+    <h2 id="h-faq" data-i18n="lp.faq_h">Questions offices ask</h2>
+    <div id="faq"></div>
+  </div></section>
+
+  <section id="pilot" aria-labelledby="h-pilot" tabindex="-1"><div class="wrap">
+    <h2 id="h-pilot">Request a free pilot</h2>
+    <p class="lead" id="pilot-intro"></p>
+    <div class="form-grid">
+      <div id="form-slot">
+        <form class="card" id="pilot-form" novalidate>
+          <div id="err-box" class="err-box" role="alert" tabindex="-1" hidden></div>
+          <div class="fld"><label for="pf-name" data-i18n="lp.f_name">Your name</label><input type="text" id="pf-name" name="name" autocomplete="name" maxlength="80" required aria-required="true"></div>
+          <fieldset id="pf-office-set"><legend id="pf-office-l" data-i18n="lp.f_office">Your office</legend>
+            <div class="radios">
+              <label><input type="radio" name="office" value="PRADHAN"><span data-i18n="lp.k_PRADHAN">Gram Pradhan</span></label>
+              <label><input type="radio" name="office" value="COUNCILLOR"><span data-i18n="lp.k_COUNCILLOR">Ward councillor</span></label>
+              <label><input type="radio" name="office" value="MAYOR"><span data-i18n="lp.k_MAYOR">Mayor</span></label>
+              <label><input type="radio" name="office" value="MLA"><span data-i18n="lp.k_MLA">MLA</span></label>
+              <label><input type="radio" name="office" value="MP"><span data-i18n="lp.k_MP">MP</span></label>
+              <label><input type="radio" name="office" value="DEPARTMENT"><span data-i18n="lp.k_DEPARTMENT">Government department</span></label>
+              <label><input type="radio" name="office" value="OTHER"><span data-i18n="lp.k_OTHER">Other</span></label>
+            </div>
+          </fieldset>
+          <div class="fld"><label for="pf-place" data-i18n="lp.f_place">Ward, village, constituency or department, and city</label><input type="text" id="pf-place" name="place" autocomplete="off" maxlength="160" required aria-required="true"></div>
+          <div class="fld"><label for="pf-mobile" data-i18n="lp.f_mobile">Mobile number</label><span class="hint" id="pf-mobile-h" data-i18n="lp.f_mobile_h">10 digits, for example 98765 43210</span><input type="tel" id="pf-mobile" name="mobile" inputmode="tel" autocomplete="tel-national" maxlength="16" required aria-required="true" aria-describedby="pf-mobile-h"></div>
+          <div class="fld"><label for="pf-email" data-i18n="lp.f_email">Email (optional)</label><input type="email" id="pf-email" name="email" autocomplete="email" maxlength="120"></div>
+          <div class="hp" aria-hidden="true"><label for="pf-website">Website</label><input type="text" id="pf-website" name="website" tabindex="-1" autocomplete="off"></div>
+          <div class="consent"><input type="checkbox" id="pf-consent" name="consent" required aria-required="true"><label for="pf-consent"><span data-i18n="lp.f_consent">I agree that IOTC may use these details only to contact me about a GrievIQ pilot. They will not be shared or used for anything else.</span> <a href="/privacy" data-i18n="common.privacy">Privacy policy</a></label></div>
+          <button type="submit" class="btn primary" id="pf-send" data-i18n="lp.f_send">Send pilot request</button>
+          <p class="ferr" id="pf-net" role="alert" hidden></p>
+        </form>
+      </div>
+      <div class="card contact" id="contact"></div>
+    </div>
+  </div></section>
+
+  <section class="closing" aria-labelledby="h-close"><div class="wrap">
+    <h2 id="h-close" data-i18n="lp.close_h">From complaint to resolution.</h2>
+    <div class="ctas"><a class="btn primary" href="#pilot" id="cta-pilot2">Request a free pilot</a><a class="btn" href="/" data-i18n="lp.nav_file">File a complaint (free)</a></div>
+  </div></section>
+</main>
+
+<footer class="wrap footer-block">
+  <div class="footer-links"></div>
+  <div class="footer-note" data-i18n="lp.footer_note">Independent platform, not affiliated with any government or political party.</div>
+  <div class="footer-owner" id="footer-owner"></div>
+</footer>
+
+<script>
+(function () {
+  function T(k, v) { return window.GIQ ? GIQ.t(k, v) : k; }
+  function hi() { return window.GIQ && GIQ.lang === "hi"; }
+  function L(o, k) { return hi() ? (o[k + "Hi"] || o[k + "En"] || "") : (o[k + "En"] || ""); }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function rs(n) { return n == null ? "" : "₹" + Number(n).toLocaleString("en-IN"); }
+  function day(s) { if (!s) return ""; var d = new Date(s.length === 10 ? s + "T00:00:00+05:30" : s); return isNaN(d) ? s : d.toLocaleDateString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }); }
+  var preview = /(^|[?&])preview=draft(&|$)/.test(location.search);
+  var I = null;
+
+  function offerLabel(o) {
+    return T(o.type === "PERCENT" ? "lp.offer_pct" : "lp.offer_amt", { name: L(o, "name"), v: o.type === "PERCENT" ? o.value : rs(o.value), end: day(o.end) });
+  }
+  function cell(price, gst, offer, per) {
+    if (price == null) return "—";
+    if (!(I.gst.rate > 0)) return offer ? '<span class="was"><span class="sr-only">' + esc(T("lp.was")) + " </span>" + esc(rs(price)) + '</span><span class="amt">' + esc(rs(offer.price)) + '</span><span class="offer-tag">' + esc(L(offer, "name")) + "</span>" : '<span class="amt">' + esc(rs(price)) + "</span>";
+    if (offer) return '<span class="was"><span class="sr-only">' + esc(T("lp.was")) + " </span>" + esc(rs(price)) + '</span><span class="nw"><span class="amt">' + esc(rs(offer.price)) + "</span> " + esc(T("lp.plus_gst")) + "</span>" +
+      "<small>" + esc(T("lp.incl_gst", { a: rs(offer.priceGst) })) + '</small><span class="offer-tag">' + esc(L(offer, "name")) + "</span>";
+    return '<span class="nw"><span class="amt">' + esc(rs(price)) + "</span> " + esc(T("lp.plus_gst")) + "</span><small>" + esc(T("lp.incl_gst", { a: rs(gst) })) + "</small>";
+  }
+  function renderPrices() {
+    var box = document.getElementById("price-box");
+    var plans = I.plans;
+    if (!plans.length) { box.innerHTML = "<p>" + esc(T("lp.no_plans")) + "</p>"; return; }
+    var yearlyHead = I.yearly.mode === "MONTHS" && I.yearly.months < 12 ? T("lp.th_yearly_m", { n: I.yearly.months }) : I.yearly.mode === "PERCENT" && I.yearly.percent > 0 ? T("lp.th_yearly_p", { p: I.yearly.percent }) : T("lp.th_yearly");
+    var h = '<table class="price-table"><caption>' + esc(T("lp.caption", { rate: I.gst.rate })) + "</caption><thead><tr>" +
+      '<th scope="col">' + esc(T("lp.th_plan")) + '</th><th scope="col">' + esc(T("lp.th_monthly")) + '</th><th scope="col">' + esc(yearlyHead) + '</th><th scope="col">' + esc(T("lp.th_team")) + "</th></tr></thead><tbody>";
+    plans.forEach(function (p) {
+      var team = p.seats ? esc(T("lp.seats", { n: p.seats })) + (p.extraSeat != null && p.billing === "MONTHLY" ? "<small>" + esc(T("lp.extra_seat", { a: rs(p.extraSeat) })) + "</small>" : "") : esc(T("lp.seats_agreed"));
+      var monthly = p.billing === "MONTHLY" ? cell(p.monthly, p.monthlyGst, p.monthlyOffer) : '<span aria-hidden="true">—</span><span class="sr-only">' + esc(T("lp.not_monthly")) + "</span>";
+      var yearly = p.billing === "QUOTE" ? '<span class="amt q">' + esc(L(p, "quote")) + "</span>" + (p.quoteEn ? "<small>" + esc(T("lp.plus_gst_long")) + "</small>" : "") : cell(p.yearly, p.yearlyGst, p.yearlyOffer);
+      var up = p.upcoming ? "<small>" + esc(T(p.billing === "YEARLY" ? "lp.upcoming_y" : "lp.upcoming_m", { d: day(p.upcoming.from), a: rs(p.upcoming.monthly != null ? p.upcoming.monthly : p.upcoming.yearly) })) + "</small>" : "";
+      var gemNote = I.claims.gem && /^dept/.test(p.id) ? "<small>" + esc(T("lp.on_gem")) + "</small>" : "";
+      h += '<tr><th scope="row">' + esc(L(p, "name")) + (L(p, "for") ? "<small>" + esc(L(p, "for")) + "</small>" : "") + (L(p, "desc") ? "<small>" + esc(L(p, "desc")) + "</small>" : "") + gemNote + "</th>" +
+        '<td data-label="' + esc(T("lp.th_monthly")) + '">' + monthly + up + "</td>" +
+        '<td data-label="' + esc(yearlyHead) + '">' + yearly + "</td>" +
+        '<td data-label="' + esc(T("lp.th_team")) + '">' + team + "</td></tr>";
+    });
+    box.innerHTML = h + "</tbody></table>";
+    // Offers running today, with their real end date.
+    document.getElementById("offer-bar").innerHTML = I.offers.map(function (o) {
+      var names = o.plans.map(function (id) { var p = plans.filter(function (x) { return x.id === id; })[0]; return p ? L(p, "name") : ""; }).filter(Boolean).join(", ");
+      return '<div class="offer-bar"><p><b>' + esc(offerLabel(o)) + "</b> " + esc(T("lp.offer_on", { plans: names })) + (o.withYearly ? "" : " " + esc(T("lp.offer_monthly_only"))) + "</p></div>";
+    }).join("");
+    var n = [];
+    n.push(I.gst.rate > 0 ? T("lp.n_gst", { rate: I.gst.rate }) : T("lp.n_gst0"));
+    if (I.gst.gstin) n.push(T("lp.n_gstin", { g: I.gst.gstin }));
+    if (I.yearly.mode === "MONTHS" && I.yearly.months < 12) n.push(T("lp.n_yearly_m", { n: I.yearly.months }));
+    if (I.yearly.mode === "PERCENT" && I.yearly.percent > 0) n.push(T("lp.n_yearly_p", { p: I.yearly.percent }));
+    if (I.pilot.days > 0) n.push(T(I.pilot.oncePerOffice ? "lp.n_pilot_once" : "lp.n_pilot", { d: I.pilot.days }));
+    n.push(T("lp.n_same"));
+    var pay = L(I.policies, "pay");
+    n.push(pay ? T("lp.n_pay", { m: pay }) : T("lp.n_bill"));
+    n.push(T("lp.n_no_faster"));
+    n.push(T("lp.n_funds"));
+    var html = n.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+    var refund = L(I.policies, "refund");
+    if (refund) html += "<li><b>" + esc(T("lp.n_refund_h")) + "</b> " + esc(refund).replace(/\n/g, "<br>") + "</li>";
+    document.getElementById("price-notes").innerHTML = html;
+  }
+  function areasText() {
+    var a = (I.areas || []).map(function (x) { return x.name; });
+    if (!a.length) return "";
+    return a.length === 1 ? a[0] : a.slice(0, -1).join(", ") + (hi() ? " और " : " and ") + a[a.length - 1];
+  }
+  function render() {
+    if (!I) return;
+    var c = I.company, d = I.pilot.days;
+    document.getElementById("shot-img").alt = T("lp.shot_alt");
+    var pilotLabel = d > 0 ? T("lp.cta_pilot", { d: d }) : T("lp.cta_talk");
+    ["cta-pilot", "cta-pilot2"].forEach(function (id) { document.getElementById(id).textContent = pilotLabel; });
+    document.getElementById("h-pilot").textContent = pilotLabel;
+    document.getElementById("pilot-intro").textContent = T("lp.pilot_intro", { cb: L(c, "callback") });
+    document.getElementById("trust-line").textContent = T("lp.trust", { op: c.legalName });
+    document.getElementById("prices-intro").textContent = T("lp.prices_intro") + (d > 0 ? " " + T("lp.prices_pilot", { d: d }) : "");
+    var at = areasText();
+    document.getElementById("today-body").textContent = (at ? T("lp.today_body", { areas: at }) : T("lp.today_body0")) + " " + T("lp.today_body2");
+    document.getElementById("fact").innerHTML = "<p><b>" + esc(T("lp.fact_h", { d: day(I.updatedAt || I.today) })) + "</b> " + esc(T("lp.fact_open")) + "</p><p>" + esc(T("lp.fact_built")) + "</p>";
+    renderPrices();
+    // Neutral and trustworthy
+    var nl = [T("lp.n1"), T("lp.n2"), T("lp.n3"), T("lp.n4"), T("lp.n5"),
+      T("lp.n_dpdp", { name: c.goName, email: c.goEmail }),
+      T("lp.n_wcag"),
+      I.claims.india ? T("lp.n_store_in") : T("lp.n_store")];
+    if (I.claims.audited) nl.push(T("lp.n_audited", { by: I.claims.auditedBy, d: day(I.claims.auditedOn) }));
+    nl.push(T("lp.n_owner", { op: c.legalName, addr: c.address }) + (c.cin ? " " + T("lp.n_cin", { cin: c.cin }) : ""));
+    document.getElementById("neutral").innerHTML = nl.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+    // FAQ
+    var dept = I.plans.filter(function (p) { return p.id === "dept_office"; })[0];
+    var deptAns = dept && dept.yearly != null ? (I.claims.gem ? T("lp.q_buy_a_gem", { a: rs(dept.yearly) }) : T("lp.q_buy_a", { a: rs(dept.yearly), email: c.supportEmail })) : T("lp.q_buy_a0", { email: c.supportEmail });
+    var faq = [["lp.q_gov", T("lp.q_gov_a", { op: c.legalName })], ["lp.q_party", T("lp.q_party_a")], ["lp.q_citizens", T("lp.q_citizens_a")], ["lp.q_igrs", T("lp.q_igrs_a")],
+      ["lp.q_faster", T("lp.q_faster_a")], ["lp.q_data", T("lp.q_data_a")],
+      [d > 0 ? "lp.q_pilot" : "lp.q_pilot0", d > 0 ? T("lp.q_pilot_a", { d: d }) : T("lp.q_pilot0_a")],
+      ["lp.q_funds", T("lp.q_funds_a")], ["lp.q_buy", deptAns], ["lp.q_team", T("lp.q_team_a")],
+      ["lp.q_areas", at ? T("lp.q_areas_a", { areas: at }) : T("lp.q_areas_a0")]];
+    var open = {}; document.querySelectorAll("#faq details[open]").forEach(function (x) { open[x.getAttribute("data-q")] = 1; });
+    document.getElementById("faq").innerHTML = faq.map(function (q) { return '<details data-q="' + q[0] + '"' + (open[q[0]] ? " open" : "") + "><summary>" + esc(T(q[0], { d: d })) + "</summary><p>" + esc(q[1]) + "</p></details>"; }).join("");
+    // Contact beside the form
+    var rows = [["lp.c_email", '<a href="mailto:' + esc(c.supportEmail) + '">' + esc(c.supportEmail) + "</a>"]];
+    if (c.phone) rows.push(["lp.c_call", '<a href="tel:' + esc(c.phone.replace(/\s+/g, "")) + '">' + esc(c.phone) + "</a>"]);
+    if (c.whatsapp) { var w = c.whatsapp.replace(/\D/g, ""); if (w.length === 10) w = "91" + w; rows.push(["lp.c_whatsapp", '<a href="https://wa.me/' + esc(w) + '" rel="noopener">' + esc(T("lp.c_whatsapp_link")) + "</a>"]); }
+    if (L(c, "hours")) rows.push(["lp.c_hours", esc(L(c, "hours"))]);
+    rows.push(["lp.c_callback", esc(L(c, "callback"))]);
+    document.getElementById("contact").innerHTML = "<h3>" + esc(T("lp.c_h")) + "</h3><dl>" + rows.map(function (r) { return "<dt>" + esc(T(r[0])) + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>";
+    document.getElementById("footer-owner").textContent = "© " + new Date().getFullYear() + " " + c.legalName + " · " + c.address;
+    if (window.GIQ_FORM_DONE) GIQ_FORM_DONE();
+  }
+
+  function load() {
+    var url = preview ? "/api/admin/site-settings?preview=draft" : "/api/site-info";
+    return fetch(url, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
+      if (preview) {
+        var bar = document.getElementById("preview-bar"); bar.hidden = false; bar.setAttribute("data-key", "lp.preview_on"); bar.textContent = T("lp.preview_on");
+        var m = document.createElement("meta"); m.name = "robots"; m.content = "noindex"; document.head.appendChild(m);
+        if (!j.areas) return fetch("/api/site-info").then(function (r) { return r.json(); }).then(function (pub) { j.areas = pub.areas; I = j; render(); });
+      }
+      I = j; render();
+    }).catch(function () {
+      if (preview) { preview = false; var bar = document.getElementById("preview-bar"); bar.hidden = false; bar.setAttribute("data-key", "lp.preview_off"); bar.textContent = T("lp.preview_off"); return load(); }
+      document.getElementById("price-box").innerHTML = '<p role="alert">' + esc(T("lp.e_load")) + "</p>";
+    });
+  }
+
+  // ---- Pilot request form ----
+  var form = document.getElementById("pilot-form"), loadedAt = Date.now(), sent = null;
+  var FIELDS = { name: "pf-name", office: "pf-office-set", place: "pf-place", mobile: "pf-mobile", email: "pf-email", consent: "pf-consent" };
+  var errs = {};
+  function indianMobile(v) { var d = String(v || "").replace(/[\s\-()]/g, "").replace(/^(\+91|0091|91(?=\d{10}$)|0(?=\d{10}$))/, ""); return /^[6-9]\d{9}$/.test(d) ? d : null; }
+  function check() {
+    var e = {}, f = form;
+    if (f.name.value.trim().length < 2) e.name = "REQUIRED";
+    if (!f.querySelector('input[name=office]:checked')) e.office = "REQUIRED";
+    if (f.place.value.trim().length < 3) e.place = "REQUIRED";
+    if (!f.mobile.value.trim()) e.mobile = "REQUIRED"; else if (!indianMobile(f.mobile.value)) e.mobile = "FORMAT";
+    if (f.email.value.trim() && !/^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(f.email.value.trim())) e.email = "FORMAT";
+    if (!f.consent.checked) e.consent = "REQUIRED";
+    return e;
+  }
+  function showErrors(focusBox) {
+    Object.keys(FIELDS).forEach(function (k) {
+      var el = document.getElementById(FIELDS[k]), id = "pe-" + k, old = document.getElementById(id);
+      if (old) old.remove();
+      var target = k === "office" ? el : el;
+      if (k !== "office") { el.removeAttribute("aria-invalid"); var db = (el.getAttribute("aria-describedby") || "").split(" ").filter(function (x) { return x && x !== id; }); el.setAttribute("aria-describedby", db.join(" ")); if (!db.length) el.removeAttribute("aria-describedby"); }
+      if (!errs[k]) return;
+      var p = document.createElement("span"); p.className = "ferr"; p.id = id; p.textContent = T("lp.e_" + k + "_" + errs[k]);
+      if (k === "office") { el.appendChild(p); el.setAttribute("aria-describedby", id); }
+      else if (k === "consent") { el.parentNode.appendChild(p); el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", id); }
+      else { el.parentNode.appendChild(p); el.setAttribute("aria-invalid", "true"); el.setAttribute("aria-describedby", ((el.getAttribute("aria-describedby") || "") + " " + id).trim()); }
+    });
+    var box = document.getElementById("err-box"), keys = Object.keys(errs);
+    if (!keys.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = "<h3>" + esc(T("lp.e_box", { n: keys.length })) + "</h3><ul>" + keys.map(function (k) { return '<li><a href="#' + (k === "office" ? "pf-office-set" : FIELDS[k]) + '" data-f="' + k + '">' + esc(T("lp.e_" + k + "_" + errs[k])) + "</a></li>"; }).join("") + "</ul>";
+    box.querySelectorAll("a[data-f]").forEach(function (a) { a.addEventListener("click", function (ev) { ev.preventDefault(); var k = a.getAttribute("data-f"); var t = k === "office" ? form.querySelector("input[name=office]") : document.getElementById(FIELDS[k]); t.focus(); }); });
+    if (focusBox) box.focus();
+  }
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var net = document.getElementById("pf-net"); net.hidden = true;
+    errs = check(); showErrors(true);
+    if (Object.keys(errs).length) return;
+    var btn = document.getElementById("pf-send"); btn.disabled = true; btn.textContent = T("lp.f_sending");
+    var body = { name: form.name.value, office: form.querySelector("input[name=office]:checked").value, place: form.place.value, mobile: form.mobile.value, email: form.email.value,
+      consent: form.consent.checked === true, lang: hi() ? "hi" : "en", website: form.website.value, form_loaded_at: loadedAt };
+    fetch("/api/pilot-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+      .then(function (r) {
+        btn.disabled = false; btn.textContent = T("lp.f_send");
+        if (r.ok) { sent = r.j; done(true); return; }
+        if (r.status === 400 && r.j.fields) { errs = r.j.fields; showErrors(true); return; }
+        net.hidden = false; net.textContent = r.status === 429 ? T("lp.e_limit") : T("lp.e_send", { email: I ? I.company.supportEmail : "support@grieviq.in" }); net.focus && net.setAttribute("tabindex", "-1"); net.focus();
+      })
+      .catch(function () { btn.disabled = false; btn.textContent = T("lp.f_send"); net.hidden = false; net.textContent = T("lp.e_send", { email: I ? I.company.supportEmail : "support@grieviq.in" }); net.setAttribute("tabindex", "-1"); net.focus(); });
+  });
+  function done(focus) {
+    if (!sent) return;
+    var cb = I ? L(I.company, "callback") : (hi() ? sent.callbackHi : sent.callbackEn);
+    document.getElementById("form-slot").innerHTML = '<div class="card done" role="status"><h3 id="done-h" tabindex="-1">' + esc(T("lp.done_h")) + "</h3><p>" + esc(T("lp.done_p", { cb: cb })) + "</p></div>";
+    if (focus) document.getElementById("done-h").focus();
+  }
+  window.GIQ_FORM_DONE = function () { if (sent) done(false); };
+
+  document.addEventListener("giq:lang", function () {
+    var bar = document.getElementById("preview-bar"); if (!bar.hidden) bar.textContent = T(bar.getAttribute("data-key"));
+    render(); if (Object.keys(errs).length && !sent) showErrors(false);
+    var btn = document.getElementById("pf-send"); if (btn) btn.textContent = T("lp.f_send");
+  });
+  load();
+})();
+</script>
+</body>
+</html>

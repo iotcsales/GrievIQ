@@ -97,6 +97,15 @@ export const PERMISSIONS = {
   manage_dept_officers: ["super_admin", "operations_admin"],
   // Department performance (grieviq-33): counts and timings only.
   view_dept_performance: ["super_admin", "operations_admin", "auditor"],
+  // Prices & site details (grieviq-39): every admin reads what GrievIQ
+  // publishes; only the super admin changes prices, discounts, contacts
+  // and claims (a business decision), and every change is logged.
+  view_site_settings: ["super_admin", "operations_admin", "data_moderator", "auditor", "data_entry_operator"],
+  manage_site_settings: ["super_admin"],
+  // Pilot requests from the "For offices" page: the two senior roles call
+  // the office back; the auditor reads (mobile numbers partly hidden).
+  view_pilot_requests: ["super_admin", "operations_admin", "auditor"],
+  manage_pilot_requests: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -124,6 +133,8 @@ export const PAGES = {
   "admin-ratings": "view_ratings",
   "admin-dept-performance": "view_dept_performance",
   "admin-dept-agreement": "view_dept_officers",   // grieviq-37: the agreement to print (opened from Departments)
+  "admin-site-settings": "view_site_settings",     // grieviq-39
+  "admin-pilot-requests": "view_pilot_requests",   // grieviq-39
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);
