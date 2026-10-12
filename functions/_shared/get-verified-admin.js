@@ -111,6 +111,8 @@ export const PERMISSIONS = {
   // checking payments: super and operations admins; the auditor looks.
   view_bills: ["super_admin", "operations_admin", "auditor"],
   manage_bills: ["super_admin", "operations_admin"],
+  // grieviq-45: web addresses where a copy of GrievIQ was seen.
+  view_copies: ["super_admin", "auditor"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -141,6 +143,7 @@ export const PAGES = {
   "admin-site-settings": "view_site_settings",     // grieviq-39
   "admin-pilot-requests": "view_pilot_requests",   // grieviq-39
   "admin-bills": "view_bills",                     // grieviq-41
+  "admin-copies": "view_copies",                   // grieviq-45
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

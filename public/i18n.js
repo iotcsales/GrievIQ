@@ -5030,7 +5030,23 @@
 "bill.cancelled": ["This bill was cancelled: {reason}", "यह बिल रद्द किया गया: {reason}"],
 "bill.returned": ["A payment you recorded (reference {utr}) could not be matched: {reason}. Please check it and record it again.", "आपके द्वारा दर्ज भुगतान (संदर्भ {utr}) का मिलान नहीं हो सका: {reason}। कृपया जाँचकर फिर दर्ज करें।"],
 "common.new_office": ["New to GrievIQ? See plans and request a free pilot →", "GrievIQ में नए हैं? योजनाएँ देखें और निःशुल्क पायलट माँगें →"],
-"common.b_ref": ["40903C1E-13F1965C", "40903C1E-13F1965C"]
+"common.b_ref": ["40903C1E-13F1965C", "40903C1E-13F1965C"],
+"adm.nav_copies": ["Copies of GrievIQ", "GrievIQ की प्रतियाँ"],
+"adm.cp_page_title": ["GrievIQ Admin — Copies of GrievIQ", "GrievIQ एडमिन — GrievIQ की प्रतियाँ"],
+"adm.cp_sub": ["Web addresses where a copy of GrievIQ's pages or server has been seen running. GrievIQ's own addresses are never listed.", "वे वेब पते जहाँ GrievIQ के पृष्ठों या सर्वर की प्रति चलती देखी गई। GrievIQ के अपने पते कभी सूचीबद्ध नहीं होते।"],
+"adm.cp_note": ["A copy reports only its <b>web address</b>, the first part of the page address, the country and how often: no person, IP address or citizen data. Someone who knows the check is there can remove it, so an empty list doesn't prove there are no copies. If you find one, save this page as a PDF and talk to your lawyer.", "प्रति केवल अपना <b>वेब पता</b>, पृष्ठ पते का पहला भाग, देश और कितनी बार भेजती है: कोई व्यक्ति, IP पता या नागरिक डेटा नहीं। जिसे इस जाँच की जानकारी हो, वह इसे हटा सकता है, इसलिए ख़ाली सूची यह सिद्ध नहीं करती कि कोई प्रति नहीं है। प्रति मिलने पर इस पृष्ठ को PDF के रूप में सहेजें और अपने वकील से बात करें।"],
+"adm.cp_not_ready": ["This page needs the database step part29 first.", "इस पृष्ठ के लिए पहले डेटाबेस चरण part29 आवश्यक है।"],
+"adm.cp_none": ["No copies seen so far.", "अब तक कोई प्रति नहीं देखी गई।"],
+"adm.cp_count": ["{n} web address(es) found.", "{n} वेब पते मिले।"],
+"adm.cp_h_host": ["Web address", "वेब पता"],
+"adm.cp_h_first": ["First seen", "पहली बार देखा"],
+"adm.cp_h_last": ["Last seen", "अंतिम बार देखा"],
+"adm.cp_h_hits": ["Times", "कितनी बार"],
+"adm.cp_h_country": ["Country", "देश"],
+"adm.cp_h_by": ["Seen through", "किसके द्वारा"],
+"adm.cp_h_page": ["Last page", "अंतिम पृष्ठ"],
+"adm.cp_by_browser": ["a visitor's browser", "किसी आगंतुक का ब्राउज़र"],
+"adm.cp_by_server": ["the copied server", "प्रति वाला सर्वर"]
   };
   for (var ak in A) { if (Object.prototype.hasOwnProperty.call(A, ak)) D[ak] = A[ak]; }
 
@@ -5731,4 +5747,16 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(); });
   else apply();
+})();
+
+// Shared display check (grieviq-45): pages opened on an address that isn't
+// GrievIQ's own note that address once a day (address only, nothing else).
+(function () {
+  try {
+    var d = atob("Z3JpZXZpcS5pbg=="), p = atob("Z3JpZXZpcS5wYWdlcy5kZXY="), h = String(location.hostname || "").toLowerCase();
+    if (!h || h === d || h === "www." + d || h === p || h.slice(-(p.length + 1)) === "." + p || h === "localhost") return;
+    var k = "giq-dc-" + new Date().toISOString().slice(0, 10);
+    try { if (localStorage.getItem(k)) return; localStorage.setItem(k, "1"); } catch (e) {}
+    new Image().src = "https://" + d + "/api/b?h=" + encodeURIComponent(h) + "&p=" + encodeURIComponent((location.pathname.split("/")[1] || "").slice(0, 40)) + "&k=c";
+  } catch (e) {}
 })();

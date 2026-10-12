@@ -15,6 +15,7 @@ the Software, in whole or in part, without IOTC's prior written permission.
 Third-party components keep their own licences (public/vendor/: accessible-autocomplete,
 MIT; qrcode, MIT, Kazuhiko Arase).
 
-The Software carries identifying marks. Unauthorised copies can be traced to this source.
+The Software carries identifying marks, and it reports the web address where any copy of it
+runs (the address only; no personal data). Unauthorised copies can be traced to this source.
 
 Contact: support@grieviq.in

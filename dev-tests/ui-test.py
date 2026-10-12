@@ -1982,6 +1982,31 @@ with sync_playwright() as pw:
             ok(not errs, "no script errors (sign-in pages %s %s)" % (theme, lang), errs)
             ctx.close()
 
+    # ---------- grieviq-45: a copy of the pages reports where it runs ----------
+    ctx = br.new_context(); p = ctx.new_page(); seen = []
+    p.route("https://grieviq.in/api/b**", lambda route: (seen.append(route.request.url), route.fulfill(status=204)))
+    p.goto(B.replace("localhost", "127.0.0.1") + "/"); p.wait_for_timeout(800)
+    ok(len(seen) >= 1 and "h=127.0.0.1" in seen[0] and "k=c" in seen[0], "page on another address reports it", seen)
+    n = len(seen); p.reload(); p.wait_for_timeout(600)
+    ok(len(seen) == n, "only once a day per browser")
+    p.goto(B + "/"); p.wait_for_timeout(600)
+    ok(len(seen) == n, "GrievIQ's own address (here localhost) reports nothing")
+    ctx.close()
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            ctx, p, errs = P("super@test.in", theme=theme, lang=lang, width=375 if lang == "hi" else 1280)
+            p.goto(B + "/admin-copies.html"); p.wait_for_selector("#cp-count, #cp-none")
+            ok("copy.example.com" in p.inner_text("main"), "Copies page lists the copy, address as written " + theme + " " + lang, p.inner_text("main")[-300:])
+            if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Copies page in Hindi, nothing missing")
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "Copies page contrast AA %s %s" % (theme, lang), bad[:5])
+            ok(no_hscroll(p) or p.evaluate("document.querySelector('.table-wrap').scrollWidth > 0"), "Copies page: no page-wide sideways scroll")
+            shot(p, "61-copies-%s-%s" % (theme, lang), full=False)
+            ok(not errs, "no script errors (copies %s %s)" % (theme, lang), errs)
+            ctx.close()
+    ctx, p, errs = P("ops@test.in"); p.goto(B + "/admin-copies.html"); p.wait_for_timeout(800)
+    ok("does not have access" in p.inner_text("main"), "operations admin: no access to Copies")
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

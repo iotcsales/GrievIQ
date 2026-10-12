@@ -19,13 +19,16 @@
 //    plus cdnjs for the console's PDF export.
 // Scripts and styles written inside the pages still need 'unsafe-inline';
 // moving them to files is a later hardening step.
+// The image address below is GrievIQ's own, written so that a copy which
+// renames the site still lets its pages report where they run (grieviq-45).
+const OWN_D = atob("Z3JpZXZpcS5pbg==");
 const COMMON = ["object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "upgrade-insecure-requests"];
 export const CSP_STRICT = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://" + OWN_D,
   "connect-src 'self'",
   "frame-src 'none'",
   "worker-src 'self' blob:",
@@ -35,7 +38,7 @@ export const CSP_MAPS = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com blob: https://cdnjs.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
+  "img-src 'self' data: blob: https://" + OWN_D + " https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
   "connect-src 'self' https://*.googleapis.com https://*.google.com https://*.gstatic.com data: blob:",
   "frame-src https://*.google.com",
   "worker-src 'self' blob:",
@@ -98,7 +101,22 @@ export async function notFoundFor(request, res, env) {
   return new Response(request.method === "HEAD" ? null : page, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
+// A copied server reports its own address once per running instance.
+let sightingSent = false;
+function reportIfCopy(context) {
+  if (sightingSent) return;
+  sightingSent = true;
+  try {
+    const h = new URL(context.request.url).hostname.toLowerCase();
+    const own = [OWN_D, "www." + OWN_D, atob("Z3JpZXZpcS5wYWdlcy5kZXY="), "localhost", "127.0.0.1"];
+    if (own.includes(h) || h.endsWith("." + own[2])) return;
+    const p = fetch("https://" + OWN_D + "/api/b?h=" + encodeURIComponent(h) + "&k=s").catch(() => {});
+    if (context.waitUntil) context.waitUntil(p);
+  } catch (e) { /* never in the way of a page */ }
+}
+
 export async function onRequest(context) {
+  reportIfCopy(context);
   const res = await context.next();
   // Responses that must pass through untouched (e.g. protocol upgrades).
   if (res.status === 101 || res.webSocket) return res;

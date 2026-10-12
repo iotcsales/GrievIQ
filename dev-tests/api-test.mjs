@@ -1314,6 +1314,20 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(h.get("x-giq-build") === "40903C1E13F1965C" && h.get("content-security-policy"), "build tag added with the security headers");
 }
 
+// ---- grieviq-45: copies of GrievIQ report where they run ----
+{
+  const beacon = async (q, hdr) => (await fetch(B + "/api/b?" + q, { headers: hdr || {} })).status;
+  ok(await beacon("h=copy.example.com&p=submit&k=c", { "CF-IPCountry": "NP" }) === 204, "a copy's address is accepted (204)");
+  ok(await beacon("h=copy.example.com&p=rep&k=s") === 204, "the same copy seen from its server");
+  ok(await beacon("h=grieviq.in&k=c") === 204 && await beacon("h=www.grieviq.in&k=c") === 204 && await beacon("h=x.grieviq.pages.dev&k=c") === 204, "own addresses answered but ignored");
+  ok(await beacon("h=bad%20host%3Cscript%3E&k=c") === 204, "nonsense ignored");
+  const c = await call(S, "GET", "/api/admin/copies");
+  const row = c.body.copies && c.body.copies.find((x) => x.host === "copy.example.com");
+  ok(c.status === 200 && c.body.copies.length === 1 && row && row.hits === 2 && row.country === "NP" && row.lastPath === "rep" && row.seenBy.join() === "browser,server", "admin sees the copy: address, times, country, browser and server", c.body);
+  ok((await call(A, "GET", "/api/admin/copies")).status === 200 && (await call(O, "GET", "/api/admin/copies")).status === 403, "auditor sees it; operations admin doesn't");
+  ok(!JSON.stringify(c.body).match(/\d+\.\d+\.\d+\.\d+/), "no IP addresses kept");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
