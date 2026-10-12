@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/feedback/submit   { category, message, email, trackingRef, lang, website, form_loaded_at }
 //
 // The citizen "Send feedback" form (problems or ideas about the app itself).

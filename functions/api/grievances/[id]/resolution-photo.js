@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/grievances/[id]/resolution-photo   (representatives only)
 //
 // Uploads one "after" photo for a case the rep is about to mark resolved

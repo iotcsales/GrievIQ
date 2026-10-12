@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_shared/retention.js
 //
 // Item 9d: data retention (approved Oct 2026).

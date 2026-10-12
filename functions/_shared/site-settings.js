@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_shared/site-settings.js
 //
 // "Prices & site details" (grieviq-39, approved 11 Oct 2026).

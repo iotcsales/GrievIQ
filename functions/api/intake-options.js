@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/intake-options
 // Public, unauthenticated endpoint. Returns the data needed to populate
 // the citizen intake form's dropdowns: grievance categories and local units.

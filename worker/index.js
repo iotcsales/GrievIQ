@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GrievIQ scheduler (Cloudflare Worker with a Cron Trigger).
 //
 // Cloudflare Pages can't run anything on a timer, so this small Worker does

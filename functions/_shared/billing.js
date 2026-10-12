@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_shared/billing.js
 //
 // Bills for offices, paid by UPI or bank transfer (grieviq-41, approved
@@ -22,6 +23,7 @@ import { liveVersion, planPrices, withGst, istToday, paymentState, LIMITS } from
 import { sendEmailNow } from "./dept-auth.js";
 
 export const MAX_REPORTS = 5;
+export const LEDGER_TAG = "13F1965C40903C1E";
 export const UTR_RE = /^[A-Z0-9]{10,22}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const TIER_TABLE = {

@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // Notifications in the rep console (approved Oct 2026): the bell with an
 // unread count, the list of notices, turning phone notifications on/off,
 // and messages from GrievIQ with the office's replies.

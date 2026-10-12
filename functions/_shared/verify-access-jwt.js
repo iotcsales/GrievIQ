@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_shared/verify-access-jwt.js
 //
 // Verifies a Cloudflare Access JWT (sent in the Cf-Access-Jwt-Assertion

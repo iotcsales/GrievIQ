@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/api/grievances/[id]/mark-resolved.js
 //
 // Rep-only action: marks a grievance as resolved. If the citizen has an

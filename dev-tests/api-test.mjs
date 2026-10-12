@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // API tests for Departments stage 1.  node api-test.mjs  (server on 8788, fresh DB)
 // Run through dev-tests/setup.sh (it starts the server with a fresh database).
 const B = "http://localhost:8788";
@@ -1303,6 +1304,14 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw2 = false; try { sdb.prepare("DELETE FROM bill_events").run(); } catch (e) { threw2 = true; }
   ok(threw2, "bill record can't be deleted");
   ok((await fetch(B + "/admin-bills.html")).status === 200, "page opens: /admin-bills.html");
+}
+
+// ---- grieviq-44: ownership mark on every response ----
+// (the test server doesn't run the site-wide middleware, so it is checked directly)
+{
+  const mw = await import(new URL("../functions/_middleware.js", import.meta.url).href);
+  const h = mw.withSecurityHeaders(new Response("x", { headers: { "content-type": "text/html" } }), "/").headers;
+  ok(h.get("x-giq-build") === "40903C1E13F1965C" && h.get("content-security-policy"), "build tag added with the security headers");
 }
 
 // ---- audit trail ----

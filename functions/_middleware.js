@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_middleware.js
 //
 // Readiness review, gap 6: security headers on every response, pages and
@@ -58,8 +59,10 @@ export const SECURITY_HEADERS = {
   "Cross-Origin-Opener-Policy": "same-origin",
 };
 
+export const BUILD_TAG = "40903C1E13F1965C";
 export function withSecurityHeaders(res, pathname) {
   const headers = new Headers(res.headers);
+  if (!headers.has("X-GIQ-Build")) headers.set("X-GIQ-Build", BUILD_TAG);
   if (!headers.has("Content-Security-Policy")) headers.set("Content-Security-Policy", cspFor(pathname));
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
     if (!headers.has(k)) headers.set(k, v);

@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/grievances/[id]/assign   (representative or office manager, item 8b)
 //
 // Assigns an open case to one field worker of the office (or clears the

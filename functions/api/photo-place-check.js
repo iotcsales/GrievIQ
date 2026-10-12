@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/photo-place-check
 // The complaint form's note under a photo the citizen just added: how far
 // the phone was from the spot marked (or whether it was inside the chosen

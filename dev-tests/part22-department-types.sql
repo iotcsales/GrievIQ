@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part22-department-types.sql  (grieviq-25: department types managed by admins)
 --
 -- The list of department types (Water Supply, Electricity, ...), until now

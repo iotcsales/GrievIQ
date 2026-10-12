@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // public/guide-content.js (grieviq-40)
 //
 // The step-by-step guides (SOPs) shown inside GrievIQ, in English and Hindi.

@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/dept/performance?from=&to=   "Your office's performance" on the
 // department dashboard (grieviq-33): the officer's own office only, never
 // other offices (owner decision 9 Oct 2026). Same definitions as the admin page.

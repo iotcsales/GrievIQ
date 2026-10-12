@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // /api/admin/departments   -- the department directory (Departments stage 1)
 //
 // GET  ?area=<id>          the area's offices, its wards and villages, and

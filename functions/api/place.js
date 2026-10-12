@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/place?ward=<id>   or   GET /api/place?slug=<ward-link-part>&area=<area-link-part>
 //
 // Public, no sign-in. What the citizen Home page shows once the place of

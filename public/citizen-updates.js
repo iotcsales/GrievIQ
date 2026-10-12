@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // "Get updates on this phone" for citizens (approved Oct 2026): a card on
 // the confirmation screen and on the Track page. Optional; emails continue
 // as before. No account: the device is linked to one complaint only, and

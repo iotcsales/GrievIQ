@@ -1,3 +1,4 @@
+# Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 # GrievIQ scheduler. Set up once (steps in the grieviq-19 instructions):
 #   1. Put your database id below (from: npx wrangler d1 list).
 #   2. From this folder: npx wrangler deploy

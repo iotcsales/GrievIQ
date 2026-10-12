@@ -1,3 +1,4 @@
+# Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 """Browser tests for the Departments page (Playwright + Chromium)."""
 import os, sys, re, json
 from playwright.sync_api import sync_playwright

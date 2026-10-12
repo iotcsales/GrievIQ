@@ -1,0 +1,20 @@
+GrievIQ - Proprietary Software Licence
+
+Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.), Plot no. SC 01/B8, Sector-150,
+Noida, Uttar Pradesh 201310, India. All rights reserved.
+
+This software, including its source code, design, text (English and Hindi), database
+structure and documentation ("the Software"), is the confidential and proprietary
+property of IOTC and is protected by the Copyright Act, 1957 (India) and international
+copyright treaties.
+
+No licence is granted by possession of the Software. You may not copy, modify, publish,
+distribute, sublicense, sell, host for others, reverse engineer or create works based on
+the Software, in whole or in part, without IOTC's prior written permission.
+
+Third-party components keep their own licences (public/vendor/: accessible-autocomplete,
+MIT; qrcode, MIT, Kazuhiko Arase).
+
+The Software carries identifying marks. Unauthorised copies can be traced to this source.
+
+Contact: support@grieviq.in

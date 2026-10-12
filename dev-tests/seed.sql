@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 INSERT INTO admin_users (id,email,role,name,employee_id) VALUES
  ('a1','super@test.in','super_admin','Asha Super','GIQ-001'),
  ('a2','ops@test.in','operations_admin','Omar Ops','GIQ-002'),

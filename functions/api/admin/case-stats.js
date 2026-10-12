@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/admin/case-stats?area=<id|ALL>   (charts, grieviq-31)
 //
 // "How complaints are moving" on the admin dashboard: counts only, for the

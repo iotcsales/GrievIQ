@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/photo?p=<photo id>&v=<variant>&e=<expiry>&s=<signature>
 //
 // Serves one private photo from the PRIVATE_PHOTOS R2 bucket (no public

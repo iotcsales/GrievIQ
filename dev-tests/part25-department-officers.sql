@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part25-department-officers.sql   (grieviq-32, October 2026)
 --
 -- Department dashboard: officers of department offices sign in with a code

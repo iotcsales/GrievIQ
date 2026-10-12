@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // Light / dark display for citizens and representatives (approved Oct 2026).
 //
 // Research summary (Apple HIG, Material Design, UK National Archives design

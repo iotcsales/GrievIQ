@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GrievIQ service worker: shows phone/computer notifications (rep console,
 // and citizens' optional complaint updates) and opens the right page when
 // one is tapped. It does nothing

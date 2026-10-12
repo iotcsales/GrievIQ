@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 /* Rules for both light and dark (copied as they are into theme.css). */
 /* WCAG 2.2 1.4.11: a text box's edge must stand out 3:1 from the page. */
 :root { --field-line: #8C8578; }

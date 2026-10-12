@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // public/i18n.js
 //
 // GrievIQ citizen pages and the representative console: English / Hindi.
@@ -5028,7 +5029,8 @@
 "bill.paid": ["Paid. GrievIQ confirmed your payment on {date}. Thank you.", "भुगतान हो चुका। GrievIQ ने {date} को आपके भुगतान की पुष्टि की। धन्यवाद।"],
 "bill.cancelled": ["This bill was cancelled: {reason}", "यह बिल रद्द किया गया: {reason}"],
 "bill.returned": ["A payment you recorded (reference {utr}) could not be matched: {reason}. Please check it and record it again.", "आपके द्वारा दर्ज भुगतान (संदर्भ {utr}) का मिलान नहीं हो सका: {reason}। कृपया जाँचकर फिर दर्ज करें।"],
-"common.new_office": ["New to GrievIQ? See plans and request a free pilot →", "GrievIQ में नए हैं? योजनाएँ देखें और निःशुल्क पायलट माँगें →"]
+"common.new_office": ["New to GrievIQ? See plans and request a free pilot →", "GrievIQ में नए हैं? योजनाएँ देखें और निःशुल्क पायलट माँगें →"],
+"common.b_ref": ["40903C1E-13F1965C", "40903C1E-13F1965C"]
   };
   for (var ak in A) { if (Object.prototype.hasOwnProperty.call(A, ak)) D[ak] = A[ak]; }
 

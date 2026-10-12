@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // /api/admin/engagements   (item 9b: audit engagements)
 //
 // An engagement is an audit of a period, e.g. "Q3 2026 complaint

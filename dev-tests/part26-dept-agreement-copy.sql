@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part26-dept-agreement-copy.sql   (grieviq-37, October 2026)
 --
 -- The department agreement inside GrievIQ (approved 10 Oct 2026):

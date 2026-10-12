@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // Two employee IDs are the same if a person would read them as the same:
 // case, the separators - and /, and leading zeros in a number don't count.
 // So GIQ-21, GIQ-021, giq021 and GIQ/21 are one ID.

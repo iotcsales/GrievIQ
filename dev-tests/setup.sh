@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 # GrievIQ developer tests (rebuilt Oct 2026, Departments stage 1).
 # Starts a local copy of the site on http://localhost:8788 with a fresh test
 # database, then runs the API and browser tests.

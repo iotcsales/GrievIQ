@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/admin/import-ward-boundaries
 //
 // Imports ward polygon boundaries from a GeoJSON file (e.g. the Lucknow

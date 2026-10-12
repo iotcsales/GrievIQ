@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/grievances/[id]/review-report   (representative or office manager, item 8b)
 //
 // Decides a field worker's fix report: { reportId, decision, note }.

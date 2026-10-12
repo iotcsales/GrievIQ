@@ -1,3 +1,4 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/grievances/submit
 // Public, unauthenticated endpoint. Citizens submit a new grievance here.
 // No login required. Basic spam protection via honeypot + minimum fill-time.
