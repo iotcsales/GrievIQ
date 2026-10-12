@@ -34,6 +34,15 @@ export const TIER_TABLE = {
 };
 
 export function isMissingBillTables(e) { return /no such table: bill/i.test(String(e && e.message || e)); }
+// grieviq-46: bills the hourly job makes wait for staff to send them; offices
+// never see a bill that hasn't been sent. Before part30 there are no such bills.
+let draftCols = null;
+export async function hasDraftColumns(env) {
+  if (draftCols !== null) return draftCols;
+  try { await env.DB.prepare("SELECT auto, sent_at FROM bills LIMIT 1").all(); draftCols = true; } catch (e) { draftCols = false; }
+  return draftCols;
+}
+export async function officeBillFilter(env) { return (await hasDraftColumns(env)) ? " AND (auto = 0 OR sent_at IS NOT NULL)" : ""; }
 export async function billingReady(env) {
   try { await env.DB.prepare("SELECT 1 FROM bills LIMIT 1").all(); return true; } catch (e) { return false; }
 }
@@ -136,7 +145,7 @@ export function billOut(b, payments) {
     id: b.id, ref: b.ref, officeType: b.office_type, officeTier: b.office_tier, officeId: b.office_id, officeName: b.office_name,
     planId: b.plan_id, planName: b.plan_name, period: b.period, from: b.period_from, to: b.period_to,
     amount: b.amount, gstRate: b.gst_rate, gst: b.gst, total: b.total, offerId: b.offer_id, dueOn: b.due_on, status: b.status,
-    issuedAt: b.issued_at, issuedBy: b.issued_by, paidAt: b.paid_at, cancelledAt: b.cancelled_at, cancelReason: b.cancel_reason, note: b.note,
+    issuedAt: b.issued_at, issuedBy: b.issued_by, paidAt: b.paid_at, auto: !!b.auto, sentAt: b.sent_at || null, waiting: !!b.auto && !b.sent_at, cancelledAt: b.cancelled_at, cancelReason: b.cancel_reason, note: b.note,
     payments: (payments || []).filter((p) => p.bill_id === b.id).map((p) => ({ id: p.id, method: p.method, utr: p.utr, amount: p.amount, paidOn: p.paid_on,
       reportedBy: p.reported_by, reportedAt: p.reported_at, status: p.status, checkedAt: p.checked_at, reason: p.reason })),
   };

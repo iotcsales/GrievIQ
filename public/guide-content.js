@@ -141,6 +141,7 @@
             ["Pay by **UPI** (scan the QR code: the amount and bill number are filled in) or by **bank transfer** (write the bill number, such as GIQ-PAY-000001, in the remarks).", "**UPI** से (QR कोड स्कैन करें: राशि और बिल संख्या अपने-आप भरती है) या **बैंक ट्रांसफ़र** से भुगतान करें (रिमार्क में बिल संख्या, जैसे GIQ-PAY-000001, लिखें)।"],
             ["Under **I have paid**, enter the transaction reference (UTR), the amount and the date, and send.", "**मैंने भुगतान कर दिया है** में लेन-देन संदर्भ (UTR), राशि और तारीख़ लिखें और भेजें।"],
             ["GrievIQ checks it with the bank statement and marks the bill **Paid**; you get an email. If it can't be matched, you're told why and can record it again.", "GrievIQ बैंक विवरण से जाँचकर बिल को **भुगतान हो चुका** करता है; आपको ईमेल मिलता है। मिलान न हो तो कारण बताया जाता है और आप फिर दर्ज कर सकते हैं।"],
+            ["If a bill isn't paid, everything keeps working for **7 days** after the plan ends. After that the console is **view only** until it is paid: complaints still reach you and move up on time, and you can still pay.", "बिल न चुकाने पर योजना समाप्ति के बाद **7 दिन** तक सब चलता रहता है। उसके बाद भुगतान होने तक कंसोल **केवल देखने** के लिए रहता है: शिकायतें आपको मिलती रहती हैं और समय पर ऊपर जाती हैं, और आप भुगतान कर सकते हैं।"],
           ] },
       ],
       problems: [
@@ -203,6 +204,7 @@
             ["Pay by **UPI** (scan the QR code: the amount and bill number are filled in) or by **bank transfer** (write the bill number, such as GIQ-PAY-000001, in the remarks).", "**UPI** से (QR कोड स्कैन करें: राशि और बिल संख्या अपने-आप भरती है) या **बैंक ट्रांसफ़र** से भुगतान करें (रिमार्क में बिल संख्या, जैसे GIQ-PAY-000001, लिखें)।"],
             ["Under **I have paid**, enter the transaction reference (UTR), the amount and the date, and send.", "**मैंने भुगतान कर दिया है** में लेन-देन संदर्भ (UTR), राशि और तारीख़ लिखें और भेजें।"],
             ["GrievIQ checks it with the bank statement and marks the bill **Paid**; you get an email. If it can't be matched, you're told why and can record it again.", "GrievIQ बैंक विवरण से जाँचकर बिल को **भुगतान हो चुका** करता है; आपको ईमेल मिलता है। मिलान न हो तो कारण बताया जाता है और आप फिर दर्ज कर सकते हैं।"],
+            ["If a bill isn't paid, everything keeps working for **7 days** after the plan ends. After that the console is **view only** until it is paid: complaints still reach you and move up on time, and you can still pay.", "बिल न चुकाने पर योजना समाप्ति के बाद **7 दिन** तक सब चलता रहता है। उसके बाद भुगतान होने तक कंसोल **केवल देखने** के लिए रहता है: शिकायतें आपको मिलती रहती हैं और समय पर ऊपर जाती हैं, और आप भुगतान कर सकते हैं।"],
           ] },
       ],
       problems: [
@@ -269,6 +271,16 @@
             ["**Payment details** (super admin, in Prices & site details): add the company's UPI ID and bank account. New or changed details go live **24 hours** after publishing; every super admin is emailed and can cancel. Hiding details works at once.", "**भुगतान विवरण** (सुपर एडमिन, शुल्क और साइट विवरण में): कंपनी की UPI आईडी और बैंक खाता जोड़ें। नया या बदला विवरण प्रकाशन के **24 घंटे** बाद लागू होता है; हर सुपर एडमिन को ईमेल जाता है और वह रद्द कर सकता है। छिपाना तुरंत लागू होता है।"],
             ["In **Bills**, find the office, choose the plan, one month or one year and the start date, then **Make the bill**. The amount comes from the published prices; the office is emailed.", "**बिल** में कार्यालय खोजें, योजना, एक माह या एक वर्ष और आरंभ तिथि चुनें, फिर **बिल बनाएँ**। राशि प्रकाशित शुल्क से आती है; कार्यालय को ईमेल जाता है।"],
             ["When an office records a payment, **find it in the bank statement** (reference, amount, date) before you confirm it. If it doesn't match, **turn it back** with a reason.", "जब कार्यालय भुगतान दर्ज करे, तो पुष्टि से पहले **उसे बैंक विवरण में खोजें** (संदर्भ, राशि, तारीख़)। मेल न खाए तो कारण सहित **लौटाएँ**।"],
+            ["Bills the system makes before a plan ends show as **Waiting to send**. Check each one, then **Check and send to the office**; the office can't see it until you do.", "योजना समाप्ति से पहले सिस्टम द्वारा बने बिल **भेजना बाक़ी** दिखते हैं। हर एक जाँचें, फिर **जाँचें और कार्यालय को भेजें**; तब तक कार्यालय उसे नहीं देख सकता।"],
+          ] },
+        { id: "subs", roles: ["super_admin", "operations_admin", "auditor"], title: ["Office subscriptions", "कार्यालय सदस्यता"],
+          who: ["Super admin makes changes; operations admin and the auditor can look.", "बदलाव सुपर एडमिन करता है; संचालन एडमिन और ऑडिटर देख सकते हैं।"],
+          steps: [
+            ["Open **Subscriptions**. **Needs attention** lists offices due soon, in grace, paused, or with a pilot ending in under 14 days.", "**सदस्यता** खोलें। **ध्यान देना है** में जल्द देय, छूट-अवधि वाले, रुके हुए, या 14 दिन से कम में पायलट समाप्त होने वाले कार्यालय दिखते हैं।"],
+            ["For a new office: open **Change or see history**, write a reason, set the **pilot dates** and the **plan for automatic bills**.", "नए कार्यालय के लिए: **बदलें या इतिहास देखें** खोलें, कारण लिखें, **पायलट तिथियाँ** और **स्वचालित बिलों की योजना** तय करें।"],
+            ["When a payment is confirmed in **Bills**, the paid-up date moves on by itself. Use **Extend** only for an agreed exception.", "**बिल** में भुगतान की पुष्टि होते ही भुगतान तिथि अपने-आप आगे बढ़ती है। **बढ़ाएँ** का उपयोग केवल तय अपवाद के लिए करें।"],
+            ["**Complimentary** is for department offices only and needs a written reason. **Pause** makes an office view only; **End access** stops sign-in. Citizens are never affected.", "**मानार्थ** केवल विभागीय कार्यालयों के लिए है और लिखित कारण चाहिए। **रोकें** कार्यालय को केवल देखने वाला बनाता है; **पहुँच समाप्त करें** साइन इन रोकता है। नागरिकों पर कभी असर नहीं पड़ता।"],
+            ["Reminder days, grace days and the pilot end for existing offices are in **Prices & site details → Discounts**, the same for every office.", "याद दिलाने के दिन, छूट-अवधि और मौजूदा कार्यालयों की पायलट समाप्ति **शुल्क व साइट विवरण → छूट** में हैं, हर कार्यालय के लिए एक समान।"],
           ] },
         { id: "audit", roles: ["super_admin", "auditor"], title: ["Audit and data retention", "ऑडिट और डेटा संग्रहण"],
           who: ["Auditor and super admin.", "ऑडिटर और सुपर एडमिन।"],

@@ -10,7 +10,7 @@
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { ROLE } from "../_shared/team.js";
-import { billingReady, billOut, paymentsFor, payInfo, reportPayment } from "../_shared/billing.js";
+import { billingReady, billOut, paymentsFor, payInfo, reportPayment, officeBillFilter } from "../_shared/billing.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 function billingOffices(auth) {
@@ -20,7 +20,7 @@ async function billsFor(env, offices) {
   if (!offices.length) return [];
   const keys = JSON.stringify(offices.map((o) => o.tier + "|" + o.id));
   const { results } = await env.DB.prepare(
-    "SELECT * FROM bills WHERE office_type = 'REP' AND (office_tier || '|' || office_id) IN (SELECT value FROM json_each(?)) ORDER BY issued_at DESC LIMIT 60"
+    "SELECT * FROM bills WHERE office_type = 'REP' AND (office_tier || '|' || office_id) IN (SELECT value FROM json_each(?))" + (await officeBillFilter(env)) + " ORDER BY issued_at DESC LIMIT 60"
   ).bind(keys).all();
   return results || [];
 }
@@ -37,14 +37,14 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const offices = billingOffices(auth);
   if (!offices.length) return json({ error: "NOT_ALLOWED" }, 403);
   if (!(await billingReady(env))) return json({ error: "NOT_READY" }, 409);
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
-  const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ? AND office_type = 'REP'").bind(String(b.billId || "")).first();
+  const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ? AND office_type = 'REP'" + (await officeBillFilter(env))).bind(String(b.billId || "")).first();
   // Only this person's own offices' bills.
   if (!bill || !offices.some((o) => o.tier === bill.office_tier && o.id === bill.office_id)) return json({ error: "NOT_FOUND" }, 404);
   const r = await reportPayment(env, new URL(request.url).origin, bill, b, auth.email);

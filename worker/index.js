@@ -18,6 +18,7 @@ import { runNotifications } from "../functions/_shared/notify.js";
 import { settleOverdueConfirmations } from "../functions/_shared/confirmation.js";
 import { runRetention, RUN_BATCH } from "../functions/_shared/retention.js";
 import { purgeDuePhotos } from "../functions/_shared/photo-store.js";
+import { runSubscriptions } from "../functions/_shared/subscription-run.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -31,7 +32,11 @@ export async function runScheduled(env, nowMs) {
   if (env.PRIVATE_PHOTOS) {
     try { photos = await purgeDuePhotos(env, 500, "system"); } catch (e) { photos = { errors: 1 }; }
   }
-  return { notices, retention, photos };
+  // grieviq-46: office subscriptions: reminders, bills made for staff to send,
+  // grace and view-only notices.
+  let subscriptions = null;
+  try { subscriptions = await runSubscriptions(env, origin, nowMs); } catch (e) { subscriptions = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions };
 }
 
 export default {

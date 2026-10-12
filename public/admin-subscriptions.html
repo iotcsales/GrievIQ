@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.sb_page_title">GrievIQ Admin — Subscriptions</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #6f95f2;
+    --admin-accent-fill: #3d6be0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3563d8;
+    --admin-accent-fill: #3563d8;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+</style>
+<script src="/i18n.js?v=46"></script>
+<script src="/admin-nav.js?v=r13"></script>
+<style>
+  /* grieviq-39: Prices & site details / Pilot requests */
+  button.danger { color: #ff8f87; }
+  html.light-theme button.danger { color: #a8322a; }
+  main.ss-main { max-width: 1080px; }
+  .vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .ss-status p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+  .st-warn { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .unsaved { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); font-size: 12px; font-weight: 600; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .acts.small { margin-top: 12px; }
+  .acts button, .acts .btnlink, .row-actions button { min-height: 36px; }
+  .btnlink { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 6px; border: 1px solid var(--admin-border); color: var(--admin-text); text-decoration: none; font-size: 13px; }
+  .pub { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pub label { font-size: 13px; color: var(--admin-muted); }
+  .pub input { min-height: 36px; min-width: 200px; }
+  .st-msg { font-weight: 600; }
+  .st-msg.error { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .st-msg.success { color: var(--admin-text); border-left: 4px solid #2f9e5b; padding-left: 10px; }
+  .ss-errors { border: 2px solid var(--admin-danger); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; background: var(--admin-panel); }
+  .ss-errors h2 { font-size: 15px; margin: 0 0 6px; }
+  .ss-errors ul { margin: 0; padding-left: 20px; } .ss-errors li { margin: 4px 0; }
+  .ss-errors a { color: var(--admin-accent); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border); }
+  .tabs [role=tab] { background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; color: var(--admin-muted); font-size: 14px; padding: 8px 12px; min-height: 40px; }
+  .tabs [role=tab][aria-selected=true] { color: var(--admin-text); border-bottom-color: var(--admin-accent); font-weight: 600; background: rgba(127,127,127,.10); }
+  .tabs [role=tab]:hover { color: var(--admin-text); background: rgba(127,127,127,.10); }
+  .tab-err { color: var(--admin-text); font-weight: 700; }
+  .tabpanel:focus { outline: none; }
+  .sec-h { font-size: 15px; margin: 18px 0 8px; } .sec-h:first-child { margin-top: 0; }
+  .sub-h { font-weight: 600; font-size: 13px; margin: 10px 0 6px; }
+  fieldset.card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; min-width: 0; }
+  fieldset.card.retired { border-style: dashed; }
+  fieldset.card legend { padding: 0 6px; font-weight: 600; font-size: 15px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-text); vertical-align: middle; }
+  .code { margin: 0 0 8px; font-size: 12px; color: var(--admin-muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 10px 16px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .fld.wide { grid-column: 1 / -1; }
+  .fld label, fieldset.rad legend { font-size: 13px; font-weight: 600; }
+  .req { color: var(--admin-text); }
+  .hint { font-size: 12px; color: var(--admin-muted); }
+  .fld input, .fld textarea, .pub input { background: #11151c; border: 1px solid #5d6878; color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 14px; min-height: 38px; width: 100%; box-sizing: border-box; }
+  .fld textarea { min-height: 110px; resize: vertical; }
+  .fld input[aria-invalid=true], .fld textarea[aria-invalid=true] { border: 2px solid var(--admin-danger); }
+  .fld input:disabled, .fld textarea:disabled { color: var(--admin-text); -webkit-text-fill-color: var(--admin-text); opacity: 1; border-style: dashed; }
+  .ferr { font-size: 13px; font-weight: 600; color: var(--admin-text); border-left: 3px solid var(--admin-danger); padding-left: 8px; }
+  fieldset.rad { border: 0; padding: 0; margin: 10px 0; min-width: 0; }
+  fieldset.rad legend { padding: 0; margin-bottom: 6px; }
+  .ropt { display: inline-flex; align-items: center; gap: 6px; margin: 0 16px 6px 0; min-height: 28px; }
+  .ropt input, .chk input { width: 20px; height: 20px; margin: 0; accent-color: var(--admin-accent-fill); }
+  .ropt label, .chk label { font-size: 14px; }
+  .chks { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 10px; }
+  .chk { display: grid; grid-template-columns: 20px 1fr; column-gap: 8px; align-items: center; margin: 8px 0; }
+  .chk .hint { grid-column: 2; }
+  .today { margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
+  .sched { margin-top: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--admin-border); }
+  .link-btn { background: none !important; border: 0 !important; color: var(--admin-accent) !important; text-decoration: underline; padding: 6px 0 !important; margin-top: 8px; font-size: 14px; }
+  .table-wrap table td, .table-wrap table th { vertical-align: top; }
+  html.light-theme .fld input, html.light-theme .fld textarea, html.light-theme .pub input { background: #fff; border-color: #8a94a3; color: var(--admin-text); }
+  html.light-theme .btnlink { background: #eef0f3; }
+  html.light-theme .link-btn { background: none !important; }
+  .pr-filter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+  .pr-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .pr-card h2 { font-size: 15px; margin: 0 0 4px; }
+  .pr-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .pr-card dt { color: var(--admin-muted); } .pr-card dd { margin: 0; overflow-wrap: anywhere; }
+  .pr-card a { color: var(--admin-accent); }
+  .pr-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+  .pr-form .fld { min-width: 180px; flex: 1; }
+  .pr-form select { min-height: 38px; }
+  @media (max-width: 640px) { .pub input { min-width: 0; width: 100%; } .pr-card dl { grid-template-columns: 1fr; } .pr-card dt { margin-top: 6px; } }
+  /* grieviq-46: Subscriptions */
+  .sb-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .sb-card.s-GRACE, .sb-card.s-DUE_SOON { border-left: 4px solid #c98a00; }
+  .sb-card.s-PAUSED, .sb-card.s-ENDED { border-left: 4px solid var(--admin-danger); }
+  .sb-card.s-ACTIVE, .sb-card.s-COMPLIMENTARY { border-left: 4px solid #2f9e5b; }
+  .sb-card h3 { font-size: 15px; margin: 0 0 4px; }
+  .sb-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .sb-card dt { color: var(--admin-muted); } .sb-card dd { margin: 0; overflow-wrap: anywhere; }
+  .sb-card details { margin-top: 8px; } .sb-card summary { cursor: pointer; font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+  .sb-forms { display: grid; gap: 12px; margin-top: 10px; }
+  .sb-forms .bl-row { margin: 0; }
+  .sb-hist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .sb-hist li { margin: 3px 0; }
+  .sb-set { font-size: 14px; margin: 0 0 12px; }
+  @media (max-width: 640px) { .sb-card dl { grid-template-columns: 1fr; } .sb-card dt { margin-top: 6px; } }
+  /* grieviq-41: Bills */
+  .bl-new { border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; margin: 0 0 20px; }
+  .bl-new h2 { font-size: 16px; margin: 0 0 8px; }
+  .bl-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 8px 0; }
+  .bl-row .fld { min-width: 200px; flex: 1; }
+  .bl-row .fld.short { flex: 0 1 160px; min-width: 140px; }
+  .bl-row select, .fld select { min-height: 38px; width: 100%; }
+  .bl-found { list-style: none; margin: 6px 0; padding: 0; } .bl-found li { margin: 2px 0; }
+  .bl-found label { font-size: 14px; }
+  .bl-quote { font-weight: 600; font-size: 14px; margin: 10px 0; }
+  .bl-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .bl-card.st-REPORTED { border-left: 4px solid #c98a00; }
+  .bl-card.st-PAID { border-left: 4px solid #2f9e5b; }
+  .bl-card.st-CANCELLED { opacity: 1; border-style: dashed; }
+  .bl-card h3 { font-size: 15px; margin: 0 0 4px; }
+  .bl-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .bl-card dt { color: var(--admin-muted); } .bl-card dd { margin: 0; overflow-wrap: anywhere; }
+  .bl-pay { border-top: 1px solid var(--admin-border); margin-top: 10px; padding-top: 10px; }
+  .bl-pay h4 { margin: 0 0 6px; font-size: 14px; }
+  .warnline { border-left: 3px solid #c98a00; padding-left: 8px; font-size: 13px; }
+  .overdue { font-weight: 700; }
+  .ferr { font-size: 13px; font-weight: 600; color: var(--admin-text); border-left: 3px solid var(--admin-danger); padding-left: 8px; }
+  .fld input[aria-invalid=true], .fld select[aria-invalid=true] { border: 2px solid var(--admin-danger); }
+  @media (max-width: 640px) { .bl-card dl { grid-template-columns: 1fr; } .bl-card dt { margin-top: 6px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a> <a href="/admin-site-settings.html" data-i18n="adm.nav_site_settings">Prices &amp; site details</a> <a href="/admin-subscriptions.html" data-i18n="adm.nav_subscriptions" class="active" aria-current="page">Subscriptions</a> <a href="/admin-bills.html" data-i18n="adm.nav_bills">Bills</a> <a href="/admin-pilot-requests.html" data-i18n="adm.nav_pilot_requests">Pilot requests</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main class="ss-main">
+  <h1><span data-i18n="adm.nav_subscriptions">Subscriptions</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
+  <p class="subtitle" data-i18n="adm.sb_sub">Every office that can use GrievIQ, and its plan: pilot, paid up to, due soon, grace, paused or ended.</p>
+  <div class="note" data-i18n-html="adm.sb_note"><b>Citizens are never affected:</b> complaints are filed, delivered and moved up on time whatever an office's plan. A paused office can still see its complaints and pay; it can't act on them. The same rules apply to every party, and every change needs a reason that the auditor can see.</div>
+  <p class="sb-set" id="sb-set"></p>
+  <div id="sb-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
+  <div class="pr-filter" role="group" aria-labelledby="sb-filter-l" id="sb-filter"></div>
+  <div class="bl-row"><div class="fld"><label for="sb-q" data-i18n="adm.sb_search">Search by office name</label><input type="search" id="sb-q" autocomplete="off" maxlength="60"></div></div>
+  <div id="sb-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
+</main>
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function hi() { return window.GIQ && GIQ.lang === "hi"; }
+function timeText(s) { if (!s) return ""; var d = new Date(s); return isNaN(d) ? s : d.toLocaleString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
+function dateText(s) { if (!s) return "—"; var d = new Date(s + "T00:00:00+05:30"); return isNaN(d) ? s : d.toLocaleDateString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
+function rupees(n) { return n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"); }
+var SB = { data: null, err: null, filter: "attention", q: "", open: {} };
+var FILTERS = [["attention", "adm.sb_f_attention"], ["all", "adm.bl_f_all"], ["PILOT", "adm.sb_st_PILOT"], ["ACTIVE", "adm.sb_st_ACTIVE"], ["DUE_SOON", "adm.sb_st_DUE_SOON"], ["GRACE", "adm.sb_st_GRACE"], ["PAUSED", "adm.sb_st_PAUSED"], ["ENDED", "adm.sb_st_ENDED"]];
+function needsAttention(o) { return o.status === "DUE_SOON" || o.status === "GRACE" || o.status === "PAUSED" || o.pilotEnding; }
+function planName(id) { var p = (SB.data.plans || []).find(function (x) { return x.id === id; }); return p ? (hi() ? p.nameHi : p.nameEn) : (id ? id : T("adm.sb_no_plan")); }
+function statusLine(o) {
+  if (o.status === "PILOT") return T(o.pilotEnding ? "adm.sb_l_pilot_ending" : "adm.sb_l_pilot", { date: dateText(o.until) });
+  if (o.status === "ACTIVE" || o.status === "DUE_SOON") return T("adm.sb_l_paid", { date: dateText(o.until) });
+  if (o.status === "COMPLIMENTARY") return T("adm.sb_l_comp", { date: dateText(o.until) });
+  if (o.status === "GRACE") return T("adm.sb_l_grace", { date: dateText(o.graceUntil) });
+  if (o.status === "PAUSED") return o.byAdmin ? T("adm.sb_l_paused_admin", { reason: o.reason }) : T("adm.sb_l_paused");
+  return T("adm.sb_l_ended", { reason: o.reason });
+}
+function renderFilter() {
+  var c = SB.data.counts || {};
+  document.getElementById("sb-filter").innerHTML = '<span id="sb-filter-l" class="muted">' + esc(T("adm.pr_show")) + "</span>" + FILTERS.map(function (x) {
+    var n = x[0] === "attention" ? (c.ATTENTION || 0) : x[0] === "all" ? null : (c[x[0]] || 0);
+    return '<span class="ropt"><input type="radio" name="sbf" id="sbf-' + x[0] + '" value="' + x[0] + '"' + (SB.filter === x[0] ? " checked" : "") + '><label for="sbf-' + x[0] + '">' + esc(T(x[1])) + (n != null ? " (" + n + ")" : "") + "</label></span>";
+  }).join("");
+  document.querySelectorAll('input[name="sbf"]').forEach(function (r) { r.addEventListener("change", function () { SB.filter = r.value; renderList(); }); });
+  var s = SB.data.settings;
+  document.getElementById("sb-set").textContent = T("adm.sb_settings", { r: s.reminderDays, g: s.graceDays, d: dateText(s.defaultPilotEnd) });
+}
+function renderList() {
+  var app = document.getElementById("sb-app");
+  if (SB.err) { app.innerHTML = '<p class="muted">' + esc(SB.err()) + "</p>"; return; }
+  if (!SB.data) return;
+  document.getElementById("readonly-tag").hidden = SB.data.canManage;
+  if (!SB.data.ready) { app.innerHTML = '<p class="muted">' + esc(T("adm.sb_not_ready")) + "</p>"; return; }
+  renderFilter();
+  var q = SB.q.trim().toLowerCase();
+  var list = SB.data.offices.filter(function (o) {
+    if (q && o.name.toLowerCase().indexOf(q) < 0) return false;
+    return SB.filter === "all" || (SB.filter === "attention" ? needsAttention(o) : o.status === SB.filter);
+  });
+  if (!list.length) { app.innerHTML = '<p class="muted" id="sb-none">' + esc(T("adm.sb_none")) + "</p>"; return; }
+  app.innerHTML = list.map(function (o) {
+    var k = o.key, p = "sb-" + k.replace(/[^a-zA-Z0-9]/g, "-");
+    var h = '<article class="sb-card s-' + o.status + '" aria-labelledby="' + p + '-h"><h3 id="' + p + '-h">' + esc(o.name) + " · " + esc(T("adm.bl_lbl_" + o.label.replace(/\s+/g, "_"))) +
+      ' <span class="badge">' + esc(T("adm.sb_st_" + o.status)) + "</span></h3>" +
+      "<p>" + esc(statusLine(o)) + "</p>" +
+      "<dl><dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + esc(planName(o.planId)) + "</dd>" +
+      "<dt>" + esc(T("adm.sb_pilot")) + "</dt><dd>" + esc(o.pilotStart ? T("adm.bl_range", { from: dateText(o.pilotStart), to: dateText(o.pilotEnd) }) : T("adm.sb_until", { date: dateText(o.pilotEnd) })) + "</dd>" +
+      "<dt>" + esc(T("adm.sb_paid")) + "</dt><dd>" + esc(o.paidThrough ? dateText(o.paidThrough) : "—") + "</dd>" +
+      (o.type === "DEPT" ? "<dt>" + esc(T("adm.sb_comp")) + "</dt><dd>" + esc(o.complimentaryUntil ? dateText(o.complimentaryUntil) : "—") + "</dd>" : "") +
+      "<dt>" + esc(T("adm.sb_last_bill")) + "</dt><dd>" + (o.lastBill ? esc(o.lastBill.ref + " · " + rupees(o.lastBill.total) + " · " + T(o.lastBill.waiting ? "adm.bl_st_WAITING" : "adm.bl_st_" + o.lastBill.status)) : "—") + "</dd></dl>";
+    h += '<details data-key="' + esc(k) + '"' + (SB.open[k] ? " open" : "") + "><summary>" + esc(T(SB.data.canManage ? "adm.sb_change" : "adm.sb_history")) + "</summary>";
+    if (SB.data.canManage) {
+      h += '<div class="sb-forms">' +
+        '<div class="fld"><label for="' + p + '-r">' + esc(T("adm.sb_reason")) + '</label><span class="hint" id="' + p + '-rh">' + esc(T("adm.sb_reason_h")) + '</span><input type="text" id="' + p + '-r" maxlength="300" autocomplete="off" aria-describedby="' + p + '-rh"></div>' +
+        '<div class="bl-row"><div class="fld short"><label for="' + p + '-ps">' + esc(T("adm.sb_pilot_start")) + '</label><input type="date" id="' + p + '-ps" value="' + esc(o.pilotStart || "") + '"></div>' +
+        '<div class="fld short"><label for="' + p + '-pe">' + esc(T("adm.sb_pilot_end")) + '</label><input type="date" id="' + p + '-pe" value="' + esc(o.pilotEnd || "") + '"></div>' +
+        '<button type="button" data-act="set_pilot">' + esc(T("adm.sb_save_pilot")) + "</button></div>" +
+        '<div class="bl-row"><div class="fld"><label for="' + p + '-pl">' + esc(T("adm.sb_plan_for_bills")) + '</label><select id="' + p + '-pl"><option value="">' + esc(T("adm.bl_plan_pick")) + "</option>" +
+          SB.data.plans.map(function (pl) { return '<option value="' + esc(pl.id) + '"' + (pl.id === o.planId ? " selected" : "") + ">" + esc(hi() ? pl.nameHi : pl.nameEn) + "</option>"; }).join("") + "</select></div>" +
+        '<button type="button" data-act="set_plan">' + esc(T("adm.sb_save_plan")) + "</button></div>" +
+        '<div class="bl-row"><div class="fld short"><label for="' + p + '-d">' + esc(T("adm.sb_extend_days")) + '</label><input type="number" id="' + p + '-d" min="1" max="366" step="1" inputmode="numeric"></div>' +
+        '<button type="button" data-act="extend">' + esc(T("adm.sb_extend")) + "</button></div>" +
+        (o.type === "DEPT" ? '<div class="bl-row"><div class="fld short"><label for="' + p + '-c">' + esc(T("adm.sb_comp_until")) + '</label><input type="date" id="' + p + '-c" value="' + esc(o.complimentaryUntil || "") + '"></div>' +
+          '<button type="button" data-act="complimentary">' + esc(T("adm.sb_save_comp")) + "</button></div>" : "") +
+        '<div class="acts">' + (o.byAdmin ? '<button type="button" data-act="resume">' + esc(T("adm.sb_resume")) + "</button>" : '<button type="button" class="danger" data-act="pause">' + esc(T("adm.sb_pause")) + "</button>") +
+        (o.status === "ENDED" ? '<button type="button" data-act="reopen">' + esc(T("adm.sb_reopen")) + "</button>" : '<button type="button" class="danger" data-act="end">' + esc(T("adm.sb_end")) + "</button>") + "</div></div>";
+    }
+    h += '<div class="sb-hist-box"><button type="button" data-hist="1">' + esc(T("adm.sb_show_history")) + '</button><ul class="sb-hist" hidden></ul></div></details>' +
+      '<p class="row-msg" role="status" aria-live="polite"></p></article>';
+    return h;
+  }).join("");
+  app.querySelectorAll("details[data-key]").forEach(function (d) {
+    var k = d.getAttribute("data-key"), o = SB.data.offices.find(function (x) { return x.key === k; }), p = "sb-" + k.replace(/[^a-zA-Z0-9]/g, "-");
+    d.addEventListener("toggle", function () { SB.open[k] = d.open; });
+    d.querySelectorAll("[data-act]").forEach(function (b) { b.addEventListener("click", function () { act(o, p, b.getAttribute("data-act"), b); }); });
+    d.querySelector("[data-hist]").addEventListener("click", function () { history(k, d); });
+  });
+}
+async function act(o, p, action, btn) {
+  var card = btn.closest(".sb-card"), m = card.querySelector(".row-msg"), r = document.getElementById(p + "-r");
+  var body = { action: action, type: o.type, tier: o.tier, id: o.id, reason: r.value };
+  if (action === "set_pilot") { body.start = document.getElementById(p + "-ps").value; body.end = document.getElementById(p + "-pe").value; }
+  if (action === "set_plan") body.planId = document.getElementById(p + "-pl").value;
+  if (action === "extend") body.days = Number(document.getElementById(p + "-d").value);
+  if (action === "complimentary") body.until = document.getElementById(p + "-c").value;
+  if ((action === "pause" || action === "end") && !confirm(T(action === "pause" ? "adm.sb_pause_q" : "adm.sb_end_q", { name: o.name }))) return;
+  r.removeAttribute("aria-invalid");
+  btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
+  try {
+    var res = await fetch("/api/admin/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    var d = await res.json(); btn.disabled = false;
+    if (res.status === 400 && d.fields) {
+      var f = Object.keys(d.fields)[0];
+      m.className = "row-msg error"; m.textContent = T("adm.sb_e_" + f + "_" + d.fields[f]);
+      var el = f === "reason" ? r : f === "start" ? document.getElementById(p + "-ps") : f === "end" ? document.getElementById(p + "-pe") : f === "planId" ? document.getElementById(p + "-pl") : f === "days" ? document.getElementById(p + "-d") : document.getElementById(p + "-c");
+      if (el) { el.setAttribute("aria-invalid", "true"); el.focus(); }
+      return;
+    }
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T("adm.ss_e_generic"); return; }
+    SB.open[o.key] = true;
+    await load();
+    var mm = document.getElementById("sb-msg"); mm.className = "st-msg success"; mm.textContent = T("adm.sb_saved", { name: o.name, st: T("adm.sb_st_" + d.status) }); mm.focus();
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
+}
+async function history(k, d) {
+  var ul = d.querySelector(".sb-hist");
+  try {
+    var res = await fetch("/api/admin/subscriptions?key=" + encodeURIComponent(k)); var j = await res.json();
+    ul.hidden = false;
+    ul.innerHTML = (j.history || []).length ? j.history.map(function (h) { return "<li>" + esc(timeText(h.at)) + " · " + esc(h.actor) + " · " + esc(T("adm.sb_a_" + h.action)) + (h.detail && h.detail.reason ? " · " + esc(h.detail.reason) : "") + "</li>"; }).join("") : "<li>" + esc(T("adm.sb_no_history")) + "</li>";
+  } catch (e) { ul.hidden = false; ul.innerHTML = "<li>" + esc(T("adm.ss_e_net")) + "</li>"; }
+}
+async function load() {
+  try {
+    var res = await fetch("/api/admin/subscriptions"); var d = await res.json();
+    if (!res.ok) { SB.err = function () { return d.error === "NOT_ADMIN" || d.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load"); }; renderList(); return; }
+    SB.err = null; SB.data = d; renderList();
+  } catch (e) { SB.err = function () { return T("adm.ss_e_load"); }; renderList(); }
+}
+document.getElementById("sb-q").addEventListener("input", function (e) { SB.q = e.target.value; renderList(); });
+function applyTheme(theme) { document.documentElement.classList.toggle("light-theme", theme === "light"); document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light"); }
+var savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", function () {
+  var cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (SB.data) renderList(); });
+load();
+</script>
+</body>
+</html>

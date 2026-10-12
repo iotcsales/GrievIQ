@@ -11,7 +11,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.d_page_title">Dashboard — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=45"></script><script src="/giq-charts.js?v=3"></script><script src="/admin-nav.js?v=r12"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=46"></script><script src="/giq-charts.js?v=3"></script><script src="/admin-nav.js?v=r13"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -426,6 +426,7 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     const L = data.links || {};
     return '<div class="cards">' +
       card(fileable, total, T("adm.d_c_filing"), T("adm.d_c_filing_h"), "/admin-jurisdiction.html", L.jurisdiction) +
+      (data.subs ? card(data.subs.ATTENTION || 0, null, T("adm.d_c_subs"), T("adm.d_c_subs_h", { due: data.subs.DUE_SOON || 0, grace: data.subs.GRACE || 0, paused: data.subs.PAUSED || 0, pilot: data.subs.PILOT_ENDING || 0 }), "/admin-subscriptions.html", true) : "") +
       card(data.needsAttentionTotal, null, T("adm.d_c_attention"), T("adm.d_c_attention_h"), "/admin-exceptions.html", L.exceptions) +
       card(data.pendingReviews, null, T("adm.d_c_reviews"), T("adm.d_c_reviews_h"), "/admin-reviews.html", L.reviews) +
       card(boundaries, total, T("adm.d_c_bounds"), T("adm.d_c_bounds_h"), "/admin-import-wards.html", L.wardBoundaries) +
@@ -752,6 +753,8 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
         return;
       }
       data = body;
+      // grieviq-46: subscriptions needing attention (for roles that can see them).
+      if (["super_admin", "operations_admin", "auditor"].includes(data.role)) try { const sr = await fetch("/api/admin/subscriptions?summary=1"); if (sr.ok) { const sj = await sr.json(); if (sj.ready) data.subs = sj.counts; } } catch (e) { /* tile left out */ }
       render();
     } catch (err) {
       document.getElementById("updated-at").textContent = "";

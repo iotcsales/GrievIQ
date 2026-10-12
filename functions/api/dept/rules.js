@@ -9,7 +9,7 @@ import { RULES_VERSION, rulesPending } from "../../_shared/dept-rules.js";
 const json = (b, s) => Response.json(b, { status: s || 200, headers: { "Cache-Control": "no-store" } });
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedOfficer(request, env, { allowRules: true });
+  const auth = await getVerifiedOfficer(request, env, { allowRules: true, allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const o = auth.officer;
   return json({ version: RULES_VERSION, pending: rulesPending(o),
@@ -17,7 +17,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedOfficer(request, env, { allowRules: true });
+  const auth = await getVerifiedOfficer(request, env, { allowRules: true, allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   let b; try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
   if (String(b.version || "") !== RULES_VERSION) return json({ error: "The rules have changed. Please read them again.", code: "VERSION" }, 409);

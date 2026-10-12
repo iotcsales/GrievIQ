@@ -33,7 +33,7 @@ async function load(env, auth, aid) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   try {
     const d = await load(env, auth, new URL(request.url).searchParams.get("id"));
@@ -47,7 +47,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }

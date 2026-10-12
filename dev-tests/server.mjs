@@ -122,6 +122,12 @@ http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost:" + port);
     const chunks = []; for await (const c of req) chunks.push(c);
     const body = chunks.length ? Buffer.concat(chunks) : null;
+    // Test only: run the hourly job's subscriptions part now (grieviq-46).
+    if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);
+      const out = await m.runSubscriptions(env, "http://localhost:" + port, Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
     if (url.pathname.startsWith("/api/")) {
       const hit = findFunction(url.pathname.slice(1).split("/").filter(Boolean));
       if (!hit) { res.writeHead(404); return res.end("no function"); }

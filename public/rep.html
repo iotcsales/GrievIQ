@@ -21,8 +21,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=45"></script>
-<script src="/guide-content.js?v=41"></script>
+<script src="/i18n.js?v=46"></script>
+<script src="/guide-content.js?v=42"></script>
 <script src="/guide.js?v=40"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -820,6 +820,13 @@
     .case-actions:empty { display: none; }
   }
   /* grieviq-38: first-time welcome */
+  /* grieviq-46: the office's plan (due, grace, paused) */
+  .plan-note { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); border-left: 4px solid var(--gold); background: var(--gold-tint); color: var(--ink); font-size: 14px; line-height: 1.55; }
+  .plan-note.paused { border-left-color: var(--red); background: var(--red-tint); }
+  .plan-note p { margin: 0; }
+  .plan-note p + p { margin-top: 6px; }
+  .plan-note .plan-pay { margin-top: 8px; font: inherit; font-weight: 700; color: var(--brand); background: var(--card); border: 2px solid var(--brand); border-radius: 8px; padding: 6px 14px; cursor: pointer; min-height: 36px; }
+  .plan-note .plan-pay:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
   .welcome-card { margin: 0 0 16px; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--brand); background: var(--brand-tint); color: var(--ink); }
   .welcome-card h2 { margin: 0 0 6px; font-size: 18px; font-family: "Source Serif 4", Georgia, serif; }
   .welcome-card p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; }
@@ -1072,7 +1079,7 @@ function renderResolveControl(c) {
   // waiting, the representative or office manager decides it.
   var isFW = c.myRole === 'FIELD_WORKER';
   // Item 8c-1: an office assistant only looks (the fix report, if any, still shows).
-  if (c.viewOnly) return c.pendingReport ? renderReviewBlock(c) : '';
+  if (c.viewOnly) return (c.officePaused ? '<p class="team-note">' + esc(T('rep.plan_case_paused')) + '</p>' : '') + (c.pendingReport ? renderReviewBlock(c) : '');
   if (c.pendingReport) return isFW ? '<p class="team-note">' + esc(T('rep.fw_waiting')) + '</p>' : renderReviewBlock(c);
   // Departments stage 3: once a department says the work is done, this form
   // is the field check (what the team found on site, with photos); once any
@@ -3150,6 +3157,34 @@ function welcomeCard() {
     '<p><button type="button" class="guide-ctx" id="welcome-guide" data-guide="rep">' + esc(T('guide.read_2min')) + '</button></p>' +
     '<button type="button" class="welcome-go" id="welcome-go">' + esc(T('rep.wel_close')) + '</button></section>';
 }
+// grieviq-46: a slim note per office when its plan needs attention. The
+// representative and office manager see dates and can go to Billing; the
+// rest of the team only learns that the office is view only.
+function planDate(d) { return dcDate(d); }
+function planNotes() {
+  var out = '', payBtn = false;
+  myMandates().forEach(function(m) {
+    var s = m.sub; if (!s) return;
+    var office = m.name || m.label || '', bills = (m.role || 'REPRESENTATIVE') === 'REPRESENTATIVE' || m.role === 'OFFICE_MANAGER';
+    var msg = '', paused = false;
+    if (s.status === 'PAUSED') {
+      paused = true;
+      msg = '<p><b>' + esc(T('rep.plan_paused_t', { office: office })) + '</b></p><p>' + esc(T('rep.plan_paused_b')) + '</p>' +
+        (bills ? (s.byAdmin ? '<p>' + esc(T('rep.plan_paused_admin')) + '</p>' : '') : '<p>' + esc(T('rep.plan_paused_ask')) + '</p>');
+    } else if (bills && s.status === 'GRACE') {
+      msg = '<p><b>' + esc(T('rep.plan_grace_t', { office: office, date: planDate(s.until) })) + '</b></p><p>' + esc(T('rep.plan_grace_b', { date: planDate(s.graceUntil) })) + '</p>';
+    } else if (bills && s.status === 'DUE_SOON') {
+      msg = '<p>' + esc(T('rep.plan_due', { office: office, date: planDate(s.until) })) + '</p>';
+    } else if (bills && s.status === 'PILOT' && s.until && s.until >= istToday() && (Date.parse(s.until) - Date.parse(istToday())) / 86400000 < 14) {
+      msg = '<p>' + esc(T('rep.plan_pilot_end', { office: office, date: planDate(s.until) })) + '</p>';
+    }
+    if (!msg) return;
+    var pay = bills && s.status !== 'PILOT' && !(s.status === 'PAUSED' && s.byAdmin) && billingOffices().length;
+    out += '<section class="plan-note no-print' + (paused ? ' paused' : '') + '" role="note">' + msg +
+      (pay ? '<button type="button" class="plan-pay" data-plan-pay>' + esc(T(s.status === 'DUE_SOON' ? 'rep.plan_open' : 'rep.plan_pay')) + '</button>' : '') + '</section>';
+  });
+  return out;
+}
 function renderShell() {
   document.getElementById('app').innerHTML =
     '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
@@ -3173,7 +3208,7 @@ function renderShell() {
       (hasAuditTab() ? '<button type="button" class="tab-btn" data-tab="audit">' + auditTabLabel() + '</button>' : '') +
       (billingOffices().length ? '<button type="button" class="tab-btn" data-tab="billing">' + esc(T('rep.tab_billing')) + '</button>' : '') +
     '</div>' +
-    '<main>' + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
+    '<main>' + planNotes() + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
   if (window.GIQGuide) window.GIQGuide.setRoles('rep', myMandates().map(function(m) { return m.role || 'REPRESENTATIVE'; }));
   if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
@@ -3183,6 +3218,9 @@ function renderShell() {
   updateSummary();
   updateTabs();
   if (window.GIQN) window.GIQN.mount();   // the notification bell (rep-notify.js)
+  document.querySelectorAll('[data-plan-pay]').forEach(function(b) {
+    b.addEventListener('click', function() { var t = document.querySelector('.tab-btn[data-tab="billing"]'); if (t) { t.click(); t.focus(); } });
+  });
   var wGo = document.getElementById('welcome-go');
   if (wGo) wGo.addEventListener('click', function() {
     try { localStorage.setItem(welcomeKey(), '1'); } catch (e) {}

@@ -19,6 +19,8 @@ export async function onRequestGet({ request, env }) {
   return Response.json({
     me: { name: o.name, designation: o.designation, email: o.email },
     office: { id: o.office_id, nameEn: o.office_name_en, nameHi: o.office_name_hi || null, departments, areaName: area ? area.name : null },
+    // grieviq-46: the office's plan (dates shown to its officers).
+    sub: o.sub ? { status: o.sub.status, until: o.sub.until || null, graceUntil: o.sub.graceUntil || null, byAdmin: !!o.sub.byAdmin } : null,
     deptNames: namesOf(types), departments: types.filter((t) => !t.retired).map((t) => t.key),
     tiles: list.tiles, cases: list.cases,
   }, { headers: { "Cache-Control": "no-store" } });

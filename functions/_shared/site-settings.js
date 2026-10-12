@@ -66,6 +66,9 @@ export const DEFAULTS = {
   // officers on their bills. `pending` is set by the server only (see
   // settlePayments): new or changed details wait 24 hours.
   payments: { methods: [], pending: null },
+  // grieviq-46: office subscriptions. Offices already using GrievIQ when
+  // this was installed are pilots until defaultPilotEnd.
+  subscriptions: { reminderDays: 7, graceDays: 7, defaultPilotEnd: "2026-12-31" },
 };
 
 export const LIMITS = { plans: 20, offers: 10, price: 100000000, payMethods: 6 };
@@ -248,6 +251,15 @@ export function cleanSettings(raw) {
     else if (out.claims.auditedOn > istToday()) f["claims.auditedOn"] = "FUTURE";
     if (!out.claims.auditedBy) f["claims.auditedBy"] = "REQUIRED";
   }
+  // Subscriptions (grieviq-46)
+  const sb = r.subscriptions || {};
+  const rd = Number(sb.reminderDays), gd = Number(sb.graceDays);
+  out.subscriptions = { reminderDays: 7, graceDays: 7, defaultPilotEnd: "2026-12-31" };
+  if (!(Number.isInteger(rd) && rd >= 1 && rd <= 30)) f["subscriptions.reminderDays"] = "RANGE"; else out.subscriptions.reminderDays = rd;
+  if (!(Number.isInteger(gd) && gd >= 0 && gd <= 30)) f["subscriptions.graceDays"] = "RANGE"; else out.subscriptions.graceDays = gd;
+  const dpe = str(sb.defaultPilotEnd, 10);
+  if (!realDate(dpe)) f["subscriptions.defaultPilotEnd"] = "DATE"; else out.subscriptions.defaultPilotEnd = dpe;
+
   // Payment details (grieviq-41)
   const pm = r.payments && Array.isArray(r.payments.methods) ? r.payments.methods : [];
   if (pm.length > LIMITS.payMethods) f["payments"] = "TOO_MANY";

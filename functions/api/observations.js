@@ -58,7 +58,7 @@ async function amendmentsFor(env, ids) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const offices = answerableOffices(auth);
   const keys = offices.map((x) => x.key);
@@ -100,7 +100,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }

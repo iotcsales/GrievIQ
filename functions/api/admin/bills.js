@@ -16,7 +16,8 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
-import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE } from "../../_shared/billing.js";
+import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, hasDraftColumns } from "../../_shared/billing.js";
+import { applyPayment } from "../../_shared/subscriptions.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -68,14 +69,17 @@ export async function onRequestGet({ request, env }) {
   }
 
   const status = url.searchParams.get("status");
-  const where = ["DUE", "REPORTED", "PAID", "CANCELLED"].includes(status) ? " WHERE status = ?" : "";
+  const drafts = await hasDraftColumns(env);
+  const where = status === "WAITING" && drafts ? " WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL"
+    : ["DUE", "REPORTED", "PAID", "CANCELLED"].includes(status) ? " WHERE status = ?" : "";
   const st = env.DB.prepare("SELECT * FROM bills" + where + " ORDER BY issued_at DESC LIMIT 300");
-  const { results } = await (where ? st.bind(status) : st).all();
+  const { results } = await (where && status !== "WAITING" ? st.bind(status) : st).all();
   const bills = results || [];
   const pays = await paymentsFor(env, bills.map((b) => b.id));
   const counts = {};
   const { results: cr } = await env.DB.prepare("SELECT status, COUNT(*) AS n FROM bills GROUP BY status").all();
   for (const r of cr || []) counts[r.status] = r.n;
+  if (drafts) { const w = await env.DB.prepare("SELECT COUNT(*) AS n FROM bills WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL").first(); counts.WAITING = w ? w.n : 0; }
   return json({
     ready: true, canManage, today, gstRate: live.data.gst.rate, settingsVersion: live.version,
     plans: billablePlans(live.data), counts,
@@ -142,6 +146,19 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true, id, ref, total: q.total, emailed });
   }
 
+  // grieviq-46: a bill made by the hourly job is sent to the office here.
+  if (b.action === "send") {
+    const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(String(b.id || "")).first();
+    if (!bill) return json({ error: "NOT_FOUND" }, 404);
+    if (!(await hasDraftColumns(env)) || !bill.auto || bill.sent_at) return json({ error: "ALREADY_SENT" }, 409);
+    if (bill.status !== "DUE") return json({ error: "NOT_OPEN" }, 409);
+    await env.DB.prepare("UPDATE bills SET sent_at = ? WHERE id = ? AND sent_at IS NULL").bind(now, bill.id).run();
+    await logBill(env, bill.id, auth.email, "SENT", null);
+    await adminLog(env, auth.email, "bill_sent", bill.ref, { office: bill.office_name, total: bill.total });
+    const emailed = await emailOffice(env, origin, bill, "ISSUED");
+    return json({ ok: true, emailed });
+  }
+
   if (b.action === "cancel") {
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(String(b.id || "")).first();
     if (!bill) return json({ error: "NOT_FOUND" }, 404);
@@ -167,6 +184,8 @@ export async function onRequestPost({ request, env }) {
         env.DB.prepare("UPDATE bills SET status = 'PAID', paid_at = ?, paid_checked_by = ? WHERE id = ?").bind(now, auth.email, bill.id),
       ]);
       await logBill(env, bill.id, auth.email, "PAYMENT_CONFIRMED", { payment: p.id, utr: p.utr, amount: p.amount });
+      // grieviq-46: the office is paid up to the end of this bill's period.
+      try { await applyPayment(env, bill, auth.email); } catch (e) { /* bill is paid either way */ }
       await adminLog(env, auth.email, "bill_payment_confirmed", bill.ref, { amount: p.amount, utrEnds: p.utr.slice(-4) });
       await emailOffice(env, origin, bill, "CONFIRMED");
       return json({ ok: true, status: "PAID" });

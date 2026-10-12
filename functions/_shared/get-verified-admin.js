@@ -113,6 +113,9 @@ export const PERMISSIONS = {
   manage_bills: ["super_admin", "operations_admin"],
   // grieviq-45: web addresses where a copy of GrievIQ was seen.
   view_copies: ["super_admin", "auditor"],
+  // grieviq-46: office subscriptions (pilot dates, paid-up date, pause, end).
+  view_subscriptions: ["super_admin", "operations_admin", "auditor"],
+  manage_subscriptions: ["super_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -144,6 +147,7 @@ export const PAGES = {
   "admin-pilot-requests": "view_pilot_requests",   // grieviq-39
   "admin-bills": "view_bills",                     // grieviq-41
   "admin-copies": "view_copies",                   // grieviq-45
+  "admin-subscriptions": "view_subscriptions",     // grieviq-46
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

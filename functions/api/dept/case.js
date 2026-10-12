@@ -11,5 +11,8 @@ export async function onRequestGet({ request, env }) {
   const g = id ? await officerMaySee(env, auth.officer, id) : null;
   if (!g) return Response.json({ error: "NOT_FOUND" }, { status: 404, headers: { "Cache-Control": "no-store" } });
   await logDept(env, { officerId: auth.officer.id, email: auth.officer.email, officeId: auth.officer.office_id, action: "CASE_VIEWED", grievanceId: g.id, detail: { ref: g.tracking_ref } });
-  return Response.json({ case: await officeCaseDetail(env, auth.officer, g) }, { headers: { "Cache-Control": "no-store" } });
+  const c = await officeCaseDetail(env, auth.officer, g);
+  // grieviq-46: a paused office can read the case but not reply.
+  if (auth.officer.sub && auth.officer.sub.status === "PAUSED") { c.canReply = false; c.officePaused = true; }
+  return Response.json({ case: c }, { headers: { "Cache-Control": "no-store" } });
 }

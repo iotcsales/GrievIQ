@@ -1748,7 +1748,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 8), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-audit"])):
+    for who, want in (("super@test.in", 9), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2006,6 +2006,175 @@ with sync_playwright() as pw:
     ctx, p, errs = P("ops@test.in"); p.goto(B + "/admin-copies.html"); p.wait_for_timeout(800)
     ok("does not have access" in p.inner_text("main"), "operations admin: no access to Copies")
     ctx.close()
+
+    # ---------- grieviq-46: office subscriptions ----------
+    _t46 = (_dt.datetime.utcnow() + _dt.timedelta(hours=5, minutes=30)).date()
+    D46 = lambda n: (_t46 + _dt.timedelta(days=n)).isoformat()
+    def subrow(sql, args=()):
+        d = _sq.connect(WORK + "/test.db", timeout=10); d.execute(sql, args); d.commit(); d.close()
+    r2m = api41("GET", "/api/me", email="r2@x.in")[1]["mandates"][0]
+    R2 = (r2m["tier"], r2m["id"])
+    jal = _sq.connect(WORK + "/test.db").execute("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").fetchone()[0]
+    WHY = "Checked with the office by phone"
+    # r2's office in grace, r1's office paused by the super admin, the department due soon
+    subrow("UPDATE office_subscriptions SET paid_through = ?, last_notice = NULL WHERE office_tier = ? AND office_id = ?", (D46(-3), R2[0], R2[1]))
+    st, _ = api41("POST", "/api/admin/subscriptions", {"action": "pause", "type": "REP", "tier": "LOCAL", "id": "lu-hazratganj", "reason": "Office asked for a break"}); ok(st == 200, "r1's office paused for the console tests")
+    subrow("UPDATE office_subscriptions SET paid_through = ? WHERE office_type = 'DEPT' AND office_id = ?", (D46(3), jal))
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-subscriptions.html"); p.wait_for_selector(".sb-card, #sb-none")
+                ok(p.locator(".sb-card").count() >= 3 and p.locator(".sb-card.s-PAUSED").count() >= 1 and p.locator(".sb-card.s-GRACE").count() >= 1 and p.locator(".sb-card.s-DUE_SOON").count() >= 1, "Needs attention lists paused, grace and due-soon offices " + tag)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Subscriptions page in Hindi, nothing missing " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                p.locator(".sb-card.s-GRACE details summary").first.click(); p.wait_for_timeout(100)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "change form in Hindi, nothing missing " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                ok(no_hscroll(p), "Subscriptions: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "Subscriptions contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "Subscriptions targets " + tag, small[:5])
+                shot(p, "62-subs-" + tag, full=True)
+                ok(not errs, "no script errors (subscriptions %s)" % tag, errs)
+                ctx.close()
+    # the super admin changes pilot dates from the page; a missing reason is pointed out
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-subscriptions.html"); p.wait_for_selector(".sb-card")
+    p.check("#sbf-all"); p.fill("#sb-q", r2m["name"][:6]); p.dispatch_event("#sb-q", "input"); p.wait_for_timeout(150)
+    card = p.locator(".sb-card.s-GRACE").first
+    card.locator("summary").click()
+    pre = "#sb-REP-" + R2[0] + "-" + re.sub(r"[^a-zA-Z0-9]", "-", R2[1])
+    p.fill(pre + "-ps", D46(-60)); p.fill(pre + "-pe", D46(20))
+    with p.expect_response(lambda r: "/api/admin/subscriptions" in r.url and r.request.method == "POST"): card.locator("[data-act=set_pilot]").click()
+    p.wait_for_timeout(150)
+    ok(p.evaluate("document.activeElement.id") == pre[1:] + "-r" and "reason" in p.inner_text(".sb-card .row-msg.error").lower(), "no reason: message shown and the reason box focused", p.evaluate("document.activeElement.id"))
+    p.fill(pre + "-r", WHY)
+    with p.expect_response(lambda r: "/api/admin/subscriptions" in r.url and r.request.method == "POST"): p.locator(pre.replace("#", "#") + "-r").locator("xpath=ancestor::article").locator("[data-act=set_pilot]").click()
+    p.wait_for_selector("#sb-msg.success")
+    ok(p.evaluate("document.activeElement.id") == "sb-msg" and "Saved" in p.inner_text("#sb-msg"), "pilot dates saved, message focused", p.inner_text("#sb-msg"))
+    row = _sq.connect(WORK + "/test.db").execute("SELECT pilot_start, pilot_end FROM office_subscriptions WHERE office_tier = ? AND office_id = ?", R2).fetchone()
+    ok(row == (D46(-60), D46(20)), "pilot start and end changed by the super admin", row)
+    p.locator(".sb-card [data-hist]").first.click(); p.wait_for_selector(".sb-hist li")
+    ok("Pilot dates changed" in p.inner_text(".sb-hist") and WHY in p.inner_text(".sb-hist"), "history shows the change with its reason")
+    shot(p, "63-subs-changed", full=False)
+    ok(not errs, "no script errors (subscriptions change)", errs)
+    ctx.close()
+    for who in ("ops@test.in", "audit@test.in"):
+        ctx, p, errs = P(who); p.goto(B + "/admin-subscriptions.html"); p.wait_for_selector(".sb-card")
+        ok(p.is_visible("#readonly-tag") and p.locator("[data-act]").count() == 0, "view only for " + who)
+        ctx.close()
+    ctx, p, errs = P("mod@test.in"); p.goto(B + "/admin-subscriptions.html"); p.wait_for_timeout(800)
+    ok("does not have access" in p.inner_text("main"), "moderator: no access to Subscriptions")
+    ctx.close()
+    # dashboard tile
+    ctx, p, errs = P("super@test.in"); p.goto(B + "/admin-dashboard.html"); p.wait_for_selector('a.card[href="/admin-subscriptions.html"]')
+    ok("due soon" in p.inner_text('a.card[href="/admin-subscriptions.html"]'), "dashboard: subscriptions tile")
+    ok(not errs, "no script errors (dashboard tile)", errs)
+    ctx.close()
+
+    # representative console: back in grace, then paused (unpaid), field worker of a paused office
+    subrow("UPDATE office_subscriptions SET pilot_end = ?, paid_through = ? WHERE office_tier = ? AND office_id = ?", (D46(-30), D46(-3), R2[0], R2[1]))
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (375, 1280):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_cookies([{"name": "test_email", "value": "r2@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('giq-welcome-r2@x.in','1')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/rep"); p.wait_for_selector(".tab-btn", timeout=15000)
+                ok(p.locator(".plan-note").count() == 1 and p.locator(".plan-note.paused").count() == 0 and p.locator("[data-plan-pay]").count() == 1, "grace note with Pay " + tag)
+                txt = p.inner_text(".plan-note")
+                if lang == "en": ok("ended on" in txt and "Everything keeps working until" in txt, "grace wording " + tag, txt)
+                else: ok(not re.findall(r"rep\.\w+", txt) and "तक सब कुछ चलता रहेगा" in txt, "grace note in Hindi " + tag, txt)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "rep plan note contrast AA " + tag, bad[:5])
+                ok(no_hscroll(p), "rep plan note: no sideways scroll " + tag)
+                if width == 375: shot(p, "64-rep-grace-" + tag, full=False)
+                ok(not errs, "no script errors (rep grace %s)" % tag, errs)
+                ctx.close()
+    subrow("UPDATE office_subscriptions SET paid_through = ? WHERE office_tier = ? AND office_id = ?", (D46(-20), R2[0], R2[1]))
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme, lang)
+            ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+            ctx.add_cookies([{"name": "test_email", "value": "r2@x.in", "url": B}])
+            ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('giq-welcome-r2@x.in','1')}catch(e){}" % (LANGKEY, lang))
+            p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+            p.goto(B + "/rep"); p.wait_for_selector(".plan-note.paused", timeout=15000)
+            txt = p.inner_text(".plan-note")
+            if lang == "en": ok("paused (view only)" in txt and "move up to the next level on time" in txt, "paused wording " + tag, txt)
+            else: ok(not re.findall(r"rep\.\w+", txt) and "केवल देखना" in txt, "paused note in Hindi " + tag, txt)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "paused note contrast AA " + tag, bad[:5])
+            shot(p, "65-rep-paused-" + tag, full=False)
+            if lang == "en" and theme == "light":
+                p.click("[data-plan-pay]"); p.wait_for_selector("#billing-box .gb-bill, #billing-box .gb-empty, #billing-box h2", timeout=10000)
+                ok(p.evaluate("document.activeElement.getAttribute('data-tab')") == "billing" or p.locator('[data-tab="billing"].active').count() == 1, "Pay to continue opens Billing")
+            ok(not errs, "no script errors (rep paused %s)" % tag, errs)
+            ctx.close()
+    ctx = br.new_context(viewport={"width": 375, "height": 900}); ctx.add_cookies([{"name": "test_email", "value": "fw@x.in", "url": B}])
+    ctx.add_init_script("try{localStorage.setItem('giq-welcome-fw@x.in','1')}catch(e){}")
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector(".plan-note.paused", timeout=15000)
+    txt = p.inner_text(".plan-note")
+    ok("ask your representative" in txt and p.locator("[data-plan-pay]").count() == 0 and not re.search(r"\d{4}", txt), "field worker: paused, ask your office (no dates, no Pay)", txt)
+    ok(not errs, "no script errors (field worker paused)", errs)
+    ctx.close()
+    ctx = br.new_context(viewport={"width": 375, "height": 900}); ctx.add_cookies([{"name": "test_email", "value": "om@x.in", "url": B}])
+    ctx.add_init_script("try{localStorage.setItem('giq-welcome-om@x.in','1')}catch(e){}")
+    p = ctx.new_page(); p.goto(B + "/rep"); p.wait_for_selector(".plan-note.paused", timeout=15000)
+    ok("support@grieviq.in" in p.inner_text(".plan-note") and p.locator("[data-plan-pay]").count() == 0, "paused by GrievIQ: write to support, no Pay")
+    ctx.close()
+
+    # department dashboard: due soon, then paused (no reply)
+    for theme in ("light", "dark"):
+        ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+        ok(dept_signin(ctx) == 200, "dept signed in for plan note " + theme)
+        p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/dept"); p.wait_for_selector(".plan-note")
+        ok("paid up to" in p.inner_text(".plan-note") and p.locator("#plan-pay").count() == 1, "department: due-soon note with Billing link " + theme)
+        bad = p.evaluate(CONTRAST_JS); ok(not bad, "dept plan note contrast AA " + theme, bad[:5])
+        shot(p, "66-dept-due-" + theme, full=False)
+        ok(not errs, "no script errors (dept due %s)" % theme, errs)
+        ctx.close()
+    st, _ = api41("POST", "/api/admin/subscriptions", {"action": "pause", "type": "DEPT", "tier": "", "id": jal, "reason": "Testing the pause"}); ok(st == 200, "department office paused")
+    ctx = br.new_context(viewport={"width": 375, "height": 900})
+    ok(dept_signin(ctx) == 200, "dept signed in while paused")
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/dept"); p.wait_for_selector(".plan-note.paused")
+    ok("view only" in p.inner_text(".plan-note"), "department sees the pause")
+    if p.locator("[data-open]").count():
+        p.locator("[data-open]").first.click(); p.wait_for_selector("#case-h")
+        ok(p.locator("#f-reply").count() == 0 and "can't reply" in p.inner_text("main"), "paused: no reply form, reason shown")
+        shot(p, "67-dept-paused-case", full=False)
+    ok(not errs, "no script errors (dept paused)", errs)
+    ctx.close()
+
+    # Bills: an automatic bill waits until staff send it
+    subrow("UPDATE office_subscriptions SET pilot_end = ?, paid_through = ?, last_notice = NULL WHERE office_tier = ? AND office_id = ?", (D46(-30), D46(4), R2[0], R2[1]))
+    run = json.loads(_ur.urlopen(_ur.Request(B + "/__test/run-subscriptions", method="POST")).read())
+    ok(run.get("bills") == 1, "hourly job made the next bill", run)
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme, lang)
+            ctx, p, errs = P("super@test.in", theme=theme, lang=lang, width=375 if lang == "hi" else 1280)
+            p.goto(B + "/admin-bills.html"); p.wait_for_selector("#blf-WAITING")
+            p.check("#blf-WAITING"); p.wait_for_selector(".bl-card.st-WAITING")
+            ok(p.locator(".bl-card.st-WAITING [data-send]").count() == 1, "waiting bill with Send " + tag)
+            if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Bills in Hindi, nothing missing " + tag)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "waiting bill contrast AA " + tag, bad[:5])
+            shot(p, "68-bills-waiting-" + tag, full=False)
+            ok(not errs, "no script errors (bills waiting %s)" % tag, errs)
+            ctx.close()
+    ok(not any(b.get("waiting") for b in api41("GET", "/api/billing", email="r2@x.in")[1]["bills"]) and len([b for b in api41("GET", "/api/billing", email="r2@x.in")[1]["bills"] if b.get("auto") and not b.get("sentAt")]) == 0, "office doesn't see it yet")
+    ctx, p, errs = P("ops@test.in"); p.goto(B + "/admin-bills.html"); p.wait_for_selector("#blf-WAITING"); p.check("#blf-WAITING"); p.wait_for_selector("[data-send]")
+    with p.expect_response(lambda r: "/api/admin/bills" in r.url and r.request.method == "POST"): p.click("[data-send]")
+    p.wait_for_selector("#bl-msg.success")
+    ok("Sent" in p.inner_text("#bl-msg") and p.evaluate("document.activeElement.id") == "bl-msg", "operations admin sends it; message focused")
+    ok(not errs, "no script errors (bill send)", errs)
+    ctx.close()
+    ok(len([b for b in api41("GET", "/api/billing", email="r2@x.in")[1]["bills"] if b.get("auto")]) == 2, "office now sees the sent bill")
+    # back to normal for anything after this
+    api41("POST", "/api/admin/subscriptions", {"action": "resume", "type": "REP", "tier": "LOCAL", "id": "lu-hazratganj", "reason": "Break over"})
+    api41("POST", "/api/admin/subscriptions", {"action": "resume", "type": "DEPT", "tier": "", "id": jal, "reason": "Testing over"})
 
     br.close()
 

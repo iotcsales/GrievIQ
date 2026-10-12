@@ -270,12 +270,14 @@ export async function onRequestGet(context) {
       id: grievance.id,
       // Item 8b: this person's role for the case, and the team workflow.
       myRole,
-      viewOnly,
+      // grieviq-46: an office whose plan is paused sees its cases but can't act on them.
+      viewOnly: viewOnly || Boolean(myMandate.sub && myMandate.sub.status === "PAUSED"),
+      officePaused: Boolean(myMandate.sub && myMandate.sub.status === "PAUSED"),
       officeKey: officeKey(myMandate.tier, myMandate.id),
       assignment: assignment ? { email: assignment.assignee_email, by: assignment.assigned_by, at: assignment.assigned_at } : null,
       pendingReport,
       sentBack,
-      canApprove: Boolean(pendingRow && canManageCases(myRole) && pendingRow.created_by !== auth.email),
+      canApprove: Boolean(pendingRow && canManageCases(myRole) && pendingRow.created_by !== auth.email && !(myMandate.sub && myMandate.sub.status === "PAUSED")),
       trackingRef: grievance.tracking_ref,
       description: grievance.description,
       retentionRemovedAt: grievance.retention_removed_at || null,   // item 9d

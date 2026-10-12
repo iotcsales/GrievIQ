@@ -24,13 +24,13 @@ import { noticeBoxGet, noticeBoxPost, json, allowedEndpoint } from "../_shared/n
 export { allowedEndpoint };
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedRep(request, env, { noTouch: true });
+  const auth = await getVerifiedRep(request, env, { noTouch: true, allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   return noticeBoxGet(env, auth.email);
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedRep(request, env);
+  const auth = await getVerifiedRep(request, env, { allowPaused: true });
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }

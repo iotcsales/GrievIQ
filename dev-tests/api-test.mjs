@@ -1328,6 +1328,140 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(!JSON.stringify(c.body).match(/\d+\.\d+\.\d+\.\d+/), "no IP addresses kept");
 }
 
+// ---- grieviq-46: office subscriptions ----
+{
+  const fs = await import("node:fs");
+  const { createHash } = await import("node:crypto");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const add = (n) => { const d = new Date(today + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const sb = (who, b) => call(who, "POST", "/api/admin/subscriptions", b);
+  const list = async () => (await call(S, "GET", "/api/admin/subscriptions")).body;
+  const find = async (k) => (await list()).offices.find((o) => o.key === k);
+  const why = "Agreed with the office on the phone";
+
+  let g = await call(S, "GET", "/api/admin/subscriptions");
+  ok(g.status === 200 && g.body.ready && g.body.canManage && g.body.settings.graceDays === 7 && g.body.settings.reminderDays === 7 && g.body.settings.defaultPilotEnd === "2026-12-31", "super admin sees subscriptions with the settings", g.body.settings);
+  const hz = g.body.offices.find((o) => o.key === "REP|LOCAL|lu-hazratganj");
+  ok(hz && hz.paidThrough === "2026-10-31" && hz.planId === "councillor" && hz.hasRecord, "a confirmed payment set the office's paid-up date and plan", hz);
+  ok(g.body.offices.some((o) => o.type === "DEPT") && g.body.offices.filter((o) => !o.hasRecord).every((o) => o.pilotEnd === "2026-12-31"), "offices without a record are pilots until 31 Dec 2026");
+  const sum = await call(S, "GET", "/api/admin/subscriptions?summary=1");
+  ok(sum.body.counts && !sum.body.offices && typeof sum.body.counts.ATTENTION === "number", "summary gives counts only", sum.body);
+  const ga = await call(A, "GET", "/api/admin/subscriptions"), go = await call(O, "GET", "/api/admin/subscriptions");
+  ok(ga.status === 200 && !ga.body.canManage && go.status === 200 && !go.body.canManage, "auditor and operations admin can look, not change");
+  ok((await call(D, "GET", "/api/admin/subscriptions")).status === 403 && (await call(M, "GET", "/api/admin/subscriptions")).status === 403, "data entry operator and moderator can't see subscriptions");
+  ok((await sb(O, { action: "pause", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: why })).status === 403 && (await sb(A, { action: "pause", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: why })).status === 403, "only the super admin makes changes");
+
+  // the second office (r2) for date tests
+  const me2 = (await call("r2@x.in", "GET", "/api/me")).body.mandates[0];
+  const o2 = { type: "REP", tier: me2.tier, id: me2.id }, k2 = "REP|" + me2.tier + "|" + me2.id;
+  ok(me2.sub && me2.sub.status === "PILOT" && me2.sub.until === "2026-12-31", "representative sees the office's plan (pilot until 31 Dec 2026)", me2.sub);
+  // checks
+  let r = await sb(S, Object.assign({ action: "set_pilot", end: add(30), reason: "no" }, o2));
+  ok(r.status === 400 && r.body.fields.reason === "REQUIRED", "every change needs a reason", r.body);
+  r = await sb(S, Object.assign({ action: "set_pilot", start: add(5), end: add(1), reason: why }, o2));
+  ok(r.body.fields && r.body.fields.end === "BEFORE_START", "pilot end before its start refused", r.body);
+  r = await sb(S, Object.assign({ action: "set_pilot", start: "2026-02-30", end: "", reason: why }, o2));
+  ok(r.body.fields && r.body.fields.start === "DATE" && r.body.fields.end === "REQUIRED", "pilot dates checked", r.body);
+  ok((await sb(S, Object.assign({ action: "extend", days: 0, reason: why }, o2))).body.fields.days === "RANGE" && (await sb(S, Object.assign({ action: "extend", days: 400, reason: why }, o2))).body.fields.days === "RANGE", "extend 1–366 days");
+  ok((await sb(S, Object.assign({ action: "set_plan", planId: "dept_city", reason: why }, o2))).body.fields.planId === "REQUIRED", "quote-only plan can't be set for automatic bills");
+  ok((await sb(S, Object.assign({ action: "complimentary", until: add(30), reason: why }, o2))).body.error === "DEPT_ONLY", "complimentary is for department offices only");
+  ok((await sb(S, { action: "pause", type: "REP", tier: "LOCAL", id: "nowhere", reason: why })).status === 404, "unknown office: not found");
+  // the super admin sets pilot dates
+  r = await sb(S, Object.assign({ action: "set_pilot", start: add(-20), end: add(10), reason: why }, o2));
+  let x = await find(k2);
+  ok(r.status === 200 && r.body.status === "PILOT" && x.pilotStart === add(-20) && x.pilotEnd === add(10) && x.pilotEnding, "super admin changes pilot start and end dates (ending within 14 days flagged)", x);
+  // pilot over: grace, then view only
+  r = await sb(S, Object.assign({ action: "set_pilot", start: add(-60), end: add(-3), reason: why }, o2));
+  ok(r.body.status === "GRACE" && (await find(k2)).graceUntil === add(4), "unpaid after the pilot: 7 days' grace", r.body);
+  let me = (await call("r2@x.in", "GET", "/api/me")).body.mandates[0].sub;
+  ok(me.status === "GRACE" && me.graceUntil === add(4), "representative sees the grace date", me);
+  ok((await call("r2@x.in", "POST", "/api/dept-gap", { grievanceId: "nope", department: "Health" })).body.error !== "OFFICE_PAUSED", "grace: everything still works");
+  r = await sb(S, Object.assign({ action: "set_pilot", start: add(-60), end: add(-8), reason: why }, o2));
+  ok(r.body.status === "PAUSED", "after the grace days: paused", r.body);
+  r = await call("r2@x.in", "POST", "/api/dept-gap", { grievanceId: "nope", department: "Health" });
+  ok(r.status === 403 && r.body.error === "OFFICE_PAUSED", "paused office can't act", r.body);
+  ok((await call("r2@x.in", "GET", "/api/grievances")).status === 200 && (await call("r2@x.in", "GET", "/api/billing")).status === 200, "paused office still sees complaints and its bills");
+
+  // pausing by hand (r1's office): the whole team, view only; billing still works
+  r = await sb(S, { action: "pause", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Asked by the office" });
+  ok(r.status === 200 && r.body.status === "PAUSED", "super admin pauses an office", r.body);
+  const m1 = (await call("r1@x.in", "GET", "/api/me")).body.mandates.find((m) => m.id === "lu-hazratganj").sub;
+  const mf = (await call("fw@x.in", "GET", "/api/me")).body.mandates.find((m) => m.id === "lu-hazratganj").sub;
+  ok(m1.status === "PAUSED" && m1.byAdmin && mf.status === "PAUSED" && !("until" in mf) && !("byAdmin" in mf), "representative sees the pause; field worker only that it is paused", { m1, mf });
+  const cs = (await call("r1@x.in", "GET", "/api/grievances")).body.grievances.filter((c) => c.wardId === undefined || true);
+  ok(cs.length && cs.every((c) => c.viewOnly && c.officePaused && !c.canApprove), "complaints are view only while paused", cs[0] && { viewOnly: cs[0].viewOnly, officePaused: cs[0].officePaused });
+  ok((await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" })).body.error === "OFFICE_PAUSED", "representative can't act while paused");
+  ok((await call("r1@x.in", "POST", "/api/billing", { billId: "nope", method: "UPI", utr: "612345670001", amount: 1, paidOn: today })).body.error !== "OFFICE_PAUSED", "paused office can still record a payment");
+  r = await sb(S, { action: "resume", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Office asked to continue" });
+  ok(r.body.status === "ACTIVE" || r.body.status === "DUE_SOON", "resumed: back to its paid-up status", r.body);
+  ok((await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "nope", department: "Health" })).body.error !== "OFFICE_PAUSED", "after resume the office can act again");
+  // ended: no access, reopened
+  await sb(S, { action: "end", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Contract ended" });
+  ok((await call("om@x.in", "GET", "/api/billing")).body.error === "OFFICE_ENDED" || (await call("om@x.in", "GET", "/api/me")).status !== 200, "ended office: no access");
+  await sb(S, { action: "reopen", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Contract renewed" });
+  ok((await call("om@x.in", "GET", "/api/billing")).status === 200, "reopened office has access again");
+
+  // department office: complimentary and paused
+  const jalId = sdb.prepare("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").get().office_id;
+  const od = { type: "DEPT", tier: "", id: jalId };
+  ok((await sb(S, Object.assign({ action: "complimentary", until: add(-1), reason: why }, od))).body.fields.until === "PAST", "complimentary date can't be past");
+  r = await sb(S, Object.assign({ action: "complimentary", until: add(90), reason: "State pilot programme" }, od));
+  ok(r.body.status === "COMPLIMENTARY", "department office made complimentary with a reason", r.body);
+  await sb(S, Object.assign({ action: "complimentary", until: "", reason: "Programme over" }, od));
+  await sb(S, Object.assign({ action: "pause", reason: "Testing the pause" }, od));
+  const code = "864201";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api46", "ae.zone3@nic.in", createHash("sha256").update("ae.zone3@nic.in:" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "ae.zone3@nic.in", code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api46'").run();
+  const dq = async (method, p, body) => { const y = await fetch(B + p, { method, headers: { cookie: CK, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: y.status, body: await y.json() }; };
+  let dc = await dq("GET", "/api/dept/cases");
+  ok(dc.status === 200 && dc.body.sub && dc.body.sub.status === "PAUSED", "department dashboard shows the pause", dc.body.sub);
+  r = await dq("POST", "/api/dept/reply", { grievanceId: "nope", kind: "IN_PROGRESS", note: "x" });
+  ok(r.status === 403 && r.body.error === "OFFICE_PAUSED", "paused department office can't reply", r.body);
+  ok((await dq("GET", "/api/dept/billing")).status === 200, "paused department office still sees its bills");
+  await sb(S, Object.assign({ action: "resume", reason: "Testing over" }, od));
+  ok((await dq("POST", "/api/dept/reply", { grievanceId: "nope", kind: "IN_PROGRESS", note: "x" })).body.error !== "OFFICE_PAUSED", "resumed department office can reply");
+
+  // the hourly job: bill made automatically, waiting until staff send it
+  r = await sb(S, Object.assign({ action: "extend", days: 3, reason: "Paid by cheque, cleared" }, o2));
+  ok(r.body.status === "DUE_SOON" && (await find(k2)).paidThrough === add(2), "extend: paid up from today", r.body);
+  ok((await sb(S, Object.assign({ action: "set_plan", planId: "councillor", reason: why }, o2))).status === 200, "plan for automatic bills set");
+  let before = mails().length;
+  let run = await (await fetch(B + "/__test/run-subscriptions", { method: "POST" })).json();
+  ok(run.bills >= 1 && run.notices >= 1, "hourly job made a bill and sent notices", run);
+  const m2 = mails().slice(before);
+  ok(m2.some((y) => y.to[0] === "r2@x.in" && /ends on/.test(y.subject) && !/[6-9]\d{9}/.test(y.html)), "office reminded by email (no complaint details)", m2.map((y) => y.to[0] + ":" + y.subject));
+  let wb = (await call(S, "GET", "/api/admin/bills?status=WAITING")).body;
+  const auto = wb.bills.find((b) => b.officeId === me2.id);
+  ok(auto && auto.waiting && auto.auto && auto.from === add(3) && wb.counts.WAITING >= 1, "the bill waits in Bills, starting the day after the paid-up date", auto);
+  ok((await call("r2@x.in", "GET", "/api/billing")).body.bills.every((b) => b.id !== auto.id), "office can't see a bill that isn't sent");
+  run = await (await fetch(B + "/__test/run-subscriptions", { method: "POST" })).json();
+  ok(run.bills === 0 && sdb.prepare("SELECT COUNT(*) n FROM bills WHERE office_id = ? AND auto = 1").get(me2.id).n === 1, "running again makes no second bill or notice", run);
+  ok((await call(O, "POST", "/api/admin/bills", { action: "send", id: auto.id })).status === 200, "staff send the bill");
+  const ob = (await call("r2@x.in", "GET", "/api/billing")).body.bills.find((b) => b.id === auto.id);
+  ok(ob && ob.total === 2359, "office now sees the bill", ob);
+  // paying moves the paid-up date
+  r = await call("r2@x.in", "POST", "/api/billing", { billId: auto.id, method: "UPI", utr: "612345679999", amount: 2359, paidOn: today });
+  const pay = (await call(S, "GET", "/api/admin/bills")).body.bills.find((b) => b.id === auto.id).payments[0];
+  ok((await call(S, "POST", "/api/admin/bills", { action: "confirm", paymentId: pay.id })).status === 200, "payment confirmed");
+  x = await find(k2);
+  ok(x.paidThrough === auto.to && x.status === "ACTIVE", "paid-up date moved to the end of the bill's period", x);
+  // history and records
+  const h = (await call(A, "GET", "/api/admin/subscriptions?key=" + encodeURIComponent(k2))).body.history;
+  ok(h.some((e) => e.action === "SET_PILOT" && e.detail.reason === why) && h.some((e) => e.action === "PAID_THROUGH") && h.some((e) => e.action === "NOTICE_DUE"), "history: changes with reasons, payment and notices", h.map((e) => e.action));
+  const acts = sdb.prepare("SELECT action, COUNT(*) n FROM admin_events WHERE action LIKE 'subscription_%' OR action = 'bill_sent' GROUP BY action").all().reduce((o, y) => (o[y.action] = y.n, o), {});
+  ok(acts.subscription_set_pilot >= 2 && acts.subscription_pause >= 2 && acts.subscription_resume >= 2 && acts.subscription_end === 1 && acts.bill_sent === 1, "every change in the admin log", acts);
+  let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
+  let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
+  ok(threw && threw2, "subscription history can't be changed or deleted");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 34, "34 triggers after part30");
+  ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

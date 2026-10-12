@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=45"></script>
-<script src="/admin-nav.js?v=r12"></script>
+<script src="/i18n.js?v=46"></script>
+<script src="/admin-nav.js?v=r13"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -285,7 +285,7 @@ function rupees(n) { return n == null ? "—" : "₹" + Number(n).toLocaleString
 function hi() { return window.GIQ && GIQ.lang === "hi"; }
 var B = { data: null, filter: "open", err: null, msg: null,
   f: { type: "REP", q: "", found: null, office: null, plan: "", period: "MONTH", from: "", dueDays: "15", note: "" }, fields: {}, quote: null };
-var FILTERS = [["open", "adm.bl_f_open"], ["REPORTED", "adm.bl_f_reported"], ["DUE", "adm.bl_f_due"], ["PAID", "adm.bl_f_paid"], ["CANCELLED", "adm.bl_f_cancelled"], ["all", "adm.bl_f_all"]];
+var FILTERS = [["open", "adm.bl_f_open"], ["WAITING", "adm.bl_f_waiting"], ["REPORTED", "adm.bl_f_reported"], ["DUE", "adm.bl_f_due"], ["PAID", "adm.bl_f_paid"], ["CANCELLED", "adm.bl_f_cancelled"], ["all", "adm.bl_f_all"]];
 function planName(id) { var p = (B.data.plans || []).find(function (x) { return x.id === id; }); return p ? (hi() ? p.nameHi : p.nameEn) : id; }
 function errOf(k) { var c = B.fields[k]; return c ? T("adm.bl_e_" + c) : ""; }
 function errHtml(k) { var e = errOf(k); return e ? '<span class="ferr" id="e-' + k + '">' + esc(e) + "</span>" : ""; }
@@ -393,13 +393,14 @@ function renderList() {
   if (!B.data.ready) { app.innerHTML = '<p class="muted">' + esc(T("adm.bl_not_ready")) + "</p>"; return; }
   renderFilter();
   var today = B.data.today;
-  var list = B.data.bills.filter(function (b) { return B.filter === "all" || (B.filter === "open" ? (b.status === "DUE" || b.status === "REPORTED") : b.status === B.filter); });
+  var list = B.data.bills.filter(function (b) { return B.filter === "all" || (B.filter === "open" ? (b.status === "DUE" || b.status === "REPORTED") : B.filter === "WAITING" ? b.waiting : b.status === B.filter); });
   // Payments waiting for a check first.
   list.sort(function (a, b) { return (a.status === "REPORTED" ? 0 : 1) - (b.status === "REPORTED" ? 0 : 1); });
   if (!list.length) { app.innerHTML = '<p class="muted">' + esc(T("adm.bl_none")) + "</p>"; return; }
   app.innerHTML = list.map(function (b) {
     var late = (b.status === "DUE" || b.status === "REPORTED") && b.dueOn < today;
-    var h = '<article class="bl-card st-' + b.status + '" aria-labelledby="bh-' + esc(b.id) + '"><h3 id="bh-' + esc(b.id) + '">' + esc(b.ref) + " · " + esc(b.officeName) + ' <span class="badge">' + esc(T("adm.bl_st_" + b.status)) + "</span></h3>" +
+    var h = '<article class="bl-card st-' + b.status + (b.waiting ? " st-WAITING" : "") + '" aria-labelledby="bh-' + esc(b.id) + '"><h3 id="bh-' + esc(b.id) + '">' + esc(b.ref) + " · " + esc(b.officeName) + ' <span class="badge">' + esc(T(b.waiting ? "adm.bl_st_WAITING" : "adm.bl_st_" + b.status)) + "</span></h3>" +
+      (b.waiting ? '<p class="warnline">' + esc(T("adm.bl_auto_note")) + "</p>" + (B.data.canManage ? '<div class="acts"><button type="button" class="primary" data-send="' + esc(b.id) + '" data-ref="' + esc(b.ref) + '">' + esc(T("adm.bl_send")) + "</button></div>" : "") : "") +
       "<dl><dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + esc(planName(b.planId)) + " · " + esc(T(b.period === "YEAR" ? "adm.bl_year" : "adm.bl_month")) + " · " + esc(T("adm.bl_range", { from: dateText(b.from), to: dateText(b.to) })) + "</dd>" +
       "<dt>" + esc(T("adm.bl_amount")) + "</dt><dd>" + esc(T("adm.bl_quote", { a: rupees(b.amount), r: b.gstRate, g: rupees(b.gst), t: rupees(b.total) })) + "</dd>" +
       "<dt>" + esc(T("adm.bl_due")) + "</dt><dd" + (late ? ' class="overdue"' : "") + ">" + esc(dateText(b.dueOn)) + (late ? " — " + esc(T("adm.bl_late")) : "") + "</dd>" +
@@ -435,6 +436,9 @@ function renderList() {
   app.querySelectorAll("[data-return]").forEach(function (btn) { btn.addEventListener("click", function () {
     var id = btn.getAttribute("data-return"), inp = document.getElementById("rr-" + id);
     act({ action: "return", paymentId: id, reason: inp.value }, btn, "adm.bl_done_return", inp); }); });
+  app.querySelectorAll("[data-send]").forEach(function (btn) { btn.addEventListener("click", function () {
+    if (!confirm(T("adm.bl_send_q", { ref: btn.getAttribute("data-ref") }))) return;
+    act({ action: "send", id: btn.getAttribute("data-send") }, btn, "adm.bl_done_send"); }); });
   app.querySelectorAll("[data-cancel]").forEach(function (btn) { btn.addEventListener("click", function () {
     var id = btn.getAttribute("data-cancel"), inp = document.getElementById("cr-" + id);
     if (inp.value.trim().length >= 5 && !confirm(T("adm.bl_cancel_q", { ref: btn.getAttribute("data-ref") }))) return;

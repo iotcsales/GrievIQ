@@ -17,6 +17,7 @@
 // is in the directory (not retired), and the office's agreement with GrievIQ
 // is recorded and not ended.
 
+import { statusForDept } from "./subscriptions.js";
 import { randomToken, sha256Hex, readCookie } from "./rep-session.js";
 import { rulesPending } from "./dept-rules.js";
 
@@ -176,6 +177,14 @@ export async function getVerifiedOfficer(request, env, opts) {
   }
   // grieviq-37: nothing but the rules until the officer has accepted them.
   if (!(opts && opts.allowRules) && rulesPending(officer)) return { ok: false, status: 403, error: "RULES", officer };
+  // grieviq-46: the office's plan. Ended: no access. Paused: view only
+  // (reading, alerts, rules and Billing still work: opts.allowPaused).
+  const sub = await statusForDept(env, String(officer.office_id));
+  if (sub.status === "ENDED") return { ok: false, status: 403, error: "OFFICE_ENDED" };
+  if (sub.status === "PAUSED" && !["GET", "HEAD"].includes(String(request.method || "GET").toUpperCase()) && !(opts && opts.allowPaused)) {
+    return { ok: false, status: 403, error: "OFFICE_PAUSED", officer, sub };
+  }
+  officer.sub = sub;
   if (!(opts && opts.noTouch) && now - Date.parse(s.last_seen_at) >= TOUCH_EVERY_MS) {
     await env.DB.prepare("UPDATE dept_sessions SET last_seen_at = ? WHERE id_hash = ?").bind(new Date(now).toISOString(), s.id_hash).run();
   }

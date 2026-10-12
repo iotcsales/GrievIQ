@@ -15,6 +15,7 @@
 // separately named as a test MLA in seed data), so this returns an array
 // of mandates rather than assuming exactly one.
 
+import { statusForMandates, officeKey, canAct } from "./subscriptions.js";
 import { verifyAccessJwt } from "./verify-access-jwt.js";
 import { sessionEmail } from "./rep-session.js";
 import { teamMandates, ROLE } from "./team.js";
@@ -58,9 +59,23 @@ export async function getVerifiedRep(request, env, opts) {
     }
   }
 
-  const mandates = await lookupMandates(env, email);
+  let mandates = await lookupMandates(env, email);
   if (mandates.length === 0) {
     return { ok: false, status: 403, error: "NOT_PROVISIONED" };
+  }
+  // grieviq-46: an office whose plan is paused (or ended) is view only.
+  // Changes (acknowledge, assign, forward, resolve, team...) are refused for
+  // that office; reading, messages, the auditor, alerts and Billing still
+  // work (opts.allowPaused). Citizens are never affected.
+  const subs = await statusForMandates(env, mandates);
+  mandates.forEach((m) => { m.sub = subs.get(officeKey("REP", m.tier, m.id)) || null; });
+  mandates = mandates.filter((m) => !m.sub || m.sub.status !== "ENDED");
+  if (!mandates.length) return { ok: false, status: 403, error: "OFFICE_ENDED" };
+  const writing = !["GET", "HEAD"].includes(String(request.method || "GET").toUpperCase());
+  if (writing && !(opts && opts.allowPaused)) {
+    const active = mandates.filter((m) => canAct(m.sub));
+    if (!active.length) return { ok: false, status: 403, error: "OFFICE_PAUSED", mandates };
+    return { ok: true, email, mandates: active, via, pausedOffices: mandates.filter((m) => !canAct(m.sub)) };
   }
   return { ok: true, email, mandates, via };
 }
