@@ -85,49 +85,84 @@ export async function onRequestGet(context) {
   const pendingByGrievance = new Map();
   const sentBackByGrievance = new Map();
   const assignmentByGrievance = new Map();
+  // grieviq-47 (speed at scale): every open case loads in full, as before;
+  // closed cases load a page at a time, newest first (?closed=N, default 50),
+  // so an office with years of history still opens quickly. ?ref= (tracking
+  // number) or ?id= adds one more case wherever it is in the history. A
+  // closed case is visible at the level where it stopped (current_tier), and
+  // a field worker sees only cases assigned to them -- the same rules as below.
+  const url = new URL(request.url);
+  const closedWanted = Math.min(Math.max(parseInt(url.searchParams.get("closed") || "50", 10) || 50, 1), 2000);
+  const extraRef = String(url.searchParams.get("ref") || "").trim().toUpperCase().slice(0, 40);
+  const extraId = String(url.searchParams.get("id") || "").trim().slice(0, 80);
+  const RANK = { LOCAL: 0, MAYOR: 1, MLA: 2, MP: 3 };
+  const parts = [], partBinds = [];
+  for (const mandate of auth.mandates) {
+    const s = mandateScope(mandate);
+    const fw = (mandate.role || ROLE.REP) === ROLE.FW;
+    parts.push(`SELECT g.id AS id, COALESCE(g.closed_at, g.resolved_at, g.updated_at, g.created_at) AS k FROM grievances g ${s.join}
+      WHERE (${s.where}) AND g.status IN ('RESOLVED', 'CLOSED')
+        AND (CASE g.current_tier WHEN 'MAYOR' THEN 1 WHEN 'MLA' THEN 2 WHEN 'MP' THEN 3 ELSE 0 END) >= ?` +
+      (fw ? ` AND EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.grievance_id = g.id AND ca.ended_at IS NULL AND ca.assignee_email = ? AND ca.office_tier = ? AND ca.office_id = ?)` : ""));
+    partBinds.push(...s.binds, RANK[mandate.tier] || 0, ...(fw ? [auth.email, mandate.tier, mandate.id] : []));
+  }
+  const closedUnion = parts.join(" UNION ");
+  const [closedCountRow, closedPage, extraRow] = await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM (${closedUnion})`).bind(...partBinds).first(),
+    env.DB.prepare(`SELECT id FROM (${closedUnion}) ORDER BY k DESC LIMIT ?`).bind(...partBinds, closedWanted).all(),
+    extraRef || extraId ? env.DB.prepare("SELECT id FROM grievances WHERE tracking_ref = ? OR id = ?").bind(extraRef || "-", extraId || "-").first() : null,
+  ]);
+  const closedTotal = closedCountRow ? Number(closedCountRow.n) : 0;
+  const closedIds = (closedPage.results || []).map((r) => r.id);
+  if (extraRow && !closedIds.includes(extraRow.id)) closedIds.push(extraRow.id);
+  const closedIdsJson = JSON.stringify(closedIds);
+
   const stmts = [env.DB.prepare("SELECT * FROM grievance_categories")];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
+    // grieviq-47: open cases in full; closed ones only those on this page.
+    const W = `(${s.where}) AND (g.status NOT IN ('RESOLVED', 'CLOSED') OR g.id IN (SELECT value FROM json_each(?)))`;
+    const WB = s.binds.concat([closedIdsJson]);
     stmts.push(
       env.DB.prepare(
-        `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ORDER BY g.created_at ASC`
-      ).bind(...s.binds),
+        `SELECT g.* FROM grievances g ${s.join} WHERE ${W} ORDER BY g.created_at ASC`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT e.*, e.rowid AS event_rowid FROM grievance_events e
          JOIN grievances g ON g.id = e.grievance_id ${s.join}
-         WHERE ${s.where}`
-      ).bind(...s.binds),
+         WHERE ${W}`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT rr.*, rr.rowid AS report_rowid FROM resolution_reports rr
          JOIN grievances g ON g.id = rr.grievance_id ${s.join}
-         WHERE ${s.where}`
-      ).bind(...s.binds),
+         WHERE ${W}`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT rp.* FROM resolution_photos rp
          JOIN grievances g ON g.id = rp.grievance_id ${s.join}
-         WHERE rp.report_id IS NOT NULL AND ${s.where}
+         WHERE rp.report_id IS NOT NULL AND ${W}
          ORDER BY rp.created_at ASC, rp.rowid ASC`
-      ).bind(...s.binds),
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT rc.grievance_id, rc.method, rc.outcome, rc.note, rc.checked_at, rc.rowid AS check_rowid FROM resolution_checks rc
          JOIN grievances g ON g.id = rc.grievance_id ${s.join}
-         WHERE ${s.where}`
-      ).bind(...s.binds),
+         WHERE ${W}`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT cp.* FROM complaint_photos cp
          JOIN grievances g ON g.id = cp.grievance_id ${s.join}
-         WHERE ${s.where}`
-      ).bind(...s.binds),
+         WHERE ${W}`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT ro.*, ro.rowid AS reopen_rowid FROM grievance_reopens ro
          JOIN grievances g ON g.id = ro.grievance_id ${s.join}
-         WHERE ${s.where}`
-      ).bind(...s.binds),
+         WHERE ${W}`
+      ).bind(...WB),
       env.DB.prepare(
         `SELECT ca.* FROM case_assignments ca
          JOIN grievances g ON g.id = ca.grievance_id ${s.join}
-         WHERE ca.ended_at IS NULL AND ${s.where}`
-      ).bind(...s.binds)
+         WHERE ca.ended_at IS NULL AND ${W}`
+      ).bind(...WB)
     );
   }
   const batch = await env.DB.batch(stmts);
@@ -441,6 +476,9 @@ export async function onRequestGet(context) {
     grievances: visible,
     teams,
     workloadWarn: WORKLOAD_WARN,
+    // grieviq-47: closed cases are paged.
+    closed: { total: closedTotal, shown: visible.filter((c) => c.status === "RESOLVED" || c.status === "CLOSED").length, wanted: closedWanted },
+    found: extraRef || extraId ? (extraRow && visible.some((c) => c.id === extraRow.id) ? extraRow.id : null) : undefined,
   });
 }
 

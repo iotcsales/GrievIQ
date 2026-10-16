@@ -1462,6 +1462,86 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
+// ---- grieviq-47: speed at scale (closed cases paged; speed monitor) ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
+  // 120 closed cases in r1's ward, closed over the last 120 days; one stopped at MLA level
+  const ins = sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at, resolved_at, closed_at) VALUES (?, ?, '9000000099', 'lu-hazratganj', 'water-sanitation', 'CLOSED', 'Old closed case', ?, ?, ?, ?)");
+  for (let i = 0; i < 120; i++) ins.run("gc" + i, "GRV-OLD" + String(i).padStart(3, "0"), i === 7 ? "MLA" : "LOCAL", iso((i + 2) * 86400000), iso((i + 1) * 86400000), iso((i + 1) * 86400000));
+  const beforeClosed = sdb.prepare("SELECT COUNT(*) n FROM grievances WHERE local_unit_id = 'lu-hazratganj' AND status IN ('RESOLVED','CLOSED') AND id NOT LIKE 'gc%'").get().n;
+  let g = await call("r1@x.in", "GET", "/api/grievances");
+  const openN = g.body.grievances.filter((c) => c.status !== "RESOLVED" && c.status !== "CLOSED").length;
+  const closedN = g.body.grievances.filter((c) => c.status === "RESOLVED" || c.status === "CLOSED").length;
+  ok(g.status === 200 && g.body.closed.total >= 120 + beforeClosed && closedN === 50 && g.body.closed.shown === 50 && openN > 0, "closed cases come 50 at a time; open ones in full", { closed: g.body.closed, openN, closedN });
+  ok(g.body.grievances.filter((c) => c.id.startsWith("gc")).every((c) => !["gc119", "gc100"].includes(c.id)) && g.body.grievances.some((c) => c.id === "gc0"), "newest closed first");
+  g = await call("r1@x.in", "GET", "/api/grievances?closed=100");
+  ok(g.body.grievances.filter((c) => c.status === "CLOSED" || c.status === "RESOLVED").length === 100, "Show more: 100 closed cases");
+  g = await call("r1@x.in", "GET", "/api/grievances?ref=grv-old119");
+  ok(g.body.found === "gc119" && g.body.grievances.some((c) => c.id === "gc119"), "case number search finds an old closed case", g.body.found);
+  g = await call("r1@x.in", "GET", "/api/grievances?id=gc118");
+  ok(g.body.found === "gc118", "a notification link to an old case finds it");
+  g = await call("r1@x.in", "GET", "/api/grievances?ref=GRV-NOPE99");
+  ok(g.body.found === null, "unknown number: not found");
+  g = await call("r2@x.in", "GET", "/api/grievances?ref=GRV-OLD119");
+  ok(g.status === 200 && !g.body.found && !g.body.grievances.some((c) => c.id === "gc119"), "another office can't find it by number");
+  const mla = await call("mla@x.in", "GET", "/api/grievances?closed=500");
+  ok(mla.body.grievances.some((c) => c.id === "gc7") && !mla.body.grievances.some((c) => c.id === "gc8"), "MLA sees only closed cases that reached MLA level", mla.body.closed);
+  const fw = await call("fw@x.in", "GET", "/api/grievances");
+  ok(fw.status === 200 && !fw.body.grievances.some((c) => c.id.startsWith("gc")) && fw.body.closed.total === fw.body.closed.shown, "field worker: only their own cases, none of the others' closed ones", fw.body.closed);
+  // department: closed cases of the last 30 days, 50 at a time
+  const jal = sdb.prepare("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").get().office_id;
+  const fwd = sdb.prepare("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, channel, actor, actor_role, created_at) VALUES (?, ?, 'FORWARDED', 'Water Supply / Sanitation', ?, 'Jal Kal', 'DASHBOARD', 'r1@x.in', 'OFFICE', ?)");
+  for (let i = 0; i < 25; i++) fwd.run("sd" + i, "gc" + i, jal, iso((i + 2) * 86400000));
+  const { createHash } = await import("node:crypto");
+  const code = "975311";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api47", "ae.zone3@nic.in", createHash("sha256").update("ae.zone3@nic.in:" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "ae.zone3@nic.in", code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api47'").run();
+  const dq = async (p) => { const y = await fetch(B + p, { headers: { cookie: CK } }); return { status: y.status, body: await y.json() }; };
+  let d1 = await dq("/api/dept/cases?closed=10");
+  const recent = d1.body.closed;
+  ok(d1.status === 200 && recent.total >= 25 && recent.total < 120 && recent.shown === 10 && d1.body.cases.filter((c) => c.status === "CLOSED").length === 10, "department: closed cases of the last 30 days, a page at a time", recent);
+  ok(d1.body.tiles.closed >= recent.total, "department tile counts every closed case", d1.body.tiles);
+  d1 = await dq("/api/dept/cases");
+  ok(d1.body.closed.shown === Math.min(50, d1.body.closed.total), "department: 50 by default");
+
+  // speed monitor
+  const sp = (await import(new URL("../functions/_shared/speed.js", import.meta.url).href));
+  ok(sp.areaOf("/api/grievances/submit") === "CITIZEN" && sp.areaOf("/api/otp/request") === "CITIZEN" && sp.areaOf("/api/grievances") === "REP" && sp.areaOf("/api/grievances/g1/acknowledge") === "REP" &&
+     sp.areaOf("/api/dept/cases") === "DEPT" && sp.areaOf("/api/admin/bills") === "ADMIN" && sp.areaOf("/rep") === null && sp.areaOf("/api/b") === null, "each request counts for the right part of GrievIQ");
+  let s = await call(S, "GET", "/api/admin/speed");
+  ok(s.status === 200 && s.body.ready && s.body.status === "NO_DATA" && s.body.db.size > 0 && s.body.db.limit === 10 * 1024 ** 3, "Speed page: no data yet; database size shown", { st: s.body.status, db: s.body.db });
+  ok((await call(O, "GET", "/api/admin/speed")).status === 200 && (await call(A, "GET", "/api/admin/speed")).status === 403 && (await call(D, "GET", "/api/admin/speed")).status === 403, "super and operations admins see Speed; others don't");
+  const hourAgo = (h, min) => { const t = Math.floor(Date.now() / 3600000) * 3600000 - h * 3600000 + min * 60000; return new Date(t).toISOString(); };
+  const samples = [];
+  for (let i = 0; i < 20; i++) { samples.push({ area: "REP", ms: 200 + i * 40, at: hourAgo(2, 5 + i) }, { area: "REP", ms: 200 + i * 40, at: hourAgo(1, 5 + i) }, { area: "CITIZEN", ms: 80 + i, at: hourAgo(1, 10 + i) }); }
+  await fetch(B + "/__test/speed-sample", { method: "POST", body: JSON.stringify({ samples }) });
+  const before = mails().length;
+  let run = await (await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" })).json();
+  ok(run.status === "SLOW" && run.alerted === true, "slow for 2 hours: status Slow, alert sent", run);
+  const m = mails().slice(before);
+  ok(m.some((x) => x.to[0] === "super@test.in" && /running slow/.test(x.subject) && /representative console: 0\.9 s/.test(x.subject)) && !m.some((x) => x.to[0] === "ops@test.in"), "super admins emailed with numbers only", m.map((x) => x.to[0] + ": " + x.subject));
+  run = await (await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" })).json();
+  ok(run.alerted === false && mails().length === before + m.length, "only one alert a day");
+  s = await call(S, "GET", "/api/admin/speed");
+  const rep = s.body.areas.REP;
+  ok(s.body.status === "SLOW" && s.body.slowAreas.join() === "REP" && rep.lastHour.p95 === 920 && rep.lastHour.n === 20 && s.body.areas.CITIZEN.lastHour.p95 < 500 && s.body.lastAlert, "Speed page: Slow, which part, its figures", { st: s.body.status, rep: rep.lastHour });
+  ok(rep.days.length === 7 && rep.days[6].p95 === 920, "7 days, today's slowest hour", rep.days.slice(-2));
+  ok((await call(S, "GET", "/api/admin/speed?summary=1")).body.status === "SLOW", "dashboard tile summary");
+  sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
+  await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
+  ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 34, "trigger count still 34 after part31");
+  ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
+  // tidy: the closed cases above stay (later checks don't count them)
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

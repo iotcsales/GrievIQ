@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedOfficer(request, env);
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status, headers: { "Cache-Control": "no-store" } });
   const o = auth.officer;
-  const list = await officeCaseList(env, o);
+  const list = await officeCaseList(env, o, Date.now(), new URL(request.url).searchParams.get("closed"));
   let departments = [];
   try { departments = JSON.parse(o.office_departments || "[]"); } catch (e) { departments = []; }
   const types = await deptTypes(env);
@@ -22,6 +22,6 @@ export async function onRequestGet({ request, env }) {
     // grieviq-46: the office's plan (dates shown to its officers).
     sub: o.sub ? { status: o.sub.status, until: o.sub.until || null, graceUntil: o.sub.graceUntil || null, byAdmin: !!o.sub.byAdmin } : null,
     deptNames: namesOf(types), departments: types.filter((t) => !t.retired).map((t) => t.key),
-    tiles: list.tiles, cases: list.cases,
+    tiles: list.tiles, cases: list.cases, closed: list.closed,
   }, { headers: { "Cache-Control": "no-store" } });
 }

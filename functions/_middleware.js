@@ -21,6 +21,8 @@
 // moving them to files is a later hardening step.
 // The image address below is GrievIQ's own, written so that a copy which
 // renames the site still lets its pages report where they run (grieviq-45).
+import { maybeSample } from "./_shared/speed.js";
+
 const OWN_D = atob("Z3JpZXZpcS5pbg==");
 const COMMON = ["object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "upgrade-insecure-requests"];
 export const CSP_STRICT = [
@@ -117,7 +119,11 @@ function reportIfCopy(context) {
 
 export async function onRequest(context) {
   reportIfCopy(context);
+  const startedMs = Date.now();
   const res = await context.next();
+  // grieviq-47: about 1 in 20 API requests records how long it took, after
+  // the response is on its way (speed monitor, _shared/speed.js).
+  try { maybeSample(context, new URL(context.request.url).pathname, startedMs, res.status); } catch (e) { /* never in the way */ }
   // Responses that must pass through untouched (e.g. protocol upgrades).
   if (res.status === 101 || res.webSocket) return res;
   const nf = await notFoundFor(context.request, res, context.env);

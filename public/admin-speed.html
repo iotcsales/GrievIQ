@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title data-i18n="adm.sp_page_title">GrievIQ Admin — Speed</title>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><style>
+  :root {
+    --admin-bg: #14181f;
+    --admin-panel: #1c222c;
+    --admin-border: #2c3543;
+    --admin-text: #e6e9ee;
+    --admin-muted: #9aa4b2;
+    --admin-accent: #6f95f2;
+    --admin-accent-fill: #3d6be0;
+    --admin-danger: #e2564f;
+    --admin-danger-bg: #3a2323;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+  }
+  header {
+    background: #0e1116;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .brand { font-weight: 600; font-size: 15px; letter-spacing: 0.02em; }
+  header .brand span { color: var(--admin-accent); }
+  nav a {
+    color: var(--admin-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  nav a.active { color: var(--admin-text); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.subtitle { color: var(--admin-muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--admin-panel);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--admin-border); }
+  th { color: var(--admin-muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .role-super_admin { background: #2c1f3d; color: #b98cf0; }
+  .role-operations_admin { background: #1f3040; color: #6fb0e8; }
+  .role-data_moderator { background: #233a2b; color: #7fce8f; }
+  .role-auditor { background: #3a3423; color: #d8c26f; }
+
+  html.light-theme {
+    --admin-bg: #f4f5f7;
+    --admin-panel: #ffffff;
+    --admin-border: #dde1e6;
+    --admin-text: #14181f;
+    --admin-muted: #5b6472;
+    --admin-accent: #3563d8;
+    --admin-accent-fill: #3563d8;
+    --admin-danger: #c9463c;
+    --admin-danger-bg: #fbe7e5;
+  }
+  html.light-theme body { background: var(--admin-bg); color: var(--admin-text); }
+  html.light-theme header { background: #ffffff; border-bottom-color: var(--admin-border); }
+  html.light-theme header .brand { color: var(--admin-text); }
+  html.light-theme nav a { color: var(--admin-muted); }
+  html.light-theme nav a.active { color: var(--admin-text); }
+  html.light-theme .panel { background: var(--admin-panel); border-color: var(--admin-border); }
+  html.light-theme th, html.light-theme td { border-bottom-color: var(--admin-border); }
+  html.light-theme select, html.light-theme input[type="email"] {
+    background: #ffffff; border-color: var(--admin-border); color: var(--admin-text);
+  }
+  html.light-theme button { background: #eef0f3; border-color: var(--admin-border); color: var(--admin-text); }
+  html.light-theme button:hover { background: #e2e5ea; }
+  html.light-theme button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  html.light-theme button.danger { background: #fbe7e5; border-color: #e8c3bf; color: var(--admin-danger); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--admin-border); border-radius: 6px;
+    color: var(--admin-muted); font-size: 13px; padding: 5px 10px; cursor: pointer; margin-left: 20px;
+  }
+  .theme-toggle:hover { color: var(--admin-text); }
+  select, input[type="email"] {
+    background: #11151c;
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .row-actions { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--admin-border);
+    background: #232a36;
+    color: var(--admin-text);
+    cursor: pointer;
+  }
+  button:hover { background: #2b3341; }
+  button.primary { background: var(--admin-accent-fill); border-color: var(--admin-accent-fill); color: #fff; }
+  button.primary:hover { background: #3d6be0; }
+  button.danger { background: var(--admin-danger-bg); border-color: #5a2e2b; color: var(--admin-danger); }
+  button.danger:hover { background: #472928; }
+  .add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .add-form input[type="email"] { flex: 1; min-width: 220px; }
+  #status-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #status-msg.error { color: var(--admin-danger); }
+  #status-msg.success { color: #7fce8f; }
+  .muted { color: var(--admin-muted); font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  td.name { font-weight: 600; }
+  td .sub { display: block; font-weight: 400; color: var(--admin-muted); font-size: 12px; margin-top: 2px; }
+  .dept-now { font-size: 14px; }
+  .dept-none { color: var(--admin-muted); font-style: italic; }
+  .readonly-tag[hidden] { display: none; }
+  .row-msg { font-size: 13px; margin-top: 6px; min-height: 0; }
+  .row-msg:empty { display: none; }
+  .row-msg.error { color: var(--admin-danger); }
+  .row-msg.success { color: #7fce8f; }
+  html.light-theme .row-msg.success { color: #1f7a3a; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .note { background: var(--admin-panel); border: 1px solid var(--admin-border); border-left: 3px solid var(--admin-accent); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--admin-muted); margin-bottom: 20px; line-height: 1.5; }
+  .readonly-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-muted); margin-left: 8px; vertical-align: middle; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 1px; }
+  select.dept-select { min-width: 210px; min-height: 34px; }
+  button { min-height: 32px; }
+  @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
+  header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
+  header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+</style>
+<script src="/i18n.js?v=47"></script>
+<script src="/admin-nav.js?v=r14"></script>
+<style>
+  /* grieviq-39: Prices & site details / Pilot requests */
+  button.danger { color: #ff8f87; }
+  html.light-theme button.danger { color: #a8322a; }
+  main.ss-main { max-width: 1080px; }
+  .vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .ss-status p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+  .st-warn { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .unsaved { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--admin-border); font-size: 12px; font-weight: 600; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .acts.small { margin-top: 12px; }
+  .acts button, .acts .btnlink, .row-actions button { min-height: 36px; }
+  .btnlink { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 6px; border: 1px solid var(--admin-border); color: var(--admin-text); text-decoration: none; font-size: 13px; }
+  .pub { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pub label { font-size: 13px; color: var(--admin-muted); }
+  .pub input { min-height: 36px; min-width: 200px; }
+  .st-msg { font-weight: 600; }
+  .st-msg.error { color: var(--admin-text); border-left: 4px solid var(--admin-danger); padding-left: 10px; }
+  .st-msg.success { color: var(--admin-text); border-left: 4px solid #2f9e5b; padding-left: 10px; }
+  .ss-errors { border: 2px solid var(--admin-danger); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; background: var(--admin-panel); }
+  .ss-errors h2 { font-size: 15px; margin: 0 0 6px; }
+  .ss-errors ul { margin: 0; padding-left: 20px; } .ss-errors li { margin: 4px 0; }
+  .ss-errors a { color: var(--admin-accent); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border); }
+  .tabs [role=tab] { background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; color: var(--admin-muted); font-size: 14px; padding: 8px 12px; min-height: 40px; }
+  .tabs [role=tab][aria-selected=true] { color: var(--admin-text); border-bottom-color: var(--admin-accent); font-weight: 600; background: rgba(127,127,127,.10); }
+  .tabs [role=tab]:hover { color: var(--admin-text); background: rgba(127,127,127,.10); }
+  .tab-err { color: var(--admin-text); font-weight: 700; }
+  .tabpanel:focus { outline: none; }
+  .sec-h { font-size: 15px; margin: 18px 0 8px; } .sec-h:first-child { margin-top: 0; }
+  .sub-h { font-weight: 600; font-size: 13px; margin: 10px 0 6px; }
+  fieldset.card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; min-width: 0; }
+  fieldset.card.retired { border-style: dashed; }
+  fieldset.card legend { padding: 0 6px; font-weight: 600; font-size: 15px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--admin-border); color: var(--admin-text); vertical-align: middle; }
+  .code { margin: 0 0 8px; font-size: 12px; color: var(--admin-muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 10px 16px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .fld.wide { grid-column: 1 / -1; }
+  .fld label, fieldset.rad legend { font-size: 13px; font-weight: 600; }
+  .req { color: var(--admin-text); }
+  .hint { font-size: 12px; color: var(--admin-muted); }
+  .fld input, .fld textarea, .pub input { background: #11151c; border: 1px solid #5d6878; color: var(--admin-text); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: 14px; min-height: 38px; width: 100%; box-sizing: border-box; }
+  .fld textarea { min-height: 110px; resize: vertical; }
+  .fld input[aria-invalid=true], .fld textarea[aria-invalid=true] { border: 2px solid var(--admin-danger); }
+  .fld input:disabled, .fld textarea:disabled { color: var(--admin-text); -webkit-text-fill-color: var(--admin-text); opacity: 1; border-style: dashed; }
+  .ferr { font-size: 13px; font-weight: 600; color: var(--admin-text); border-left: 3px solid var(--admin-danger); padding-left: 8px; }
+  fieldset.rad { border: 0; padding: 0; margin: 10px 0; min-width: 0; }
+  fieldset.rad legend { padding: 0; margin-bottom: 6px; }
+  .ropt { display: inline-flex; align-items: center; gap: 6px; margin: 0 16px 6px 0; min-height: 28px; }
+  .ropt input, .chk input { width: 20px; height: 20px; margin: 0; accent-color: var(--admin-accent-fill); }
+  .ropt label, .chk label { font-size: 14px; }
+  .chks { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 10px; }
+  .chk { display: grid; grid-template-columns: 20px 1fr; column-gap: 8px; align-items: center; margin: 8px 0; }
+  .chk .hint { grid-column: 2; }
+  .today { margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
+  .sched { margin-top: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--admin-border); }
+  .link-btn { background: none !important; border: 0 !important; color: var(--admin-accent) !important; text-decoration: underline; padding: 6px 0 !important; margin-top: 8px; font-size: 14px; }
+  .table-wrap table td, .table-wrap table th { vertical-align: top; }
+  html.light-theme .fld input, html.light-theme .fld textarea, html.light-theme .pub input { background: #fff; border-color: #8a94a3; color: var(--admin-text); }
+  html.light-theme .btnlink { background: #eef0f3; }
+  html.light-theme .link-btn { background: none !important; }
+  .pr-filter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+  .pr-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .pr-card h2 { font-size: 15px; margin: 0 0 4px; }
+  .pr-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .pr-card dt { color: var(--admin-muted); } .pr-card dd { margin: 0; overflow-wrap: anywhere; }
+  .pr-card a { color: var(--admin-accent); }
+  .pr-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+  .pr-form .fld { min-width: 180px; flex: 1; }
+  .pr-form select { min-height: 38px; }
+  @media (max-width: 640px) { .pub input { min-width: 0; width: 100%; } .pr-card dl { grid-template-columns: 1fr; } .pr-card dt { margin-top: 6px; } }
+  /* grieviq-46: Subscriptions */
+  .sb-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .sb-card.s-GRACE, .sb-card.s-DUE_SOON { border-left: 4px solid #c98a00; }
+  .sb-card.s-PAUSED, .sb-card.s-ENDED { border-left: 4px solid var(--admin-danger); }
+  .sb-card.s-ACTIVE, .sb-card.s-COMPLIMENTARY { border-left: 4px solid #2f9e5b; }
+  .sb-card h3 { font-size: 15px; margin: 0 0 4px; }
+  .sb-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .sb-card dt { color: var(--admin-muted); } .sb-card dd { margin: 0; overflow-wrap: anywhere; }
+  .sb-card details { margin-top: 8px; } .sb-card summary { cursor: pointer; font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+  .sb-forms { display: grid; gap: 12px; margin-top: 10px; }
+  .sb-forms .bl-row { margin: 0; }
+  .sb-hist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .sb-hist li { margin: 3px 0; }
+  .sb-set { font-size: 14px; margin: 0 0 12px; }
+  @media (max-width: 640px) { .sb-card dl { grid-template-columns: 1fr; } .sb-card dt { margin-top: 6px; } }
+  /* grieviq-41: Bills */
+  .bl-new { border: 1px solid var(--admin-border); border-radius: 10px; padding: 14px 16px; margin: 0 0 20px; }
+  .bl-new h2 { font-size: 16px; margin: 0 0 8px; }
+  .bl-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 8px 0; }
+  .bl-row .fld { min-width: 200px; flex: 1; }
+  .bl-row .fld.short { flex: 0 1 160px; min-width: 140px; }
+  .bl-row select, .fld select { min-height: 38px; width: 100%; }
+  .bl-found { list-style: none; margin: 6px 0; padding: 0; } .bl-found li { margin: 2px 0; }
+  .bl-found label { font-size: 14px; }
+  .bl-quote { font-weight: 600; font-size: 14px; margin: 10px 0; }
+  .bl-card { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .bl-card.st-REPORTED { border-left: 4px solid #c98a00; }
+  .bl-card.st-PAID { border-left: 4px solid #2f9e5b; }
+  .bl-card.st-CANCELLED { opacity: 1; border-style: dashed; }
+  .bl-card h3 { font-size: 15px; margin: 0 0 4px; }
+  .bl-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  .bl-card dt { color: var(--admin-muted); } .bl-card dd { margin: 0; overflow-wrap: anywhere; }
+  .bl-pay { border-top: 1px solid var(--admin-border); margin-top: 10px; padding-top: 10px; }
+  .bl-pay h4 { margin: 0 0 6px; font-size: 14px; }
+  .warnline { border-left: 3px solid #c98a00; padding-left: 8px; font-size: 13px; }
+  .overdue { font-weight: 700; }
+  .ferr { font-size: 13px; font-weight: 600; color: var(--admin-text); border-left: 3px solid var(--admin-danger); padding-left: 8px; }
+  .fld input[aria-invalid=true], .fld select[aria-invalid=true] { border: 2px solid var(--admin-danger); }
+  @media (max-width: 640px) { .bl-card dl { grid-template-columns: 1fr; } .bl-card dt { margin-top: 6px; } }
+</style>
+<style>
+  /* grieviq-47: Speed page */
+  :root { --gc-ink: #e6e9ee; --gc-muted: #aab3c0; --gc-line: #2c3543; --gc-card: #1c222c; --gc-bar: #3987e5; --gc-slow: #f08a5d; --sp-good: #6fcb9a; --sp-warn: #e0b860; --sp-bad: #f08a7e; }
+  html.light-theme { --gc-ink: #14181f; --gc-muted: #5b6472; --gc-line: #dde1e6; --gc-card: #ffffff; --gc-bar: #2a78d6; --gc-slow: #b5651d; --sp-good: #2f6b4f; --sp-warn: #8a6410; --sp-bad: #b3362a; }
+  .sp-status { margin: 16px 0; padding: 14px 16px; border-radius: 10px; border: 2px solid var(--admin-border); background: var(--admin-panel); }
+  .sp-status.s-FAST { border-color: var(--sp-good); } .sp-status.s-GETTING_SLOWER { border-color: var(--sp-warn); } .sp-status.s-SLOW { border-color: var(--sp-bad); }
+  .sp-status h2 { margin: 0 0 4px; font-size: 22px; }
+  .sp-status.s-FAST h2 { color: var(--sp-good); } .sp-status.s-GETTING_SLOWER h2 { color: var(--sp-warn); } .sp-status.s-SLOW h2 { color: var(--sp-bad); }
+  .sp-status p { margin: 0; font-size: 15px; line-height: 1.5; }
+  .sp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 12px 0; }
+  .sp-card { padding: 14px 16px; border-radius: 10px; border: 1px solid var(--admin-border); background: var(--admin-panel); }
+  .sp-card h3 { margin: 0 0 4px; font-size: 16px; }
+  .sp-card .sp-last { margin: 0 0 8px; font-size: 14px; color: var(--admin-text); }
+  .sp-card .sp-last b { font-size: 18px; }
+  .sp-svg { width: 100%; height: auto; display: block; }
+  .sp-svg text { font-size: 11px; fill: var(--gc-muted); }
+  .sp-svg .v { fill: var(--gc-ink); font-weight: 700; }
+  .sp-svg .b { fill: var(--gc-bar); } .sp-svg .b.slow { fill: var(--gc-slow); }
+  .sp-svg .t { stroke: var(--gc-muted); stroke-dasharray: 4 3; stroke-width: 1; }
+  .sp-svg .base { stroke: var(--gc-line); }
+  .sp-more { margin-top: 6px; font-size: 13.5px; } .sp-more summary { cursor: pointer; min-height: 28px; font-weight: 600; }
+  .sp-more table { border-collapse: collapse; margin-top: 6px; } .sp-more th, .sp-more td { text-align: left; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--admin-border); font-size: 13.5px; }
+  .sp-meter { position: relative; height: 16px; border-radius: 8px; background: var(--gc-line); margin: 8px 0 4px; overflow: hidden; }
+  .sp-meter span { display: block; height: 100%; min-width: 3px; background: var(--gc-bar); }
+  .sp-meter i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--sp-warn); left: 50%; }
+  .sp-key { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 12.5px; color: var(--admin-muted); }
+  .sp-dash { display: inline-block; width: 18px; border-top: 2px dashed var(--gc-muted); }
+  .sp-small { font-size: 13.5px; color: var(--admin-muted); margin: 4px 0 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span></div>
+  <nav>
+    <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a> <a href="/admin-cases.html" data-i18n="adm.nav_cases">Cases</a> <a href="/admin-checks.html" data-i18n="adm.nav_checks">Checks</a> <a href="/admin-areas.html" data-i18n="adm.nav_areas">Areas</a> <a href="/admin-import.html" data-i18n="adm.nav_import">Import</a>
+    <a href="/admin-import-wards.html" data-i18n="adm.nav_boundaries">Ward boundaries</a>
+    <a href="/admin-jurisdiction.html" data-i18n="adm.nav_jurisdiction">Jurisdiction</a>
+    <a href="/admin-exceptions.html" data-i18n="adm.nav_exceptions">Exceptions</a> <a href="/admin-reviews.html" data-i18n="adm.nav_reviews">Reviews</a> <a href="/admin-change-requests.html" data-i18n="adm.nav_changes">Change requests</a> <a href="/admin-issue-types.html" data-i18n="adm.nav_issue_types">Issue types</a> <a href="/admin-staff.html" data-i18n="adm.nav_staff">Staff</a> <a href="/admin-audit.html" data-i18n="adm.nav_audit">Audit</a> <a href="/admin-retention.html" data-i18n="adm.nav_retention">Data retention</a> <a href="/admin-site-settings.html" data-i18n="adm.nav_site_settings">Prices &amp; site details</a> <a href="/admin-subscriptions.html" data-i18n="adm.nav_subscriptions">Subscriptions</a> <a href="/admin-speed.html" data-i18n="adm.nav_speed" class="active" aria-current="page">Speed</a> <a href="/admin-bills.html" data-i18n="adm.nav_bills">Bills</a> <a href="/admin-pilot-requests.html" data-i18n="adm.nav_pilot_requests">Pilot requests</a>
+    <button type="button" class="lang-toggle" data-lang-toggle></button> <button class="theme-toggle" id="theme-toggle">Light mode</button>
+  </nav>
+</header>
+
+<main class="ss-main">
+  <h1 data-i18n="adm.nav_speed">Speed</h1>
+  <p class="subtitle" data-i18n="adm.sp_sub">How quickly GrievIQ answers. The target: 95 of every 100 requests answered within 0.5 seconds.</p>
+  <div id="sp-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
+  <details class="note sp-how"><summary data-i18n="adm.sp_how_h">How this is measured</summary><p data-i18n="adm.sp_how_body">About 1 in every 20 requests to GrievIQ's servers records how long it took. No person, address or complaint is recorded. Every hour the figures are worked out for each part of GrievIQ and kept for 30 days. If a part is slow for 2 hours in a row, every super admin gets one email that day.</p></details>
+</main>
+<script>
+function T(key, vars) { return window.GIQ ? window.GIQ.t(key, vars) : key; }
+function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function loc() { return window.GIQ ? GIQ.locale() : "en-IN"; }
+function secs(ms) { return T("adm.sp_secs", { n: (ms / 1000).toLocaleString(loc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }
+function dayText(d) { var x = new Date(d + "T00:00:00+05:30"); return isNaN(x) ? d : x.toLocaleDateString(loc(), { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); }
+function timeText(s) { var d = new Date(s); return isNaN(d) ? s : d.toLocaleString(loc(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
+function bytes(n) { if (n == null) return "—"; var u = ["B", "KB", "MB", "GB"], i = 0; while (n >= 1024 && i < 3) { n /= 1024; i++; } return n.toLocaleString(loc(), { maximumFractionDigits: i >= 2 ? 1 : 0 }) + " " + u[i]; }
+var SP = { data: null, err: null };
+var AREAS = ["CITIZEN", "REP", "DEPT", "ADMIN"];
+// Seven days of each part's slowest hour, as bars; the target as a dashed line.
+function chart(a, d) {
+  var W = 320, H = 150, top = 22, bottom = 28, left = 6, right = 6, n = d.days.length;
+  var max = Math.max(d.slowMs * 1.4, Math.max.apply(null, d.areas[a].days.map(function (x) { return x.p95 || 0; })) * 1.15);
+  var y = function (v) { return top + (H - top - bottom) * (1 - v / max); };
+  var bw = (W - left - right) / n, out = '';
+  d.areas[a].days.forEach(function (x, i) {
+    var cx = left + i * bw + bw / 2;
+    if (x.p95 != null) {
+      var slow = x.p95 > d.slowMs;
+      out += '<rect class="b' + (slow ? ' slow' : '') + '" x="' + (cx - bw * 0.3).toFixed(1) + '" y="' + y(x.p95).toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + (H - bottom - y(x.p95)).toFixed(1) + '" rx="3"/>' +
+        '<text class="v" x="' + cx.toFixed(1) + '" y="' + (y(x.p95) - 5).toFixed(1) + '" text-anchor="middle">' + esc((x.p95 / 1000).toFixed(2)) + '</text>';
+    } else out += '<text x="' + cx.toFixed(1) + '" y="' + (H - bottom - 6) + '" text-anchor="middle">—</text>';
+    out += '<text x="' + cx.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + esc(dayText(x.day)) + '</text>';
+  });
+  var ty = y(d.slowMs).toFixed(1);
+  out += '<line class="t" x1="' + left + '" x2="' + (W - right) + '" y1="' + ty + '" y2="' + ty + '"/>' +
+    '<line class="base" x1="' + left + '" x2="' + (W - right) + '" y1="' + (H - bottom) + '" y2="' + (H - bottom) + '"/>';
+  return '<svg class="sp-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(T("adm.sp_chart_label", { area: T("adm.sp_a_" + a) })) + '">' + out + '</svg>' +
+    '<p class="sp-key"><span class="sp-dash" aria-hidden="true"></span>' + esc(T("adm.sp_target")) + '</p>' +
+    '<details class="sp-more"><summary>' + esc(T("adm.sp_table")) + '</summary><table><thead><tr><th scope="col">' + esc(T("adm.sp_th_day")) + '</th><th scope="col">' + esc(T("adm.sp_th_p95")) + '</th><th scope="col">' + esc(T("adm.sp_th_n")) + '</th></tr></thead><tbody>' +
+    d.areas[a].days.map(function (x) { return '<tr><th scope="row">' + esc(dayText(x.day)) + '</th><td>' + (x.p95 == null ? '—' : esc(secs(x.p95)) + (x.p95 > d.slowMs ? ' · ' + esc(T("adm.sp_slow_word")) : '')) + '</td><td>' + esc((x.n * d.sampleEvery).toLocaleString(loc())) + '</td></tr>'; }).join('') + '</tbody></table></details>';
+}
+function render() {
+  var app = document.getElementById("sp-app");
+  if (SP.err) { app.innerHTML = '<p class="muted">' + esc(SP.err()) + '</p>'; return; }
+  var d = SP.data; if (!d) return;
+  if (!d.ready) { app.innerHTML = '<p class="muted">' + esc(T("adm.sp_not_ready")) + '</p>'; return; }
+  var slowNames = (d.slowAreas || []).map(function (a) { return T("adm.sp_a_" + a); }).join(", ");
+  var html = '<section class="sp-status s-' + esc(d.status) + '" aria-labelledby="sp-st-h"><h2 id="sp-st-h">' + esc(T("adm.sp_st_" + d.status)) + '</h2><p>' + esc(T("adm.sp_st_" + d.status + "_h", { parts: slowNames })) + '</p></section>';
+  html += '<h2 class="sec-h" style="font-size:18px;margin:20px 0 4px">' + esc(T("adm.sp_week_h")) + '</h2><div class="sp-grid">';
+  AREAS.forEach(function (a) {
+    var l = d.areas[a].lastHour;
+    html += '<section class="sp-card" aria-labelledby="sp-' + a + '"><h3 id="sp-' + a + '">' + esc(T("adm.sp_a_" + a)) + '</h3>' +
+      '<p class="sp-last">' + (l ? T("adm.sp_last_hour", { s: '<b>' + esc(secs(l.p95)) + '</b>' }) : esc(T("adm.sp_last_hour_none"))) + '</p>' + chart(a, d) + '</section>';
+  });
+  html += '</div>';
+  var db = d.db, pct = db.size == null ? 0 : Math.min(100, db.size / db.limit * 100);
+  var pctText = pct > 0 && pct < 0.1 ? "<0.1" : pct.toLocaleString(loc(), { maximumFractionDigits: 1 });
+  html += '<div class="sp-grid"><section class="sp-card" aria-labelledby="sp-db"><h3 id="sp-db">' + esc(T("adm.sp_db_h")) + '</h3>' +
+    (db.size == null ? '<p class="sp-small">' + esc(T("adm.sp_db_unknown")) + '</p>' :
+      '<div class="sp-meter" role="img" aria-label="' + esc(T("adm.sp_db_used", { used: bytes(db.size), limit: bytes(db.limit), pct: pctText })) + '"><span style="width:' + pct.toFixed(2) + '%"></span><i></i></div>' +
+      '<p>' + esc(T("adm.sp_db_used", { used: bytes(db.size), limit: bytes(db.limit), pct: pctText })) + '</p>' +
+      '<p class="sp-small">' + esc(T(db.size >= db.warn ? "adm.sp_db_warn" : "adm.sp_db_ok", { warn: bytes(db.warn) })) + '</p>') + '</section>' +
+    '<section class="sp-card" aria-labelledby="sp-al"><h3 id="sp-al">' + esc(T("adm.sp_alert_h")) + '</h3><p>' + esc(d.lastAlert ? T("adm.sp_alert_last", { when: timeText(d.lastAlert) }) : T("adm.sp_alert_none")) + '</p></section></div>';
+  app.innerHTML = html;
+}
+async function load() {
+  try {
+    var res = await fetch("/api/admin/speed"); var d = await res.json();
+    if (!res.ok) { SP.err = function () { return d.error === "NOT_ADMIN" || d.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load"); }; render(); return; }
+    SP.err = null; SP.data = d; render();
+  } catch (e) { SP.err = function () { return T("adm.ss_e_load"); }; render(); }
+}
+function applyTheme(theme) { document.documentElement.classList.toggle("light-theme", theme === "light"); document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light"); }
+var savedTheme = "dark"; try { savedTheme = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+applyTheme(savedTheme);
+document.getElementById("theme-toggle").addEventListener("click", function () {
+  var cur = "dark"; try { cur = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {}
+  var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
+  applyTheme(next);
+});
+document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); render(); });
+load();
+</script>
+</body>
+</html>

@@ -28,7 +28,7 @@ class Stmt {
   bind(...b) { return new Stmt(this.sql, b.map(norm)); }
   first(col) { const r = db.prepare(this.sql).get(...this.binds); const row = r ? { ...r } : null; return Promise.resolve(col && row ? row[col] : row); }
   all() { return Promise.resolve({ results: db.prepare(this.sql).all(...this.binds).map((r) => ({ ...r })), success: true }); }
-  run() { const r = db.prepare(this.sql).run(...this.binds); return Promise.resolve({ success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }); }
+  run() { const r = db.prepare(this.sql).run(...this.binds); const size = Number(db.prepare('PRAGMA page_count').get().page_count) * Number(db.prepare('PRAGMA page_size').get().page_size); return Promise.resolve({ success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid), size_after: size } }); }
   _runSync() { const s = db.prepare(this.sql); if (/^\s*(select|with)/i.test(this.sql)) return { results: s.all(...this.binds), meta: { changes: 0 } }; const r = s.run(...this.binds); return { success: true, meta: { changes: Number(r.changes) } }; }
 }
 const DB = {
@@ -123,6 +123,20 @@ http.createServer(async (req, res) => {
     const chunks = []; for await (const c of req) chunks.push(c);
     const body = chunks.length ? Buffer.concat(chunks) : null;
     // Test only: run the hourly job's subscriptions part now (grieviq-46).
+    // Test only (grieviq-47): add speed samples; run the hourly speed summary.
+    if (url.pathname === "/__test/speed-sample" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "speed.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      for (const x of b.samples || []) await m.recordSample(env, x.area, x.ms, x.failed, x.at ? Date.parse(x.at) : Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true }));
+    }
+    if (url.pathname === "/__test/run-speed" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "speed.js")).href);
+      const da = await import(pathToFileURL(path.join(repo, "functions", "_shared", "dept-auth.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runSpeed(env, b.now ? Date.parse(b.now) : Date.now(), da.sendEmailNow);
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);
       const out = await m.runSubscriptions(env, "http://localhost:" + port, Date.now());

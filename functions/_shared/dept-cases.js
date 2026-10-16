@@ -77,18 +77,26 @@ export async function officerNames(env, emails) {
 
 // The office's list: tiles and one row per case (no photos, no text beyond
 // the first 160 characters).
-export async function officeCaseList(env, officer, nowMs) {
+// grieviq-47: open cases in full; closed ones (last 30 days) a page at a
+// time, newest first (closedWanted, default 50). tiles.closed counts them all.
+export async function officeCaseList(env, officer, nowMs, closedWanted) {
   const now = nowMs || Date.now();
+  const want = Math.min(Math.max(Number(closedWanted) || 50, 1), 2000);
   const ids = await caseIdsForOffice(env, officer.office_id);
   const tiles = { newCases: 0, withUs: 0, overdue: 0, waitingCheck: 0, sentBack: 0, closed: 0 };
-  if (!ids.length) return { tiles, cases: [] };
+  if (!ids.length) return { tiles, cases: [], closed: { total: 0, shown: 0, wanted: want } };
+  const cutoff = new Date(now - (RECENT_CLOSED_DAYS + 1) * 86400000).toISOString().slice(0, 10);
   const { results } = await env.DB.prepare(
     `SELECT g.id, g.tracking_ref, g.status, g.description, g.created_at, g.resolved_at, g.closed_at, g.updated_at, g.retention_removed_at,
             g.category_id, g.local_unit_id, lu.name AS ward_name, c.name AS category_name
      FROM grievances g LEFT JOIN local_units lu ON lu.id = g.local_unit_id LEFT JOIN grievance_categories c ON c.id = g.category_id
-     WHERE g.id IN (SELECT value FROM json_each(?))`
-  ).bind(JSON.stringify(ids)).all();
-  const rows = (results || []).filter((g) => visibleNow(g, now));
+     WHERE g.id IN (SELECT value FROM json_each(?))
+       AND (g.status IN ('OPEN', 'ACKNOWLEDGED', 'PENDING_CONFIRMATION') OR COALESCE(g.closed_at, g.resolved_at, g.updated_at) >= ?)`
+  ).bind(JSON.stringify(ids), cutoff).all();
+  const all = (results || []).filter((g) => visibleNow(g, now));
+  const closedKey = (g) => toUtcMs(g.closed_at || g.resolved_at || g.updated_at) || 0;
+  const closedRows = all.filter((g) => !OPEN.includes(g.status)).sort((a, b) => closedKey(b) - closedKey(a));
+  const rows = all.filter((g) => OPEN.includes(g.status)).concat(closedRows.slice(0, want));
   const stepsBy = await loadSteps(env, rows.map((g) => g.id));
   const targets = await targetDaysByType(env);
   const cases = [];
@@ -119,7 +127,9 @@ export async function officeCaseList(env, officer, nowMs) {
   }
   const rank = { NEW: 0, SENT_BACK: 1, WITH_US: 2, WAITING_CHECK: 3, OTHER: 4, CLOSED: 5 };
   cases.sort((a, b) => (b.state.overdue - a.state.overdue) || (b.state.overdueDays - a.state.overdueDays) || (rank[a.bucket] - rank[b.bucket]) || String(a.forwardedAt || "").localeCompare(String(b.forwardedAt || "")));
-  return { tiles, cases };
+  // Closed cases not on this page still count in the tile.
+  tiles.closed += Math.max(0, closedRows.length - want);
+  return { tiles, cases, closed: { total: closedRows.length, shown: Math.min(closedRows.length, want), wanted: want } };
 }
 
 // One case in full, as the department sees it.

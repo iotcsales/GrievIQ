@@ -282,6 +282,13 @@
             ["**Complimentary** is for department offices only and needs a written reason. **Pause** makes an office view only; **End access** stops sign-in. Citizens are never affected.", "**मानार्थ** केवल विभागीय कार्यालयों के लिए है और लिखित कारण चाहिए। **रोकें** कार्यालय को केवल देखने वाला बनाता है; **पहुँच समाप्त करें** साइन इन रोकता है। नागरिकों पर कभी असर नहीं पड़ता।"],
             ["Reminder days, grace days and the pilot end for existing offices are in **Prices & site details → Discounts**, the same for every office.", "याद दिलाने के दिन, छूट-अवधि और मौजूदा कार्यालयों की पायलट समाप्ति **शुल्क व साइट विवरण → छूट** में हैं, हर कार्यालय के लिए एक समान।"],
           ] },
+        { id: "speed", roles: ["super_admin", "operations_admin"], title: ["Keep GrievIQ fast", "GrievIQ को तेज़ रखें"],
+          who: ["Super or operations admin, once a week.", "सुपर या संचालन एडमिन, सप्ताह में एक बार।"],
+          steps: [
+            ["Open **Speed** (Offices & prices). **Fast** means 95 of every 100 requests were answered within 0.5 seconds.", "**गति** खोलें (कार्यालय और शुल्क)। **तेज़** का अर्थ है हर 100 में से 95 अनुरोधों का उत्तर 0.5 सेकंड में मिला।"],
+            ["**Getting slower** or **Slow**: note which part (citizen pages, representative console, department dashboard or admin) and since when, and tell your developer. Super admins are emailed automatically after 2 slow hours.", "**धीमा हो रहा है** या **धीमा**: कौन-सा हिस्सा (नागरिक पृष्ठ, जनप्रतिनिधि कंसोल, विभागीय डैशबोर्ड या एडमिन) और कब से, लिखें और डेवलपर को बताएँ। 2 धीमे घंटों के बाद सुपर एडमिन को अपने-आप ईमेल जाता है।"],
+            ["Watch **Database size**. When it passes the yellow mark (5 GB), plan archiving old closed cases or splitting the database by region.", "**डेटाबेस का आकार** देखें। पीला निशान (5 GB) पार होने पर पुराने बंद मामलों को अलग करने या क्षेत्रवार डेटाबेस बाँटने की योजना बनाएँ।"],
+          ] },
         { id: "audit", roles: ["super_admin", "auditor"], title: ["Audit and data retention", "ऑडिट और डेटा संग्रहण"],
           who: ["Auditor and super admin.", "ऑडिटर और सुपर एडमिन।"],
           steps: [

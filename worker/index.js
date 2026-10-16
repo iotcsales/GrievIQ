@@ -19,6 +19,8 @@ import { settleOverdueConfirmations } from "../functions/_shared/confirmation.js
 import { runRetention, RUN_BATCH } from "../functions/_shared/retention.js";
 import { purgeDuePhotos } from "../functions/_shared/photo-store.js";
 import { runSubscriptions } from "../functions/_shared/subscription-run.js";
+import { runSpeed } from "../functions/_shared/speed.js";
+import { sendEmailNow } from "../functions/_shared/dept-auth.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -36,7 +38,10 @@ export async function runScheduled(env, nowMs) {
   // grace and view-only notices.
   let subscriptions = null;
   try { subscriptions = await runSubscriptions(env, origin, nowMs); } catch (e) { subscriptions = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions };
+  // grieviq-47: hourly speed figures, tidy-up and the slow alert.
+  let speed = null;
+  try { speed = await runSpeed(env, nowMs, sendEmailNow); } catch (e) { speed = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed };
 }
 
 export default {

@@ -17,8 +17,19 @@ python3 - "$WORK/test.db" "$HERE" <<'PY'
 import sqlite3, sys, os
 db, here = sys.argv[1], sys.argv[2]
 c = sqlite3.connect(db)
-for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "seed.sql"]:
-    c.executescript(open(os.path.join(here, f), encoding="utf-8").read())
+import re, datetime
+# Seed dates were written when the tests were last green (12 Oct 2026). Move
+# them forward by the days since then, so cases don't age into the next
+# escalation level as the calendar moves on (grieviq-47).
+SHIFT = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.date(2026, 10, 12)).days
+def shifted(m):
+    t = datetime.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(days=SHIFT)
+    return "'" + t.strftime("%Y-%m-%dT%H:%M:%S") + "Z'"
+for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "part31-speed.sql", "seed.sql"]:
+    sql = open(os.path.join(here, f), encoding="utf-8").read()
+    if f == "seed.sql" and SHIFT > 0:
+        sql = re.sub(r"'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)Z'", shifted, sql)
+    c.executescript(sql)
 c.commit()
 PY
 nohup node --no-warnings "$HERE/server.mjs" "$REPO" "$WORK/test.db" 8788 > "$WORK/server.log" 2>&1 &

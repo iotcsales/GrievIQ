@@ -11,7 +11,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title data-i18n="adm.d_page_title">Dashboard — GrievIQ Admin</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=46"></script><script src="/giq-charts.js?v=3"></script><script src="/admin-nav.js?v=r13"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=47"></script><script src="/giq-charts.js?v=3"></script><script src="/admin-nav.js?v=r14"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -253,7 +253,7 @@
 <body>
 
 <header>
-  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.d_service_tag">Citywide ward data · Lucknow pilot</div></div>
+  <div class="brand"><span class="brand-mark" aria-hidden="true" style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#13233F;align-items:center;justify-content:center;vertical-align:-5px;margin-right:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"><svg width="16" height="16" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>GrievIQ <span data-i18n="adm.brand">Admin</span><div class="service-tag" data-i18n="adm.d_service_tag">Ward and office data</div></div>
   <div class="header-right">
     <nav>
       <a href="/admin-dashboard.html" data-i18n="adm.nav_dashboard" class="active">Dashboard</a> <a href="/admin-visitors.html" data-i18n="adm.nav_visitors">Visitors</a> <a href="/admin-feedback.html" data-i18n="adm.nav_feedback">Feedback</a> <a href="/admin-messages.html" data-i18n="adm.nav_messages">Messages</a>
@@ -426,6 +426,7 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
     const L = data.links || {};
     return '<div class="cards">' +
       card(fileable, total, T("adm.d_c_filing"), T("adm.d_c_filing_h"), "/admin-jurisdiction.html", L.jurisdiction) +
+      (data.speed ? card(T("adm.sp_st_" + data.speed), null, T("adm.d_c_speed"), T("adm.d_c_speed_h"), "/admin-speed.html", true) : "") +
       (data.subs ? card(data.subs.ATTENTION || 0, null, T("adm.d_c_subs"), T("adm.d_c_subs_h", { due: data.subs.DUE_SOON || 0, grace: data.subs.GRACE || 0, paused: data.subs.PAUSED || 0, pilot: data.subs.PILOT_ENDING || 0 }), "/admin-subscriptions.html", true) : "") +
       card(data.needsAttentionTotal, null, T("adm.d_c_attention"), T("adm.d_c_attention_h"), "/admin-exceptions.html", L.exceptions) +
       card(data.pendingReviews, null, T("adm.d_c_reviews"), T("adm.d_c_reviews_h"), "/admin-reviews.html", L.reviews) +
@@ -754,6 +755,8 @@ function timeOpts() { return isHi() ? { hour: "2-digit", minute: "2-digit", hour
       }
       data = body;
       // grieviq-46: subscriptions needing attention (for roles that can see them).
+      // grieviq-47: the speed monitor's status.
+      if (["super_admin", "operations_admin"].includes(data.role)) try { const pr = await fetch("/api/admin/speed?summary=1"); if (pr.ok) { const pj = await pr.json(); if (pj.ready) data.speed = pj.status; } } catch (e) { /* tile left out */ }
       if (["super_admin", "operations_admin", "auditor"].includes(data.role)) try { const sr = await fetch("/api/admin/subscriptions?summary=1"); if (sr.ok) { const sj = await sr.json(); if (sj.ready) data.subs = sj.counts; } } catch (e) { /* tile left out */ }
       render();
     } catch (err) {

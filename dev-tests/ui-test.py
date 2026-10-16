@@ -1748,7 +1748,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 9), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-audit"])):
+    for who, want in (("super@test.in", 10), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2175,6 +2175,100 @@ with sync_playwright() as pw:
     # back to normal for anything after this
     api41("POST", "/api/admin/subscriptions", {"action": "resume", "type": "REP", "tier": "LOCAL", "id": "lu-hazratganj", "reason": "Break over"})
     api41("POST", "/api/admin/subscriptions", {"action": "resume", "type": "DEPT", "tier": "", "id": jal, "reason": "Testing over"})
+
+    # ---------- grieviq-47: closed cases a page at a time; Speed page ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (375, 1280):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('giq-welcome-r1@x.in','1')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/rep"); p.wait_for_selector("#more-closed", timeout=20000)
+                ok(p.locator("#find-case").count() == 1, "find box shown when older cases aren't loaded " + tag)
+                txt = p.inner_text(".more-closed")
+                if lang == "en": ok("Showing 50 of" in txt and "closed cases" in txt, "show-more wording " + tag, txt)
+                else: ok(not re.findall(r"rep\.\w+", p.inner_text("#content")) and "बंद मामले" in txt, "show-more in Hindi " + tag, txt)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('content')", 1)); ok(not bad, "case list contrast AA " + tag, bad[:5])
+                small = p.evaluate("() => Array.from(document.querySelectorAll('#find-case input, #find-case button, #more-closed')).filter(e => { const r = e.getBoundingClientRect(); return r.height < 24 || r.width < 24; }).map(e => e.id || e.textContent)")
+                ok(not small, "find and show-more targets >= 24px " + tag, small)
+                ok(no_hscroll(p), "case list: no sideways scroll " + tag)
+                if width == 375:
+                    p.locator("#find-case").scroll_into_view_if_needed(); shot(p, "69-find-" + tag, full=False)
+                    p.locator(".more-closed").scroll_into_view_if_needed(); shot(p, "70-more-" + tag, full=False)
+                ok(not errs, "no script errors (case paging %s)" % tag, errs)
+                ctx.close()
+    ctx = br.new_context(viewport={"width": 390, "height": 900})
+    ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+    ctx.add_init_script("try{localStorage.setItem('giq-welcome-r1@x.in','1')}catch(e){}")
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector("#more-closed", timeout=20000)
+    n0 = p.locator(".case-row").count()
+    with p.expect_response(lambda r: "/api/grievances?closed=100" in r.url): p.click("#more-closed")
+    p.wait_for_timeout(300)
+    ok(p.locator(".case-row").count() == n0 + 50, "Show 50 more adds 50 cases", (n0, p.locator(".case-row").count()))
+    ok(p.evaluate("document.activeElement.className").startswith("case-row"), "focus moves to the first new case")
+    p.fill("#find-ref", "abc"); p.click(".find-btn"); p.wait_for_timeout(150)
+    ok(p.get_attribute("#find-ref", "aria-invalid") == "true" and "GRV-" in p.inner_text("#find-msg") and p.evaluate("document.activeElement.id") == "find-ref", "wrong format: explained, field marked and focused")
+    p.fill("#find-ref", "GRV-NOPE77")
+    with p.expect_response(lambda r: "ref=GRV-NOPE77" in r.url): p.click(".find-btn")
+    p.wait_for_timeout(300)
+    ok("GRV-NOPE77" in p.inner_text("#find-msg") and p.evaluate("document.activeElement.id") == "find-ref", "unknown number: told, focus back in the box")
+    p.fill("#find-ref", "grv-old119")
+    with p.expect_response(lambda r: "ref=GRV-OLD119" in r.url): p.click(".find-btn")
+    p.wait_for_timeout(400)
+    ok(p.evaluate("document.activeElement.id") == "case-gc119" and "GRV-OLD119" in p.inner_text("#case-gc119"), "old case found by number and focused")
+    shot(p, "71-found-case", full=False)
+    ok(not errs, "no script errors (find a case)", errs)
+    ctx.close()
+    # department dashboard: more than 50 closed in the last 30 days
+    _d47 = _sq.connect(WORK + "/test.db", timeout=10)
+    _jal = _d47.execute("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").fetchone()[0]
+    for i in range(40):
+        _t = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=i + 3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _d47.execute("INSERT OR IGNORE INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at, resolved_at, closed_at) VALUES (?, ?, '9000000097', 'lu-hazratganj', 'water-sanitation', 'CLOSED', 'Recently closed', 'LOCAL', ?, ?, ?)", ("gd%d" % i, "GRV-DCL%03d" % i, _t, _t, _t))
+        _d47.execute("INSERT OR IGNORE INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, channel, actor, actor_role, created_at) VALUES (?, ?, 'FORWARDED', 'Water Supply / Sanitation', ?, 'Jal Kal', 'DASHBOARD', 'r1@x.in', 'OFFICE', ?)", ("sdu%d" % i, "gd%d" % i, _jal, _t))
+    _d47.commit(); _d47.close()
+    for theme in ("light", "dark"):
+        ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+        ok(dept_signin(ctx) == 200, "dept signed in for paging " + theme)
+        p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/dept"); p.wait_for_selector("#f-show"); p.select_option("#f-show", "CLOSED"); p.wait_for_selector("#more-closed")
+        ok("last 30 days" in p.inner_text(".more-closed"), "department: show more closed " + theme)
+        n0 = p.locator("[data-open]").count()
+        with p.expect_response(lambda r: "/api/dept/cases?closed=100" in r.url): p.click("#more-closed")
+        p.wait_for_timeout(300)
+        ok(p.locator("[data-open]").count() > n0 and p.evaluate("document.activeElement.hasAttribute('data-open')"), "department: more cases, focus on the first new one " + theme)
+        bad = p.evaluate(CONTRAST_JS); ok(not bad, "department list contrast AA " + theme, bad[:5])
+        ok(not errs, "no script errors (dept paging %s)" % theme, errs)
+        ctx.close()
+    # Speed page (slow figures were added by the API tests)
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = P("super@test.in", theme=theme, lang=lang, width=width)
+                p.goto(B + "/admin-speed.html"); p.wait_for_selector(".sp-status")
+                ok(p.locator(".sp-card .sp-svg").count() == 4 and p.locator(".sp-meter").count() == 1, "Speed page: 4 parts with charts, database size " + tag)
+                st = p.inner_text(".sp-status")
+                if lang == "en": ok("Slow" in st and "Representative console" in st, "status in words names the slow part " + tag, st)
+                else: ok(not re.findall(r"adm\.\w+", p.inner_text("main")) and "धीमा" in st, "Speed page in Hindi, nothing missing " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                ok(no_hscroll(p), "Speed page: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "Speed page contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "Speed page targets " + tag, small[:5])
+                shot(p, "72-speed-" + tag, full=True)
+                ok(not errs, "no script errors (speed %s)" % tag, errs)
+                ctx.close()
+    ctx, p, errs = P("ops@test.in"); p.goto(B + "/admin-speed.html"); p.wait_for_selector(".sp-status")
+    ok(True, "operations admin opens Speed"); ctx.close()
+    ctx, p, errs = P("audit@test.in"); p.goto(B + "/admin-speed.html"); p.wait_for_timeout(800)
+    ok("does not have access" in p.inner_text("main"), "auditor: no access to Speed"); ctx.close()
+    ctx, p, errs = P("super@test.in"); p.goto(B + "/admin-dashboard.html"); p.wait_for_selector('a.card[href="/admin-speed.html"]')
+    ok("Slow" in p.inner_text('a.card[href="/admin-speed.html"]'), "dashboard: Speed tile")
+    ok("Ward and office data" in p.inner_text("header") and "Lucknow" not in p.inner_text("header"), "admin header: no city name")
+    ok(not errs, "no script errors (dashboard speed tile)", errs)
+    ctx.close()
 
     br.close()
 
