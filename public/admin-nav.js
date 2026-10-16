@@ -393,7 +393,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=44", "/guide.js?v=40"].forEach(function (src) {
+      ["/guide-content.js?v=45", "/guide.js?v=40"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };
@@ -475,6 +475,39 @@
   }
   style.textContent += ".skip-link{position:absolute;left:12px;top:-60px;z-index:10000;background:var(--admin-accent-fill,#3d6be0);color:#fff;padding:10px 16px;border-radius:8px;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}.skip-link:focus{top:10px;outline:3px solid #fff;outline-offset:2px}";
   ready(drawSkip);
+
+
+  // grieviq-48: a "Type to find" box above long lists (select[data-search]),
+  // e.g. 36 states or 75 districts. Typing narrows the list; when one item
+  // is left it is chosen. The list itself keeps working with the keyboard.
+  style.textContent += ".giq-find{display:flex;flex-direction:column;gap:3px;margin:0 0 6px}.giq-find label{font-size:12px;font-weight:600;color:var(--admin-muted,#9aa4b2)}.giq-find input{font:inherit;font-size:14px;min-height:36px;padding:6px 10px;border-radius:6px;border:1px solid #5d6878;background:var(--admin-bg,#11151c);color:var(--admin-text,#e6e9ee);width:100%;box-sizing:border-box}html.light-theme .giq-find input{background:#fff;border-color:#8a94a3}.giq-find input:focus-visible{outline:3px solid #FFDD00;outline-offset:1px}.giq-find-n{font-size:12px;color:var(--admin-muted,#9aa4b2);min-height:0}";
+  var findSeq = 0;
+  function addFind(sel) {
+    if (sel.getAttribute("data-search-ready")) return;
+    sel.setAttribute("data-search-ready", "1");
+    var all = Array.prototype.map.call(sel.options, function (o) { return { v: o.value, t: o.textContent, keep: o.value === "" }; });
+    var id = "giq-find-" + (++findSeq);
+    var box = document.createElement("div"); box.className = "giq-find";
+    box.innerHTML = '<label for="' + id + '"></label><input type="search" id="' + id + '" autocomplete="off" aria-controls="' + sel.id + '" aria-describedby="' + id + '-n"><span class="giq-find-n" id="' + id + '-n" aria-live="polite"></span>';
+    box.querySelector("label").textContent = t("adm.find_label");
+    sel.parentNode.insertBefore(box, sel);
+    if (sel.offsetWidth > 0) box.style.maxWidth = sel.offsetWidth + "px";
+    var input = box.querySelector("input"), out = box.querySelector(".giq-find-n");
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase(), cur = sel.value;
+      var hits = all.filter(function (o) { return !o.keep && (!q || o.t.toLowerCase().indexOf(q) >= 0 || o.v.toLowerCase().indexOf(q.replace(/\s+/g, "-")) >= 0); });
+      sel.innerHTML = "";
+      all.filter(function (o) { return o.keep; }).concat(hits).forEach(function (o) { var op = document.createElement("option"); op.value = o.v; op.textContent = o.t; sel.appendChild(op); });
+      out.textContent = q ? t(hits.length === 1 ? "adm.find_one" : "adm.find_n", { n: hits.length }) : "";
+      if (q && hits.length === 1) { if (cur !== hits[0].v) { sel.value = hits[0].v; sel.dispatchEvent(new Event("change", { bubbles: true })); } }
+      else if (hits.some(function (o) { return o.v === cur; })) sel.value = cur;
+    });
+  }
+  function scanFind(root) { (root || document).querySelectorAll("select[data-search]").forEach(addFind); }
+  ready(function () {
+    scanFind();
+    new MutationObserver(function () { scanFind(); }).observe(document.body, { childList: true, subtree: true });
+  });
 
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })

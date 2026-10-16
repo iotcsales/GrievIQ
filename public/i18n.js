@@ -5214,7 +5214,7 @@
 "rep.load_more_failed": ["Couldn't load more cases. Check your connection and try again.", "और मामले लोड नहीं हुए। इंटरनेट जाँचकर फिर कोशिश करें।"],
 "dd.closed_shown": ["Showing {x} of {y} cases closed in the last 30 days", "पिछले 30 दिनों में बंद {y} में से {x} मामले दिखाए जा रहे हैं"],
 "adm.ar_geo_h": ["States and districts", "राज्य और ज़िले"],
-"adm.ar_geo_p": ["The government's own list, with LGD codes (Local Government Directory). The government dashboard groups every figure this way, so reports match the state's own systems. State codes are already filled in; add the districts you need.", "सरकार की अपनी सूची, LGD कोड (स्थानीय शासन निर्देशिका) सहित। सरकारी डैशबोर्ड हर आँकड़े को इसी तरह समूहित करता है, ताकि रिपोर्ट राज्य की अपनी प्रणालियों से मेल खाएँ। राज्यों के कोड पहले से भरे हैं; जिन ज़िलों की ज़रूरत हो, उन्हें जोड़ें।"],
+"adm.ar_geo_p": ["The government's own list, with LGD codes (Local Government Directory). All states and their 763 districts are already filled in from the official directory; add one only if a new district has been formed since 2022. The government dashboard groups every figure this way.", "सरकार की अपनी सूची, LGD कोड (स्थानीय शासन निर्देशिका) सहित। सभी राज्य और उनके 763 ज़िले आधिकारिक निर्देशिका से पहले से भरे हैं; केवल 2022 के बाद बना कोई नया ज़िला ही जोड़ें। सरकारी डैशबोर्ड हर आँकड़े को इसी तरह समूहित करता है।"],
 "adm.ar_state_lgd": ["LGD code of {s}: {c}", "{s} का LGD कोड: {c}"],
 "adm.ar_d_col": ["District", "ज़िला"],
 "adm.ar_d_lgd": ["LGD code", "LGD कोड"],
@@ -5222,7 +5222,7 @@
 "adm.ar_d_areas": ["Areas placed", "रखे गए क्षेत्र"],
 "adm.ar_d_caption": ["Districts of {s}", "{s} के ज़िले"],
 "adm.ar_d_none": ["No districts of {s} added yet.", "{s} का अभी कोई ज़िला नहीं जोड़ा गया।"],
-"adm.ar_d_add_h": ["Add a district of {s}", "{s} का ज़िला जोड़ें"],
+"adm.ar_d_add_h": ["Add a new district of {s} (only if it is missing)", "{s} का नया ज़िला जोड़ें (केवल अगर सूची में न हो)"],
 "adm.ar_d_add_btn": ["Add district", "ज़िला जोड़ें"],
 "adm.ar_d_name_en": ["Name in English", "अंग्रेज़ी में नाम"],
 "adm.ar_d_name_hi": ["Name in Hindi", "हिन्दी में नाम"],
@@ -5297,7 +5297,7 @@
 "adm.gv_f_districtId": ["District", "ज़िला"],
 "adm.gv_pick_state": ["Choose a state", "राज्य चुनें"],
 "adm.gv_pick_district": ["Choose a district", "ज़िला चुनें"],
-"adm.gv_no_districts": ["No districts of this state yet: add them on the Areas page.", "इस राज्य का अभी कोई ज़िला नहीं: क्षेत्र पेज पर जोड़ें।"],
+"adm.gv_no_districts": ["No districts of this state yet: add them on the Areas page, under States and districts.", "इस राज्य का अभी कोई ज़िला नहीं: क्षेत्र पेज पर राज्य और ज़िले के नीचे जोड़ें।"],
 "adm.gv_f_letterRef": ["Letter number", "पत्र संख्या"],
 "adm.gv_f_letterRef_h": ["As printed on the state's letter", "जैसा राज्य के पत्र पर छपा है"],
 "adm.gv_f_letterDate": ["Letter date", "पत्र की तारीख़"],
@@ -5379,7 +5379,15 @@
 "rep.gs_saved_off": ["Sharing stopped. The state sees only district totals.", "साझा करना बंद। राज्य केवल ज़िले का कुल योग देखता है।"],
 "rep.gs_err": ["Couldn't save. Please try again.", "सहेजा नहीं जा सका। कृपया फिर से कोशिश करें।"],
 "rep.act_gov_on": ["started sharing the office's figures with the state government", "कार्यालय के आँकड़े राज्य सरकार के साथ साझा करना शुरू किया"],
-"rep.act_gov_off": ["stopped sharing the office's figures with the state government", "कार्यालय के आँकड़े राज्य सरकार के साथ साझा करना बंद किया"]
+"rep.act_gov_off": ["stopped sharing the office's figures with the state government", "कार्यालय के आँकड़े राज्य सरकार के साथ साझा करना बंद किया"],
+"adm.find_label": ["Type to find in the list", "सूची में खोजने के लिए लिखें"],
+"adm.find_n": ["{n} found", "{n} मिले"],
+"adm.find_one": ["1 found and chosen", "1 मिला और चुना गया"],
+"adm.ar_choose_district": ["Choose its district", "इसका ज़िला चुनें"],
+"adm.ar_d_show": ["Show the {n} districts of {s}", "{s} के {n} ज़िले दिखाएँ"],
+"adm.ar_place_guess": ["Suggested from the name: {d}. Check it, then Save.", "नाम से सुझाव: {d}। जाँचें, फिर सहेजें।"],
+"adm.ar_add_geo_hint": ["This adds a GrievIQ area for citizens. To link a city to its government district (for the state dashboard), open the city in the list above and choose its district.", "इससे नागरिकों के लिए GrievIQ क्षेत्र जुड़ता है। किसी शहर को उसके सरकारी ज़िले से जोड़ने (राज्य डैशबोर्ड के लिए) के लिए ऊपर की सूची में शहर खोलें और उसका ज़िला चुनें।"],
+"adm.gv_state_first": ["Choose the state first.", "पहले राज्य चुनें।"]
   };
   for (var ak in A) { if (Object.prototype.hasOwnProperty.call(A, ak)) D[ak] = A[ak]; }
 

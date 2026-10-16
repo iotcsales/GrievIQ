@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=48"></script>
-<script src="/admin-nav.js?v=r15"></script>
+<script src="/i18n.js?v=49"></script>
+<script src="/admin-nav.js?v=r16"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -327,7 +327,7 @@ function selFld(id, key, label, options, hint) {
   var f = GV.form, e = f.errors[key];
   var desc = [hint ? id + "-h" : "", e ? id + "-e" : ""].filter(Boolean).join(" ");
   return '<div class="fld"><label for="' + id + '">' + esc(T(label)) + "</label>" + (hint ? '<span class="hint" id="' + id + '-h">' + esc(hint) + "</span>" : "") +
-    '<select id="' + id + '" data-f="' + key + '"' + (e ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" +
+    '<select id="' + id + '" data-f="' + key + '" data-search="1"' + (e ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" +
     options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === f[key] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select>" +
     (e ? '<span class="ferr" id="' + id + '-e">' + esc(T("adm.gv_e_" + key + "_" + e)) + "</span>" : "") + "</div>";
 }
@@ -350,7 +350,7 @@ function renderForm() {
       '<span class="ropt"><input type="radio" name="gv-lv" id="gv-lv-d" value="DISTRICT"' + (f.level === "DISTRICT" ? " checked" : "") + '><label for="gv-lv-d">' + esc(T("adm.gv_lv_DISTRICT")) + "</label></span>" +
       (f.errors.level ? '<span class="ferr" id="gv-level-e">' + esc(T("adm.gv_e_level_" + f.errors.level)) + "</span>" : "") + "</fieldset>" +
     '<div class="grid">' + selFld("gv-stateId", "stateId", "adm.gv_f_stateId", states) +
-      (f.level === "DISTRICT" ? selFld("gv-districtId", "districtId", "adm.gv_f_districtId", dOpts, f.stateId && !dists.length ? T("adm.gv_no_districts") : null) : "") + "</div>" +
+      (f.level === "DISTRICT" ? selFld("gv-districtId", "districtId", "adm.gv_f_districtId", dOpts, !f.stateId ? T("adm.gv_state_first") : !dists.length ? T("adm.gv_no_districts") : null) : "") + "</div>" +
     '<div class="grid">' + fld("gv-letterRef", "letterRef", "adm.gv_f_letterRef", "adm.gv_f_letterRef_h", "text", ' maxlength="80"') +
       fld("gv-letterDate", "letterDate", "adm.gv_f_letterDate", null, "date", ' max="' + esc(d.today) + '"') + "</div>" +
     '<div class="acts small"><button type="submit" class="primary" id="gv-add">' + esc(T("adm.gv_add_btn")) + "</button></div></form></section>";
