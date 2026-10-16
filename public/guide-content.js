@@ -125,6 +125,7 @@
             ["Open **Team** and fill **Add a person**: name, the email of their Google account, mobile number, role, and (for field workers) their wards. Tap **Add to team**.", "**टीम** खोलें और **व्यक्ति जोड़ें** भरें: नाम, Google खाते का ईमेल, मोबाइल, भूमिका, और (फ़ील्ड कर्मी के लिए) वार्ड। **टीम में जोड़ें** दबाएँ।"],
             ["Mark people **On leave** with their return date, so cases are not assigned to them.", "छुट्टी पर गए व्यक्ति को वापसी की तिथि के साथ **छुट्टी पर** चिह्नित करें।"],
             ["When someone leaves your office, tap **Remove** the same day.", "कोई कार्यालय छोड़े तो उसी दिन **हटाएँ** दबाएँ।"],
+            ["**Share with the state government** (optional): the state's dashboard shows your area only inside district totals. Tap **Share my office's figures** only if you want the state to see your office's own figures; **Stop sharing** at any time.", "**राज्य सरकार के साथ साझा करें** (वैकल्पिक): राज्य के डैशबोर्ड पर आपका क्षेत्र केवल ज़िले के कुल योग में दिखता है। राज्य को अपने कार्यालय के आँकड़े दिखाने हों तभी **मेरे कार्यालय के आँकड़े साझा करें** दबाएँ; कभी भी **साझा करना बंद करें**।"],
           ] },
         { id: "reports", roles: ["REPRESENTATIVE", "OFFICE_MANAGER", "OFFICE_ASSISTANT"], title: ["Reports and audit", "रिपोर्ट और ऑडिट"],
           who: ["Anyone in the office who can see them.", "कार्यालय में जिन्हें ये दिखते हैं।"],
@@ -289,6 +290,15 @@
             ["**Getting slower** or **Slow**: note which part (citizen pages, representative console, department dashboard or admin) and since when, and tell your developer. Super admins are emailed automatically after 2 slow hours.", "**धीमा हो रहा है** या **धीमा**: कौन-सा हिस्सा (नागरिक पृष्ठ, जनप्रतिनिधि कंसोल, विभागीय डैशबोर्ड या एडमिन) और कब से, लिखें और डेवलपर को बताएँ। 2 धीमे घंटों के बाद सुपर एडमिन को अपने-आप ईमेल जाता है।"],
             ["Watch **Database size**. When it passes the yellow mark (5 GB), plan archiving old closed cases or splitting the database by region.", "**डेटाबेस का आकार** देखें। पीला निशान (5 GB) पार होने पर पुराने बंद मामलों को अलग करने या क्षेत्रवार डेटाबेस बाँटने की योजना बनाएँ।"],
           ] },
+        { id: "gov", roles: ["super_admin", "operations_admin", "auditor"], title: ["Government access", "सरकारी पहुँच"],
+          who: ["Super admin gives and removes access; operations admin and the auditor can look.", "पहुँच सुपर एडमिन देता और हटाता है; संचालन एडमिन और ऑडिटर देख सकते हैं।"],
+          steps: [
+            ["First, in **Areas → States and districts**, add the state's districts with their **LGD codes** (from lgdirectory.gov.in), then open each area and choose its **district**.", "पहले **क्षेत्र → राज्य और ज़िले** में राज्य के ज़िले उनके **LGD कोड** (lgdirectory.gov.in से) सहित जोड़ें, फिर हर क्षेत्र खोलकर उसका **ज़िला** चुनें।"],
+            ["In **Issue types**, give every type a **theme** (ISO 37120), so the dashboard groups like with like.", "**समस्या प्रकार** में हर प्रकार को **विषय** (ISO 37120) दें, ताकि डैशबोर्ड एक जैसी चीज़ों को साथ रखे।"],
+            ["Give access **only on a letter from the state government** naming the official. In **Government access**, fill name, designation, official email (gov.in or nic.in), whole state or one district, and the letter's number and date.", "पहुँच **केवल राज्य सरकार के पत्र पर** दें जिसमें अधिकारी का नाम हो। **सरकारी पहुँच** में नाम, पदनाम, आधिकारिक ईमेल (gov.in या nic.in), पूरा राज्य या एक ज़िला, और पत्र की संख्या व तारीख़ भरें।"],
+            ["Each year, when **Review due** shows, ask the state to confirm, then **Review done** with a reason; when an officer is transferred, **Remove access** the same day.", "हर साल **समीक्षा बाकी** दिखे तो राज्य से पुष्टि लें, फिर कारण सहित **समीक्षा पूरी** करें; अधिकारी का स्थानांतरण हो तो उसी दिन **पहुँच हटाएँ**।"],
+          ],
+          note: [["Never share a representative's office figures yourself: only the office can choose to, in its Team tab.", "जनप्रतिनिधि के कार्यालय के आँकड़े कभी ख़ुद साझा न करें: यह केवल कार्यालय अपने टीम टैब में चुन सकता है।"]] },
         { id: "audit", roles: ["super_admin", "auditor"], title: ["Audit and data retention", "ऑडिट और डेटा संग्रहण"],
           who: ["Auditor and super admin.", "ऑडिटर और सुपर एडमिन।"],
           steps: [

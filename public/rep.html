@@ -21,8 +21,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=47"></script>
-<script src="/guide-content.js?v=43"></script>
+<script src="/i18n.js?v=48"></script>
+<script src="/guide-content.js?v=44"></script>
 <script src="/guide.js?v=40"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -300,6 +300,11 @@
   .team-review h3 { font-size: 15px; margin: 0 0 6px; }
   .team-review p { font-size: 13.5px; margin: 0 0 10px; line-height: 1.5; }
   .team-review-line { margin-bottom: 16px; }
+  .gov-share { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; }
+  .gov-share.on { border-left-color: var(--brand); background: var(--brand-tint); }
+  .gov-share h3 { font-size: 15px; margin: 0 0 6px; }
+  .gov-share p { font-size: 13.5px; margin: 0 0 10px; line-height: 1.5; }
+  .gov-share .gs-confirm { border-top: 1px solid var(--line); padding-top: 10px; }
   .linkish { background: none; border: 0; padding: 0; color: var(--brand); text-decoration: underline; font: inherit; cursor: pointer; }
   .role-form { margin: 12px 0 0; }
   .team-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -485,7 +490,7 @@
   }
   .badge.escalated { background: var(--red-tint); color: var(--red-strong); }
   .badge.resolved { background: var(--green-tint); color: var(--green); font-weight: 700; font-size: 12px; padding: 4px 9px; }
-  .badge.pending { background: var(--gold-tint); color: var(--gold); }
+  .badge.pending { background: var(--gold-tint); color: var(--gold-strong); }
   .dispute-note {
     margin: 8px 0 0;
     padding: 8px 10px;
@@ -1776,7 +1781,7 @@ async function loadTeamTab() {
 var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSIGNED: 'rep.act_assign', UNASSIGNED: 'rep.act_unassign',
   FIX_REPORT_SUBMITTED: 'rep.act_submit', FIX_REPORT_APPROVED: 'rep.act_approve', FIX_REPORT_SENT_BACK: 'rep.act_sendback', MARKED_RESOLVED: 'rep.act_resolved',
   MEMBER_ADDED: 'rep.act_added', MEMBER_REMOVED: 'rep.act_removed', MEMBER_CONFIRMED: 'rep.act_confirmed', ROLE_CHANGED: 'rep.act_role',
-  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', OVERVIEW_EXPORTED: 'rep.act_exported',
+  PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', GOV_SHARE_ON: 'rep.act_gov_on', GOV_SHARE_OFF: 'rep.act_gov_off', OVERVIEW_EXPORTED: 'rep.act_exported',
   OBSERVATION_REPLIED: 'rep.act_obs_replied', OBSERVATION_DONE: 'rep.act_obs_done', OBSERVATION_COMMENTED: 'rep.act_obs_comment',
   DEPT_SCHEDULED: 'rep.act_dept_sched', DEPT_IN_PROGRESS: 'rep.act_dept_prog', DEPT_DONE_CLAIMED: 'rep.act_dept_done', DEPT_NOT_OURS: 'rep.act_dept_notours',
   DEPT_CANT_DO: 'rep.act_dept_cantdo', DEPT_CHECK_PARTLY: 'rep.act_dept_check_failed', DEPT_CHECK_NOT_FIXED: 'rep.act_dept_check_failed' };
@@ -1828,6 +1833,32 @@ function renderReviewBox(t) {
     ? T('rep.review_last', { date: formatDateOnly(r.lastAt), by: r.lastBy, due: formatDateOnly(r.dueAt) })
     : T('rep.review_never', { due: formatDateOnly(r.dueAt) })) +
     ' <button type="button" class="linkish" id="team-review-btn">' + esc(T('rep.review_btn')) + '</button></p>';
+}
+// grieviq-48: the office's choice to show its own figures to the state
+// government's dashboard. Off unless the representative chooses it.
+var govShareAsk = false;
+function renderGovShare(t) {
+  var g = t.govShare;
+  if (!g) return '';
+  var status = g.on ? T('rep.gs_on', { date: formatDateOnly(g.at), by: g.by || '' }) : T('rep.gs_off');
+  var h = '<section class="gov-share' + (g.on ? ' on' : '') + '" aria-labelledby="gov-share-t"><h3 id="gov-share-t">' + esc(T('rep.gs_t')) + '</h3>' +
+    '<p>' + esc(T('rep.gs_intro')) + '</p><p class="gs-status"><b>' + esc(status) + '</b></p>';
+  if (!t.canManage) return h + '<p class="hint">' + esc(T('rep.gs_rep_only')) + '</p></section>';
+  if (g.on) h += '<div class="actions"><button type="button" class="resolve-btn" id="gs-stop">' + esc(T('rep.gs_stop')) + '</button></div>';
+  else if (govShareAsk) h += '<div class="gs-confirm" role="group" aria-labelledby="gs-confirm-p"><p id="gs-confirm-p">' + esc(T('rep.gs_confirm')) + '</p>' +
+    '<div class="actions"><button type="button" class="resolve-btn" id="gs-yes">' + esc(T('rep.gs_yes')) + '</button><button type="button" class="resolve-btn" id="gs-cancel">' + esc(T('rep.r_cancel')) + '</button></div></div>';
+  else h += '<div class="actions"><button type="button" class="resolve-btn" id="gs-start">' + esc(T('rep.gs_start')) + '</button></div>';
+  return h + '</section>';
+}
+async function saveGovShare(on) {
+  try {
+    var res = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'gov_share', office: teamOfficeKey, share: on }) });
+    var data = await res.json().catch(function() { return {}; });
+    teamNotice = res.ok ? T(on ? 'rep.gs_saved_on' : 'rep.gs_saved_off') : T('rep.gs_err');
+  } catch (e) { teamNotice = T('common.network_error'); }
+  govShareAsk = false;
+  await loadTeamTab();
+  var n = document.getElementById('team-notice'); if (n) n.focus();
 }
 function renderJobEditor(m) {
   var t = teamData, e = jobEdit, err = e.errors || {};
@@ -1900,7 +1931,7 @@ function renderTeamTab() {
     '<span class="register-count">' + esc(T('rep.team_count', { n: t.members.length, max: t.limit })) + '</span></div>' +
     '<p class="team-intro">' + esc(T('rep.team_intro')) + '</p>' +
     (teamNotice ? '<p class="team-notice" role="status" tabindex="-1" id="team-notice">' + esc(teamNotice) + '</p>' : '') +
-    renderReviewBox(t);
+    renderReviewBox(t) + renderGovShare(t);
   if (manage) {
     var err = function(k) { return '<div class="field-err" id="tf-' + k + '-err" role="alert">' + esc(f.errors[k] || '') + '</div>'; };
     var inv = function(k) { return f.errors[k] ? ' aria-invalid="true"' : ''; };
@@ -2074,6 +2105,15 @@ function attachTeamHandlers() {
     if (sel.value === m.role) { delete teamRowState[id]; renderContent(); return; }
     rowAction(id, 'change_role', { role: sel.value });
   }); });
+  // grieviq-48: share with the state government.
+  var gs = document.getElementById('gs-start');
+  if (gs) gs.addEventListener('click', function() { govShareAsk = true; teamNotice = ''; renderContent(); var y = document.getElementById('gs-yes'); if (y) y.focus(); });
+  var gc = document.getElementById('gs-cancel');
+  if (gc) gc.addEventListener('click', function() { govShareAsk = false; renderContent(); var b = document.getElementById('gs-start'); if (b) b.focus(); });
+  var gy = document.getElementById('gs-yes');
+  if (gy) gy.addEventListener('click', function() { gy.disabled = true; saveGovShare(true); });
+  var gst = document.getElementById('gs-stop');
+  if (gst) gst.addEventListener('click', function() { gst.disabled = true; saveGovShare(false); });
   // Team check (every 90 days).
   var rb = document.getElementById('team-review-btn');
   if (rb) rb.addEventListener('click', async function() {

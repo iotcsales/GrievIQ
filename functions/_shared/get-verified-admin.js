@@ -118,6 +118,12 @@ export const PERMISSIONS = {
   manage_subscriptions: ["super_admin"],
   // grieviq-47: the speed monitor.
   view_speed: ["super_admin", "operations_admin"],
+  // grieviq-48: government dashboard accounts (state and district
+  // officials). Only the super admin gives or removes access, and only on a
+  // letter from the state; operations admins and the auditor read the list
+  // and the view log.
+  view_gov: ["super_admin", "operations_admin", "auditor"],
+  manage_gov: ["super_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -151,6 +157,7 @@ export const PAGES = {
   "admin-copies": "view_copies",                   // grieviq-45
   "admin-subscriptions": "view_subscriptions",     // grieviq-46
   "admin-speed": "view_speed",                     // grieviq-47
+  "admin-gov": "view_gov",                         // grieviq-48
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

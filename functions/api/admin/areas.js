@@ -8,6 +8,12 @@
 //                          readiness checks for switching it on
 // POST { action: "create", name, state, kind }            (manage_areas)
 // POST { action: "set_live", id, live: true|false, reason }  (manage_areas)
+// POST { action: "add_district", stateId, nameEn, nameHi, lgd } (manage_areas)
+// POST { action: "edit_district", id, nameEn, nameHi, lgd }      (manage_areas)
+// POST { action: "place_area", id, districtId, lgd }             (manage_areas)
+//      grieviq-48: states and districts with their LGD codes, and the
+//      district each area is in (for the government dashboard). The 36
+//      states and union territories come with their LGD codes (part32).
 // POST { action: "add_unit", areaId, ... }                 (manage_areas)
 //      one ward or village typed in by hand. Its MP constituency, MLA
 //      constituency and municipal body are each either chosen from the list
@@ -22,6 +28,7 @@ import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.
 import { validateContact, emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import { listAreas, getArea, areaSlug, STATES, RESERVED_SLUGS, areasReady } from "../../_shared/areas.js";
 import { insertUnitSql, insertUnitBinds } from "../../_shared/jurisdiction-writes.js";
+import { govReady, listStates, listDistricts, LGD_RE, slug as govSlug } from "../../_shared/gov.js";
 
 const json = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const NAME_RE = /^[\p{L}\p{M}0-9 .,'()&\/\-]{2,80}$/u;
@@ -60,6 +67,14 @@ export async function onRequestGet({ request, env }) {
   if (areas === null) return json({ ready: false, error: "Areas aren't set up yet. Run the database update part14-areas.sql.", code: "NOT_SET_UP" }, 503);
   const id = new URL(request.url).searchParams.get("id");
   const base = { ready: true, canManage: canManage(auth), states: STATES };
+  // grieviq-48: the government's list of states and districts.
+  if (await govReady(env)) {
+    const [states, districts, placed] = await Promise.all([listStates(env), listDistricts(env),
+      env.DB.prepare("SELECT id, district_id, lgd_code FROM areas").all()]);
+    const by = new Map((placed.results || []).map((r) => [r.id, r]));
+    for (const a of areas) { const r = by.get(a.id) || {}; a.districtId = r.district_id || null; a.lgd = r.lgd_code || null; }
+    base.geo = { states: states.filter((s) => !s.demo), districts };
+  }
   if (!id) return json(Object.assign(base, { areas: areas.map((a) => Object.assign(a, { readiness: readiness(a) })) }));
 
   const area = areas.find((a) => a.id === id);
@@ -93,6 +108,11 @@ export async function onRequestPost({ request, env }) {
   if (action === "create") return createArea(env, auth, body);
   if (action === "set_live") return setLive(env, auth, body);
   if (action === "add_unit") return addUnit(env, auth, body);
+  if (action === "add_district" || action === "edit_district" || action === "place_area") {
+    if (!(await govReady(env))) return json({ error: "Run the database update part32-gov.sql first.", code: "GOV_NOT_SET_UP" }, 503);
+    if (action === "place_area") return placeArea(env, auth, body);
+    return saveDistrict(env, auth, body, action === "edit_district");
+  }
   return json({ error: "Unknown action." }, 400);
 }
 
@@ -116,6 +136,72 @@ async function createArea(env, auth, body) {
     .bind(slug, name, state, kind, slug, auth.email).run();
   await logEvent(env, auth.email, "area_created", slug, { name, state, kind });
   return json({ ok: true, area: { id: slug, name, state, kind, slug, live: false } });
+}
+
+// grieviq-48: add or correct a district (English and Hindi names, LGD code).
+async function saveDistrict(env, auth, b, isEdit) {
+  const fields = {};
+  let row = null, stateId;
+  if (isEdit) {
+    row = await env.DB.prepare("SELECT * FROM districts WHERE id = ?").bind(String(b.id || "")).first();
+    if (!row) return json({ error: "District not found.", code: "NOT_FOUND" }, 404);
+    stateId = row.state_id;
+  } else {
+    stateId = String(b.stateId || "");
+    const st = await env.DB.prepare("SELECT id FROM states WHERE id = ? AND demo = 0").bind(stateId).first();
+    if (!st) fields.stateId = "REQUIRED";
+  }
+  const nameEn = text(b.nameEn, 81), nameHi = text(b.nameHi, 81), lgd = text(b.lgd, 7);
+  if (!nameEn) fields.nameEn = "REQUIRED"; else if (!NAME_RE.test(nameEn) || !govSlug(nameEn)) fields.nameEn = "FORMAT";
+  if (nameHi && (nameHi.length > 80 || /[<>]/.test(nameHi))) fields.nameHi = "FORMAT";
+  if (lgd && !LGD_RE.test(lgd)) fields.lgd = "LGD";
+  if (!fields.nameEn && !fields.stateId) {
+    const clash = await env.DB.prepare("SELECT id FROM districts WHERE state_id = ? AND LOWER(name_en) = LOWER(?) AND id <> ?").bind(stateId, nameEn, row ? row.id : "").first();
+    if (clash) fields.nameEn = "TAKEN";
+  }
+  if (lgd && !fields.lgd) {
+    const clash = await env.DB.prepare("SELECT name_en FROM districts WHERE lgd_code = ? AND id <> ?").bind(lgd, row ? row.id : "").first();
+    if (clash) fields.lgd = "LGD_TAKEN";
+  }
+  if (Object.keys(fields).length) return json({ error: "Please check the highlighted fields.", fields }, 400);
+  const now = new Date().toISOString();
+  if (isEdit) {
+    await env.DB.prepare("UPDATE districts SET name_en = ?, name_hi = ?, lgd_code = ?, updated_at = ?, updated_by = ? WHERE id = ?")
+      .bind(nameEn, nameHi, lgd, now, auth.email, row.id).run();
+    await logEvent(env, auth.email, "district_changed", row.id, { before: { nameEn: row.name_en, nameHi: row.name_hi, lgd: row.lgd_code }, after: { nameEn, nameHi, lgd } });
+    return json({ ok: true, district: { id: row.id, stateId, nameEn, nameHi, lgd } });
+  }
+  const id = await freeId(env, "districts", stateId + "--" + govSlug(nameEn));
+  await env.DB.prepare("INSERT INTO districts (id, state_id, name_en, name_hi, lgd_code, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(id, stateId, nameEn, nameHi, lgd, now, auth.email).run();
+  await logEvent(env, auth.email, "district_added", id, { state: stateId, nameEn, nameHi, lgd });
+  return json({ ok: true, district: { id, stateId, nameEn, nameHi, lgd } });
+}
+
+// grieviq-48: the district a city or district area is in, and its LGD code.
+async function placeArea(env, auth, b) {
+  const area = await getArea(env, b.id);
+  if (!area) return json({ error: "Area not found.", code: "NOT_FOUND" }, 404);
+  const fields = {};
+  const districtId = b.districtId ? String(b.districtId) : null;
+  const lgd = text(b.lgd, 7);
+  let d = null;
+  if (districtId) {
+    d = await env.DB.prepare("SELECT d.id, d.name_en, s.name_en AS state FROM districts d JOIN states s ON s.id = d.state_id WHERE d.id = ?").bind(districtId).first();
+    if (!d) fields.districtId = "NOT_FOUND";
+    else if (d.state !== area.state) fields.districtId = "WRONG_STATE";
+  }
+  if (lgd && !LGD_RE.test(lgd)) fields.lgd = "LGD";
+  if (lgd && !fields.lgd) {
+    const clash = await env.DB.prepare("SELECT name FROM areas WHERE lgd_code = ? AND id <> ?").bind(lgd, area.id).first();
+    if (clash) fields.lgd = "LGD_TAKEN";
+  }
+  if (Object.keys(fields).length) return json({ error: "Please check the highlighted fields.", fields }, 400);
+  const before = await env.DB.prepare("SELECT district_id, lgd_code FROM areas WHERE id = ?").bind(area.id).first();
+  if (before && (before.district_id || null) === districtId && (before.lgd_code || null) === lgd) return json({ ok: true, unchanged: true });
+  await env.DB.prepare("UPDATE areas SET district_id = ?, lgd_code = ? WHERE id = ?").bind(districtId, lgd, area.id).run();
+  await logEvent(env, auth.email, "area_placed", area.id, { name: area.name, before: { district: before ? before.district_id : null, lgd: before ? before.lgd_code : null }, after: { district: districtId, lgd } });
+  return json({ ok: true, districtId, lgd });
 }
 
 async function setLive(env, auth, body) {

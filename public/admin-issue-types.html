@@ -152,9 +152,10 @@
   @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } nav a { margin: 0 14px 0 0; display: inline-block; } main { padding: 20px 14px; } }
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
+  main.it-wide { max-width: 1180px; }
 </style>
-<script src="/i18n.js?v=47"></script>
-<script src="/admin-nav.js?v=r14"></script>
+<script src="/i18n.js?v=48"></script>
+<script src="/admin-nav.js?v=r15"></script>
 </head>
 <body>
 
@@ -169,7 +170,7 @@
   </nav>
 </header>
 
-<main>
+<main class="it-wide">
   <h1><span data-i18n="adm.nav_issue_types">Issue types</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
   <p class="subtitle" data-i18n="adm.it_sub">Each type of problem citizens can report, its time limits, and the department suggested to representatives.</p>
 
@@ -179,6 +180,7 @@
     Time limits are shown for reference and cannot be changed on this page.
   </div>
 
+  <p class="note" id="theme-note" hidden data-i18n-html="adm.it_theme_note">The <b>theme</b> groups issue types the way ISO 37120 groups city services (water, energy, transport and so on), so the government dashboard can compare like with like. It changes nothing for citizens or offices.</p>
   <div class="panel">
     <div class="table-wrap">
       <table>
@@ -188,6 +190,7 @@
             <th scope="col" data-i18n="adm.it_col_ack">Acknowledge within</th>
             <th scope="col" data-i18n="adm.it_col_resp">Respond within (per level)</th>
             <th scope="col" data-i18n="adm.it_col_dept">Suggested department</th>
+            <th scope="col" id="th-theme" hidden data-i18n="adm.it_col_theme">Theme (ISO 37120)</th>
           </tr>
         </thead>
         <tbody id="rows">
@@ -238,10 +241,38 @@ var loadError = null;   // function returning the load error text
 var loaded = false;
 
 function deptLabel(d) { return d ? deptName(d) : T("adm.it_no_sugg"); }
+// grieviq-48: ISO 37120 themes.
+function themeLabel(t) { return t ? T("theme." + t) : T("adm.it_no_theme"); }
+function themeCell(t) {
+  if (!state.themes) return "";
+  if (!state.canEdit) return "<td>" + (t.theme ? esc(themeLabel(t.theme)) : '<span class="dept-none">' + esc(themeLabel(null)) + "</span>") + "</td>";
+  var opts = '<option value="">' + esc(T("adm.it_no_theme")) + "</option>" + state.themes.map(function (k) {
+    return '<option value="' + esc(k) + '"' + (k === t.theme ? " selected" : "") + ">" + esc(themeLabel(k)) + "</option>";
+  }).join("");
+  return '<td><div class="row-actions"><label class="visually-hidden" for="theme-' + esc(t.id) + '">' + esc(T("adm.it_theme_for", { name: catName(t.id, t.name) })) + "</label>" +
+    '<select class="dept-select theme-select" id="theme-' + esc(t.id) + '" data-id="' + esc(t.id) + '">' + opts + "</select>" +
+    '<button class="primary theme-btn" data-id="' + esc(t.id) + '">' + esc(T("adm.save")) + "</button></div>" +
+    '<div class="row-msg" id="tmsg-' + esc(t.id) + '" role="status" aria-live="polite"></div></td>';
+}
+async function saveTheme(id, btn) {
+  var sel = document.getElementById("theme-" + id), value = sel.value || null, m = document.getElementById("tmsg-" + id);
+  var t = state.issueTypes.filter(function (x) { return x.id === id; })[0];
+  if (t && (t.theme || null) === value) { m.className = "row-msg"; m.textContent = T("adm.it_no_change"); return; }
+  btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
+  try {
+    var res = await fetch("/api/admin/issue-types", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, theme: value }) });
+    var data = await res.json(); btn.disabled = false;
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T("adm.it_e_save"); return; }
+    m.className = "row-msg success"; m.textContent = T("adm.it_theme_saved", { from: themeLabel(t ? t.theme : null), to: themeLabel(data.theme) });
+    if (t) t.theme = data.theme;
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.it_e_net_save"); }
+}
 
 function render() {
   var tbody = document.getElementById("rows");
   document.getElementById("readonly-tag").hidden = state.canEdit;
+  document.getElementById("th-theme").hidden = !state.themes;
+  document.getElementById("theme-note").hidden = !state.themes;
   if (!state.issueTypes.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="muted">' + esc(T("adm.it_none")) + '</td></tr>';
     return;
@@ -272,12 +303,15 @@ function render() {
       '<td class="name">' + esc(catName(t.id, t.name)) + '<span class="sub">' + esc(t.id) + "</span></td>" +
       "<td>" + esc(ack) + "</td>" +
       "<td>" + respCell + "</td>" +
-      "<td>" + deptCell + "</td>" +
+      "<td>" + deptCell + "</td>" + themeCell(t) +
     "</tr>";
   }).join("");
 
   document.querySelectorAll(".save-btn").forEach(function (btn) {
     btn.addEventListener("click", function () { save(btn.getAttribute("data-id"), btn); });
+  });
+  document.querySelectorAll(".theme-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { saveTheme(btn.getAttribute("data-id"), btn); });
   });
 }
 
@@ -365,9 +399,9 @@ document.addEventListener("giq:lang", function () {
   if (loadError) { showLoadError(); return; }
   if (!loaded) return; // still loading: the "Loading..." row is translated by i18n.js
   var picked = {};
-  document.querySelectorAll(".dept-select").forEach(function (s) { picked[s.getAttribute("data-id")] = s.value; });
+  document.querySelectorAll(".dept-select").forEach(function (s) { picked[s.id] = s.value; });
   render();
-  document.querySelectorAll(".dept-select").forEach(function (s) { var v = picked[s.getAttribute("data-id")]; if (v !== undefined) s.value = v; });
+  document.querySelectorAll(".dept-select").forEach(function (s) { var v = picked[s.id]; if (v !== undefined) s.value = v; });
   if (lastStatus) setStatus(lastStatus.make, lastStatus.type, lastStatus.id);
 });
 

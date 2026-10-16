@@ -17,6 +17,10 @@
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
+import { THEMES, govReady } from "../../_shared/gov.js";
+// grieviq-48: PATCH { id, theme } groups an issue type under one of the
+// ISO 37120:2018 city-service themes (THEMES) or none (""), for the
+// government dashboard. Logged to admin_events with before/after.
 
 function can(role, permission) {
   return [].concat(role).some((r) => (PERMISSIONS[permission] || []).includes(r));
@@ -41,8 +45,9 @@ export async function onRequestGet({ request, env }) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
+  const themed = await govReady(env);
   const { results } = await env.DB.prepare(
-    `SELECT id, name, ack_sla_hours, resolution_sla_hours, suggested_department
+    `SELECT id, name, ack_sla_hours, resolution_sla_hours, suggested_department${themed ? ", theme" : ""}
      FROM grievance_categories ORDER BY name ASC`
   ).all();
 
@@ -52,6 +57,7 @@ export async function onRequestGet({ request, env }) {
     role: auth.role,
     canEdit: can(auth.roles || auth.role, "manage_issue_types"),
     departments: types.filter((t) => !t.retired).map((t) => t.key),
+    themes: themed ? THEMES : null,
     deptNames: namesOf(types),
     issueTypes: results.map((r) => ({
       id: r.id,
@@ -59,6 +65,7 @@ export async function onRequestGet({ request, env }) {
       ackHours: r.ack_sla_hours,
       resolutionHours: r.resolution_sla_hours,
       suggestedDepartment: r.suggested_department || null,
+      theme: themed ? r.theme || null : undefined,
     })),
   });
 }
@@ -83,6 +90,7 @@ export async function onRequestPatch({ request, env }) {
   if (!id) {
     return Response.json({ error: "Issue type id is required." }, { status: 400 });
   }
+  if (Object.prototype.hasOwnProperty.call(body, "theme")) return saveTheme(env, auth, id, body.theme);
   const active = (await deptTypes(env)).filter((t) => !t.retired).map((t) => t.key);
   if (next !== null && !active.includes(next)) {
     return Response.json({ error: "Department must be one of: " + active.join(", ") }, { status: 400 });
@@ -111,4 +119,17 @@ export async function onRequestPatch({ request, env }) {
   });
 
   return Response.json({ ok: true, id, name: row.name, before, suggestedDepartment: next });
+}
+
+async function saveTheme(env, auth, id, raw) {
+  if (!(await govReady(env))) return Response.json({ error: "Run the database update part32-gov.sql first.", code: "GOV_NOT_SET_UP" }, { status: 503 });
+  const next = raw == null || String(raw).trim() === "" ? null : String(raw).trim().toUpperCase();
+  if (next !== null && !THEMES.includes(next)) return Response.json({ error: "Unknown theme.", code: "THEME" }, { status: 400 });
+  const row = await env.DB.prepare("SELECT id, name, theme FROM grievance_categories WHERE id = ?").bind(id).first();
+  if (!row) return Response.json({ error: "No issue type with that id." }, { status: 404 });
+  const before = row.theme || null;
+  if (before === next) return Response.json({ ok: true, unchanged: true, id, theme: next });
+  await env.DB.prepare("UPDATE grievance_categories SET theme = ? WHERE id = ?").bind(next, id).run();
+  await logEvent(env, auth.email, "issue_type_theme_changed", id, { name: row.name, before, after: next });
+  return Response.json({ ok: true, id, name: row.name, before, theme: next });
 }

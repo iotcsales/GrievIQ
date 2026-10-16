@@ -11,7 +11,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.ar_page_title">GrievIQ Admin — Areas</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=47"></script><script src="/admin-nav.js?v=r14"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=48"></script><script src="/admin-nav.js?v=r15"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -222,6 +222,10 @@
   .way b { display: block; font-size: 15px; margin-bottom: 4px; } .way span { display: block; font-size: 13px; color: var(--admin-muted); line-height: 1.45; }
   fieldset { border: 1px solid var(--admin-border); border-radius: 10px; padding: 12px 16px 16px; margin: 0 0 16px; }
   legend { font-weight: 600; font-size: 14px; padding: 0 6px; }
+  /* grieviq-48: AA contrast for red text on both themes */
+  button.danger, td span.no { color: #ff8f87; } html.light-theme button.danger, html.light-theme td span.no { color: #a8322a; }
+  .geo-h3 { font-size: 15px; margin: 4px 0 8px; } .geo-add { margin-top: 18px; border-top: 1px solid var(--admin-border); padding-top: 14px; }
+  .geo-code { font-size: 14px; margin: 6px 0 12px; }
   .grid2f { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; }
   .form-row select { width: 100%; max-width: 520px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--admin-border); background: #11151c; color: var(--admin-text); font: inherit; font-size: 14px; min-height: 38px; }
   html.light-theme .form-row select { background: #fff; }
@@ -275,6 +279,11 @@ let msg = null;           // { err, text } shown at the top
 let createForm = { name: "", state: "Uttar Pradesh", kind: "CITY", errors: {} };
 let unitForm = null;      // the "type in one ward or village" form, when open
 let offForm = null;       // the "switch off" reason box, when open
+// grieviq-48: states and districts (LGD codes), and an area's district.
+let geoState = null;      // state shown in "States and districts"
+let distForm = { nameEn: "", nameHi: "", lgd: "", errors: {} };
+let distEdit = null;      // { id, nameEn, nameHi, lgd, errors }
+let placeForm = null;     // { districtId, lgd, errors }
 
 function newUnitForm() {
   return { open: true, unitType: "URBAN", name: "", block: "", localities: "",
@@ -316,7 +325,7 @@ function render() {
 // ---- All areas ----
 function renderList() {
   const rows = data.areas.map((a) =>
-    "<tr><td class=\"name\"><a href=\"?id=" + encodeURIComponent(a.id) + "\" style=\"color:inherit\">" + esc(a.name) + "</a><span class=\"sub\">" + esc(kindLabel(a.kind) + " · " + a.state) + "</span></td>" +
+    "<tr><td class=\"name\"><a href=\"?id=" + encodeURIComponent(a.id) + "\" style=\"color:inherit\">" + esc(a.name) + "</a><span class=\"sub\">" + esc(kindLabel(a.kind) + " · " + a.state) + "</span>" + placedLine(a) + "</td>" +
     "<td>" + (a.live ? '<span class="pill live">' + esc(T("adm.ar_live")) + "</span>" : '<span class="pill setup">' + esc(T("adm.ar_setup")) + "</span>") + "</td>" +
     "<td class=\"c\">" + a.urban + "</td><td class=\"c\">" + a.rural + "</td>" +
     "<td class=\"c\">" + esc(T("adm.ar_x_of_y", { x: a.withEmail, y: a.units })) + "</td>" +
@@ -333,7 +342,78 @@ function renderList() {
         '<label><input type="radio" name="c-kind" value="CITY"' + (f.kind === "CITY" ? " checked" : "") + "> " + esc(T("adm.ar_kind_city_long")) + "</label>" +
         '<label><input type="radio" name="c-kind" value="DISTRICT"' + (f.kind === "DISTRICT" ? " checked" : "") + "> " + esc(T("adm.ar_kind_district_long")) + "</label></div></fieldset></div>" +
       '<div class="actions"><button type="submit" class="primary" id="c-save">' + esc(T("adm.ar_add_btn")) + "</button></div></form></div>" : "";
-  return '<div class="panel"><h2>' + esc(T("adm.ar_list_h")) + "</h2>" + table + "</div>" + create;
+  return '<div class="panel"><h2>' + esc(T("adm.ar_list_h")) + "</h2>" + table + "</div>" + create + renderGeo();
+}
+
+// ---- grieviq-48: States and districts ----
+function hiLang() { return window.GIQ && GIQ.lang === "hi"; }
+function stName(s) { return s ? (hiLang() && s.nameHi ? s.nameHi : s.nameEn) : ""; }
+function districtOf(id) { return data.geo ? data.geo.districts.find((d) => d.id === id) || null : null; }
+function stateByName(n) { return data.geo ? data.geo.states.find((s) => s.nameEn === n) || null : null; }
+function placedLine(a) {
+  if (!data.geo) return "";
+  const d = districtOf(a.districtId);
+  return '<span class="sub">' + esc(d ? T("adm.ar_in_district", { d: stName(d) }) + (d.lgd ? " · " + T("adm.ar_lgd_n", { c: d.lgd }) : "") : T("adm.ar_no_district")) + "</span>";
+}
+function gErr(id, code) {
+  return code ? '<div class="field-err" id="' + id + '-err">' + esc(T("adm.ar_ge_" + code.toLowerCase())) + "</div>" : "";
+}
+function gInput(id, label, value, err, opts) {
+  opts = opts || {};
+  const desc = [opts.hint ? id + "-hint" : "", err ? id + "-err" : ""].filter(Boolean).join(" ");
+  return '<div class="form-row"><label for="' + id + '">' + esc(label) + (opts.optional ? ' <span class="muted">' + esc(T("adm.ar_optional")) + "</span>" : "") + "</label>" +
+    (opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + "</p>" : "") +
+    '<input type="text" id="' + id + '" maxlength="' + (opts.max || 80) + '" value="' + esc(value) + '"' + (opts.numeric ? ' inputmode="numeric" autocomplete="off"' : "") + (opts.lang ? ' lang="' + opts.lang + '"' : "") +
+    (err ? ' aria-invalid="true"' : "") + (desc ? ' aria-describedby="' + desc + '"' : "") + ">" + gErr(id, err) + "</div>";
+}
+function renderGeo() {
+  if (!data.geo) return "";
+  const states = data.geo.states;
+  if (!geoState) { const first = data.areas[0] && stateByName(data.areas[0].state); geoState = first ? first.id : (states[0] && states[0].id); }
+  const st = states.find((s) => s.id === geoState) || states[0];
+  const list = data.geo.districts.filter((d) => d.stateId === st.id).sort((x, y) => x.nameEn.localeCompare(y.nameEn));
+  const M = data.canManage;
+  const rows = list.map((d) => {
+    if (distEdit && distEdit.id === d.id) {
+      const e = distEdit.errors;
+      return '<tr><td colspan="' + (M ? 4 : 3) + '"><form id="dist-edit-form" novalidate><h3 class="geo-h3">' + esc(T("adm.ar_d_edit_h", { d: d.nameEn })) + '</h3><div class="grid2f">' +
+        gInput("de-en", T("adm.ar_d_name_en"), distEdit.nameEn, e.nameEn) + gInput("de-hi", T("adm.ar_d_name_hi"), distEdit.nameHi, e.nameHi, { optional: true, lang: "hi" }) +
+        gInput("de-lgd", T("adm.ar_d_lgd"), distEdit.lgd, e.lgd, { optional: true, numeric: true, max: 6, hint: T("adm.ar_d_lgd_h") }) + "</div>" +
+        '<div class="actions"><button type="submit" class="primary">' + esc(T("adm.save")) + '</button><button type="button" id="de-cancel">' + esc(T("adm.ar_cancel")) + "</button></div></form></td></tr>";
+    }
+    return '<tr><td class="name">' + esc(d.nameEn) + (d.nameHi ? '<span class="sub" lang="hi">' + esc(d.nameHi) + "</span>" : "") + "</td>" +
+      "<td>" + (d.lgd ? esc(d.lgd) : '<span class="muted">' + esc(T("adm.ar_lgd_none")) + "</span>") + '</td><td class="c">' + d.areas + "</td>" +
+      (M ? '<td><button type="button" class="d-edit" data-id="' + esc(d.id) + '" aria-label="' + esc(T("adm.ar_d_edit_for", { d: d.nameEn })) + '">' + esc(T("adm.ar_d_edit")) + "</button></td>" : "") + "</tr>";
+  }).join("");
+  const table = list.length
+    ? '<div class="table-wrap"><table><caption class="visually-hidden">' + esc(T("adm.ar_d_caption", { s: stName(st) })) + '</caption><thead><tr><th scope="col">' + esc(T("adm.ar_d_col")) + '</th><th scope="col">' + esc(T("adm.ar_d_lgd")) + '</th><th scope="col" class="c">' + esc(T("adm.ar_d_areas")) + "</th>" + (M ? '<th scope="col"><span class="visually-hidden">' + esc(T("adm.ar_d_edit")) + "</span></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+    : '<p class="empty">' + esc(T("adm.ar_d_none", { s: stName(st) })) + "</p>";
+  const f = distForm, e = f.errors;
+  const add = M ? '<form id="dist-form" novalidate class="geo-add"><h3 class="geo-h3">' + esc(T("adm.ar_d_add_h", { s: stName(st) })) + '</h3><div class="grid2f">' +
+      gInput("d-en", T("adm.ar_d_name_en"), f.nameEn, e.nameEn) + gInput("d-hi", T("adm.ar_d_name_hi"), f.nameHi, e.nameHi, { optional: true, lang: "hi" }) +
+      gInput("d-lgd", T("adm.ar_d_lgd"), f.lgd, e.lgd, { optional: true, numeric: true, max: 6, hint: T("adm.ar_d_lgd_h") }) + "</div>" +
+      '<div class="actions"><button type="submit" class="primary" id="d-save">' + esc(T("adm.ar_d_add_btn")) + "</button></div></form>" : "";
+  return '<div class="panel" id="geo"><h2>' + esc(T("adm.ar_geo_h")) + '</h2><p class="sub">' + esc(T("adm.ar_geo_p")) + "</p>" +
+    '<div class="form-row"><label for="geo-state">' + esc(T("adm.ar_f_state")) + '</label><select id="geo-state">' +
+      states.map((s) => '<option value="' + esc(s.id) + '"' + (s.id === st.id ? " selected" : "") + ">" + esc(stName(s)) + "</option>").join("") + "</select></div>" +
+    '<p class="geo-code">' + esc(T("adm.ar_state_lgd", { s: stName(st), c: st.lgd || "—" })) + "</p>" + table + add + "</div>";
+}
+function renderPlace(a) {
+  if (!data.geo) return "";
+  const st = stateByName(a.state);
+  const list = data.geo.districts.filter((d) => st && d.stateId === st.id).sort((x, y) => x.nameEn.localeCompare(y.nameEn));
+  const d = districtOf(a.districtId);
+  const now = '<p>' + esc(d ? T("adm.ar_in_district", { d: stName(d) }) : T("adm.ar_no_district")) + (a.lgd ? " · " + esc(T("adm.ar_lb_lgd_n", { c: a.lgd })) : "") + "</p>";
+  if (!data.canManage) return '<div class="panel"><h2>' + esc(T("adm.ar_place_h")) + "</h2>" + now + "</div>";
+  const f = placeForm || { districtId: a.districtId || "", lgd: a.lgd || "", errors: {} }, e = f.errors;
+  const desc = e.districtId ? ' aria-invalid="true" aria-describedby="p-d-err"' : list.length ? "" : ' aria-describedby="p-d-hint"';
+  return '<div class="panel"><h2>' + esc(T("adm.ar_place_h")) + '</h2><p class="sub">' + esc(T(a.kind === "DISTRICT" ? "adm.ar_place_p_district" : "adm.ar_place_p")) + "</p>" + now +
+    '<form id="place-form" novalidate><div class="grid2f"><div class="form-row"><label for="p-d">' + esc(T("adm.ar_place_d")) + "</label>" +
+      (list.length ? "" : '<p class="hint" id="p-d-hint">' + esc(T("adm.ar_place_none", { s: a.state })) + "</p>") +
+      '<select id="p-d"' + desc + '><option value="">' + esc(T("adm.ar_place_pick")) + "</option>" +
+      list.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === f.districtId ? " selected" : "") + ">" + esc(stName(x)) + (x.lgd ? " (" + esc(x.lgd) + ")" : "") + "</option>").join("") + "</select>" + gErr("p-d", e.districtId) + "</div>" +
+      gInput("p-lgd", T("adm.ar_place_lgd"), f.lgd, e.lgd, { optional: true, numeric: true, max: 6, hint: T("adm.ar_place_lgd_h") }) + "</div>" +
+      '<div class="actions"><button type="submit" class="primary" id="p-save">' + esc(T("adm.save")) + "</button></div></form></div>";
 }
 
 // ---- One area ----
@@ -368,7 +448,7 @@ function renderArea() {
   return '<a class="back" href="/admin-areas.html">' + esc(T("adm.ar_back")) + "</a>" +
     '<div class="panel"><h2 style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + esc(a.name) + " " + status + '</h2><p class="sub">' + esc(kindLabel(a.kind) + " · " + a.state) + "</p>" +
       '<h3 style="font-size:14px;margin:0 0 6px">' + esc(T("adm.ar_ready_h")) + "</h3>" + checks + liveBox + "</div>" +
-    ways +
+    renderPlace(a) + ways +
     '<div class="panel"><h2>' + esc(T("adm.ar_units_h", { n: data.units.length })) + "</h2>" + units + "</div>";
 }
 
@@ -482,6 +562,7 @@ function wire() {
     offForm = null; msg = { text: T("adm.ar_now_off", { name: data.area.name }) };
     await load(); const m = document.getElementById("top-msg"); if (m) m.focus();
   });
+  wireGeo();
   const ou = document.getElementById("open-unit");
   if (ou) ou.addEventListener("click", () => { unitForm = unitForm || newUnitForm(); render(); document.getElementById("u-name").focus(); });
   const uf = document.getElementById("unit-form");
@@ -533,6 +614,55 @@ function wire() {
     msg = { text: T("adm.ar_unit_added", { name: added }) };
     await load();
     const m = document.getElementById("top-msg"); if (m) m.focus();
+  });
+}
+
+async function geoSaved(r, form, okText, focusId) {
+  if (!r.ok) {
+    form.errors = r.body.fields || {};
+    if (!Object.keys(form.errors).length) msg = { err: true, text: r.status === 0 ? T("adm.network") : T("adm.err_detail", { msg: r.body.error || r.status }) };
+    render(); const el = document.querySelector('[aria-invalid="true"]') || document.getElementById("top-msg"); if (el) el.focus(); return false;
+  }
+  msg = { text: okText };
+  await load(); const m = document.getElementById("top-msg"); if (m) m.focus();
+  return true;
+}
+function wireGeo() {
+  const gs = document.getElementById("geo-state");
+  if (gs) gs.addEventListener("change", () => { geoState = gs.value; distEdit = null; distForm.errors = {}; render(); document.getElementById("geo-state").focus(); });
+  const df = document.getElementById("dist-form");
+  if (df) df.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    distForm = { nameEn: document.getElementById("d-en").value.trim(), nameHi: document.getElementById("d-hi").value.trim(), lgd: document.getElementById("d-lgd").value.trim(), errors: {} };
+    if (!distForm.nameEn) { distForm.errors.nameEn = "REQUIRED"; render(); document.getElementById("d-en").focus(); return; }
+    const name = distForm.nameEn;
+    const r = await post({ action: "add_district", stateId: geoState, nameEn: distForm.nameEn, nameHi: distForm.nameHi, lgd: distForm.lgd });
+    if (r.ok) distForm = { nameEn: "", nameHi: "", lgd: "", errors: {} };
+    await geoSaved(r, distForm, T("adm.ar_d_added", { d: name }));
+  });
+  document.querySelectorAll(".d-edit").forEach((b) => b.addEventListener("click", () => {
+    const d = districtOf(b.getAttribute("data-id"));
+    distEdit = { id: d.id, nameEn: d.nameEn, nameHi: d.nameHi || "", lgd: d.lgd || "", errors: {} }; render(); document.getElementById("de-en").focus();
+  }));
+  const dc = document.getElementById("de-cancel");
+  if (dc) dc.addEventListener("click", () => { const id = distEdit.id; distEdit = null; render(); const b = document.querySelector('.d-edit[data-id="' + CSS.escape(id) + '"]'); if (b) b.focus(); });
+  const de = document.getElementById("dist-edit-form");
+  if (de) de.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    Object.assign(distEdit, { nameEn: document.getElementById("de-en").value.trim(), nameHi: document.getElementById("de-hi").value.trim(), lgd: document.getElementById("de-lgd").value.trim(), errors: {} });
+    const r = await post({ action: "edit_district", id: distEdit.id, nameEn: distEdit.nameEn, nameHi: distEdit.nameHi, lgd: distEdit.lgd });
+    const name = distEdit.nameEn;
+    if (r.ok) distEdit = null;
+    await geoSaved(r, distEdit || {}, T("adm.ar_d_changed", { d: name }));
+  });
+  const pf = document.getElementById("place-form");
+  if (pf) pf.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    placeForm = { districtId: document.getElementById("p-d").value, lgd: document.getElementById("p-lgd").value.trim(), errors: {} };
+    const r = await post({ action: "place_area", id: data.area.id, districtId: placeForm.districtId || null, lgd: placeForm.lgd });
+    const f = placeForm;
+    if (r.ok) placeForm = null;
+    await geoSaved(r, f, r.body && r.body.unchanged ? T("adm.ar_place_same") : T("adm.ar_place_saved", { name: data.area.name }));
   });
 }
 

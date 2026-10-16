@@ -19,6 +19,9 @@ import { idKey } from "../_shared/employee-id.js";
 //   change_role  { memberId, role }
 //   review       {}                      "the team is still correct" (item
 //                                        8c-1, every TEAM_REVIEW_DAYS)
+//   gov_share    { share: true|false }   grieviq-48: show this office's own
+//                                        figures to the state government's
+//                                        dashboard (off unless chosen)
 // POST (representative; office manager for field workers and assistants)
 //   profile      { memberId, designation, designationOther, duties, wards,
 //                  issueTypes, available }   item 8c-1 job profile. Narrowing
@@ -26,6 +29,7 @@ import { idKey } from "../_shared/employee-id.js";
 // Everything is recorded in team_activity.
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
+import { officeShare, setOfficeShare } from "../_shared/gov.js";
 import { officeUnitIds } from "../_shared/jurisdiction.js";
 import {
   ROLE, TEAM_ROLES, TEAM_LIMIT, TEAM_REVIEW_DAYS, WORKLOAD_WARN, DESIGNATIONS, DUTIES_MAX, DESIGNATION_OTHER_MAX,
@@ -139,6 +143,7 @@ export async function onRequestGet({ request, env }) {
   ]);
   const repEmail = office ? office.repEmail : null;
   const members = membersRes.results || [];
+  const share = await officeShare(env, m.tier, m.id);
   const openBy = new Map((openRes.results || []).map((r) => [String(r.email).toLowerCase(), Number(r.n)]));
   const wards = await officeWards(env, m);
 
@@ -154,6 +159,9 @@ export async function onRequestGet({ request, env }) {
     myRole: m.role,
     myEmail: auth.email,
     canManage: m.role === ROLE.REP,
+    // grieviq-48: the office's choice to share its own figures with the
+    // state government (null before part32).
+    govShare: share.ready ? { on: share.on, at: share.at, by: share.by } : null,
     // The representative edits every profile; an office manager those of
     // field workers and assistants (not other managers, not their own).
     canEditProfiles: m.role === ROLE.REP || m.role === ROLE.OM,
@@ -259,6 +267,16 @@ export async function onRequestPost({ request, env }) {
   if (action === "review") {
     await log("TEAM_REVIEWED", null);
     return Response.json({ ok: true });
+  }
+
+  if (action === "gov_share") {
+    if (typeof body.share !== "boolean") return Response.json({ error: "Choose yes or no.", code: "SHARE" }, { status: 400 });
+    const cur = await officeShare(env, m.tier, m.id);
+    if (!cur.ready) return Response.json({ error: "Not available yet.", code: "NOT_READY" }, { status: 409 });
+    if (cur.on === body.share) return Response.json({ ok: true, unchanged: true, on: cur.on });
+    const at = await setOfficeShare(env, m.tier, m.id, office ? office.name + " (" + office.label + ")" : m.id, body.share, auth.email);
+    await log(body.share ? "GOV_SHARE_ON" : "GOV_SHARE_OFF", null);
+    return Response.json({ ok: true, on: body.share, at });
   }
 
   if (action === "add") {

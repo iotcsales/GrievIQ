@@ -1748,7 +1748,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 10), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-audit"])):
+    for who, want in (("super@test.in", 11), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-gov", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2268,6 +2268,79 @@ with sync_playwright() as pw:
     ok("Slow" in p.inner_text('a.card[href="/admin-speed.html"]'), "dashboard: Speed tile")
     ok("Ward and office data" in p.inner_text("header") and "Lucknow" not in p.inner_text("header"), "admin header: no city name")
     ok(not errs, "no script errors (dashboard speed tile)", errs)
+    ctx.close()
+
+    # ---------- grieviq-48: states and districts, themes, government access, sharing ----------
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx, p, errs = P("super@test.in", theme=theme, lang=lang, width=width)
+                p.goto(B + "/admin-areas.html"); p.wait_for_selector("#geo-state")
+                ok(p.locator("#geo-state option").count() == 36 and "162" in p.inner_text("#geo"), "Areas: 36 states, districts with LGD codes " + tag)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Areas in Hindi, nothing missing " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "Areas contrast AA " + tag, bad[:5])
+                ok(no_hscroll(p), "Areas: no sideways scroll " + tag)
+                if width == 375: p.locator("#geo").scroll_into_view_if_needed(); shot(p, "73-districts-" + tag, full=False)
+                p.goto(B + "/admin-areas.html?id=lucknow"); p.wait_for_selector("#place-form")
+                ok(p.input_value("#p-d") == "uttar-pradesh--lucknow" and p.input_value("#p-lgd") == "800123", "area shows its district and LGD code " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "area page contrast AA " + tag, bad[:5])
+                p.goto(B + "/admin-gov.html"); p.wait_for_selector("#gv-form")
+                ok(p.locator(".gv-card").count() >= 3, "Government access: people listed " + tag)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Government access in Hindi, nothing missing " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "Government access contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "Government access targets " + tag, small[:5])
+                ok(no_hscroll(p), "Government access: no sideways scroll " + tag)
+                shot(p, "74-gov-" + tag, full=True)
+                p.goto(B + "/admin-issue-types.html"); p.wait_for_selector(".theme-select")
+                ok(p.locator(".theme-select").first.locator("option").count() == 20, "Issue types: 19 themes and 'not grouped' " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "Issue types contrast AA " + tag, bad[:5])
+                ok(not errs, "no script errors (grieviq-48 admin %s)" % tag, errs)
+                ctx.close()
+    # give access: errors listed, linked and focused; then success
+    ctx, p, errs = P("super@test.in", width=390)
+    p.goto(B + "/admin-gov.html"); p.wait_for_selector("#gv-form")
+    p.check("#gv-lv-d"); p.wait_for_timeout(100)
+    ok(p.locator("#gv-districtId").count() == 1 and p.evaluate("document.activeElement.id") == "gv-lv-d", "choosing one district shows the district list, focus kept")
+    p.fill("#gv-email", "someone@gmail.com"); p.click("#gv-add"); p.wait_for_selector("#gv-errs")
+    ok(p.evaluate("document.activeElement.id") == "gv-errs" and "gov.in" in p.inner_text("#gv-errs") and p.get_attribute("#gv-email", "aria-invalid") == "true", "errors listed at the top and focused")
+    p.click('#gv-errs a[href="#gv-email"]'); ok(p.evaluate("document.activeElement.id") == "gv-email", "error link moves to the field")
+    p.select_option("#gv-stateId", "uttar-pradesh"); p.wait_for_timeout(100)
+    p.select_option("#gv-districtId", "uttar-pradesh--kanpur-nagar")
+    p.fill("#gv-name", "Rakesh Kumar"); p.fill("#gv-designation", "District Magistrate"); p.fill("#gv-email", "dm-kanpur@up.gov.in")
+    p.fill("#gv-letterRef", "PG/2026/120"); p.fill("#gv-letterDate", "2026-10-12")
+    with p.expect_response(lambda r: r.url.endswith("/api/admin/gov") and r.request.method == "POST"): p.click("#gv-add")
+    p.wait_for_timeout(400)
+    ok("Rakesh Kumar now has access" in p.inner_text("#gv-msg") and p.evaluate("document.activeElement.id") == "gv-msg", "access given: confirmed in words, focus on the message")
+    ok("Kanpur Nagar district" in p.inner_text("#gv-app"), "district official shows their district")
+    ok(not errs, "no script errors (give access)", errs)
+    ctx.close()
+    # representative chooses to share; office manager only sees it
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s-%s" % (theme, lang)
+            ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+            ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+            ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('giq-welcome-r1@x.in','1')}catch(e){}" % (LANGKEY, lang))
+            p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+            p.goto(B + "/rep"); p.click('.tab-btn[data-tab="team"]'); p.wait_for_selector("#gov-share-t")
+            if lang == "hi": ok(not re.findall(r"rep\.\w+", p.inner_text("#content")), "sharing box in Hindi " + tag)
+            p.click("#gs-start"); ok(p.evaluate("document.activeElement.id") == "gs-yes", "asks first; focus on Yes " + tag)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "sharing box contrast AA " + tag, bad[:5])
+            p.locator(".gov-share").scroll_into_view_if_needed(); shot(p, "75-share-ask-" + tag, full=False)
+            with p.expect_response(lambda r: r.url.endswith("/api/team") and r.request.method == "POST"): p.click("#gs-yes")
+            p.wait_for_selector("#gs-stop")
+            ok(p.evaluate("document.activeElement.id") == "team-notice" and p.locator(".gov-share.on").count() == 1, "shared: told, box marked " + tag)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "shared box contrast AA " + tag, bad[:5])
+            with p.expect_response(lambda r: r.url.endswith("/api/team") and r.request.method == "POST"): p.click("#gs-stop")
+            p.wait_for_selector("#gs-start")
+            ok(not errs, "no script errors (sharing %s)" % tag, errs)
+            ctx.close()
+    ctx = br.new_context(viewport={"width": 375, "height": 900})
+    ctx.add_cookies([{"name": "test_email", "value": "om@x.in", "url": B}])
+    ctx.add_init_script("try{localStorage.setItem('giq-welcome-om@x.in','1')}catch(e){}")
+    p = ctx.new_page(); p.goto(B + "/rep"); p.click('.tab-btn[data-tab="team"]'); p.wait_for_selector("#gov-share-t")
+    ok(p.locator("#gs-start").count() == 0 and "Only the representative" in p.inner_text(".gov-share"), "office manager sees the choice but can't change it")
     ctx.close()
 
     br.close()

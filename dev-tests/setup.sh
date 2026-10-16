@@ -25,7 +25,7 @@ SHIFT = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.date(202
 def shifted(m):
     t = datetime.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(days=SHIFT)
     return "'" + t.strftime("%Y-%m-%dT%H:%M:%S") + "Z'"
-for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "part31-speed.sql", "seed.sql"]:
+for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "part31-speed.sql", "part32-gov.sql", "seed.sql"]:
     sql = open(os.path.join(here, f), encoding="utf-8").read()
     if f == "seed.sql" and SHIFT > 0:
         sql = re.sub(r"'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)Z'", shifted, sql)

@@ -1458,7 +1458,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
   ok(threw && threw2, "subscription history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 34, "34 triggers after part30");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 36, "36 triggers (part30 and part32)");
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
@@ -1537,9 +1537,100 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
   await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
   ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 34, "trigger count still 34 after part31");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 36, "trigger count 36 after part31 and part32");
   ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
   // tidy: the closed cases above stay (later checks don't count them)
+}
+
+// ---- grieviq-48: government groundwork (states, districts, themes, government users, sharing) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  let r = await call(S, "GET", "/api/admin/areas");
+  const up = r.body.geo && r.body.geo.states.find((x) => x.id === "uttar-pradesh");
+  ok(r.status === 200 && r.body.geo.states.length === 36 && up && up.lgd === "9" && up.nameHi === "उत्तर प्रदेश" && r.body.geo.states.find((x) => x.id === "ladakh").lgd === "37", "36 states and union territories with their LGD codes", up);
+  r = await call(S, "POST", "/api/admin/areas", { action: "add_district", stateId: "uttar-pradesh", nameEn: "Lucknow", nameHi: "लखनऊ", lgd: "162" });
+  ok(r.status === 200 && r.body.district.id === "uttar-pradesh--lucknow", "super admin adds a district with its LGD code", r.body);
+  r = await call(O, "POST", "/api/admin/areas", { action: "add_district", stateId: "uttar-pradesh", nameEn: "Kanpur Nagar", lgd: "164" });
+  ok(r.status === 200, "operations admin adds a district too");
+  r = await call(S, "POST", "/api/admin/areas", { action: "add_district", stateId: "uttar-pradesh", nameEn: "LUCKNOW", lgd: "164" });
+  ok(r.status === 400 && r.body.fields.nameEn === "TAKEN" && r.body.fields.lgd === "LGD_TAKEN", "same name or same LGD code refused", r.body);
+  r = await call(S, "POST", "/api/admin/areas", { action: "add_district", stateId: "nowhere", nameEn: "<b>x</b>", lgd: "12a" });
+  ok(r.status === 400 && r.body.fields.stateId === "REQUIRED" && r.body.fields.nameEn === "FORMAT" && r.body.fields.lgd === "LGD", "bad state, name and code refused", r.body);
+  ok((await call(D, "POST", "/api/admin/areas", { action: "add_district", stateId: "uttar-pradesh", nameEn: "Agra" })).status === 403 && (await call(A, "POST", "/api/admin/areas", { action: "add_district", stateId: "uttar-pradesh", nameEn: "Agra" })).status === 403, "data entry and auditor can't add districts");
+  r = await call(S, "POST", "/api/admin/areas", { action: "edit_district", id: "uttar-pradesh--kanpur-nagar", nameEn: "Kanpur Nagar", nameHi: "कानपुर नगर", lgd: "164" });
+  ok(r.status === 200 && sdb.prepare("SELECT name_hi FROM districts WHERE id = 'uttar-pradesh--kanpur-nagar'").get().name_hi === "कानपुर नगर", "district corrected");
+  await call(S, "POST", "/api/admin/areas", { action: "add_district", stateId: "bihar", nameEn: "Patna", lgd: "230" });
+  r = await call(S, "POST", "/api/admin/areas", { action: "place_area", id: "lucknow", districtId: "bihar--patna" });
+  ok(r.status === 400 && r.body.fields.districtId === "WRONG_STATE", "an area can't go in another state's district");
+  r = await call(S, "POST", "/api/admin/areas", { action: "place_area", id: "lucknow", districtId: "uttar-pradesh--lucknow", lgd: "800123" });
+  ok(r.status === 200, "area placed in its district with its local body LGD code");
+  r = await call(S, "POST", "/api/admin/areas", { action: "place_area", id: "kanpur", lgd: "800123" });
+  ok(r.status === 400 && r.body.fields.lgd === "LGD_TAKEN", "a local body LGD code is used once");
+  r = await call(D, "GET", "/api/admin/areas");
+  const lko = r.body.areas.find((a) => a.id === "lucknow");
+  ok(lko.districtId === "uttar-pradesh--lucknow" && lko.lgd === "800123" && r.body.geo.districts.find((d) => d.id === "uttar-pradesh--lucknow").areas === 1, "Areas list shows each area's district", lko);
+  // themes
+  r = await call(D, "GET", "/api/admin/issue-types");
+  ok(r.status === 403 || (r.body.themes && r.body.themes.length === 19), "19 ISO 37120 themes");
+  r = await call(S, "GET", "/api/admin/issue-types");
+  ok(r.body.themes.length === 19 && r.body.issueTypes.find((t) => t.id === "water-sanitation").theme === "WATER", "issue types show their theme", r.body.issueTypes);
+  r = await call(O, "PATCH", "/api/admin/issue-types", { id: "other", theme: "governance" });
+  ok(r.status === 200 && r.body.theme === "GOVERNANCE", "theme set", r.body);
+  ok((await call(S, "PATCH", "/api/admin/issue-types", { id: "other", theme: "PARTY" })).status === 400 && (await call(A, "PATCH", "/api/admin/issue-types", { id: "other", theme: "WATER" })).status === 403, "unknown theme refused; auditor can't change");
+  r = await call(S, "PATCH", "/api/admin/issue-types", { id: "other", theme: "" });
+  ok(r.body.theme === null && sdb.prepare("SELECT theme FROM grievance_categories WHERE id = 'other'").get().theme === null, "theme removed");
+  ok(sdb.prepare("SELECT suggested_department FROM grievance_categories WHERE id = 'water-sanitation'").get().suggested_department !== undefined, "suggested department untouched");
+  // government users
+  const good = { action: "add", name: "Priya Verma", designation: "Principal Secretary, Public Grievances", email: "PS.PG@up.gov.in", level: "STATE", stateId: "uttar-pradesh", letterRef: "PG/2026/114", letterDate: "2026-10-10" };
+  ok((await call(O, "POST", "/api/admin/gov", good)).status === 403 && (await call(A, "POST", "/api/admin/gov", good)).status === 403, "only the super admin gives government access");
+  r = await call(S, "POST", "/api/admin/gov", good);
+  ok(r.status === 200 && /^\d{4}-\d\d-\d\d$/.test(r.body.reviewBy), "official added on the state's letter, review date set", r.body);
+  const pv = r.body.id;
+  ok(sdb.prepare("SELECT email FROM gov_users WHERE id = ?").get(pv).email === "ps.pg@up.gov.in", "email kept in lower case");
+  r = await call(S, "POST", "/api/admin/gov", good);
+  ok(r.status === 400 && r.body.fields.email === "TAKEN", "same email can't be added twice");
+  r = await call(S, "POST", "/api/admin/gov", { action: "add", name: "D", designation: "", email: "dm@gmail.com", level: "DISTRICT", stateId: "uttar-pradesh", districtId: "bihar--patna", letterRef: "", letterDate: "2099-01-01" });
+  const f = r.body.fields || {};
+  ok(r.status === 400 && f.email === "OFFICIAL" && f.name === "FORMAT" && f.designation === "REQUIRED" && f.districtId === "WRONG_STATE" && f.letterRef === "REQUIRED" && f.letterDate === "FUTURE", "official email, letter and matching district required", f);
+  for (const e of ["dm@lucknow.nic.in", "x@gov.in"]) ok((await call(S, "POST", "/api/admin/gov", Object.assign({}, good, { email: e, level: "DISTRICT", districtId: "uttar-pradesh--lucknow", name: "District Officer" }))).status === 200, "official email accepted: " + e);
+  ok((await call(S, "POST", "/api/admin/gov", Object.assign({}, good, { email: "a@fakegov.in" }))).body.fields.email === "OFFICIAL", "look-alike domain refused");
+  r = await call(A, "GET", "/api/admin/gov");
+  ok(r.status === 200 && !r.body.canManage && r.body.users.length === 3 && r.body.users.find((u) => u.id === pv).level === "STATE", "auditor sees who has access", r.body.users.length);
+  ok((await call(D, "GET", "/api/admin/gov")).status === 403 && (await call(M, "GET", "/api/admin/gov")).status === 403, "other roles can't see government access");
+  ok((await call(S, "POST", "/api/admin/gov", { action: "renew", id: pv, reason: "" })).body.fields.reason === "REQUIRED", "a reason is needed");
+  sdb.prepare("UPDATE gov_users SET review_by = '2026-01-01' WHERE id = ?").run(pv);
+  ok((await call(S, "GET", "/api/admin/gov")).body.users.find((u) => u.id === pv).reviewDue === true, "yearly review shows as due");
+  r = await call(S, "POST", "/api/admin/gov", { action: "renew", id: pv, reason: "State confirmed by letter" });
+  ok(r.status === 200 && r.body.reviewBy > "2027-01-01", "review done: one more year", r.body);
+  sdb.prepare("INSERT INTO gov_sessions (id_hash, user_id, created_at, last_seen_at, expires_at) VALUES ('h48', ?, '2026-10-01', '2026-10-01', '2099-01-01')").run(pv);
+  r = await call(S, "POST", "/api/admin/gov", { action: "remove", id: pv, reason: "Officer transferred" });
+  ok(r.status === 200 && sdb.prepare("SELECT status FROM gov_users WHERE id = ?").get(pv).status === "REMOVED" && sdb.prepare("SELECT end_reason FROM gov_sessions WHERE id_hash = 'h48'").get().end_reason === "REMOVED", "removed: signed out at once, record kept");
+  ok((await call(S, "POST", "/api/admin/gov", { action: "remove", id: pv, reason: "again" })).status === 409, "can't remove twice");
+  ok((await call(S, "POST", "/api/admin/gov", good)).status === 200, "the same email can be given access again later");
+  // view log can't be changed
+  sdb.prepare("INSERT INTO gov_view_log (id, at, email, action, scope) VALUES ('v48', ?, 'x@gov.in', 'VIEWED', 'uttar-pradesh')").run(new Date().toISOString());
+  let t1 = false, t2 = false;
+  try { sdb.prepare("UPDATE gov_view_log SET action = 'X'").run(); } catch (e) { t1 = true; }
+  try { sdb.prepare("DELETE FROM gov_view_log").run(); } catch (e) { t2 = true; }
+  ok(t1 && t2, "view log can't be changed or deleted");
+  ok((await call(A, "GET", "/api/admin/gov")).body.log.some((l) => l.action === "VIEWED"), "auditor reads the view log");
+  // representative's choice to share
+  r = await call("r1@x.in", "GET", "/api/team?office=LOCAL:lu-hazratganj");
+  ok(r.body.govShare && r.body.govShare.on === false, "an office's figures are not shared unless it chooses");
+  ok((await call("om@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: true })).status === 403, "office manager can't choose to share");
+  ok((await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: "yes" })).status === 400, "share must be yes or no");
+  r = await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: true });
+  ok(r.status === 200 && r.body.on === true, "representative chooses to share");
+  r = await call("om@x.in", "GET", "/api/team?office=LOCAL:lu-hazratganj");
+  ok(r.body.govShare.on && r.body.govShare.by === "r1@x.in" && r.body.activity.some((a) => a.action === "GOV_SHARE_ON"), "office manager sees it; team activity records it");
+  r = await call(A, "GET", "/api/admin/gov");
+  ok(r.body.sharing.length === 1 && r.body.sharing[0].id === "lu-hazratganj", "admin sees which offices share", r.body.sharing);
+  await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: false });
+  ok((await call(S, "GET", "/api/admin/gov")).body.sharing.length === 0, "stopped sharing: off the list");
+  const ev = sdb.prepare("SELECT action FROM admin_events WHERE action IN ('district_added','district_changed','area_placed','issue_type_theme_changed','gov_user_added','gov_user_renewed','gov_user_removed')").all().map((x) => x.action);
+  ok(["district_added", "district_changed", "area_placed", "issue_type_theme_changed", "gov_user_added", "gov_user_renewed", "gov_user_removed"].every((a) => ev.includes(a)), "every change is in the admin log");
+  ok((await fetch(B + "/admin-gov.html")).status === 200, "page opens: /admin-gov.html");
 }
 
 // ---- audit trail ----

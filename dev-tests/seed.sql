@@ -26,3 +26,6 @@ INSERT INTO office_team (id, office_tier, office_id, member_email, member_name, 
  ('t1','LOCAL','lu-hazratganj','om@x.in','Omi Manager','OFFICE_MANAGER','ACTIVE','r1@x.in','r1@x.in','2026-10-01T00:00:00Z'),
  ('t2','LOCAL','lu-hazratganj','fw@x.in','Farid Worker','FIELD_WORKER','ACTIVE','r1@x.in','r1@x.in','2026-10-01T00:00:00Z');
 INSERT INTO case_assignments (id, grievance_id, office_tier, office_id, assignee_email, assigned_by, assigned_at) VALUES ('a1','g2','LOCAL','lu-hazratganj','fw@x.in','r1@x.in','2026-10-09T04:00:00Z');
+-- grieviq-48: part32 gives the standard issue types their ISO 37120 theme (run before this seed here).
+UPDATE grievance_categories SET theme = 'WATER' WHERE id = 'water-sanitation';
+UPDATE grievance_categories SET theme = 'ENERGY' WHERE id = 'electricity';
