@@ -138,6 +138,8 @@ export async function loadAssignments(env, filter, nowMs) {
              FROM case_dept_steps s JOIN grievances g ON g.id = s.grievance_id JOIN local_units lu ON lu.id = g.local_unit_id`;
   const where = [], binds = [];
   if (f.areaId) { where.push("lu.area_id = ?"); binds.push(f.areaId); }
+  // grieviq-49: several areas at once (a district or a state).
+  if (Array.isArray(f.areaIds)) { where.push("lu.area_id IN (SELECT value FROM json_each(?))"); binds.push(JSON.stringify(f.areaIds.map(String))); }
   if (f.officeId) { where.push("g.id IN (SELECT grievance_id FROM case_dept_steps WHERE kind = 'FORWARDED' AND office_id = ?)"); binds.push(String(f.officeId)); }
   if (f.byOffice) { where.push("g.id IN (SELECT grievance_id FROM case_dept_steps WHERE kind = 'FORWARDED' AND by_office_tier = ? AND by_office_id = ?)"); binds.push(f.byOffice.tier, String(f.byOffice.id)); }
   if (where.length) sql += " WHERE " + where.join(" AND ");

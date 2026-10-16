@@ -1635,6 +1635,104 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await fetch(B + "/admin-gov.html")).status === 200, "page opens: /admin-gov.html");
 }
 
+// ---- grieviq-49: government dashboard (sign-in, figures, demo, other email) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  // other email: refused without the exception, allowed with it, 90-day review
+  const base = { action: "add", name: "Ravi Singh", designation: "District Magistrate", email: "ravi.dm@gmail.com", level: "DISTRICT", stateId: "uttar-pradesh", districtId: "uttar-pradesh--lucknow", letterRef: "PG/2026/130", letterDate: "2026-10-12" };
+  let r = await call(S, "POST", "/api/admin/gov", base);
+  ok(r.status === 400 && r.body.fields.email === "OFFICIAL", "another email refused unless allowed as an exception");
+  r = await call(S, "POST", "/api/admin/gov", Object.assign({}, base, { otherEmail: true, otherReason: "short" }));
+  ok(r.status === 400 && r.body.fields.letterNamesEmail === "REQUIRED" && r.body.fields.otherReason === "REQUIRED", "exception needs the letter to name the email and a reason", r.body);
+  r = await call(S, "POST", "/api/admin/gov", Object.assign({}, base, { otherEmail: true, letterNamesEmail: true, otherReason: "No NIC email yet; the letter names this one" }));
+  const days = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
+  const today49 = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  ok(r.status === 200 && r.body.emailKind === "OTHER" && days(r.body.reviewBy, today49) === 90, "other email allowed as an exception, reviewed in 90 days", r.body);
+  const other = r.body.id;
+  ok(sdb.prepare("SELECT other_reason FROM gov_users WHERE id = ?").get(other).other_reason.startsWith("No NIC"), "the reason is kept");
+  const gl = (await call(A, "GET", "/api/admin/gov")).body.users.find((u) => u.id === other);
+  ok(gl.emailKind === "OTHER" && gl.otherReason, "the auditor sees the exception and why");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'gov_user_added_other_email'").get().n === 1, "the exception is in the admin log");
+  r = await call(S, "POST", "/api/admin/gov", { action: "renew", id: other, reason: "State confirmed again" });
+  ok(days(r.body.reviewBy, today49) === 90, "renewing an exception gives 90 more days");
+  // sign in
+  const signIn = async (email) => {
+    await fetch(B + "/api/gov/code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    sdb.prepare("UPDATE gov_codes SET code_hash = ? WHERE email = ? AND used_at IS NULL").run(createHash("sha256").update("gov:" + email + ":424242").digest("hex"), email);
+    const v = await fetch(B + "/api/gov/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: "424242" }) });
+    return { status: v.status, cookie: (v.headers.get("set-cookie") || "").split(";")[0], raw: v.headers.get("set-cookie") || "" };
+  };
+  const gq = async (ck, p) => { const x = await fetch(B + p, { headers: ck ? { cookie: ck } : {} }); return { status: x.status, body: await x.json() }; };
+  r = await fetch(B + "/api/gov/code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "nobody@up.gov.in" }) });
+  ok(r.status === 200 && (await r.json()).sent === true, "same answer for an email without access");
+  ok(sdb.prepare("SELECT code_hash FROM gov_codes WHERE email = 'nobody@up.gov.in'").get().code_hash.length === 64, "only a hash of the code is kept");
+  let bad = await fetch(B + "/api/gov/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "nobody@up.gov.in", code: "000000" }) });
+  ok(bad.status === 401, "wrong code refused");
+  // the state official from grieviq-48 (ps.pg@up.gov.in, active again)
+  const st = await signIn("ps.pg@up.gov.in");
+  ok(st.status === 200 && /HttpOnly/.test(st.raw) && /SameSite=Strict/.test(st.raw) && /__Host-giq_gov/.test(st.raw), "state official signed in; cookie HttpOnly, SameSite=Strict", st.raw);
+  let me = await gq(st.cookie, "/api/gov/me");
+  ok(me.status === 200 && me.body.user.level === "STATE" && me.body.state.id === "uttar-pradesh" && me.body.districts.length >= 75, "state official sees their state and its districts");
+  let s1 = await gq(st.cookie, "/api/gov/stats");
+  ok(s1.status === 200 && s1.body.rows.some((x) => x.id === "uttar-pradesh--lucknow") && s1.body.months.length === 12, "state figures with the district rows", s1.body.rows.map((x) => x.id));
+  const smallOk = (v) => v === "<10" || v === 0 || (typeof v === "number" && v >= 10);
+  const t1 = s1.body.tiles;
+  ok(["received", "resolved", "pending", "over30"].every((k) => smallOk(t1[k])) && t1.ages.every(smallOk), "small-number rule: counts 1-9 never sent", t1);
+  ok(s1.body.rows.every((x) => ["received", "resolved", "pending", "over30"].every((k) => smallOk(x[k]))) && s1.body.trend.every((m) => smallOk(m.received) && smallOk(m.resolved)), "small-number rule in every row and month");
+  const text = JSON.stringify(s1.body);
+  ok(!/citizen_phone|9000000|description|citizen_email|tracking_ref|GRV-/.test(text), "no citizen details or case numbers in the figures");
+  ok(!/r1@x\.in|Corporator|rep_email/.test(text.replace(/"shared":\[[^\]]*\]/, "")), "representatives' offices not named (unless they share)");
+  const lk = await gq(st.cookie, "/api/gov/stats?district=uttar-pradesh--lucknow");
+  ok(lk.status === 200 && lk.body.rows.some((x) => x.id === "lucknow"), "district view: its cities and blocks");
+  ok((await gq(st.cookie, "/api/gov/stats?district=bihar--patna")).status === 404, "a district of another state can't be opened");
+  ok((await gq(st.cookie, "/api/gov/stats?month=2020-01")).status === 400, "only the last 12 months");
+  // sharing office appears by name only when it chose to share
+  await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: true });
+  s1 = await gq(st.cookie, "/api/gov/stats");
+  ok(s1.body.shared.length === 1 && /Hazratganj/.test(s1.body.shared[0].name), "an office that shares is listed, marked as shared");
+  await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: false });
+  ok((await gq(st.cookie, "/api/gov/stats")).body.shared.length === 0, "stops sharing: gone from the dashboard");
+  // department detail
+  const withDept = (await gq(st.cookie, "/api/gov/stats")).body.depts;
+  if (withDept.length) {
+    const dd = await gq(st.cookie, "/api/gov/stats?dept=" + encodeURIComponent(withDept[0].key));
+    ok(dd.status === 200 && dd.body.dept && dd.body.dept.trend.length === 12, "a department office in detail");
+  } else ok(true, "no department forwarded here (nothing to open)");
+  ok((await gq(st.cookie, "/api/gov/stats?dept=nope")).status === 404, "unknown department refused");
+  // district official with the other email: only their district
+  const dm = await signIn("ravi.dm@gmail.com");
+  ok(dm.status === 200, "district official (other email) signs in");
+  me = await gq(dm.cookie, "/api/gov/me");
+  ok(me.body.user.level === "DISTRICT" && me.body.district.id === "uttar-pradesh--lucknow" && me.body.districts.length === 1, "district official: only their district");
+  ok((await gq(dm.cookie, "/api/gov/stats")).body.rows.some((x) => x.id === "lucknow"), "district official lands on their district");
+  ok((await gq(dm.cookie, "/api/gov/stats?district=uttar-pradesh--agra")).status === 403, "another district refused for a district official");
+  const log = sdb.prepare("SELECT action FROM gov_view_log WHERE email IN ('ps.pg@up.gov.in', 'ravi.dm@gmail.com')").all().map((x) => x.action);
+  ok(log.includes("SIGNED_IN") && log.includes("VIEWED") && log.includes("REFUSED"), "sign-ins, views and refusals logged", log);
+  // overdue review: 30 days' grace, then no access
+  sdb.prepare("UPDATE gov_users SET review_by = ? WHERE id = ?").run(new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10), other);
+  ok((await gq(dm.cookie, "/api/gov/me")).status === 401, "review more than 30 days overdue: signed out");
+  sdb.prepare("UPDATE gov_users SET review_by = ? WHERE id = ?").run(new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10), other);
+  ok((await signIn("ravi.dm@gmail.com")).status === 200, "within the 30 days' grace: still works");
+  // removed: signed out
+  const dm2 = await signIn("ravi.dm@gmail.com");
+  await call(S, "POST", "/api/admin/gov", { action: "remove", id: other, reason: "Officer transferred" });
+  ok((await gq(dm2.cookie, "/api/gov/stats")).status === 401, "removed official is signed out at once");
+  // sign out
+  const so = await fetch(B + "/api/gov/signout", { method: "POST", headers: { cookie: st.cookie } });
+  ok(so.status === 200 && (await gq(st.cookie, "/api/gov/me")).status === 401, "signed out");
+  ok((await gq(null, "/api/gov/stats")).status === 401, "figures need sign-in");
+  // demo state
+  const dmo = await gq(null, "/api/gov/stats?demo=1");
+  ok(dmo.status === 200 && dmo.body.demo === true && dmo.body.rows.length === 8 && dmo.body.rows.every((x) => /^Demo District/.test(x.nameEn)) && dmo.body.depts.length === 6, "demo state: 8 sample districts, 6 departments, marked demo");
+  const sum = dmo.body.rows.reduce((a, x) => a + x.received, 0);
+  ok(sum === dmo.body.tiles.received, "demo: district rows add up to the state total", { sum, t: dmo.body.tiles.received });
+  ok((await gq(null, "/api/gov/stats?demo=1&district=demo-c")).body.rows.length === 3 && (await gq(null, "/api/gov/stats?demo=1&district=uttar-pradesh--lucknow")).status === 404, "demo district view; real places never in the demo");
+  ok((await gq(null, "/api/gov/stats?demo=1&dept=demo-dept-0")).body.dept.trend.length === 12, "demo department view");
+  ok((await fetch(B + "/gov")).status === 200, "page opens: /gov");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

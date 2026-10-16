@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=49"></script>
+<script src="/i18n.js?v=50"></script>
 <script src="/admin-nav.js?v=r16"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
@@ -278,6 +278,10 @@
   .gv-sec h2 { font-size: 16px; margin: 0 0 6px; }
   .gv-sec > p.muted { margin: 0 0 10px; }
   .gv-sec > details > summary { cursor: pointer; font-weight: 600; min-height: 36px; display: inline-flex; align-items: center; }
+  .gv-other { border: 1px solid var(--admin-border); border-left: 4px solid #c98a00; border-radius: 8px; padding: 10px 14px; margin: 4px 0 12px; }
+  .gv-other-h { margin: 0 0 4px; font-size: 14px; }
+  .gv-other .chk { margin: 10px 0; } .gv-other .chk label { font-weight: 600; } .gv-other .chk .ferr { grid-column: 2; }
+  .badge.gv-exc { border-color: #c98a00; }
   .gv-share li { margin: 4px 0; font-size: 14px; }
 </style>
 </head>
@@ -298,6 +302,7 @@
   <h1><span data-i18n="adm.nav_gov">Government access</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
   <p class="subtitle" data-i18n="adm.gv_sub">State and district officials who may open GrievIQ's government dashboard, what they opened, and the representatives' offices that chose to share their own figures.</p>
   <div class="note" data-i18n-html="adm.gv_note"><b>The rules:</b> access only on a letter from the state government, to an official email (gov.in or nic.in); reviewed every year. Officials see government departments in full, but representatives' offices only as totals for each district, unless an office chooses to share. No citizen's name, phone number or complaint text is ever shown.</div>
+  <p class="sb-set"><a href="/gov?demo=1" target="_blank" rel="noopener" data-i18n="adm.gv_demo_link" style="color:var(--admin-accent)">Open the demo dashboard (sample data, for presentations)</a> · <a href="/gov" target="_blank" rel="noopener" data-i18n="adm.gv_login_link" style="color:var(--admin-accent)">The officials' sign-in page: grieviq.in/gov</a></p>
   <div id="gv-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
   <div id="gv-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
 </main>
@@ -315,7 +320,22 @@ function scopeText(u) {
   var s = stateOf(u.stateId), d = districtOf(u.districtId);
   return u.level === "DISTRICT" ? T("adm.gv_scope_district", { d: nm(d), s: nm(s) }) : T("adm.gv_scope_state", { s: nm(s) });
 }
-var FIELDS = ["name", "designation", "email", "level", "stateId", "districtId", "letterRef", "letterDate"];
+var FIELDS = ["name", "designation", "email", "letterNamesEmail", "otherReason", "level", "stateId", "districtId", "letterRef", "letterDate"];
+// gov.in / nic.in, as on the server (_shared/gov.js isOfficialEmail).
+function isOfficial(e) { e = String(e || "").trim().toLowerCase(); var m = /^[^\s@]+@([a-z0-9.-]+)$/.exec(e); if (!m) return false; var d = m[1]; return d === "gov.in" || d === "nic.in" || /\.(gov|nic)\.in$/.test(d); }
+function looksLikeEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || "").trim()); }
+// grieviq-49: another email only as a recorded exception.
+function otherBox() {
+  var f = GV.form, show = GV.data.otherAllowed && looksLikeEmail(f.email) && !isOfficial(f.email);
+  var e1 = f.errors.letterNamesEmail, e2 = f.errors.otherReason;
+  return '<div class="gv-other" id="gv-other"' + (show ? "" : " hidden") + ' role="group" aria-labelledby="gv-other-h"><p class="gv-other-h" id="gv-other-h"><b>' + esc(T("adm.gv_other_h")) + "</b></p>" +
+    '<p class="hint">' + esc(T("adm.gv_other_p", { n: GV.data.reviewDaysOther || 90 })) + "</p>" +
+    '<div class="chk"><input type="checkbox" id="gv-letterNamesEmail"' + (f.letterNamesEmail ? " checked" : "") + (e1 ? ' aria-invalid="true" aria-describedby="gv-letterNamesEmail-e"' : "") + '><label for="gv-letterNamesEmail">' + esc(T("adm.gv_f_letterNamesEmail")) + "</label>" +
+      (e1 ? '<span class="ferr" id="gv-letterNamesEmail-e">' + esc(T("adm.gv_e_letterNamesEmail_" + e1)) + "</span>" : "") + "</div>" +
+    '<div class="fld"><label for="gv-otherReason">' + esc(T("adm.gv_f_otherReason")) + '</label><span class="hint" id="gv-otherReason-h">' + esc(T("adm.gv_f_otherReason_h")) + "</span>" +
+      '<input type="text" id="gv-otherReason" maxlength="300" autocomplete="off" value="' + esc(f.otherReason || "") + '"' + (e2 ? ' aria-invalid="true"' : "") + ' aria-describedby="gv-otherReason-h' + (e2 ? " gv-otherReason-e" : "") + '">' +
+      (e2 ? '<span class="ferr" id="gv-otherReason-e">' + esc(T("adm.gv_e_otherReason_" + e2)) + "</span>" : "") + "</div></div>";
+}
 function fld(id, key, label, hint, type, extra) {
   var f = GV.form, e = f.errors[key];
   var desc = [hint ? id + "-h" : "", e ? id + "-e" : ""].filter(Boolean).join(" ");
@@ -344,7 +364,7 @@ function renderForm() {
       fld("gv-name", "name", "adm.gv_f_name", null, "text", ' maxlength="80"') +
       fld("gv-designation", "designation", "adm.gv_f_designation", "adm.gv_f_designation_h", "text", ' maxlength="100"') +
       fld("gv-email", "email", "adm.gv_f_email", "adm.gv_f_email_h", "email", ' maxlength="120"') +
-    "</div>" +
+    "</div>" + otherBox() +
     '<fieldset class="rad" id="gv-level"' + (f.errors.level ? ' aria-describedby="gv-level-e"' : "") + "><legend>" + esc(T("adm.gv_f_level")) + "</legend>" +
       '<span class="ropt"><input type="radio" name="gv-lv" id="gv-lv-s" value="STATE"' + (f.level === "STATE" ? " checked" : "") + '><label for="gv-lv-s">' + esc(T("adm.gv_lv_STATE")) + "</label></span>" +
       '<span class="ropt"><input type="radio" name="gv-lv" id="gv-lv-d" value="DISTRICT"' + (f.level === "DISTRICT" ? " checked" : "") + '><label for="gv-lv-d">' + esc(T("adm.gv_lv_DISTRICT")) + "</label></span>" +
@@ -359,8 +379,10 @@ function userCard(u) {
   var p = "gv-u-" + u.id.replace(/[^a-zA-Z0-9]/g, "");
   var removed = u.status !== "ACTIVE";
   var h = '<article class="sb-card gv-card' + (removed ? " removed" : u.reviewDue ? " due" : " s-ACTIVE") + '" aria-labelledby="' + p + '-h"><h3 id="' + p + '-h">' + esc(u.name) + " · " + esc(u.designation) +
-    ' <span class="badge">' + esc(T(removed ? "adm.gv_st_removed" : u.reviewDue ? "adm.gv_st_due" : "adm.gv_st_active")) + "</span></h3>" +
-    "<dl><dt>" + esc(T("adm.gv_f_email")) + "</dt><dd>" + esc(u.email) + "</dd>" +
+    ' <span class="badge">' + esc(T(removed ? "adm.gv_st_removed" : u.reviewDue ? "adm.gv_st_due" : "adm.gv_st_active")) + "</span>" +
+    (u.emailKind === "OTHER" ? ' <span class="badge gv-exc">' + esc(T("adm.gv_other_badge")) + "</span>" : "") + "</h3>" +
+    "<dl><dt>" + esc(T(u.emailKind === "OTHER" ? "adm.gv_email_l" : "adm.gv_f_email")) + "</dt><dd>" + esc(u.email) + "</dd>" +
+    (u.emailKind === "OTHER" ? "<dt>" + esc(T("adm.gv_other_why")) + "</dt><dd>" + esc(u.otherReason || "—") + "</dd>" : "") +
     "<dt>" + esc(T("adm.gv_sees")) + "</dt><dd>" + esc(scopeText(u)) + "</dd>" +
     "<dt>" + esc(T("adm.gv_letter")) + "</dt><dd>" + esc(T("adm.gv_letter_v", { ref: u.letterRef, date: dateText(u.letterDate) })) + "</dd>" +
     "<dt>" + esc(T("adm.gv_added")) + "</dt><dd>" + esc(T("adm.gv_by", { date: dateText(u.addedAt), by: u.addedBy })) + "</dd>" +
@@ -399,6 +421,8 @@ function render() {
 function readForm() {
   document.querySelectorAll("#gv-form [data-f]").forEach(function (el) { GV.form[el.getAttribute("data-f")] = el.value; });
   var lv = document.querySelector('input[name="gv-lv"]:checked'); if (lv) GV.form.level = lv.value;
+  var ln = document.getElementById("gv-letterNamesEmail"); if (ln) GV.form.letterNamesEmail = ln.checked;
+  var orr = document.getElementById("gv-otherReason"); if (orr) GV.form.otherReason = orr.value;
 }
 function wire() {
   var form = document.getElementById("gv-form");
@@ -407,6 +431,8 @@ function wire() {
     var st = document.getElementById("gv-stateId");
     st.addEventListener("change", function () { readForm(); GV.form.districtId = ""; render(); document.getElementById("gv-stateId").focus(); });
     form.addEventListener("submit", add);
+    var em = document.getElementById("gv-email");
+    em.addEventListener("input", function () { var box = document.getElementById("gv-other"); if (box) box.hidden = !(GV.data.otherAllowed && looksLikeEmail(em.value) && !isOfficial(em.value)); });
   }
   document.querySelectorAll("details[data-id]").forEach(function (dt) {
     var id = dt.getAttribute("data-id"), u = GV.data.users.find(function (x) { return x.id === id; });
@@ -421,15 +447,16 @@ async function add(ev) {
   btn.disabled = true;
   try {
     var res = await fetch("/api/admin/gov", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add", name: f.name, designation: f.designation, email: f.email, level: f.level, stateId: f.stateId, districtId: f.level === "DISTRICT" ? f.districtId : null, letterRef: f.letterRef, letterDate: f.letterDate }) });
+      body: JSON.stringify({ action: "add", name: f.name, designation: f.designation, email: f.email, level: f.level, stateId: f.stateId, districtId: f.level === "DISTRICT" ? f.districtId : null, letterRef: f.letterRef, letterDate: f.letterDate,
+        otherEmail: looksLikeEmail(f.email) && !isOfficial(f.email), letterNamesEmail: !!f.letterNamesEmail, otherReason: f.otherReason || "" }) });
     var d = await res.json();
     if (res.status === 400 && d.fields) { f.errors = d.fields; render(); var e = document.getElementById("gv-errs"); if (e) e.focus(); return; }
     btn.disabled = false;
     if (!res.ok) { say(T("adm.ss_e_generic")); return; }
     var who = f.name;
-    GV.form = { level: f.level, stateId: f.stateId, districtId: "", name: "", designation: "", email: "", letterRef: "", letterDate: "", errors: {} };
+    GV.form = { level: f.level, stateId: f.stateId, districtId: "", name: "", designation: "", email: "", letterRef: "", letterDate: "", letterNamesEmail: false, otherReason: "", errors: {} };
     await load();
-    say(T("adm.gv_added_ok", { name: who, date: dateText(d.reviewBy) }), true);
+    say(T(d.emailKind === "OTHER" ? "adm.gv_added_ok_other" : "adm.gv_added_ok", { name: who, date: dateText(d.reviewBy) }), true);
   } catch (e) { btn.disabled = false; say(T("adm.ss_e_net")); }
 }
 async function act(u, action, btn) {

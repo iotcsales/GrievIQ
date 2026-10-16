@@ -10,16 +10,25 @@
 //        sharing: [{ tier, id, name, at, by }], log: [...last 200] }
 // POST (manage_gov: super admin), { action, ... }
 //   add     { email, name, designation, level: STATE|DISTRICT, stateId,
-//             districtId?, letterRef, letterDate }
-//           The email must be an official one (gov.in or nic.in). Access
-//           is given only on a letter from the state (its number and date
-//           are kept); it is reviewed every year (review_by).
+//             districtId?, letterRef, letterDate,
+//             otherEmail?, letterNamesEmail?, otherReason? }
+//           The email should be an official one (gov.in or nic.in), as the
+//           Government of India's email policy asks; access is reviewed
+//           every year. grieviq-49 (owner's decision, 16 Oct 2026): another
+//           email is allowed as a recorded exception only when the state's
+//           letter names it (letterNamesEmail) and a reason is given; the
+//           account is marked OTHER and reviewed every 90 days. Access is
+//           given only on a letter from the state (number and date kept).
 //   renew   { id, letterRef?, reason }  review done: one more year
 //   remove  { id, reason }              takes effect at once (sessions end)
 // Every action is kept in admin_events; users are removed, never deleted.
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { govReady, listStates, listDistricts, isOfficialEmail, GOV_LEVELS, REVIEW_DAYS, addDays, istToday, realDate } from "../../_shared/gov.js";
+import { emailDomainCanReceive } from "../../_shared/contact-validation.js";
+
+const REVIEW_DAYS_OTHER = 90;
+async function hasKind(env) { try { await env.DB.prepare("SELECT email_kind FROM gov_users LIMIT 1").first(); return true; } catch (e) { return false; } }
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).normalize("NFC").replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -30,6 +39,7 @@ function userOut(r, today) {
   return {
     id: r.id, email: r.email, name: r.name, designation: r.designation, level: r.level,
     stateId: r.state_id, districtId: r.district_id, letterRef: r.letter_ref, letterDate: r.letter_date,
+    emailKind: r.email_kind || "OFFICIAL", otherReason: r.other_reason || null,
     reviewBy: r.review_by, reviewDue: r.status === "ACTIVE" && r.review_by <= today,
     status: r.status, addedBy: r.added_by, addedAt: r.added_at, renewedAt: r.renewed_at, renewedBy: r.renewed_by,
     removedAt: r.removed_at, removedBy: r.removed_by, removeReason: r.remove_reason, lastSignedIn: r.last_signed_in,
@@ -54,7 +64,7 @@ export async function onRequestGet({ request, env }) {
     env.DB.prepare("SELECT at, email, action, scope FROM gov_view_log ORDER BY at DESC LIMIT 200").all(),
   ]);
   return json({
-    ready: true, canManage, today, reviewDays: REVIEW_DAYS,
+    ready: true, canManage, today, reviewDays: REVIEW_DAYS, reviewDaysOther: REVIEW_DAYS_OTHER, otherAllowed: await hasKind(env),
     states: states.filter((s) => !s.demo).map((s) => ({ id: s.id, nameEn: s.nameEn, nameHi: s.nameHi, lgd: s.lgd })),
     districts,
     users: (users.results || []).map((r) => userOut(r, today)),
@@ -78,7 +88,21 @@ export async function onRequestPost({ request, env }) {
     const name = clean(b.name, 80), designation = clean(b.designation, 100);
     const level = String(b.level || "").toUpperCase();
     const letterRef = clean(b.letterRef, 80), letterDate = clean(b.letterDate, 10);
-    if (!email) f.email = "REQUIRED"; else if (email.length > 120 || !isOfficialEmail(email)) f.email = "OFFICIAL";
+    const official = isOfficialEmail(email);
+    const kindReady = await hasKind(env);
+    let otherReason = null;
+    if (!email) f.email = "REQUIRED";
+    else if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) f.email = "FORMAT";
+    else if (!official) {
+      // Another email: only as a recorded exception the state's letter asks for.
+      if (!kindReady || b.otherEmail !== true) f.email = "OFFICIAL";
+      else {
+        otherReason = clean(b.otherReason, 300);
+        if (b.letterNamesEmail !== true) f.letterNamesEmail = "REQUIRED";
+        if (otherReason.length < 10) f.otherReason = "REQUIRED"; else if (otherReason.length > 300) f.otherReason = "LENGTH";
+        if (!f.letterNamesEmail && !f.otherReason) { const dns = await emailDomainCanReceive(email); if (!dns.ok) f.email = "DOMAIN"; }
+      }
+    }
     if (!name) f.name = "REQUIRED"; else if (!PERSON_RE.test(name)) f.name = "FORMAT";
     if (!designation) f.designation = "REQUIRED"; else if (designation.length < 2 || designation.length > 100 || /[<>]/.test(designation)) f.designation = "FORMAT";
     if (!GOV_LEVELS.includes(level)) f.level = "REQUIRED";
@@ -97,13 +121,21 @@ export async function onRequestPost({ request, env }) {
     }
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     const id = crypto.randomUUID();
-    const reviewBy = addDays(today, REVIEW_DAYS);
-    await env.DB.prepare(
-      `INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)`
-    ).bind(id, email, name, designation, level, state.id, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now).run();
-    await logEvent(env, auth.email, "gov_user_added", email, { name, designation, level, state: state.id, district: district ? district.id : null, letterRef, letterDate, reviewBy });
-    return json({ ok: true, id, reviewBy });
+    const kind = official ? "OFFICIAL" : "OTHER";
+    const reviewBy = addDays(today, official ? REVIEW_DAYS : REVIEW_DAYS_OTHER);
+    if (kindReady) {
+      await env.DB.prepare(
+        `INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at, email_kind, other_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)`
+      ).bind(id, email, name, designation, level, state.id, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now, kind, otherReason).run();
+    } else {
+      await env.DB.prepare(
+        `INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)`
+      ).bind(id, email, name, designation, level, state.id, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now).run();
+    }
+    await logEvent(env, auth.email, official ? "gov_user_added" : "gov_user_added_other_email", email, { name, designation, level, state: state.id, district: district ? district.id : null, letterRef, letterDate, reviewBy, emailKind: kind, otherReason });
+    return json({ ok: true, id, reviewBy, emailKind: kind });
   }
 
   if (b.action === "renew" || b.action === "remove") {
@@ -114,7 +146,7 @@ export async function onRequestPost({ request, env }) {
     if (reason.length < 5) f.reason = "REQUIRED"; else if (reason.length > 300) f.reason = "LENGTH";
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     if (b.action === "renew") {
-      const reviewBy = addDays(today, REVIEW_DAYS);
+      const reviewBy = addDays(today, row.email_kind === "OTHER" ? REVIEW_DAYS_OTHER : REVIEW_DAYS);
       await env.DB.prepare("UPDATE gov_users SET review_by = ?, renewed_by = ?, renewed_at = ? WHERE id = ?").bind(reviewBy, auth.email, now, row.id).run();
       await logEvent(env, auth.email, "gov_user_renewed", row.email, { reason, before: row.review_by, after: reviewBy });
       return json({ ok: true, reviewBy });
