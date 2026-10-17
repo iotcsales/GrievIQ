@@ -9,7 +9,9 @@
 //   -> { ready, canManage, today, reviewDays, states, districts, users,
 //        sharing: [{ tier, id, name, at, by }], log: [...last 200] }
 // POST (manage_gov: super admin), { action, ... }
-//   add     { email, name, designation, level: STATE|DISTRICT, stateId,
+//   add     { email, name, designation, level: NATIONAL|STATE|DISTRICT, stateId,
+//             (NATIONAL, grieviq-51: a Union ministry's official, on the
+//             ministry's letter; no state)
 //             districtId?, letterRef, letterDate,
 //             otherEmail?, letterNamesEmail?, otherReason? }
 //           The email should be an official one (gov.in or nic.in), as the
@@ -107,8 +109,10 @@ export async function onRequestPost({ request, env }) {
     if (!designation) f.designation = "REQUIRED"; else if (designation.length < 2 || designation.length > 100 || /[<>]/.test(designation)) f.designation = "FORMAT";
     if (!GOV_LEVELS.includes(level)) f.level = "REQUIRED";
     let state = null, district = null;
-    if (b.stateId) state = await env.DB.prepare("SELECT id, name_en FROM states WHERE id = ?").bind(String(b.stateId)).first();
-    if (!state) f.stateId = "REQUIRED";
+    if (level !== "NATIONAL") {
+      if (b.stateId) state = await env.DB.prepare("SELECT id, name_en FROM states WHERE id = ? AND demo = 0").bind(String(b.stateId)).first();
+      if (!state) f.stateId = "REQUIRED";
+    }
     if (level === "DISTRICT") {
       if (b.districtId) district = await env.DB.prepare("SELECT id, state_id, name_en FROM districts WHERE id = ?").bind(String(b.districtId)).first();
       if (!district) f.districtId = "REQUIRED"; else if (state && district.state_id !== state.id) f.districtId = "WRONG_STATE";
@@ -127,14 +131,14 @@ export async function onRequestPost({ request, env }) {
       await env.DB.prepare(
         `INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at, email_kind, other_reason)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)`
-      ).bind(id, email, name, designation, level, state.id, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now, kind, otherReason).run();
+      ).bind(id, email, name, designation, level, state ? state.id : null, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now, kind, otherReason).run();
     } else {
       await env.DB.prepare(
         `INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)`
-      ).bind(id, email, name, designation, level, state.id, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now).run();
+      ).bind(id, email, name, designation, level, state ? state.id : null, district ? district.id : null, letterRef, letterDate, reviewBy, auth.email, now).run();
     }
-    await logEvent(env, auth.email, official ? "gov_user_added" : "gov_user_added_other_email", email, { name, designation, level, state: state.id, district: district ? district.id : null, letterRef, letterDate, reviewBy, emailKind: kind, otherReason });
+    await logEvent(env, auth.email, official ? "gov_user_added" : "gov_user_added_other_email", email, { name, designation, level, state: state ? state.id : null, district: district ? district.id : null, letterRef, letterDate, reviewBy, emailKind: kind, otherReason });
     return json({ ok: true, id, reviewBy, emailKind: kind });
   }
 

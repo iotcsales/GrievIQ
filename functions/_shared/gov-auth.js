@@ -94,7 +94,7 @@ export async function verifyCode(env, emailIn, codeIn) {
   await env.DB.prepare("INSERT INTO gov_sessions (id_hash, user_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)")
     .bind(await sha256Hex(token), user.id, new Date(now).toISOString(), new Date(now).toISOString(), new Date(now + ABSOLUTE_HOURS * 3600000).toISOString()).run();
   await env.DB.prepare("UPDATE gov_users SET last_signed_in = ? WHERE id = ?").bind(new Date(now).toISOString(), user.id).run();
-  await logGov(env, { userId: user.id, email, action: "SIGNED_IN", scope: user.level === "DISTRICT" ? "district:" + user.district_id : "state:" + user.state_id });
+  await logGov(env, { userId: user.id, email, action: "SIGNED_IN", scope: user.level === "DISTRICT" ? "district:" + user.district_id : user.level === "NATIONAL" ? "country" : "state:" + user.state_id });
   return { status: 200, body: { ok: true }, cookie: cookie(token, ABSOLUTE_HOURS * 3600) };
 }
 

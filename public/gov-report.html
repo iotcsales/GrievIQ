@@ -78,7 +78,7 @@
   }
   @media screen { .demo-print { display: none; } }
 </style>
-<script src="/i18n.js?v=51"></script>
+<script src="/i18n.js?v=52"></script>
 <script src="/xlsx-lite.js?v=1"></script>
 </head>
 <body>
@@ -99,7 +99,7 @@
   function hi() { return window.GIQ && GIQ.lang === "hi"; }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   var q = new URLSearchParams(location.search), DEMO = q.get("demo") === "1", R = null;
-  var back = new URLSearchParams(); if (DEMO) back.set("demo", "1"); if (q.get("district")) back.set("district", q.get("district")); if (q.get("month")) back.set("month", q.get("month"));
+  var back = new URLSearchParams(); if (DEMO) back.set("demo", "1"); if (q.get("state")) back.set("state", q.get("state")); if (q.get("district")) back.set("district", q.get("district")); if (q.get("month")) back.set("month", q.get("month"));
   document.getElementById("back").href = "/gov" + (back.toString() ? "?" + back.toString() : "");
   function monthName(mo, short) { return new Date(mo + "-01T00:00:00+05:30").toLocaleDateString(loc(), { month: short ? "short" : "long", year: "numeric", timeZone: "Asia/Kolkata" }); }
   function when(s) { var d = new Date(s); return isNaN(d) ? "" : d.toLocaleString(loc(), { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
@@ -129,9 +129,14 @@
   function colLabel(c) { return c.month ? monthName(c.key, true) : T(c.label) + (c.type === "pct" ? " (%)" : c.type === "days" ? " (" + T("gv.rp_days") + ")" : ""); }
   function typeOf(row, c) { return c.type === "mixed" ? (row._t || "num") : c.type; }
   function scopeText() {
-    if (DEMO) return T("gv.rp_scope_demo") + (R.scope && R.scope.district ? " · " + R.scope.district.replace(/^demo-/, "").toUpperCase() : "");
-    var s = R.scope; return (s.district ? T("gv.district_n", { d: nm(s.district) }) + ", " : "") + nm(s.state) + (s.district && s.district.lgd ? " · " + T("gv.lgd", { c: s.district.lgd }) : s.state.lgd ? " · " + T("gv.lgd", { c: s.state.lgd }) : "");
+    var pl = R.place || {}, parts = [];
+    if (pl.district) parts.push(T("gv.district_n", { d: nm(pl.district) }));
+    if (pl.state) parts.push(nm(pl.state));
+    if (!pl.state) parts.push(pl.country ? nm(pl.country) : "");
+    var code = pl.district && pl.district.lgd ? pl.district.lgd : pl.state && pl.state.lgd ? pl.state.lgd : null;
+    return parts.filter(Boolean).join(", ") + (code ? " · " + T("gv.lgd", { c: code }) : "") + (DEMO ? " · " + T("gv.rp_sample") : "");
   }
+
   var DEFS = { summary: ["received", "resolved", "pending", "ages", "within", "avg", "reopened", "satisfied", "moved", "dept", "located"], districts: ["received", "resolved", "pending", "within", "satisfied"],
     departments: ["dept"], pending30: ["ages"], themes: ["received"], reps: ["reps", "moved"] };
   function render() {
@@ -184,7 +189,7 @@
   document.getElementById("pdf").addEventListener("click", function () { window.print(); });
   document.getElementById("xlsx").addEventListener("click", excel);
   document.addEventListener("giq:lang", function () { if (R) render(); });
-  var p = new URLSearchParams(); ["r", "month", "district", "demo"].forEach(function (k) { if (q.get(k)) p.set(k, q.get(k)); });
+  var p = new URLSearchParams(); ["r", "month", "state", "district", "demo"].forEach(function (k) { if (q.get(k)) p.set(k, q.get(k)); });
   fetch("/api/gov/report?" + p.toString(), { credentials: "same-origin", cache: "no-store" }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, body: b }; }); })
     .then(function (r) {
       if (!r.ok) { document.getElementById("doc").innerHTML = '<p role="alert">' + esc(r.status === 401 ? T("gv.rp_signin") : r.status === 403 ? T("gv.e_not_yours") : T("gv.e_load")) + "</p>"; return; }

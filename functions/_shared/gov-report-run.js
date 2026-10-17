@@ -66,8 +66,9 @@ export async function runGovReports(env, origin, nowMs, send) {
       const claim = await env.DB.prepare("INSERT OR IGNORE INTO gov_report_sends (user_id, kind, period, sent_at, ok) VALUES (?, ?, ?, ?, 0)")
         .bind(u.id, kind, period, new Date(nowMs).toISOString()).run();
       if (!claim.meta || !claim.meta.changes) continue;
-      const scopeEn = u.level === "DISTRICT" ? (u.district_en || "") + " district, " + (u.state_en || "") : u.state_en || "";
-      const scopeHi = u.level === "DISTRICT" ? "ज़िला " + (u.district_hi || u.district_en || "") + ", " + (u.state_hi || u.state_en || "") : u.state_hi || u.state_en || "";
+      const national = u.level === "NATIONAL";
+      const scopeEn = national ? "all of India" : u.level === "DISTRICT" ? (u.district_en || "") + " district, " + (u.state_en || "") : u.state_en || "";
+      const scopeHi = national ? "पूरा भारत" : u.level === "DISTRICT" ? "ज़िला " + (u.district_hi || u.district_en || "") + ", " + (u.state_hi || u.state_en || "") : u.state_hi || u.state_en || "";
       const m = reportEmail(kind, period, scopeEn, scopeHi, origin);
       const ok = await send(env, u.email, m.subject, m.html);
       if (ok) { sent++; await env.DB.prepare("UPDATE gov_report_sends SET ok = 1 WHERE user_id = ? AND kind = ? AND period = ?").bind(u.id, kind, period).run(); }

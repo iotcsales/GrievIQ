@@ -76,7 +76,7 @@ export function facts(g, cat, nowMs) {
     movedUp: String(g.current_tier || "LOCAL") !== "LOCAL",
     located: g.pin_lat != null && !!g.has_photo,
     theme: (cat && cat.theme) || null, categoryId: g.category_id,
-    unitId: g.local_unit_id, unitName: g.unit_name, areaId: g.area_id, districtId: g.district_id || null,
+    unitId: g.local_unit_id, unitName: g.unit_name, areaId: g.area_id, districtId: g.district_id || null, stateName: g.area_state || null,
     mlaId: g.mla_id, mbId: g.mb_id, mpId: g.mp_id,
   };
 }
@@ -108,25 +108,29 @@ export function shown(m) {
 }
 
 // Everything the dashboard needs for one scope and month.
-// scope: { state: { id, name_en, ... }, district: row | null, deptKey?: string }
+// scope: { state: { id, name_en, ... } | null (the whole country, grieviq-51),
+//          district: row | null, deptKey?: string }
 export async function govStats(env, scope, month, nowMs, opts) {
   const now = nowMs || Date.now();
-  const st = scope.state, dist = scope.district;
-  const where = ["a.state = ?"], binds = [st.name_en];
+  const st = scope.state, dist = scope.district, national = !st;
+  const where = [], binds = [];
+  if (st) { where.push("a.state = ?"); binds.push(st.name_en); }
   if (dist) { where.push("a.district_id = ?"); binds.push(dist.id); }
+  if (!where.length) where.push("1 = 1");
   const [casesRes, catRes, areaRes, distRes] = await env.DB.batch([
     env.DB.prepare(
       `SELECT g.id, g.status, g.created_at, g.resolved_at, g.current_tier, g.reopen_count, g.pin_lat, g.category_id, g.local_unit_id,
               lu.name AS unit_name, lu.mla_constituency_id AS mla_id, lu.municipal_body_id AS mb_id, mla.mp_constituency_id AS mp_id,
-              a.id AS area_id, a.district_id,
+              a.id AS area_id, a.district_id, a.state AS area_state,
               EXISTS (SELECT 1 FROM complaint_photos p WHERE p.grievance_id = g.id) AS has_photo
          FROM grievances g JOIN local_units lu ON lu.id = g.local_unit_id JOIN areas a ON a.id = lu.area_id
          LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id
         WHERE ${where.join(" AND ")}`
     ).bind(...binds),
     env.DB.prepare("SELECT id, name, resolution_sla_hours, theme FROM grievance_categories"),
-    env.DB.prepare(`SELECT a.id, a.name, a.kind, a.district_id, a.lgd_code FROM areas a WHERE ${where.join(" AND ")} ORDER BY a.name`).bind(...binds),
-    env.DB.prepare("SELECT id, name_en, name_hi, lgd_code FROM districts WHERE state_id = ? ORDER BY name_en").bind(st.id),
+    env.DB.prepare(`SELECT a.id, a.name, a.kind, a.district_id, a.lgd_code, a.state FROM areas a WHERE ${where.join(" AND ")} ORDER BY a.name`).bind(...binds),
+    national ? env.DB.prepare("SELECT id, name_en, name_hi, lgd_code FROM states WHERE demo = 0 ORDER BY name_en")
+      : env.DB.prepare("SELECT id, name_en, name_hi, lgd_code FROM districts WHERE state_id = ? ORDER BY name_en").bind(st.id),
   ]);
   const cats = new Map((catRes.results || []).map((c) => [c.id, c]));
   const all = (casesRes.results || []).map((g) => facts(g, cats.get(g.category_id), now));
@@ -182,7 +186,13 @@ export async function govStats(env, scope, month, nowMs, opts) {
     return { received: s.received, resolved: s.resolved, pending: s.pending, over30: s.over30, within: s.within, satisfied: s.satisfied };
   };
   let rows;
-  if (!dist) {
+  if (national) {
+    // The whole country: one row per state where GrievIQ is in use.
+    rows = districts.map((x) => {
+      const list = all.filter((f) => f.stateName === x.name_en), n = areas.filter((a) => a.state === x.name_en).length;
+      return Object.assign({ id: x.id, nameEn: x.name_en, nameHi: x.name_hi, lgd: x.lgd_code, areas: n }, rowOf(list), { raw: list.length });
+    }).filter((r) => r.areas > 0 || r.raw > 0);
+  } else if (!dist) {
     rows = districts.map((d) => {
       const list = all.filter((f) => f.districtId === d.id);
       return Object.assign({ id: d.id, nameEn: d.name_en, nameHi: d.name_hi, lgd: d.lgd_code, areas: areas.filter((a) => a.district_id === d.id).length }, rowOf(list), { raw: list.length });
@@ -261,26 +271,47 @@ export async function govStats(env, scope, month, nowMs, opts) {
     month, months: lastMonths(istMonth(now), 12).reverse(), tiles, before, change, rows, depts, dept, themes, hotspots, trend, shared,
   };
   // grieviq-50: the reports need the case facts too (never sent to a browser).
-  if (opts && opts.raw) Object.defineProperty(out, "raw", { value: { all, asg, areas, districts, cats, officeNames, byOffice }, enumerable: false });
+  if (opts && opts.raw) Object.defineProperty(out, "raw", { value: { all, asg, areas, districts, cats, officeNames, byOffice, national }, enumerable: false });
   return out;
 }
 
-// ---------------- the demo state (sample figures for presentations) ----------------
-// Everything here is invented and every screen and report says so.
+// ---------------- the demo country (sample figures for presentations) ----------------
+// grieviq-51: a made-up country of six made-up states, each with its own
+// districts. Everything here is invented, no real place is named, and every
+// screen and report says "Demo data".
 function rng(seed) {
   let h = 2166136261;
   for (const c of String(seed)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
   return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
 }
-export const DEMO_STATE = { id: "demo", name_en: "Demo State", name_hi: "डेमो राज्य", lgd_code: null, demo: 1 };
-const DEMO_D = "ABCDEFGH".split("");
+export const DEMO_COUNTRY = { id: "demo", name_en: "Demo Country", name_hi: "डेमो देश" };
+const DEMO_S = "ABCDEF".split("");
+const DEMO_N = { A: 8, B: 6, C: 7, D: 5, E: 9, F: 6 };   // districts in each demo state
 const DEMO_DEPTS = [["Water Supply Department", "जलापूर्ति विभाग", "Water Supply"], ["Electricity Distribution Company", "विद्युत वितरण कंपनी", "Electricity"],
   ["Municipal Sanitation", "नगर स्वच्छता", "Sanitation / Garbage"], ["Public Works (Roads)", "लोक निर्माण (सड़कें)", "Roads & Public Works"],
   ["Police", "पुलिस", "Police"], ["Revenue Department", "राजस्व विभाग", "Revenue"]];
 const DEMO_THEMES = [["WATER", 26], ["SOLID_WASTE", 19], ["TRANSPORT", 17], ["ENERGY", 15], ["SAFETY", 9], ["WASTEWATER", 6], ["GOVERNANCE", 5], ["HEALTH", 3]];
 
-function demoDistrict(letter, month) {
-  const r = rng("d" + letter + month), base = 120 + Math.floor(rng("b" + letter)() * 260);
+export function demoStates() {
+  return DEMO_S.map((L, i) => ({ id: "demo-" + L.toLowerCase(), name_en: "Demo State " + L, name_hi: "डेमो राज्य " + L, lgd_code: null, letter: L }));
+}
+export function demoDistrictsOf(stateId) {
+  const st = demoStates().find((x) => x.id === stateId);
+  if (!st) return [];
+  return Array.from({ length: DEMO_N[st.letter] }, (_, i) => ({ id: st.id + "-" + (i + 1), state_id: st.id, name_en: "Demo District " + st.letter + (i + 1), name_hi: "डेमो ज़िला " + st.letter + (i + 1), lgd_code: null, letter: st.letter, n: i + 1 }));
+}
+// The demo units (districts) inside a scope, or null if the scope isn't in the demo.
+function demoUnits(stateId, districtId) {
+  if (!stateId) return demoStates().flatMap((x) => demoDistrictsOf(x.id));
+  const ds = demoDistrictsOf(stateId);
+  if (!ds.length) return null;
+  if (!districtId) return ds;
+  const d = ds.find((x) => x.id === districtId);
+  return d ? [d] : null;
+}
+function demoDistrict(u, month) {
+  const key = u.letter + u.n;
+  const r = rng("d" + key + month), base = 90 + Math.floor(rng("b" + key)() * 230);
   const season = 1 + 0.18 * Math.sin((Number(month.slice(5)) / 12) * 2 * Math.PI);
   const received = Math.round(base * season * (0.9 + r() * 0.2));
   const resolved = Math.round(received * (0.82 + r() * 0.2));
@@ -304,49 +335,53 @@ function demoTiles(t) {
   return { received: t.received, resolved: t.resolved, pending: t.pending, ages: t.ages, over30: t.ages[3], within: t.within, avgDays: t.avgDays,
     reopened: t.reopened, satisfied: t.satisfied, movedUp: t.movedUp, located: t.located, deptOnTime: t.deptOnTime };
 }
-export function demoDistricts() {
-  return DEMO_D.map((L, i) => ({ id: "demo-" + L.toLowerCase(), name_en: "Demo District " + L, name_hi: "डेमो ज़िला " + L, lgd_code: String(9001 + i) }));
-}
-export function demoStats(districtId, deptKey, month, nowMs) {
-  const letters = districtId ? DEMO_D.filter((L) => "demo-" + L.toLowerCase() === districtId) : DEMO_D;
-  if (!letters.length) return null;
-  const cur = (mo) => letters.map((L) => demoDistrict(L, mo));
+const r1 = (v) => Math.round(v * 10) / 10;
+function demoRow(x) { return { received: x.received, resolved: x.resolved, pending: x.pending, over30: x.ages[3], within: r1(x.within), satisfied: r1(x.satisfied) }; }
+
+// scope: { state: demo state id or null (the whole demo country), district: id or null }
+export function demoStats(scope, deptKey, month, nowMs) {
+  const stateId = scope && scope.state || null, districtId = scope && scope.district || null;
+  const units = demoUnits(stateId, districtId);
+  if (!units || !units.length) return null;
+  const cur = (mo) => units.map((u) => demoDistrict(u, mo));
   const t = sumDemo(cur(month)), p = sumDemo(cur(prevMonth(month)));
   const change = {};
   for (const k of ["received", "resolved", "pending"]) change[k] = Math.round(((t[k] - p[k]) / p[k]) * 1000) / 10;
-  const row = (x) => ({ received: x.received, resolved: x.resolved, pending: x.pending, over30: x.ages[3], within: Math.round(x.within * 10) / 10, satisfied: Math.round(x.satisfied * 10) / 10 });
   let rows;
-  if (!districtId) rows = demoDistricts().map((d, i) => Object.assign({ id: d.id, nameEn: d.name_en, nameHi: d.name_hi, lgd: d.lgd_code, areas: 3 }, row(demoDistrict(DEMO_D[i], month))));
+  if (!stateId) rows = demoStates().map((st) => { const us = demoDistrictsOf(st.id); return Object.assign({ id: st.id, nameEn: st.name_en, nameHi: st.name_hi, lgd: st.lgd_code, areas: us.length * 3 }, demoRow(sumDemo(us.map((u) => demoDistrict(u, month))))); });
+  else if (!districtId) rows = units.map((u) => Object.assign({ id: u.id, nameEn: u.name_en, nameHi: u.name_hi, lgd: u.lgd_code, areas: 3 }, demoRow(demoDistrict(u, month))));
   else {
-    const d = demoDistrict(letters[0], month);
+    const u = units[0], d = demoDistrict(u, month);
     rows = [0.5, 0.3, 0.2].map((f, i) => {
       const sc = (n) => Math.round(n * f);
-      return { id: districtId + "-" + (i + 1), nameEn: (i === 2 ? "Demo Block " : "Demo City ") + letters[0] + "-" + (i + 1), kind: i === 2 ? "DISTRICT" : "CITY",
-        received: sc(d.received), resolved: sc(d.resolved), pending: sc(d.pending), over30: sc(d.ages[3]), within: Math.round((d.within + (i - 1) * 4) * 10) / 10, satisfied: Math.round((d.satisfied + (1 - i) * 3) * 10) / 10 };
+      return { id: u.id + "-" + (i + 1), nameEn: (i === 2 ? "Demo Block " : "Demo City ") + u.letter + u.n + "-" + (i + 1), kind: i === 2 ? "DISTRICT" : "CITY",
+        received: sc(d.received), resolved: sc(d.resolved), pending: sc(d.pending), over30: sc(d.ages[3]), within: r1(d.within + (i - 1) * 4), satisfied: r1(d.satisfied + (1 - i) * 3) };
     });
   }
-  const scale = t.received / 1600;
+  const scale = t.received / 1600, sk = (stateId || "") + (districtId || "");
   const depts = DEMO_DEPTS.map((dd, i) => {
-    const r = rng("dept" + i + month + (districtId || ""));
+    const r = rng("dept" + i + month + sk);
     return { key: "demo-dept-" + i, nameEn: dd[0], nameHi: dd[1], department: dd[2], forwarded: Math.max(12, Math.round((60 + r() * 140) * scale)),
-      withNow: Math.max(10, Math.round((15 + r() * 40) * scale)), overdueNow: Math.round((r() * 18) * scale), onTime: Math.round((48 + r() * 42) * 10) / 10,
-      firstReplyDays: Math.round((1 + r() * 4) * 10) / 10, rating: Math.round((50 + r() * 38) * 10) / 10 };
+      withNow: Math.max(10, Math.round((15 + r() * 40) * scale)), overdueNow: Math.round((r() * 18) * scale), onTime: r1(48 + r() * 42),
+      firstReplyDays: r1(1 + r() * 4), rating: r1(50 + r() * 38) };
   }).map((d) => Object.assign(d, { overdueNow: d.overdueNow < 10 ? (d.overdueNow ? "<10" : 0) : d.overdueNow }))
     .sort((x, y) => y.onTime - x.onTime);
   let dept = null;
   if (deptKey) {
     const d0 = depts.find((d) => d.key === deptKey);
     if (d0) {
-      dept = Object.assign({}, d0, { prevOnTime: Math.round((d0.onTime - 4 + rng(deptKey)() * 8) * 10) / 10, fixedFirst: Math.round((70 + rng("ff" + deptKey)() * 22) * 10) / 10,
-        reopened: Math.round((2 + rng("ro" + deptKey)() * 6) * 10) / 10, notOurs: "<10",
-        trend: lastMonths(month, 12).map((mo) => { const r = rng(deptKey + mo); const n = mo === month ? d0.forwarded : Math.round(d0.forwarded * (0.8 + r() * 0.4)); return { month: mo, received: n, resolved: Math.round(n * (0.8 + r() * 0.2)) }; }) });
+      dept = Object.assign({}, d0, { prevOnTime: r1(d0.onTime - 4 + rng(deptKey + sk)() * 8), fixedFirst: r1(70 + rng("ff" + deptKey + sk)() * 22),
+        reopened: r1(2 + rng("ro" + deptKey + sk)() * 6), notOurs: "<10",
+        trend: lastMonths(month, 12).map((mo) => { const r = rng(deptKey + sk + mo); const n = mo === month ? d0.forwarded : Math.round(d0.forwarded * (0.8 + r() * 0.4)); return { month: mo, received: n, resolved: Math.round(n * (0.8 + r() * 0.2)) }; }) });
     }
   }
   const themes = DEMO_THEMES.map(([theme, pc]) => ({ theme, received: Math.round(t.received * pc / 100) }));
-  const hotspots = [["Demo Ward 12", "A"], ["Demo Ward 4", "C"], ["Demo Ward 27", "B"], ["Demo Village 3", "F"], ["Demo Ward 9", "A"]]
-    .filter((h) => !districtId || letters.includes(h[1])).map((h, i) => ({ name: h[0], area: "Demo City " + h[1] + "-1", pending: Math.round(t.pending * (0.06 - i * 0.008)) }));
+  // Hotspots: the demo units with the most pending, one made-up ward each.
+  const hotspots = units.map((u) => ({ u, pending: Math.round(demoDistrict(u, month).pending * (0.18 + rng("h" + u.id)() * 0.12)) }))
+    .sort((x, y) => y.pending - x.pending).slice(0, 5)
+    .map((h) => ({ name: "Demo Ward " + (3 + ((h.u.n * 7 + DEMO_S.indexOf(h.u.letter) * 5) % 40)), area: "Demo City " + h.u.letter + h.u.n + "-1" + (stateId ? "" : " · " + "Demo State " + h.u.letter), pending: h.pending }));
   const trend = lastMonths(month, 12).map((mo) => { const x = sumDemo(cur(mo)); return { month: mo, received: x.received, resolved: x.resolved }; });
-  const shared = districtId && letters[0] !== "A" ? [] : [{ name: "Demo Ward 12 (Corporator)", tier: "LOCAL", received: 64, resolved: 58, pending: 21, over30: "<10", within: 81.2, satisfied: 77.5 }];
+  const shared = units.some((u) => u.id === "demo-a-1") ? [{ name: "Demo Ward 12 (Corporator)", tier: "LOCAL", received: 64, resolved: 58, pending: 21, over30: "<10", within: 81.2, satisfied: 77.5 }] : [];
   return { month, months: lastMonths(istMonth(nowMs), 12).reverse(), tiles: demoTiles(t), before: demoTiles(p), change, rows, depts, dept, themes, hotspots, trend, shared, demo: true };
 }
 export { THEMES };

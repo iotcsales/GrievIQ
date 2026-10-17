@@ -136,7 +136,7 @@
   [hidden] { display: none !important; }
   @media print { .trust-strip, .controls, .tbl-tools, header .who button, footer { display: none !important; } .demo-bar { position: static; } }
 </style>
-<script src="/i18n.js?v=51"></script>
+<script src="/i18n.js?v=52"></script>
 <script src="/giq-charts.js?v=3"></script>
 </head>
 <body>
@@ -165,7 +165,7 @@
   var params = new URLSearchParams(location.search);
   var DEMO = params.get("demo") === "1";
   var S = { screen: "loading", email: "", emailErr: "", codeErr: "", msg: null, busy: false, me: null, data: null,
-    month: params.get("month") || "", district: params.get("district") || "", dept: params.get("dept") || "", sort: { key: null, dir: -1 }, q: "", loadErr: "" };
+    month: params.get("month") || "", state: params.get("state") || "", district: params.get("district") || "", dept: params.get("dept") || "", sort: { key: null, dir: -1 }, q: "", loadErr: "" };
 
   // ---- numbers (the small-number rule is applied by the server) ----
   function num(v) { return v === "<10" ? T("gv.lt10") : v == null ? "—" : Number(v).toLocaleString(loc()); }
@@ -180,6 +180,7 @@
   function url() {
     var p = new URLSearchParams();
     if (DEMO) p.set("demo", "1");
+    if (S.state) p.set("state", S.state);
     if (S.district) p.set("district", S.district);
     if (S.dept) p.set("dept", S.dept);
     if (S.month) p.set("month", S.month);
@@ -187,7 +188,7 @@
   }
   window.addEventListener("popstate", function () {
     var p = new URLSearchParams(location.search);
-    S.district = p.get("district") || ""; S.dept = p.get("dept") || ""; S.month = p.get("month") || "";
+    S.state = p.get("state") || ""; S.district = p.get("district") || ""; S.dept = p.get("dept") || ""; S.month = p.get("month") || "";
     if (S.me) loadStats("h1", true);
   });
 
@@ -204,8 +205,11 @@
   }
   function scopeLabel() {
     var me = S.me; if (!me) return "";
-    return me.district ? T("gv.scope_district", { d: nm(me.district), s: nm(me.state) }) : T("gv.scope_state", { s: nm(me.state) });
+    if (me.user.level === "NATIONAL") return T("gv.scope_country", { c: nm(me.country) });
+    return me.user.level === "DISTRICT" && me.district ? T("gv.scope_district", { d: nm(me.district), s: nm(me.state) }) : T("gv.scope_state", { s: nm(me.state) });
   }
+  // The level now shown: "country", "state" or "district" (from the server's answer).
+  function level() { var pl = S.data && S.data.place; return !pl ? "country" : pl.district ? "district" : pl.state ? "state" : "country"; }
   function msgHtml() { return S.msg ? '<div class="msg ' + (S.msg.bad ? "bad" : "ok") + '" id="msg" tabindex="-1" role="' + (S.msg.bad ? "alert" : "status") + '">' + esc(S.msg.text) + "</div>" : ""; }
   function show(focusId) {
     setWho();
@@ -264,7 +268,7 @@
   }
   async function signOut() {
     await api("/api/gov/signout", { method: "POST" });
-    S.me = null; S.data = null; S.district = ""; S.dept = ""; S.month = ""; S.screen = "email"; S.msg = { text: T("gv.signed_out") };
+    S.me = null; S.data = null; S.state = ""; S.district = ""; S.dept = ""; S.month = ""; S.screen = "email"; S.msg = { text: T("gv.signed_out") };
     history.replaceState(null, "", location.pathname); show("msg");
   }
 
@@ -281,6 +285,7 @@
     var q = new URLSearchParams();
     if (DEMO) q.set("demo", "1");
     if (S.month) q.set("month", S.month);
+    if (S.state) q.set("state", S.state);
     if (S.district) q.set("district", S.district);
     if (S.dept) q.set("dept", S.dept);
     var r = await api("/api/gov/stats?" + q.toString());
@@ -291,14 +296,15 @@
     document.title = T("gv.page_title");
     show(focusId);
   }
-  function go(district, dept) { S.district = district || ""; S.dept = dept || ""; S.sort = { key: null, dir: -1 }; S.q = ""; loadStats("h1"); }
+  function go(state, district, dept) { S.state = state || ""; S.district = district || ""; S.dept = dept || ""; S.sort = { key: null, dir: -1 }; S.q = ""; loadStats("h1"); }
 
+  // Country › State › District › Department, starting at the official's own level.
   function crumbs() {
-    var me = S.me, d = S.data, items = [];
-    var dist = S.district ? (me.districts || []).filter(function (x) { return x.id === S.district; })[0] : null;
-    var stateLink = !me.district;   // a district official starts at the district
-    if (stateLink) items.push(S.district || S.dept ? '<li><a href="#" data-go="state">' + esc(nm(me.state)) + "</a></li>" : '<li aria-current="page">' + esc(nm(me.state)) + "</li>");
-    if (dist) items.push(S.dept ? '<li><a href="#" data-go="district">' + esc(T("gv.district_n", { d: nm(dist) })) + "</a></li>" : '<li aria-current="page">' + esc(T("gv.district_n", { d: nm(dist) })) + "</li>");
+    var me = S.me, d = S.data, pl = d.place || {}, items = [], lv = me.user.level;
+    var link = function (go, text, current) { return current ? '<li aria-current="page">' + esc(text) + "</li>" : '<li><a href="#" data-go="' + go + '">' + esc(text) + "</a></li>"; };
+    if (lv === "NATIONAL") items.push(link("country", nm(pl.country || me.country), !pl.state && !S.dept));
+    if (pl.state && lv !== "DISTRICT") items.push(link("state", nm(pl.state), !pl.district && !S.dept));
+    if (pl.district) items.push(link("district", T("gv.district_n", { d: nm(pl.district) }), !S.dept));
     if (S.dept && d.dept) items.push('<li aria-current="page">' + esc(nm(d.dept)) + "</li>");
     if (items.length < 2) return "";   // already at the top: the heading says where
     return '<nav class="crumbs" aria-label="' + esc(T("gv.crumbs")) + '"><ol>' + items.join("") + "</ol></nav>";
@@ -317,10 +323,10 @@
   }
   function renderDash() {
     var d = S.data, me = S.me, t = d.tiles, b = d.before;
-    var dist = S.district ? (me.districts || []).filter(function (x) { return x.id === S.district; })[0] : null;
-    var title = S.dept && d.dept ? nm(d.dept) : dist ? T("gv.district_n", { d: nm(dist) }) : nm(me.state);
+    var pl = d.place || {}, dist = pl.district, st = pl.state;
+    var title = S.dept && d.dept ? nm(d.dept) : dist ? T("gv.district_n", { d: nm(dist) }) : st ? nm(st) : nm(pl.country || me.country);
     var sub = S.dept && d.dept ? T("gv.dept_sub", { dep: window.GIQ && GIQ.dept ? GIQ.dept(d.dept.department) : d.dept.department }) :
-      dist ? (dist.lgd ? T("gv.lgd", { c: dist.lgd }) : "") : (me.state.lgd ? T("gv.lgd", { c: me.state.lgd }) : "");
+      dist ? (dist.lgd ? T("gv.lgd", { c: dist.lgd }) : "") : st ? (st.lgd ? T("gv.lgd", { c: st.lgd }) : "") : T("gv.country_sub");
     var h = crumbs() + '<h1 id="h1" tabindex="-1">' + esc(title) + "</h1>" + (sub ? '<p class="scope-sub">' + esc(sub) + "</p>" : "") +
       '<div class="controls"><div><label for="month">' + esc(T("gv.month")) + '</label><select id="month">' +
       d.months.map(function (m) { return '<option value="' + esc(m) + '"' + (m === d.month ? " selected" : "") + ">" + esc(monthName(m)) + "</option>"; }).join("") + "</select></div>" +
@@ -352,13 +358,13 @@
   // grieviq-50: the six MIS reports (PDF and Excel) and the report emails.
   var REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps"];
   function reportUrl(r, x) {
-    var p = new URLSearchParams(); p.set("r", r); if (DEMO) p.set("demo", "1"); if (S.district) p.set("district", S.district); if (S.data && S.data.month) p.set("month", S.data.month); if (x) p.set("x", "xlsx");
+    var p = new URLSearchParams(); p.set("r", r); if (DEMO) p.set("demo", "1"); if (S.state) p.set("state", S.state); if (S.district) p.set("district", S.district); if (S.data && S.data.month) p.set("month", S.data.month); if (x) p.set("x", "xlsx");
     return "/gov-report?" + p.toString();
   }
   function reportsHtml() {
     var h = '<section class="sec card" id="reports" aria-labelledby="reports-h" tabindex="-1"><h2 id="reports-h">' + esc(T("gv.rp_h")) + '</h2><p class="lede">' + esc(T("gv.rp_p", { m: monthName(S.data.month) })) + "</p>" +
       '<ul class="reports">' + REPORTS.map(function (r) {
-        var title = T(r === "districts" && S.district ? "gv.rp_areas" : "gv.rp_" + r);
+        var lvl = level(), title = T(r === "districts" ? (lvl === "district" ? "gv.rp_areas" : lvl === "country" ? "gv.rp_states" : "gv.rp_districts") : "gv.rp_" + r);
         return '<li><div><b>' + esc(title) + '</b><span class="lt">' + esc(T("gv.rp_" + r + "_d")) + '</span></div><div class="rp-links">' +
           '<a href="' + esc(reportUrl(r)) + '" aria-label="' + esc(T("gv.rp_open_for", { r: title })) + '">' + esc(T("gv.rp_open")) + "</a>" +
           '<a href="' + esc(reportUrl(r, true)) + '" aria-label="' + esc(T("gv.rp_excel_for", { r: title })) + '">' + esc(T("gv.rp_excel")) + "</a></div></li>";
@@ -422,17 +428,20 @@
     return v === "<10" ? '<td><span class="lt">' + esc(T("gv.lt10")) + "</span></td>" : "<td>" + esc(num(v)) + "</td>";
   }
   function rowsHtml(rows) {
-    var isState = !S.district, hk = isState ? "gv.districts_h" : "gv.areas_h";
+    var lvl = level(), isState = lvl === "state", isCountry = lvl === "country";
+    var K = function (k) { return isCountry ? { h: "gv.states_h", p: "gv.states_p", none: "gv.no_states", find: "gv.find_state", col: "gv.col_state" }[k] : isState ? { h: "gv.districts_h", p: "gv.districts_p", none: "gv.no_districts", find: "gv.find_district", col: "gv.col_district" }[k] : { h: "gv.areas_h", p: "gv.areas_p", none: "gv.no_areas", find: "gv.find_area", col: "gv.col_area" }[k]; };
+    var hk = K("h");
     var q = S.q.trim().toLowerCase();
     var list = sortedRows(rows.filter(function (r) { return !q || (r.unplaced ? T("gv.unplaced") : nm(r) + " " + (r.lgd || "")).toLowerCase().indexOf(q) >= 0; }));
-    var h = '<h2 id="rows-h">' + esc(T(hk, { n: rows.length })) + '</h2><p class="lede">' + esc(T(isState ? "gv.districts_p" : "gv.areas_p")) + "</p>";
-    if (!rows.length) return h + '<p class="empty">' + esc(T(isState ? "gv.no_districts" : "gv.no_areas")) + "</p>";
-    h += '<div class="tbl-tools"><div><label for="rows-q">' + esc(T(isState ? "gv.find_district" : "gv.find_area")) + '</label><input type="search" id="rows-q" autocomplete="off" value="' + esc(S.q) + '"></div></div>';
+    var h = '<h2 id="rows-h">' + esc(T(hk, { n: rows.length })) + '</h2><p class="lede">' + esc(T(K("p"))) + "</p>";
+    if (!rows.length) return h + '<p class="empty">' + esc(T(K("none"))) + "</p>";
+    h += '<div class="tbl-tools"><div><label for="rows-q">' + esc(T(K("find"))) + '</label><input type="search" id="rows-q" autocomplete="off" value="' + esc(S.q) + '"></div></div>';
     h += '<div class="tbl-wrap"><table class="data"><caption>' + esc(T("gv.table_cap", { m: monthName(S.data.month) })) + "</caption><thead><tr>" +
-      th("name", T(isState ? "gv.col_district" : "gv.col_area")) + th("received", T("gv.t_received")) + th("resolved", T("gv.t_resolved")) + th("pending", T("gv.t_pending")) +
+      th("name", T(K("col"))) + th("received", T("gv.t_received")) + th("resolved", T("gv.t_resolved")) + th("pending", T("gv.t_pending")) +
       th("over30", T("gv.col_over30")) + th("within", T("gv.col_within")) + th("satisfied", T("gv.col_satisfied")) + "</tr></thead><tbody>" +
       list.map(function (r) {
         var name = r.unplaced ? esc(T("gv.unplaced")) + '<span class="sub">' + esc(T("gv.unplaced_sub")) + "</span>" :
+          isCountry ? '<a href="#" data-state="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") :
           isState ? '<a href="#" data-district="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") :
           esc(r.nameEn) + '<span class="sub">' + esc(T(r.kind === "DISTRICT" ? "gv.kind_district" : "gv.kind_city")) + (r.lgd ? " · " + esc(T("gv.lgd", { c: r.lgd })) : "") + "</span>";
         return '<tr><th scope="row">' + name + "</th>" + cell(r.received) + cell(r.resolved) + cell(r.pending) + cell(r.over30) + cell(r.within, "pct") + cell(r.satisfied, "pct") + "</tr>";
@@ -497,9 +506,12 @@
     var oe = document.getElementById("other-email"); if (oe) oe.addEventListener("click", function () { S.screen = "email"; S.msg = null; show("email"); });
     var rt = document.getElementById("retry"); if (rt) rt.addEventListener("click", function () { start("h1"); });
     var m = document.getElementById("month"); if (m) m.addEventListener("change", function () { S.month = m.value; loadStats("month"); });
-    main.querySelectorAll("[data-go]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("data-go") === "district" ? S.district : "", ""); }); });
-    main.querySelectorAll("[data-district]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("data-district"), ""); }); });
-    main.querySelectorAll("[data-dept]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(S.district, a.getAttribute("data-dept")); }); });
+    var pl = (S.data && S.data.place) || {};
+    var stId = pl.state ? pl.state.id : "", dId = pl.district ? pl.district.id : "";
+    main.querySelectorAll("[data-go]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); var g = a.getAttribute("data-go"); go(g === "country" ? "" : stId, g === "district" ? dId : "", ""); }); });
+    main.querySelectorAll("[data-state]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("data-state"), "", ""); }); });
+    main.querySelectorAll("[data-district]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(stId, a.getAttribute("data-district"), ""); }); });
+    main.querySelectorAll("[data-dept]").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); go(stId, dId, a.getAttribute("data-dept")); }); });
     main.querySelectorAll("[data-sort]").forEach(function (b) {
       b.addEventListener("click", function () {
         var k = b.getAttribute("data-sort");

@@ -21,7 +21,7 @@ export const THEMES = [
   "AGRICULTURE", "URBAN_PLANNING", "WASTEWATER", "WATER",
 ];
 
-export const GOV_LEVELS = ["STATE", "DISTRICT"];   // NATIONAL comes later
+export const GOV_LEVELS = ["NATIONAL", "STATE", "DISTRICT"];   // NATIONAL: grieviq-51 (a Union ministry)
 export const REVIEW_DAYS = 365;                     // access is reviewed every year (NIST AC-2(3))
 export const LGD_RE = /^\d{1,6}$/;
 export const NAME_RE = /^[\p{L}\p{M}0-9 .,'()&\/\-]{2,80}$/u;

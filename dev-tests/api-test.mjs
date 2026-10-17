@@ -1674,7 +1674,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const st = await signIn("ps.pg@up.gov.in");
   ok(st.status === 200 && /HttpOnly/.test(st.raw) && /SameSite=Strict/.test(st.raw) && /__Host-giq_gov/.test(st.raw), "state official signed in; cookie HttpOnly, SameSite=Strict", st.raw);
   let me = await gq(st.cookie, "/api/gov/me");
-  ok(me.status === 200 && me.body.user.level === "STATE" && me.body.state.id === "uttar-pradesh" && me.body.districts.length >= 75, "state official sees their state and its districts");
+  ok(me.status === 200 && me.body.user.level === "STATE" && me.body.state.id === "uttar-pradesh" && me.body.home.state.id === "uttar-pradesh" && !me.body.home.district, "state official starts at their state");
   let s1 = await gq(st.cookie, "/api/gov/stats");
   ok(s1.status === 200 && s1.body.rows.some((x) => x.id === "uttar-pradesh--lucknow") && s1.body.months.length === 12, "state figures with the district rows", s1.body.rows.map((x) => x.id));
   const smallOk = (v) => v === "<10" || v === 0 || (typeof v === "number" && v >= 10);
@@ -1688,6 +1688,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(lk.status === 200 && lk.body.rows.some((x) => x.id === "lucknow"), "district view: its cities and blocks");
   ok((await gq(st.cookie, "/api/gov/stats?district=bihar--patna")).status === 404, "a district of another state can't be opened");
   ok((await gq(st.cookie, "/api/gov/stats?month=2020-01")).status === 400, "only the last 12 months");
+  ok((await gq(st.cookie, "/api/gov/stats?state=bihar")).status === 403 && (await gq(st.cookie, "/api/gov/report?r=summary&state=bihar")).status === 403, "a state official can't open another state");
   // sharing office appears by name only when it chose to share
   await call("r1@x.in", "POST", "/api/team", { action: "gov_share", office: "LOCAL:lu-hazratganj", share: true });
   s1 = await gq(st.cookie, "/api/gov/stats");
@@ -1705,7 +1706,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const dm = await signIn("ravi.dm@gmail.com");
   ok(dm.status === 200, "district official (other email) signs in");
   me = await gq(dm.cookie, "/api/gov/me");
-  ok(me.body.user.level === "DISTRICT" && me.body.district.id === "uttar-pradesh--lucknow" && me.body.districts.length === 1, "district official: only their district");
+  ok(me.body.user.level === "DISTRICT" && me.body.home.district.id === "uttar-pradesh--lucknow", "district official starts at their district");
   ok((await gq(dm.cookie, "/api/gov/stats")).body.rows.some((x) => x.id === "lucknow"), "district official lands on their district");
   ok((await gq(dm.cookie, "/api/gov/stats?district=uttar-pradesh--agra")).status === 403, "another district refused for a district official");
   const log = sdb.prepare("SELECT action FROM gov_view_log WHERE email IN ('ps.pg@up.gov.in', 'ravi.dm@gmail.com')").all().map((x) => x.action);
@@ -1724,12 +1725,32 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(so.status === 200 && (await gq(st.cookie, "/api/gov/me")).status === 401, "signed out");
   ok((await gq(null, "/api/gov/stats")).status === 401, "figures need sign-in");
   // demo state
+  // grieviq-51: national official (a Union ministry)
+  let na = await call(S, "POST", "/api/admin/gov", { action: "add", name: "Anil Mehta", designation: "Joint Secretary, DARPG", email: "js.pg@darpg.gov.in", level: "NATIONAL", letterRef: "DARPG/2026/7", letterDate: "2026-10-12" });
+  ok(na.status === 200, "national official added without a state", na.body);
+  ok(sdb.prepare("SELECT state_id FROM gov_users WHERE id = ?").get(na.body.id).state_id === null, "national account has no state");
+  const nc = await signIn("js.pg@darpg.gov.in");
+  me = await gq(nc.cookie, "/api/gov/me");
+  ok(me.body.user.level === "NATIONAL" && me.body.home.state === null, "national official starts at the country");
+  let ns = await gq(nc.cookie, "/api/gov/stats");
+  ok(ns.status === 200 && ns.body.place.national && ns.body.rows.some((x) => x.id === "uttar-pradesh") && !ns.body.rows.some((x) => x.id === "bihar"), "country view: one row per state where GrievIQ is in use", ns.body.rows.map((x) => x.id));
+  ok(ns.body.rows.every((x) => ["received", "resolved", "pending", "over30"].every((k) => x[k] === "<10" || x[k] === 0 || x[k] >= 10)), "small-number rule at country level");
+  ns = await gq(nc.cookie, "/api/gov/stats?state=uttar-pradesh");
+  ok(ns.status === 200 && ns.body.place.state.id === "uttar-pradesh" && ns.body.rows.some((x) => x.id === "uttar-pradesh--lucknow"), "national official opens a state");
+  ok((await gq(nc.cookie, "/api/gov/stats?state=uttar-pradesh&district=uttar-pradesh--lucknow")).body.rows.some((x) => x.id === "lucknow"), "and a district");
+  ok((await gq(nc.cookie, "/api/gov/stats?district=uttar-pradesh--lucknow")).status === 404, "a district needs its state");
+  const nr = await gq(nc.cookie, "/api/gov/report?r=districts");
+  ok(nr.status === 200 && nr.body.tables[0].title === "gv.rp_states" && nr.body.place.national, "national report: state by state");
+  ok((await gq(nc.cookie, "/api/gov/report?r=reps")).body.tables[0].rows.some((x) => x.name.en === "Uttar Pradesh"), "representatives' report by state, no office named");
   const dmo = await gq(null, "/api/gov/stats?demo=1");
-  ok(dmo.status === 200 && dmo.body.demo === true && dmo.body.rows.length === 8 && dmo.body.rows.every((x) => /^Demo District/.test(x.nameEn)) && dmo.body.depts.length === 6, "demo state: 8 sample districts, 6 departments, marked demo");
-  const sum = dmo.body.rows.reduce((a, x) => a + x.received, 0);
-  ok(sum === dmo.body.tiles.received, "demo: district rows add up to the state total", { sum, t: dmo.body.tiles.received });
-  ok((await gq(null, "/api/gov/stats?demo=1&district=demo-c")).body.rows.length === 3 && (await gq(null, "/api/gov/stats?demo=1&district=uttar-pradesh--lucknow")).status === 404, "demo district view; real places never in the demo");
+  ok(dmo.status === 200 && dmo.body.demo === true && dmo.body.place.national && dmo.body.rows.length === 6 && dmo.body.rows.every((x) => /^Demo State [A-F]$/.test(x.nameEn)) && dmo.body.depts.length === 6, "demo country: 6 sample states, 6 departments, marked demo");
+  ok(dmo.body.rows.reduce((a, x) => a + x.received, 0) === dmo.body.tiles.received, "demo: state rows add up to the country total");
+  const dst = await gq(null, "/api/gov/stats?demo=1&state=demo-c");
+  ok(dst.body.rows.length === 7 && dst.body.rows.every((x) => /^Demo District C\d$/.test(x.nameEn)) && dst.body.rows.reduce((a, x) => a + x.received, 0) === dst.body.tiles.received && dst.body.place.state.id === "demo-c", "demo state: its districts add up to it");
+  ok((await gq(null, "/api/gov/stats?demo=1&state=demo-c&district=demo-c-3")).body.rows.length === 3, "demo district view");
+  ok((await gq(null, "/api/gov/stats?demo=1&state=uttar-pradesh")).status === 404 && (await gq(null, "/api/gov/stats?demo=1&state=demo-a&district=demo-b-1")).status === 404, "real places never in the demo; a district must be in its state");
   ok((await gq(null, "/api/gov/stats?demo=1&dept=demo-dept-0")).body.dept.trend.length === 12, "demo department view");
+  ok(!/"lgd":"\w/.test(JSON.stringify(dmo.body)), "demo places carry no codes that could pass for LGD codes");
   ok((await fetch(B + "/gov")).status === 200, "page opens: /gov");
 }
 
@@ -1761,7 +1782,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const ck = await signIn("ps.pg@up.gov.in");
   for (const r of R6) {
     const x = await gq(ck, "/api/gov/report?r=" + r);
-    ok(x.status === 200 && !x.body.demo && x.body.scope.state.id === "uttar-pradesh" && Array.isArray(x.body.tables[0].rows), "report for the state: " + r);
+    ok(x.status === 200 && !x.body.demo && x.body.place.state.id === "uttar-pradesh" && Array.isArray(x.body.tables[0].rows), "report for the state: " + r);
     const txt = JSON.stringify(x.body);
     ok(!/9000000|GRV-|description|citizen|r1@x\.in|@x\.in/.test(txt), "no personal or case details: " + r);
     ok(x.body.tables[0].rows.every((row) => ["received", "resolved", "pending", "over30", "total", "b1", "b2", "b3"].every((k) => row[k] === undefined || row[k] === "<10" || row[k] === 0 || row[k] >= 10)), "small-number rule in report: " + r);
