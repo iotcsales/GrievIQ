@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=52"></script>
+<script src="/i18n.js?v=53"></script>
 <script src="/admin-nav.js?v=r16"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
@@ -302,7 +302,7 @@
   <h1><span data-i18n="adm.nav_gov">Government access</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
   <p class="subtitle" data-i18n="adm.gv_sub">State and district officials who may open GrievIQ's government dashboard, what they opened, and the representatives' offices that chose to share their own figures.</p>
   <div class="note" data-i18n-html="adm.gv_note"><b>The rules:</b> access only on a letter from the state government, to an official email (gov.in or nic.in); reviewed every year. Officials see government departments in full, but representatives' offices only as totals for each district, unless an office chooses to share. No citizen's name, phone number or complaint text is ever shown.</div>
-  <p class="sb-set"><a href="/gov?demo=1" target="_blank" rel="noopener" data-i18n="adm.gv_demo_link" style="color:var(--admin-accent)">Open the demo dashboard (sample data, for presentations)</a> · <a href="/gov" target="_blank" rel="noopener" data-i18n="adm.gv_login_link" style="color:var(--admin-accent)">The officials' sign-in page: grieviq.in/gov</a></p>
+  <p class="sb-set"><span data-i18n="adm.gv_doors">The two dashboards:</span> <a href="/state" target="_blank" rel="noopener" style="color:var(--admin-accent)" data-i18n="adm.gv_door_state">State Dashboard (grieviq.in/state)</a> (<a href="/state?demo=1" target="_blank" rel="noopener" style="color:var(--admin-accent)" data-i18n="adm.gv_demo">demo</a>) · <a href="/national" target="_blank" rel="noopener" style="color:var(--admin-accent)" data-i18n="adm.gv_door_national">National Dashboard (grieviq.in/national)</a> (<a href="/national?demo=1" target="_blank" rel="noopener" style="color:var(--admin-accent)" data-i18n="adm.gv_demo">demo</a>)</p>
   <div id="gv-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
   <div id="gv-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
 </main>

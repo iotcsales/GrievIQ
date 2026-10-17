@@ -15,8 +15,8 @@ const SEND_FROM_HOUR = 8, MAX_PER_RUN = 200;
 function esc(v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 function monthLabel(mo, locale) { return new Date(mo + "-01T00:00:00+05:30").toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "Asia/Kolkata" }); }
 
-export function reportEmail(kind, period, scopeEn, scopeHi, origin) {
-  const url = String(origin || "https://grieviq.in") + "/gov", host = url.replace(/^https?:\/\//, "");
+export function reportEmail(kind, period, scopeEn, scopeHi, origin, path) {
+  const url = String(origin || "https://grieviq.in") + (path || "/state"), host = url.replace(/^https?:\/\//, "");
   const foot = "<p>For security, GrievIQ emails never contain figures or complaint details, and GrievIQ never asks for your sign-in code.</p><hr>";
   const footHi = "<p>सुरक्षा के लिए GrievIQ के ईमेल में कभी आँकड़े या शिकायत का विवरण नहीं होता, और GrievIQ कभी आपका साइन-इन कोड नहीं माँगता।</p>" +
     '<hr><p style="color:#555;font-size:13px">GrievIQ · Government dashboard · सरकारी डैशबोर्ड</p>';
@@ -69,7 +69,7 @@ export async function runGovReports(env, origin, nowMs, send) {
       const national = u.level === "NATIONAL";
       const scopeEn = national ? "all of India" : u.level === "DISTRICT" ? (u.district_en || "") + " district, " + (u.state_en || "") : u.state_en || "";
       const scopeHi = national ? "पूरा भारत" : u.level === "DISTRICT" ? "ज़िला " + (u.district_hi || u.district_en || "") + ", " + (u.state_hi || u.state_en || "") : u.state_hi || u.state_en || "";
-      const m = reportEmail(kind, period, scopeEn, scopeHi, origin);
+      const m = reportEmail(kind, period, scopeEn, scopeHi, origin, national ? "/national" : "/state");
       const ok = await send(env, u.email, m.subject, m.html);
       if (ok) { sent++; await env.DB.prepare("UPDATE gov_report_sends SET ok = 1 WHERE user_id = ? AND kind = ? AND period = ?").bind(u.id, kind, period).run(); }
       else failed++;

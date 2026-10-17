@@ -133,8 +133,8 @@ export async function endSession(request, env) {
   return s ? s.user_id : null;
 }
 
-export function codeEmail(code, origin) {
-  const host = String(origin || "https://grieviq.in").replace(/^https?:\/\//, "") + "/gov";
+export function codeEmail(code, origin, path) {
+  const host = String(origin || "https://grieviq.in").replace(/^https?:\/\//, "") + (path === "/national" ? "/national" : path === "/state" ? "/state" : "/gov");
   return {
     subject: "GrievIQ sign-in code: " + code + " · साइन-इन कोड",
     html: `<p>Your code to sign in to the GrievIQ government dashboard:</p><h2 style="letter-spacing:4px">${code}</h2>` +

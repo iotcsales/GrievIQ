@@ -9,7 +9,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   if (!(await govLoginReady(env))) return Response.json({ error: "NOT_SET_UP" }, { status: 503 });
   const r = await requestCode(env, b.email);
   if (r.send) {
-    const m = codeEmail(r.send.code, new URL(request.url).origin);
+    const m = codeEmail(r.send.code, new URL(request.url).origin, b.dash === "national" ? "/national" : "/state");
     const p = sendEmailNow(env, r.send.to, m.subject, m.html);
     if (typeof waitUntil === "function") waitUntil(p); else await p;
   }

@@ -2356,7 +2356,7 @@ with sync_playwright() as pw:
                 ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
                 ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
                 p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
-                p.goto(B + "/gov?demo=1"); p.wait_for_selector(".tiles")
+                p.goto(B + ("/state" if width == 375 else "/national") + "?demo=1"); p.wait_for_selector(".tiles")
                 ok(p.is_visible("#demo-bar") and (("Demo data" in p.inner_text("#demo-bar")) if lang == "en" else ("डेमो" in p.inner_text("#demo-bar"))), "demo clearly labelled " + tag)
                 ok(p.locator(".tiles .tile").count() == 11, "11 key figure tiles " + tag)
                 if lang == "hi": ok(not re.findall(r"(gv|theme|dd)\.\w+", p.inner_text("body")), "dashboard in Hindi, nothing missing " + tag, re.findall(r"(gv|theme|dd)\.\w+", p.inner_text("body"))[:5])
@@ -2368,7 +2368,7 @@ with sync_playwright() as pw:
                 ctx.close()
     ctx = br.new_context(viewport={"width": 1280, "height": 900})
     p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
-    p.goto(B + "/gov?demo=1"); p.wait_for_selector("a[data-state]")
+    p.goto(B + "/national?demo=1"); p.wait_for_selector("a[data-state]")
     ok("Demo Country" in p.inner_text("h1") and p.locator("a[data-state]").count() == 6, "demo opens at the country: 6 demo states")
     p.click('th button[data-sort="received"]'); p.wait_for_timeout(100)
     ok(p.get_attribute('th:has(button[data-sort="received"])', "aria-sort") == "descending" and p.evaluate("document.activeElement.getAttribute('data-sort')") == "received", "sort by a column; focus stays on it")
@@ -2398,9 +2398,9 @@ with sync_playwright() as pw:
     for theme in ("light", "dark"):
         ctx = br.new_context(viewport={"width": 390, "height": 900}, color_scheme=theme)
         p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
-        p.goto(B + "/gov"); p.wait_for_selector("#f-email")
+        p.goto(B + "/state"); p.wait_for_selector("#f-email")
         bad = p.evaluate(CONTRAST_JS); ok(not bad, "gov sign-in contrast AA " + theme, bad[:5])
-        ok(p.locator("a[href='/gov?demo=1']").count() == 1, "sign-in page links to the demo " + theme)
+        ok(p.locator("a[href='/state?demo=1']").count() == 1 and p.locator("a[href='/national']").count() == 1, "sign-in page links to its demo and to the other dashboard " + theme)
         _d49.execute("DELETE FROM gov_codes WHERE email = 'ps.pg@up.gov.in'"); _d49.commit()   # tests sign in more often than the 3-per-15-minutes limit
         p.fill("#email", "ps.pg@up.gov.in"); p.click("#send"); p.wait_for_selector("#code")
         import hashlib as _hl
@@ -2441,7 +2441,7 @@ with sync_playwright() as pw:
                 ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme, accept_downloads=True)
                 ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
                 p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
-                p.goto(B + "/gov?demo=1"); p.wait_for_selector("#reports")
+                p.goto(B + "/state?demo=1"); p.wait_for_selector("#reports")
                 ok(p.locator("#reports ul.reports li").count() == 6, "six reports listed " + tag)
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('reports')", 1)); ok(not bad, "reports list contrast AA " + tag, bad[:5])
                 p.goto(B + "/gov-report?r=summary&demo=1"); p.wait_for_selector("#h1")
@@ -2472,7 +2472,7 @@ with sync_playwright() as pw:
     ctx = br.new_context(viewport={"width": 390, "height": 900})
     p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
     _d50.execute("DELETE FROM gov_codes WHERE email = 'ps.pg@up.gov.in'"); _d50.commit()
-    p.goto(B + "/gov"); p.wait_for_selector("#f-email"); p.fill("#email", "ps.pg@up.gov.in"); p.click("#send"); p.wait_for_selector("#code")
+    p.goto(B + "/state"); p.wait_for_selector("#f-email"); p.fill("#email", "ps.pg@up.gov.in"); p.click("#send"); p.wait_for_selector("#code")
     import hashlib as _hl2
     _d50.execute("UPDATE gov_codes SET code_hash = ? WHERE email = 'ps.pg@up.gov.in' AND used_at IS NULL", (_hl2.sha256(b"gov:ps.pg@up.gov.in:616161").hexdigest(),)); _d50.commit()
     p.fill("#code", "616161"); p.click("#verify"); p.wait_for_selector("#reports")
@@ -2487,6 +2487,68 @@ with sync_playwright() as pw:
     shot(p, "80-report-official", full=True)
     ok(not errs, "no script errors (official reports)", errs)
     ctx.close(); _d50.close()
+
+    # ---------- grieviq-52: State Dashboard and National Dashboard ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = theme + "-" + lang
+            ctx = br.new_context(viewport={"width": 375, "height": 900}, color_scheme=theme)
+            ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+            p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+            p.goto(B + "/gov"); p.wait_for_selector("ul.doors")
+            ok(p.locator("li.door").count() == 2 and p.locator("li.door a[href='/state?demo=1']").count() == 1 and p.locator("li.door a[href='/national?demo=1']").count() == 1, "grieviq.in/gov: two doors, each with its demo " + tag)
+            if lang == "hi": ok(not re.findall(r"(gv|dd)\.\w+", p.inner_text("body")), "doors in Hindi " + tag)
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "doors contrast AA " + tag, bad[:5])
+            small = p.evaluate(TARGET_JS); ok(not small, "doors targets " + tag, small[:5])
+            shot(p, "82-doors-" + tag, full=True)
+            for door, want in (("state", "State Dashboard"), ("national", "National Dashboard")):
+                p.goto(B + "/" + door + "?demo=1"); p.wait_for_selector(".tiles")
+                band = p.inner_text(".mode-band")
+                ok((want.lower() in band.lower()) if lang == "en" else ("डैशबोर्ड" in band), "band says which dashboard: " + door + " " + tag, band)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, door + " demo contrast AA " + tag, bad[:5])
+                if door == "state":
+                    ok(("Demo State A" in p.inner_text("h1") or "डेमो राज्य A" in p.inner_text("h1")) and p.locator("nav.crumbs").count() == 0, "State Dashboard demo opens at a demo state, no country above it " + tag)
+                else:
+                    ok(p.locator("a[data-state]").count() == 6, "National Dashboard demo opens at the demo country " + tag)
+                shot(p, "83-%s-demo-%s" % (door, tag), full=False)
+            ok(not errs, "no script errors (doors %s)" % tag, errs)
+            ctx.close()
+    # state demo: drill to a district and back; reports link back to the State Dashboard
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/state?demo=1"); p.wait_for_selector("a[data-district]")
+    p.click("a[data-district]"); p.wait_for_selector("nav.crumbs")
+    ok(p.locator("nav.crumbs li").count() == 2 and "state=demo-a" in p.url, "state demo: state › district, no country")
+    p.click("#reports a >> nth=0"); p.wait_for_selector("#h1")
+    ok("/state?" in p.get_attribute("#back", "href") and "State Dashboard" in p.inner_text(".head"), "report says State Dashboard and goes back to it")
+    p.goto(B + "/national?demo=1"); p.wait_for_selector("#reports"); p.click("#reports a >> nth=0"); p.wait_for_selector("#h1")
+    ok("/national" in p.get_attribute("#back", "href") and "National Dashboard" in p.inner_text(".head"), "national report says National Dashboard")
+    ok(not errs, "no script errors (state demo drill)", errs)
+    ctx.close()
+    # signed-in officials are sent to their own dashboard
+    _d52 = _sq.connect(WORK + "/test.db", timeout=10)
+    import hashlib as _hl3
+    def gov_signin(p, door, email, code):
+        _d52.execute("DELETE FROM gov_codes WHERE email = ?", (email,)); _d52.commit()
+        p.goto(B + door); p.wait_for_selector("#f-email"); p.fill("#email", email); p.click("#send"); p.wait_for_selector("#code")
+        _d52.execute("UPDATE gov_codes SET code_hash = ? WHERE email = ? AND used_at IS NULL", (_hl3.sha256(("gov:%s:%s" % (email, code)).encode()).hexdigest(), email)); _d52.commit()
+        p.fill("#code", code); p.click("#verify")
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    gov_signin(p, "/national", "ps.pg@up.gov.in", "727272"); p.wait_for_selector(".tiles")
+    ok(p.url.split("?")[0].endswith("/state") and "state or district access" in p.inner_text("main") and "Uttar Pradesh" in p.inner_text("h1"), "state official signing in on /national is sent to the State Dashboard, told why", p.url)
+    p.goto(B + "/gov"); p.wait_for_selector(".tiles")
+    ok(p.url.split("?")[0].endswith("/state"), "grieviq.in/gov sends a signed-in state official to the State Dashboard")
+    p.goto(B + "/national"); p.wait_for_selector(".tiles")
+    ok(p.url.split("?")[0].endswith("/state") and p.locator("a[data-state]").count() == 0, "a state official never sees the national view")
+    ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    p = ctx.new_page()
+    gov_signin(p, "/state", "js.pg@darpg.gov.in", "828282"); p.wait_for_selector(".tiles")
+    ok(p.url.split("?")[0].endswith("/national") and "national access" in p.inner_text("main") and p.locator("a[data-state]").count() >= 1, "national official signing in on /state is sent to the National Dashboard", p.url)
+    shot(p, "84-national-official", full=False)
+    ok(not errs, "no script errors (doors sign-in)", errs)
+    ctx.close(); _d52.close()
 
     br.close()
 

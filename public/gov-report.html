@@ -78,7 +78,7 @@
   }
   @media screen { .demo-print { display: none; } }
 </style>
-<script src="/i18n.js?v=52"></script>
+<script src="/i18n.js?v=53"></script>
 <script src="/xlsx-lite.js?v=1"></script>
 </head>
 <body>
@@ -100,7 +100,8 @@
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   var q = new URLSearchParams(location.search), DEMO = q.get("demo") === "1", R = null;
   var back = new URLSearchParams(); if (DEMO) back.set("demo", "1"); if (q.get("state")) back.set("state", q.get("state")); if (q.get("district")) back.set("district", q.get("district")); if (q.get("month")) back.set("month", q.get("month"));
-  document.getElementById("back").href = "/gov" + (back.toString() ? "?" + back.toString() : "");
+  var DASH = q.get("dash") === "national" ? "national" : "state";   // grieviq-52: which dashboard it came from
+  document.getElementById("back").href = "/" + DASH + (back.toString() ? "?" + back.toString() : "");
   function monthName(mo, short) { return new Date(mo + "-01T00:00:00+05:30").toLocaleDateString(loc(), { month: short ? "short" : "long", year: "numeric", timeZone: "Asia/Kolkata" }); }
   function when(s) { var d = new Date(s); return isNaN(d) ? "" : d.toLocaleString(loc(), { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
   function nm(x) { return x ? (hi() && x.nameHi ? x.nameHi : x.nameEn) : ""; }
@@ -145,7 +146,7 @@
     var demo = DEMO ? '<p class="demo" role="note">' + esc(T("gv.rp_demo")) + "</p>" : "";
     var dp = document.getElementById("demo-print"); dp.hidden = !DEMO; dp.textContent = DEMO ? T("gv.rp_demo") : "";
     var h = demo + '<div class="head"><span class="mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>' +
-      '<div class="org">GrievIQ<small>' + esc(T("gv.rp_org")) + "</small></div></div>" +
+      '<div class="org">GrievIQ<small>' + esc(T(DASH === "national" ? "gv.rp_org_national" : "gv.rp_org_state")) + "</small></div></div>" +
       '<h1 id="h1">' + esc(T(t.title)) + "</h1>" +
       '<dl class="meta"><dt>' + esc(T("gv.rp_for")) + "</dt><dd>" + esc(scopeText()) + "</dd><dt>" + esc(T("gv.month")) + "</dt><dd>" + esc(monthName(R.month)) + "</dd>" +
       "<dt>" + esc(T("gv.rp_made")) + "</dt><dd>" + esc(when(R.generatedAt)) + (R.by ? " · " + esc(T("gv.rp_by", { name: R.by })) : "") + "</dd></dl>";
