@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<meta name="theme-color" content="#13233F">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/theme.css?v=22">
+<script src="/theme.js?v=45"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="gv.rp_page_title">MIS report — GrievIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* MIS report (grieviq-50): an A4 page to print or save as PDF (the
+     browser's own PDF keeps Hindi correct), and the same figures as Excel. */
+  :root { --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #69635A; --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7; --border: #E7E4DC; --gold: #7A5A12; --gold-tint: #FBF1D6; --link: #1F4A8A; }
+  :root[data-theme="dark"] { --link: #A9C6F2; --gold: #E0B860; --gold-tint: #33291A; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --link: #A9C6F2; --gold: #E0B860; --gold-tint: #33291A; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  html[lang='hi'] body { font-family: 'Noto Sans Devanagari', 'Inter', system-ui, sans-serif; }
+  a { color: var(--link); }
+  .bar { max-width: 1060px; margin: 0 auto; padding: 14px 16px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .bar a { font-weight: 600; display: inline-flex; align-items: center; min-height: 44px; }
+  .bar .sp { flex: 1; }
+  button { font: inherit; font-size: 14.5px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 10px; cursor: pointer; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); }
+  :root[data-theme="dark"] button { color: #E8EEF8; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button { color: #E8EEF8; } }
+  button.primary { background: var(--teal); color: #fff; border-color: var(--teal); }
+  :root[data-theme="dark"] button.primary { background: #2C5596; border-color: #2C5596; color: #fff; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.primary { background: #2C5596; border-color: #2C5596; color: #fff; } }
+  button:focus-visible, a:focus-visible { outline: 3px solid #FFDD00; outline-offset: 2px; }
+  .lang-toggle { min-height: 44px; }
+  .hint { max-width: 1060px; margin: 6px auto 0; padding: 0 16px; font-size: 13px; color: var(--ink-soft); }
+  .msg { max-width: 1060px; margin: 10px auto 0; padding: 0 16px; font-size: 14px; font-weight: 600; }
+  .doc { max-width: 1060px; margin: 12px auto 40px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px 30px; }
+  .demo { background: var(--gold-tint); border: 2px solid var(--gold); border-radius: 8px; padding: 10px 12px; font-weight: 700; margin-bottom: 14px; }
+  .head { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid var(--teal-dark); padding-bottom: 10px; margin-bottom: 14px; }
+  .mark { width: 36px; height: 36px; border-radius: 9px; background: #13233F; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .head .org { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: 18px; color: var(--teal-dark); }
+  .head .org small { display: block; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 12px; color: var(--ink-soft); }
+  h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; margin: 0 0 6px; color: var(--teal-dark); }
+  :root[data-theme="dark"] h1, :root[data-theme="dark"] .head .org { color: #A9C6F2; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) h1, :root:not([data-theme="light"]) .head .org { color: #A9C6F2; } }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13.5px; margin: 0 0 16px; }
+  dl.meta dt { color: var(--ink-soft); } dl.meta dd { margin: 0; }
+  .tbl { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  caption { text-align: left; font-size: 12.5px; color: var(--ink-soft); padding-bottom: 6px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; vertical-align: top; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  td.t { text-align: left; white-space: normal; }
+  thead th { font-size: 12px; background: var(--teal-tint); color: var(--teal-dark); border-bottom: 1px solid var(--teal-dark); }
+  :root[data-theme="dark"] thead th { color: #E8EEF8; }
+  @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) thead th { color: #E8EEF8; } }
+  tbody th { font-weight: 600; }
+  .lt { color: var(--ink-soft); font-size: 12px; }
+  .note { font-size: 13px; margin: 10px 0 0; }
+  h2 { font-size: 15px; margin: 22px 0 6px; }
+  dl.defs { display: grid; grid-template-columns: minmax(130px, max-content) 1fr; gap: 4px 12px; font-size: 12.5px; margin: 0; }
+  dl.defs dt { font-weight: 600; } dl.defs dd { margin: 0; }
+  .foot { margin-top: 18px; font-size: 12px; color: var(--ink-soft); border-top: 1px solid var(--border); padding-top: 8px; }
+  @media (max-width: 600px) { .doc { padding: 18px 14px; border-radius: 0; } dl.defs, dl.meta { grid-template-columns: 1fr; } }
+  [hidden] { display: none !important; }
+  @media print {
+    :root, :root[data-theme="dark"] { --paper: #fff; --card: #fff; --ink: #000; --ink-soft: #444; --border: #bbb; --teal-tint: #E9EEF7; --teal-dark: #13233F; --gold: #7A5A12; --gold-tint: #FBF1D6; color-scheme: light; }
+    body { background: #fff; }
+    .bar, .hint, .msg { display: none !important; }
+    .doc { border: 0; margin: 0; padding: 0; max-width: none; }
+    h1, .head .org { color: #13233F !important; } thead th { color: #13233F !important; }
+    .tbl { overflow: visible; }
+    tr { break-inside: avoid; } thead { display: table-header-group; }
+    .demo-print { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; }
+  }
+  @media screen { .demo-print { display: none; } }
+</style>
+<script src="/i18n.js?v=51"></script>
+<script src="/xlsx-lite.js?v=1"></script>
+</head>
+<body>
+<div class="bar">
+  <a href="/gov" id="back" data-i18n="gv.rp_back">← Back to the dashboard</a><span class="sp"></span>
+  <button type="button" class="primary" id="pdf" disabled data-i18n="gv.rp_pdf">Save as PDF</button>
+  <button type="button" id="xlsx" disabled data-i18n="gv.rp_xlsx">Download Excel</button>
+  <button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button>
+</div>
+<p class="hint" data-i18n="gv.rp_pdf_hint">"Save as PDF" opens your browser's print window: choose "Save as PDF" as the printer.</p>
+<p class="msg" id="msg" role="status" aria-live="polite"></p>
+<main class="doc" id="doc" tabindex="-1"><p data-i18n="gv.loading">Loading…</p></main>
+<div class="demo-print" id="demo-print" hidden></div>
+<script>
+(function () {
+  function T(k, v) { return window.GIQ ? GIQ.t(k, v) : k; }
+  function loc() { return window.GIQ ? GIQ.locale() : "en-IN"; }
+  function hi() { return window.GIQ && GIQ.lang === "hi"; }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  var q = new URLSearchParams(location.search), DEMO = q.get("demo") === "1", R = null;
+  var back = new URLSearchParams(); if (DEMO) back.set("demo", "1"); if (q.get("district")) back.set("district", q.get("district")); if (q.get("month")) back.set("month", q.get("month"));
+  document.getElementById("back").href = "/gov" + (back.toString() ? "?" + back.toString() : "");
+  function monthName(mo, short) { return new Date(mo + "-01T00:00:00+05:30").toLocaleDateString(loc(), { month: short ? "short" : "long", year: "numeric", timeZone: "Asia/Kolkata" }); }
+  function when(s) { var d = new Date(s); return isNaN(d) ? "" : d.toLocaleString(loc(), { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
+  function nm(x) { return x ? (hi() && x.nameHi ? x.nameHi : x.nameEn) : ""; }
+  function name(v) { if (v == null) return ""; if (typeof v === "string") return v; if (v.k) return T(v.k); return hi() ? (v.hi || v.en) : v.en; }
+  function deptName(k) { return k ? (window.GIQ && GIQ.dept ? GIQ.dept(k) : k) : ""; }
+  function fmt(n, dec) { return Number(n).toLocaleString(loc(), { maximumFractionDigits: dec == null ? 1 : dec }); }
+  // One cell for the page: text.
+  function show(v, type) {
+    if (type === "text") return name(v);
+    if (type === "dept") return deptName(v);
+    if (v === "<10") return T("gv.lt10");
+    if (v == null) return type === "pct" || type === "days" ? T("gv.too_few") : "—";
+    if (type === "pct") return fmt(v) + "%";
+    if (type === "days") return T("gv.n_days", { n: fmt(v) });
+    return fmt(v, 0);
+  }
+  // One cell for Excel: numbers stay numbers.
+  function cellX(v, type) {
+    if (type === "text") return name(v);
+    if (type === "dept") return deptName(v);
+    if (v === "<10") return T("gv.lt10");
+    if (v == null) return type === "pct" || type === "days" ? T("gv.too_few") : "";
+    if (typeof v === "number") return { v: v, dec: type === "pct" || type === "days" };
+    return String(v);
+  }
+  function colLabel(c) { return c.month ? monthName(c.key, true) : T(c.label) + (c.type === "pct" ? " (%)" : c.type === "days" ? " (" + T("gv.rp_days") + ")" : ""); }
+  function typeOf(row, c) { return c.type === "mixed" ? (row._t || "num") : c.type; }
+  function scopeText() {
+    if (DEMO) return T("gv.rp_scope_demo") + (R.scope && R.scope.district ? " · " + R.scope.district.replace(/^demo-/, "").toUpperCase() : "");
+    var s = R.scope; return (s.district ? T("gv.district_n", { d: nm(s.district) }) + ", " : "") + nm(s.state) + (s.district && s.district.lgd ? " · " + T("gv.lgd", { c: s.district.lgd }) : s.state.lgd ? " · " + T("gv.lgd", { c: s.state.lgd }) : "");
+  }
+  var DEFS = { summary: ["received", "resolved", "pending", "ages", "within", "avg", "reopened", "satisfied", "moved", "dept", "located"], districts: ["received", "resolved", "pending", "within", "satisfied"],
+    departments: ["dept"], pending30: ["ages"], themes: ["received"], reps: ["reps", "moved"] };
+  function render() {
+    var t = R.tables[0];
+    document.title = T(t.title) + " — GrievIQ";
+    var demo = DEMO ? '<p class="demo" role="note">' + esc(T("gv.rp_demo")) + "</p>" : "";
+    var dp = document.getElementById("demo-print"); dp.hidden = !DEMO; dp.textContent = DEMO ? T("gv.rp_demo") : "";
+    var h = demo + '<div class="head"><span class="mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span>' +
+      '<div class="org">GrievIQ<small>' + esc(T("gv.rp_org")) + "</small></div></div>" +
+      '<h1 id="h1">' + esc(T(t.title)) + "</h1>" +
+      '<dl class="meta"><dt>' + esc(T("gv.rp_for")) + "</dt><dd>" + esc(scopeText()) + "</dd><dt>" + esc(T("gv.month")) + "</dt><dd>" + esc(monthName(R.month)) + "</dd>" +
+      "<dt>" + esc(T("gv.rp_made")) + "</dt><dd>" + esc(when(R.generatedAt)) + (R.by ? " · " + esc(T("gv.rp_by", { name: R.by })) : "") + "</dd></dl>";
+    h += '<div class="tbl"><table><caption>' + esc(T("gv.rp_caption")) + "</caption><thead><tr>" + t.columns.map(function (c) { return '<th scope="col">' + esc(colLabel(c)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      (t.rows.length ? t.rows.map(function (r) {
+        return "<tr>" + t.columns.map(function (c, i) {
+          var tp = typeOf(r, c), txt = show(r[c.key], tp), cls = (r[c.key] === "<10" || (r[c.key] == null && (tp === "pct" || tp === "days"))) ? ' class="lt"' : "";
+          return i === 0 ? '<th scope="row">' + esc(txt) + "</th>" : "<td" + (tp === "text" || tp === "dept" ? ' class="t"' : "") + ">" + (cls ? "<span" + cls + ">" + esc(txt) + "</span>" : esc(txt)) + "</td>";
+        }).join("") + "</tr>";
+      }).join("") : '<tr><td colspan="' + t.columns.length + '" class="t">' + esc(T("gv.rp_empty")) + "</td></tr>") + "</tbody></table></div>";
+    if (t.note) h += '<p class="note">' + esc(T(t.note)) + "</p>";
+    h += "<h2>" + esc(T("gv.about_h")) + '</h2><dl class="defs">' + (DEFS[R.report] || []).concat(["small"]).map(function (k) { return "<dt>" + esc(T("gv.ab_" + k + "_t")) + "</dt><dd>" + esc(T("gv.ab_" + k)) + "</dd>"; }).join("") + "</dl>";
+    h += '<p class="foot">' + esc(T("gv.rp_foot")) + "</p>";
+    document.getElementById("doc").innerHTML = h;
+    var wide = t.columns.length > 8;
+    var ps = document.getElementById("page-size") || document.head.appendChild(Object.assign(document.createElement("style"), { id: "page-size" }));
+    ps.textContent = "@page { size: A4 " + (wide ? "landscape" : "portrait") + "; margin: 14mm 12mm 16mm; }";
+  }
+  function excel() {
+    var t = R.tables[0], rows = [];
+    rows.push([{ v: T(t.title), title: true }]);
+    if (DEMO) rows.push([{ v: T("gv.rp_demo"), bold: true }]);
+    rows.push([T("gv.rp_for"), scopeText()]);
+    rows.push([T("gv.month"), monthName(R.month)]);
+    rows.push([T("gv.rp_made"), when(R.generatedAt) + (R.by ? " · " + T("gv.rp_by", { name: R.by }) : "")]);
+    rows.push([]);
+    var header = rows.length;
+    rows.push(t.columns.map(colLabel));
+    t.rows.forEach(function (r) { rows.push(t.columns.map(function (c) { var tp = typeOf(r, c); var v = cellX(r[c.key], tp); if (c.type === "mixed" && typeof v === "object" && tp !== "num") v.dec = true; return v; })); });
+    if (t.note) { rows.push([]); rows.push([{ v: T(t.note), note: true }]); }
+    var widths = t.columns.map(function (c, i) { return i === 0 ? 34 : c.type === "dept" ? 24 : c.month ? 10 : 14; });
+    var about = [[{ v: T("gv.about_h"), title: true }], []].concat((DEFS[R.report] || []).concat(["small"]).map(function (k) { return [{ v: T("gv.ab_" + k + "_t"), bold: true }, { v: T("gv.ab_" + k), note: true }]; }));
+    about.push([]); about.push([{ v: T("gv.rp_foot"), note: true }]);
+    if (DEMO) about.unshift([{ v: T("gv.rp_demo"), bold: true }]);
+    var blob = GIQXLSX.blob([{ name: T(t.title), rows: rows, widths: widths, header: header }, { name: T("gv.about_h"), rows: about, widths: [28, 90] }]);
+    var a = document.createElement("a"), url = URL.createObjectURL(blob);
+    a.href = url; a.download = "grieviq-" + (DEMO ? "demo-" : "") + R.report + "-" + R.month + ".xlsx";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    document.getElementById("msg").textContent = T("gv.rp_xlsx_done");
+  }
+  document.getElementById("pdf").addEventListener("click", function () { window.print(); });
+  document.getElementById("xlsx").addEventListener("click", excel);
+  document.addEventListener("giq:lang", function () { if (R) render(); });
+  var p = new URLSearchParams(); ["r", "month", "district", "demo"].forEach(function (k) { if (q.get(k)) p.set(k, q.get(k)); });
+  fetch("/api/gov/report?" + p.toString(), { credentials: "same-origin", cache: "no-store" }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, body: b }; }); })
+    .then(function (r) {
+      if (!r.ok) { document.getElementById("doc").innerHTML = '<p role="alert">' + esc(r.status === 401 ? T("gv.rp_signin") : r.status === 403 ? T("gv.e_not_yours") : T("gv.e_load")) + "</p>"; return; }
+      R = r.body; render();
+      document.getElementById("pdf").disabled = false; document.getElementById("xlsx").disabled = false;
+      if (q.get("x") === "xlsx") excel();
+    }).catch(function () { document.getElementById("doc").innerHTML = '<p role="alert">' + esc(T("dd.e_network")) + "</p>"; });
+})();
+</script>
+</body>
+</html>

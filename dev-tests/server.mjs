@@ -137,6 +137,13 @@ http.createServer(async (req, res) => {
       const out = await m.runSpeed(env, b.now ? Date.parse(b.now) : Date.now(), da.sendEmailNow);
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
+    if (url.pathname === "/__test/run-gov-reports" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "gov-report-run.js")).href);
+      const da = await import(pathToFileURL(path.join(repo, "functions", "_shared", "dept-auth.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runGovReports(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now(), da.sendEmailNow);
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);
       const out = await m.runSubscriptions(env, "http://localhost:" + port, Date.now());

@@ -1733,6 +1733,80 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await fetch(B + "/gov")).status === 200, "page opens: /gov");
 }
 
+// ---- grieviq-50: MIS reports and report emails ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const signIn = async (email) => {
+    await fetch(B + "/api/gov/code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    sdb.prepare("UPDATE gov_codes SET code_hash = ? WHERE email = ? AND used_at IS NULL").run(createHash("sha256").update("gov:" + email + ":373737").digest("hex"), email);
+    const v = await fetch(B + "/api/gov/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: "373737" }) });
+    return (v.headers.get("set-cookie") || "").split(";")[0];
+  };
+  const gq = async (ck, p, m, b) => { const x = await fetch(B + p, { method: m || "GET", headers: Object.assign({ "content-type": "application/json" }, ck ? { cookie: ck } : {}), body: b ? JSON.stringify(b) : undefined }); return { status: x.status, body: await x.json() }; };
+  const R6 = ["summary", "districts", "departments", "pending30", "themes", "reps"];
+  // demo
+  for (const r of R6) {
+    const x = await gq(null, "/api/gov/report?demo=1&r=" + r);
+    ok(x.status === 200 && x.body.demo === true && x.body.tables[0].rows.length > 0 && x.body.tables[0].columns.length > 2, "demo report: " + r);
+  }
+  const dt = (await gq(null, "/api/gov/report?demo=1&r=themes")).body.tables[0];
+  ok(dt.columns.filter((c) => c.month).length === 12, "issue types report: 12 months");
+  ok((await gq(null, "/api/gov/report?demo=1&r=nope")).status === 400 && (await gq(null, "/api/gov/report?r=summary")).status === 401, "unknown report refused; real reports need sign-in");
+  // real, as the state official
+  const ck = await signIn("ps.pg@up.gov.in");
+  for (const r of R6) {
+    const x = await gq(ck, "/api/gov/report?r=" + r);
+    ok(x.status === 200 && !x.body.demo && x.body.scope.state.id === "uttar-pradesh" && Array.isArray(x.body.tables[0].rows), "report for the state: " + r);
+    const txt = JSON.stringify(x.body);
+    ok(!/9000000|GRV-|description|citizen|r1@x\.in|@x\.in/.test(txt), "no personal or case details: " + r);
+    ok(x.body.tables[0].rows.every((row) => ["received", "resolved", "pending", "over30", "total", "b1", "b2", "b3"].every((k) => row[k] === undefined || row[k] === "<10" || row[k] === 0 || row[k] >= 10)), "small-number rule in report: " + r);
+  }
+  const sum = (await gq(ck, "/api/gov/report?r=summary")).body.tables[0];
+  ok(sum.columns.map((c) => c.key).join() === "name,now,last,year" && sum.rows.length === 14, "summary: this month, last month, same month last year");
+  const pend = (await gq(ck, "/api/gov/report?r=pending30")).body.tables[0];
+  ok(pend.rows[pend.rows.length - 1].name.k === "gv.rp_not_forwarded", "pending report ends with the cases still with representatives' offices (no office named)");
+  const reps = (await gq(ck, "/api/gov/report?r=reps")).body.tables[0];
+  ok(reps.rows.some((r) => r.name.en === "Lucknow" && r.offices === 2), "representatives' report: totals by district, offices counted not named", reps.rows);
+  ok((await gq(ck, "/api/gov/report?r=summary&district=bihar--patna")).status === 404, "report for another state's district refused");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM gov_view_log WHERE action = 'REPORT' AND email = 'ps.pg@up.gov.in'").get().n >= 6, "every report opened is logged");
+  // report emails: off unless chosen
+  let pr = await gq(ck, "/api/gov/prefs");
+  ok(pr.status === 200 && pr.body.ready && !pr.body.monthly && !pr.body.weekly, "report emails off unless chosen");
+  let before = mails().length;
+  let run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-01T04:00:00Z" }) })).json();
+  ok(run.sent === 0 && mails().length === before, "nobody chose: no email");
+  pr = await gq(ck, "/api/gov/prefs", "POST", { monthly: true });
+  ok(pr.body.monthly === true && pr.body.weekly === false, "monthly email chosen");
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-01T01:00:00Z" }) })).json();
+  ok(run.due === 0, "before 8 am India time: nothing yet");
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-01T04:00:00Z" }) })).json();
+  const m1 = mails().slice(before);
+  ok(run.sent === 1 && m1.length === 1 && m1[0].to[0] === "ps.pg@up.gov.in" && /October 2026/.test(m1[0].subject), "on the 1st: one email that last month's report is ready", m1.map((m) => m.subject));
+  ok(!/\d{2,}\s*(complaints|pending)|received|GRV-/.test(m1[0].html.replace(/October 2026|2026/g, "")) && /never contain figures/.test(m1[0].html) && /रिपोर्ट/.test(m1[0].html), "the email has no figures or case details, in English and Hindi");
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-01T09:00:00Z" }) })).json();
+  ok(run.sent === 0, "sent once only");
+  await gq(ck, "/api/gov/prefs", "POST", { weekly: true });
+  before = mails().length;
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-02T04:00:00Z" }) })).json();
+  ok(run.sent === 1 && /pending over 30 days/.test(mails().slice(before)[0].subject), "on Monday: the weekly email");
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-03T04:00:00Z" }) })).json();
+  ok(run.due === 0, "other days: nothing");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM gov_view_log WHERE action = 'EMAIL_CHOICE'").get().n >= 2, "email choices logged");
+  // removed officials get no email
+  const uid = sdb.prepare("SELECT id FROM gov_users WHERE email = 'ps.pg@up.gov.in' AND status = 'ACTIVE'").get().id;
+  sdb.prepare("UPDATE gov_users SET review_by = '2025-01-01' WHERE id = ?").run(uid);
+  before = mails().length;
+  run = await (await fetch(B + "/__test/run-gov-reports", { method: "POST", body: JSON.stringify({ now: "2026-11-09T04:00:00Z" }) })).json();
+  ok(run.sent === 0 && mails().length === before, "no email to an account whose review is overdue");
+  sdb.prepare("UPDATE gov_users SET review_by = '2027-10-01' WHERE id = ?").run(uid);
+  ok((await fetch(B + "/gov-report")).status === 200, "page opens: /gov-report");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

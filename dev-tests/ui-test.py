@@ -2396,6 +2396,7 @@ with sync_playwright() as pw:
         p.goto(B + "/gov"); p.wait_for_selector("#f-email")
         bad = p.evaluate(CONTRAST_JS); ok(not bad, "gov sign-in contrast AA " + theme, bad[:5])
         ok(p.locator("a[href='/gov?demo=1']").count() == 1, "sign-in page links to the demo " + theme)
+        _d49.execute("DELETE FROM gov_codes WHERE email = 'ps.pg@up.gov.in'"); _d49.commit()   # tests sign in more often than the 3-per-15-minutes limit
         p.fill("#email", "ps.pg@up.gov.in"); p.click("#send"); p.wait_for_selector("#code")
         import hashlib as _hl
         _d49.execute("UPDATE gov_codes SET code_hash = ? WHERE email = 'ps.pg@up.gov.in' AND used_at IS NULL", (_hl.sha256(b"gov:ps.pg@up.gov.in:515151").hexdigest(),)); _d49.commit()
@@ -2421,6 +2422,62 @@ with sync_playwright() as pw:
     bad = p.evaluate(CONTRAST_JS); ok(not bad, "exception box contrast AA", bad[:5])
     ok(not errs, "no script errors (other email)", errs)
     ctx.close()
+
+    # ---------- grieviq-50: MIS reports ----------
+    import openpyxl as _oxl
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme, accept_downloads=True)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + "/gov?demo=1"); p.wait_for_selector("#reports")
+                ok(p.locator("#reports ul.reports li").count() == 6, "six reports listed " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('reports')", 1)); ok(not bad, "reports list contrast AA " + tag, bad[:5])
+                p.goto(B + "/gov-report?r=summary&demo=1"); p.wait_for_selector("#h1")
+                ok("DEMO" in p.inner_text(".demo") or "डेमो" in p.inner_text(".demo"), "report says demo " + tag)
+                if lang == "hi": ok(not re.findall(r"(gv|theme|dd)\.\w+", p.inner_text("body")), "report in Hindi, nothing missing " + tag, re.findall(r"(gv|theme|dd)\.\w+", p.inner_text("body"))[:5])
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "report page contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "report page targets " + tag, small[:5])
+                ok(no_hscroll(p), "report page: no sideways scroll " + tag)
+                with p.expect_download() as d: p.click("#xlsx")
+                path = WORK + "/dl-" + tag + ".xlsx"; d.value.save_as(path); wb = _oxl.load_workbook(path)
+                ok(len(wb.sheetnames) == 2 and wb.worksheets[0]["A8"].value is not None and isinstance(wb.worksheets[0]["B8"].value, (int, float)), "Excel opens; numbers are numbers " + tag, (wb.sheetnames, wb.worksheets[0]["A8"].value, wb.worksheets[0]["B8"].value))
+                if width == 375: shot(p, "79-report-" + tag, full=True)
+                ok(not errs, "no script errors (reports %s)" % tag, errs)
+                ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    for r in ("districts", "departments", "pending30", "themes", "reps"):
+        p.goto(B + "/gov-report?r=%s&demo=1" % r); p.wait_for_selector("#h1")
+        ok(p.locator("table tbody tr").count() >= 1 and not p.is_disabled("#pdf"), "demo report opens: " + r)
+    with p.expect_download() as d: p.goto(B + "/gov-report?r=themes&demo=1&x=xlsx")
+    d.value.save_as(WORK + "/dl-themes.xlsx"); wb = _oxl.load_workbook(WORK + "/dl-themes.xlsx"); ws = wb.worksheets[0]
+    hdr = [c.value for c in ws[7]]
+    ok(len(hdr) == 14 and hdr[0] == "Theme" and hdr[-1] == "Total", "Excel button on the dashboard downloads straight away; 12 month columns", hdr)
+    ok(not errs, "no script errors (report kinds)", errs)
+    ctx.close()
+    # signed-in official: email choices saved
+    _d50 = _sq.connect(WORK + "/test.db", timeout=10)
+    ctx = br.new_context(viewport={"width": 390, "height": 900})
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    _d50.execute("DELETE FROM gov_codes WHERE email = 'ps.pg@up.gov.in'"); _d50.commit()
+    p.goto(B + "/gov"); p.wait_for_selector("#f-email"); p.fill("#email", "ps.pg@up.gov.in"); p.click("#send"); p.wait_for_selector("#code")
+    import hashlib as _hl2
+    _d50.execute("UPDATE gov_codes SET code_hash = ? WHERE email = 'ps.pg@up.gov.in' AND used_at IS NULL", (_hl2.sha256(b"gov:ps.pg@up.gov.in:616161").hexdigest(),)); _d50.commit()
+    p.fill("#code", "616161"); p.click("#verify"); p.wait_for_selector("#reports")
+    ok(p.locator("#mail-monthly").count() == 1, "email choices shown to a signed-in official")
+    was = p.is_checked("#mail-weekly")
+    with p.expect_response(lambda r: "/api/gov/prefs" in r.url and r.request.method == "POST"): p.click("#mail-weekly")
+    p.wait_for_timeout(200)
+    ok("Saved" in p.inner_text("#mail-msg"), "choice saved, told in words")
+    ok(_d50.execute("SELECT weekly FROM gov_report_prefs p JOIN gov_users u ON u.id = p.user_id WHERE u.email = 'ps.pg@up.gov.in' AND u.status = 'ACTIVE'").fetchone()[0] == (0 if was else 1), "choice stored")
+    p.click("#reports a >> nth=0"); p.wait_for_selector("#h1")
+    ok("Uttar Pradesh" in p.inner_text("main") and p.locator(".demo").count() == 0, "real report: the official's state, no demo label")
+    shot(p, "80-report-official", full=True)
+    ok(not errs, "no script errors (official reports)", errs)
+    ctx.close(); _d50.close()
 
     br.close()
 

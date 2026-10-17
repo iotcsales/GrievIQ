@@ -21,6 +21,7 @@ import { purgeDuePhotos } from "../functions/_shared/photo-store.js";
 import { runSubscriptions } from "../functions/_shared/subscription-run.js";
 import { runSpeed } from "../functions/_shared/speed.js";
 import { sendEmailNow } from "../functions/_shared/dept-auth.js";
+import { runGovReports } from "../functions/_shared/gov-report-run.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -41,7 +42,11 @@ export async function runScheduled(env, nowMs) {
   // grieviq-47: hourly speed figures, tidy-up and the slow alert.
   let speed = null;
   try { speed = await runSpeed(env, nowMs, sendEmailNow); } catch (e) { speed = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed };
+  // grieviq-50: "your report is ready" emails for officials who chose them
+  // (on the 1st and on Mondays, from 8 am India time; no figures in them).
+  let govReports = null;
+  try { govReports = await runGovReports(env, origin, nowMs, sendEmailNow); } catch (e) { govReports = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports };
 }
 
 export default {

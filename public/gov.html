@@ -111,6 +111,17 @@
   .plain li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; }
   .plain li:last-child { border-bottom: 0; }
   .shared-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--teal-tint); color: var(--teal-dark); margin-left: 6px; }
+  .to-reports a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+  ul.reports { list-style: none; margin: 0; padding: 0; }
+  ul.reports li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  ul.reports li:last-child { border-bottom: 0; }
+  ul.reports b { display: block; font-size: 15px; } ul.reports .lt { display: block; }
+  .rp-links { display: flex; gap: 8px; }
+  .rp-links a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1.5px solid var(--teal); border-radius: 10px; font-weight: 600; text-decoration: none; }
+  fieldset.rp-mail { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 14px 0 0; }
+  fieldset.rp-mail legend { font-weight: 700; font-size: 14.5px; padding: 0 4px; }
+  label.chk { display: flex; gap: 10px; align-items: center; font-weight: 500; min-height: 40px; margin: 2px 0; }
+  label.chk input { width: 20px; height: 20px; margin: 0; accent-color: var(--teal); flex: none; }
   details.about { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-top: 22px; }
   details.about summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
   details.about dl { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; gap: 6px 14px; font-size: 14px; margin: 10px 0 0; }
@@ -125,7 +136,7 @@
   [hidden] { display: none !important; }
   @media print { .trust-strip, .controls, .tbl-tools, header .who button, footer { display: none !important; } .demo-bar { position: static; } }
 </style>
-<script src="/i18n.js?v=50"></script>
+<script src="/i18n.js?v=51"></script>
 <script src="/giq-charts.js?v=3"></script>
 </head>
 <body>
@@ -263,6 +274,7 @@
     if (r.status === 401) { S.screen = "email"; show(); return; }
     if (!r.ok) { S.screen = "error"; S.loadErr = r.status === 0 ? T("dd.e_network") : T("gv.e_load"); show(); return; }
     S.me = r.body;
+    if (!DEMO) { var pr = await api("/api/gov/prefs"); S.prefs = pr.ok ? pr.body : null; }
     await loadStats(focusId, true);
   }
   async function loadStats(focusId, noPush) {
@@ -311,7 +323,8 @@
       dist ? (dist.lgd ? T("gv.lgd", { c: dist.lgd }) : "") : (me.state.lgd ? T("gv.lgd", { c: me.state.lgd }) : "");
     var h = crumbs() + '<h1 id="h1" tabindex="-1">' + esc(title) + "</h1>" + (sub ? '<p class="scope-sub">' + esc(sub) + "</p>" : "") +
       '<div class="controls"><div><label for="month">' + esc(T("gv.month")) + '</label><select id="month">' +
-      d.months.map(function (m) { return '<option value="' + esc(m) + '"' + (m === d.month ? " selected" : "") + ">" + esc(monthName(m)) + "</option>"; }).join("") + "</select></div></div>";
+      d.months.map(function (m) { return '<option value="' + esc(m) + '"' + (m === d.month ? " selected" : "") + ">" + esc(monthName(m)) + "</option>"; }).join("") + "</select></div>" +
+      (S.dept ? "" : '<div class="to-reports"><a href="#reports" id="to-reports">' + esc(T("gv.rp_jump")) + "</a></div>") + "</div>";
     if (S.dept) return h + (d.dept ? renderDept(d.dept) : '<p class="empty">' + esc(T("gv.e_load")) + "</p>") + about();
     h += '<p class="summary" id="summary">' + esc(summaryText()) + "</p>";
     h += '<h2 class="sr-only">' + esc(T("gv.key_figures")) + '</h2><ul class="tiles" aria-label="' + esc(T("gv.key_figures")) + '">' +
@@ -333,7 +346,37 @@
     h += '<section class="sec card" aria-labelledby="trend-h">' + trendHtml(d.trend, "trend-h", "gv.trend_h", "gv.t_received", "gv.t_resolved") + "</section>";
     h += '<div class="grid2"><section class="sec card" aria-labelledby="hot-h">' + hotHtml(d.hotspots) + "</section>" +
       '<section class="sec card" aria-labelledby="reps-h">' + repsHtml(d.shared) + "</section></div>";
+    h += reportsHtml();
     return h + about();
+  }
+  // grieviq-50: the six MIS reports (PDF and Excel) and the report emails.
+  var REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps"];
+  function reportUrl(r, x) {
+    var p = new URLSearchParams(); p.set("r", r); if (DEMO) p.set("demo", "1"); if (S.district) p.set("district", S.district); if (S.data && S.data.month) p.set("month", S.data.month); if (x) p.set("x", "xlsx");
+    return "/gov-report?" + p.toString();
+  }
+  function reportsHtml() {
+    var h = '<section class="sec card" id="reports" aria-labelledby="reports-h" tabindex="-1"><h2 id="reports-h">' + esc(T("gv.rp_h")) + '</h2><p class="lede">' + esc(T("gv.rp_p", { m: monthName(S.data.month) })) + "</p>" +
+      '<ul class="reports">' + REPORTS.map(function (r) {
+        var title = T(r === "districts" && S.district ? "gv.rp_areas" : "gv.rp_" + r);
+        return '<li><div><b>' + esc(title) + '</b><span class="lt">' + esc(T("gv.rp_" + r + "_d")) + '</span></div><div class="rp-links">' +
+          '<a href="' + esc(reportUrl(r)) + '" aria-label="' + esc(T("gv.rp_open_for", { r: title })) + '">' + esc(T("gv.rp_open")) + "</a>" +
+          '<a href="' + esc(reportUrl(r, true)) + '" aria-label="' + esc(T("gv.rp_excel_for", { r: title })) + '">' + esc(T("gv.rp_excel")) + "</a></div></li>";
+      }).join("") + "</ul>";
+    if (!DEMO && S.prefs && S.prefs.ready) {
+      h += '<fieldset class="rp-mail"><legend>' + esc(T("gv.rp_mail_h")) + '</legend><p class="hint">' + esc(T("gv.rp_mail_p")) + "</p>" +
+        '<label class="chk"><input type="checkbox" id="mail-monthly"' + (S.prefs.monthly ? " checked" : "") + "> " + esc(T("gv.rp_mail_monthly")) + "</label>" +
+        '<label class="chk"><input type="checkbox" id="mail-weekly"' + (S.prefs.weekly ? " checked" : "") + "> " + esc(T("gv.rp_mail_weekly")) + "</label>" +
+        '<p class="hint" id="mail-msg" role="status" aria-live="polite">' + esc(S.prefsMsg || "") + "</p></fieldset>";
+    }
+    return h + "</section>";
+  }
+  async function savePrefs() {
+    var m = document.getElementById("mail-monthly"), w = document.getElementById("mail-weekly");
+    var r = await api("/api/gov/prefs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monthly: m.checked, weekly: w.checked }) });
+    if (r.ok) { S.prefs.monthly = r.body.monthly; S.prefs.weekly = r.body.weekly; S.prefsMsg = T("gv.rp_mail_saved"); }
+    else S.prefsMsg = T("gv.e_load");
+    document.getElementById("mail-msg").textContent = S.prefsMsg;
   }
   function summaryText() {
     var d = S.data, t = d.tiles, mo = monthName(d.month);
@@ -465,6 +508,8 @@
         var nb = main.querySelector('[data-sort="' + k + '"]'); if (nb) nb.focus();
       });
     });
+    ["mail-monthly", "mail-weekly"].forEach(function (id) { var c = document.getElementById(id); if (c) c.addEventListener("change", savePrefs); });
+    var tr = document.getElementById("to-reports"); if (tr) tr.addEventListener("click", function (e) { e.preventDefault(); var r = document.getElementById("reports"); r.scrollIntoView(); r.focus({ preventScroll: true }); });
     var rq = document.getElementById("rows-q");
     if (rq) rq.addEventListener("input", function () {
       S.q = rq.value; var pos = rq.selectionStart, y = window.scrollY; show(); window.scrollTo(0, y);

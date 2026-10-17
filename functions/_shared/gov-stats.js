@@ -109,7 +109,7 @@ export function shown(m) {
 
 // Everything the dashboard needs for one scope and month.
 // scope: { state: { id, name_en, ... }, district: row | null, deptKey?: string }
-export async function govStats(env, scope, month, nowMs) {
+export async function govStats(env, scope, month, nowMs, opts) {
   const now = nowMs || Date.now();
   const st = scope.state, dist = scope.district;
   const where = ["a.state = ?"], binds = [st.name_en];
@@ -257,10 +257,12 @@ export async function govStats(env, scope, month, nowMs) {
     }).filter(Boolean);
   } catch (e) { shared = []; }
 
-  return {
+  const out = {
     month, months: lastMonths(istMonth(now), 12).reverse(), tiles, before, change, rows, depts, dept, themes, hotspots, trend, shared,
-    totalRaw: null,
   };
+  // grieviq-50: the reports need the case facts too (never sent to a browser).
+  if (opts && opts.raw) Object.defineProperty(out, "raw", { value: { all, asg, areas, districts, cats, officeNames, byOffice }, enumerable: false });
+  return out;
 }
 
 // ---------------- the demo state (sample figures for presentations) ----------------
