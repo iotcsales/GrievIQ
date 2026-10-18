@@ -30,6 +30,54 @@ export const CATEGORIES = ["CAMP", "SCHEME", "HEALTH", "SABHA", "OFFICE", "SERVI
 // Department notices of these kinds continue during the Model Code of Conduct.
 export const ESSENTIAL = ["SERVICE", "SAFETY"];
 export const CHECKS = ["PUBLIC_INFO", "NO_PARTY", "NO_PRAISE", "NO_CITIZEN", "TRUTHFUL"];
+// grieviq-56 (owner decision 18 Oct 2026): a notice that speaks for a
+// government department needs the authority (sanction) letter from the
+// competent authority: every department office's notice, and a
+// representative's notice of these kinds. Optional for the others.
+export const LETTER_CATEGORIES = ["SCHEME", "HEALTH", "SERVICE"];
+export const LETTER_MAX_BYTES = 10 * 1024 * 1024;
+const LETTER_EXT = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
+export function needsLetter(type, category) { return type === "DEPT" || LETTER_CATEGORIES.includes(category); }
+export async function lettersReady(env) {
+  try { await env.DB.prepare("SELECT letter_key FROM notices LIMIT 1").all(); return true; } catch (e) { return false; }
+}
+function sniffLetter(buf) {
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d) return "application/pdf";   // %PDF-
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 && buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a) return "image/png";
+  return null;
+}
+// Checks the letter's details and file. Returns { fields, value } where
+// value = { no, date, by, bytes, type } (bytes null when no file was sent).
+export async function checkLetter(b, file, required, today) {
+  const f = {}, v = { no: "", date: "", by: "", bytes: null, type: null };
+  const has = !!(file && typeof file !== "string" && file.size);
+  const any = has || b.letterNo || b.letterDate || b.letterBy;
+  if (!required && !any) return { fields: f, value: v, has: false };
+  if (!has) f.letter = "REQUIRED";
+  else if (file.size > LETTER_MAX_BYTES) f.letter = "TOO_BIG";
+  else {
+    let buf = new Uint8Array(await file.arrayBuffer());
+    const type = sniffLetter(buf);
+    if (!type) f.letter = "BAD_TYPE";
+    else {
+      if (type === "image/jpeg") { const { stripJpegMetadata } = await import("./photo-store.js"); buf = stripJpegMetadata(buf); }   // no location or camera details kept
+      v.bytes = buf; v.type = type;
+    }
+  }
+  v.no = clean(b.letterNo, 60).replace(/\n/g, " ");
+  if (v.no.length < 3) f.letterNo = "REQUIRED"; else if (v.no.length > 60) f.letterNo = "LENGTH"; else if (textProblem(v.no)) f.letterNo = textProblem(v.no);
+  v.date = clean(b.letterDate, 10);
+  if (!v.date) f.letterDate = "REQUIRED"; else if (!realDate(v.date)) f.letterDate = "DATE"; else if (v.date > today) f.letterDate = "FUTURE"; else if (v.date < addDays(today, -730)) f.letterDate = "OLD";
+  v.by = clean(b.letterBy, 120).replace(/\n/g, " ");
+  if (v.by.length < 5) f.letterBy = "REQUIRED"; else if (v.by.length > 120) f.letterBy = "LENGTH"; else if (textProblem(v.by)) f.letterBy = textProblem(v.by);
+  return { fields: f, value: v, has: true };
+}
+async function storeLetter(env, noticeId, v) {
+  const key = "notice-letters/" + noticeId + "/" + crypto.randomUUID() + "." + LETTER_EXT[v.type];
+  await env.PRIVATE_PHOTOS.put(key, v.bytes, { httpMetadata: { contentType: v.type } });
+  return key;
+}
 export const MAX_START_DAYS = 60;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -188,7 +236,7 @@ export async function openCount(env, office, pauses, today) {
 }
 
 // An office asks for a notice. Returns { status, body }.
-export async function requestNotice(env, office, b, actor, origin) {
+export async function requestNotice(env, office, b, actor, origin, file) {
   const live = await liveVersion(env);
   const s = live.data, ns = noticeSettings(s), today = istToday();
   if (!ns.enabled) return { status: 409, body: { error: "OFF" } };
@@ -199,7 +247,11 @@ export async function requestNotice(env, office, b, actor, origin) {
   const pauses = await activePauses(env);
   const n0 = { office_type: office.type, category: c.value.category, area_id: office.areaId, state: office.state };
   if (!c.fields.startOn && c.value.category && pausable(n0) && pausedOn(pauses, office.areaId, office.state, c.value.startOn)) c.fields.startOn = "PAUSED";
-  if (Object.keys(c.fields).length) return { status: 400, body: { error: "CHECK_FIELDS", fields: c.fields } };
+  const withLetters = await lettersReady(env);
+  const lt = withLetters ? await checkLetter(b, file, needsLetter(office.type, c.value.category), today) : { fields: {}, has: false };
+  Object.assign(c.fields, lt.fields);
+  if (Object.keys(c.fields).length) return { status: 400, body: { error: "CHECK_FIELDS", fields: c.fields, letterNeeded: withLetters && needsLetter(office.type, c.value.category) } };
+  if (lt.has && !env.PRIVATE_PHOTOS) return { status: 503, body: { error: "STORAGE_NOT_SET" } };
   if ((await openCount(env, office, pauses, today)) >= ns.maxLivePerOffice) return { status: 409, body: { error: "LIMIT", limit: ns.maxLivePerOffice } };
   const reach = reachOf(office.type, office.tier);
   const pr = priceFor(s, plan, reach);
@@ -222,7 +274,12 @@ export async function requestNotice(env, office, b, actor, origin) {
   }
   if (!ref) return { status: 409, body: { error: "CONFLICT" } };
   const n = { id, ref, office_name: office.name };
-  await logNotice(env, actor, "notice_requested", n, { plan: plan.id, total: pr.total, startOn: v.startOn, flags: c.flags });
+  if (lt.has) {
+    const key = await storeLetter(env, id, lt.value);
+    await env.DB.prepare("UPDATE notices SET letter_key = ?, letter_type = ?, letter_size = ?, letter_no = ?, letter_date = ?, letter_by = ?, letter_uploaded_at = ? WHERE id = ?")
+      .bind(key, lt.value.type, lt.value.bytes.length, lt.value.no, lt.value.date, lt.value.by, now, id).run();
+  }
+  await logNotice(env, actor, "notice_requested", n, { plan: plan.id, total: pr.total, startOn: v.startOn, flags: c.flags, letter: lt.has ? { no: lt.value.no, date: lt.value.date, by: lt.value.by, type: lt.value.type, size: lt.value.bytes.length } : null });
   try {
     await sendEmailNow(env, s.company.supportEmail, `GrievIQ: public notice ${ref} is waiting for approval`,
       `<p>${office.name} asked for a paid public notice (<b>${ref}</b>, ${plan.nameEn}, from ${v.startOn}). Check it in <a href="${origin}/admin-notices.html">Public notices</a>.</p>`);
@@ -231,9 +288,17 @@ export async function requestNotice(env, office, b, actor, origin) {
 }
 
 // The admin approves: a bill for the price quoted. Returns { status, body }.
-export async function approveNotice(env, n, actor, checks, origin) {
-  const missing = CHECKS.filter((k) => !(checks && checks[k] === true));
-  if (missing.length) return { status: 400, body: { error: "CHECK_FIELDS", fields: { checks: "ALL" }, missing } };
+export function checksFor(n) { return n.letter_key ? CHECKS.concat(["LETTER"]) : CHECKS; }
+export async function approveNotice(env, n, actor, checks, origin, verifiedHow) {
+  const withLetters = await lettersReady(env);
+  if (withLetters && needsLetter(n.office_type, n.category) && !n.letter_key) return { status: 409, body: { error: "NO_LETTER" } };
+  const f = {};
+  const missing = checksFor(n).filter((k) => !(checks && checks[k] === true));
+  if (missing.length) f.checks = "ALL";
+  const how = clean(verifiedHow, 300).replace(/\n/g, " ");
+  if (n.letter_key && how.length < 10) f.verifiedHow = "REQUIRED";
+  if (Object.keys(f).length) return { status: 400, body: { error: "CHECK_FIELDS", fields: f, missing } };
+  if (n.letter_key) { await env.DB.prepare("UPDATE notices SET letter_verified_how = ? WHERE id = ?").bind(how, n.id).run(); n.letter_verified_how = how; }
   const today = istToday();
   if (n.start_on < today) {
     // A request approved after its start date starts today instead.
@@ -256,13 +321,13 @@ export async function approveNotice(env, n, actor, checks, origin) {
   }
   if (!bref) return { status: 409, body: { error: "CONFLICT" } };
   const res = await env.DB.prepare("UPDATE notices SET status = 'APPROVED', decided_by = ?, decided_at = ?, checks = ?, bill_id = ? WHERE id = ? AND status = 'PENDING'")
-    .bind(actor, now, JSON.stringify(CHECKS), billId, n.id).run();
+    .bind(actor, now, JSON.stringify(checksFor(n)), billId, n.id).run();
   if (!res.meta || res.meta.changes !== 1) {
     await env.DB.prepare("UPDATE bills SET status = 'CANCELLED', cancelled_at = ?, cancelled_by = ?, cancel_reason = 'Notice already decided' WHERE id = ?").bind(now, actor, billId).run();
     return { status: 409, body: { error: "ALREADY_DECIDED" } };
   }
   await logBill(env, billId, actor, "ISSUED", { ref: bref, notice: n.ref, total: n.total });
-  await logNotice(env, actor, "notice_approved", n, { bill: bref, total: n.total });
+  await logNotice(env, actor, "notice_approved", n, { bill: bref, total: n.total, letterVerifiedHow: n.letter_key ? n.letter_verified_how : null });
   const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(billId).first();
   const emailed = await emailOffice(env, origin, bill, "ISSUED");
   return { status: 200, body: { ok: true, status: "APPROVED", bill: bref, emailed } };
@@ -303,12 +368,15 @@ export function noticeOut(n, pauses, today, bill) {
     requestedBy: n.requested_by, requestedAt: n.requested_at, decidedBy: n.decided_by, decidedAt: n.decided_at, decisionNote: n.decision_note,
     paidAt: n.paid_at, endedBy: n.ended_by, endedAt: n.ended_at, endReason: n.end_reason,
     bill: bill ? { id: bill.id, ref: bill.ref, status: bill.status, total: bill.total, dueOn: bill.due_on } : null,
+    letterNeeded: needsLetter(n.office_type, n.category),
+    letter: n.letter_key ? { no: n.letter_no, date: n.letter_date, by: n.letter_by, type: n.letter_type, size: n.letter_size, uploadedAt: n.letter_uploaded_at, verifiedHow: n.letter_verified_how || null } : null,
   };
 }
 // What citizens see: the notice and who published it. No prices, no people.
 function publicOut(n, run) {
   return { ref: n.ref, category: n.category, titleEn: n.title_en, titleHi: n.title_hi, bodyEn: n.body_en, bodyHi: n.body_hi, eventDate: n.event_date, eventTime: n.event_time, place: n.place,
-    office: n.office_name, officeLabel: labelText(n.office_label), until: run.to };
+    office: n.office_name, officeLabel: labelText(n.office_label), until: run.to,
+    authority: n.letter_key ? { no: n.letter_no, date: n.letter_date } : null };   // the letter's number and date only, never the letter
 }
 // Fair order without paid ranking: a different order each day and ward.
 function dayHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -358,7 +426,8 @@ export async function officeView(env, offices) {
     if (billIds.length) for (const b of (await env.DB.prepare("SELECT * FROM bills WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(billIds)).all()).results || []) bills[b.id] = b;
     notices = rows.map((n) => { const x = noticeOut(n, pauses, today, bills[n.bill_id]); delete x.flags; return x; });
   }
-  return { ready, enabled: ns.enabled, today, maxLive: ns.maxLivePerOffice, maxStartDays: MAX_START_DAYS, gstRate: Number(s.gst.rate), categories: CATEGORIES, essential: ESSENTIAL, offices: out, notices };
+  return { ready, enabled: ns.enabled, today, maxLive: ns.maxLivePerOffice, maxStartDays: MAX_START_DAYS, gstRate: Number(s.gst.rate), categories: CATEGORIES, essential: ESSENTIAL, offices: out, notices,
+    letters: ready && (await lettersReady(env)), letterCategories: LETTER_CATEGORIES, letterMaxMb: LETTER_MAX_BYTES / 1048576 };
 }
 // The office takes back its request (before it is paid).
 export async function withdrawNotice(env, n, actor) {
@@ -398,4 +467,31 @@ export async function emailNoticeOffice(env, origin, n, kind, reason) {
   let sent = 0;
   for (const e of to) if (await sendEmailNow(env, e, subject, html)) sent++;
   return sent;
+}
+
+// grieviq-56: the office sends a new authority letter while its request waits.
+export async function replaceLetter(env, n, b, file, actor) {
+  if (!n) return { status: 404, body: { error: "NOT_FOUND" } };
+  if (n.status !== "PENDING") return { status: 409, body: { error: "NOT_OPEN" } };
+  if (!(await lettersReady(env))) return { status: 409, body: { error: "NOT_READY" } };
+  const lt = await checkLetter(b, file, true, istToday());
+  if (Object.keys(lt.fields).length) return { status: 400, body: { error: "CHECK_FIELDS", fields: lt.fields } };
+  if (!env.PRIVATE_PHOTOS) return { status: 503, body: { error: "STORAGE_NOT_SET" } };
+  const key = await storeLetter(env, n.id, lt.value);
+  await env.DB.prepare("UPDATE notices SET letter_key = ?, letter_type = ?, letter_size = ?, letter_no = ?, letter_date = ?, letter_by = ?, letter_uploaded_at = ?, letter_verified_how = NULL WHERE id = ? AND status = 'PENDING'")
+    .bind(key, lt.value.type, lt.value.bytes.length, lt.value.no, lt.value.date, lt.value.by, new Date().toISOString(), n.id).run();
+  await logNotice(env, actor, n.letter_key ? "notice_letter_replaced" : "notice_letter_added", n, { no: lt.value.no, date: lt.value.date, by: lt.value.by, previous: n.letter_key || null });
+  return { status: 200, body: { ok: true } };
+}
+// Office endpoints take JSON, or multipart with the letter in "letter".
+export async function readBody(request) {
+  const ct = String(request.headers.get("content-type") || "");
+  if (/multipart\/form-data/i.test(ct)) {
+    const fd = await request.formData();
+    const b = {};
+    for (const [k, v] of fd.entries()) if (typeof v === "string") b[k] = v;
+    const f = fd.get("letter");
+    return { b, file: f && typeof f !== "string" ? f : null };
+  }
+  return { b: await request.json(), file: null };
 }

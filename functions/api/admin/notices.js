@@ -5,7 +5,9 @@
 // GET  (view_notices: super, operations, auditor)
 //   -> { ready, canManage, today, enabled, checks, counts, notices, pauses, states, areas }
 // POST (manage_notices: super, operations), { action, ... }
-//   approve     { id, checks: { PUBLIC_INFO, NO_PARTY, NO_PRAISE, NO_CITIZEN, TRUTHFUL } }
+//   approve     { id, checks: { PUBLIC_INFO, NO_PARTY, NO_PRAISE, NO_CITIZEN, TRUTHFUL, LETTER? }, verifiedHow? }
+//               grieviq-56: with an authority letter, LETTER is ticked and
+//               verifiedHow says how it was checked (10+ letters)
 //               every check ticked; makes the bill (price as quoted)
 //   reject      { id, reason }       (5+ letters; the office is told why, nothing charged)
 //   takedown    { id, reason }       a paid notice stops at once (10+ letters; the office is told)
@@ -15,7 +17,7 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
-import { noticesReady, noticeSettings, activePauses, noticeOut, approveNotice, logNotice, emailNoticeOffice, CHECKS, realDate, addDays, stateOf } from "../../_shared/notices.js";
+import { noticesReady, noticeSettings, activePauses, noticeOut, approveNotice, logNotice, emailNoticeOffice, CHECKS, LETTER_CATEGORIES, lettersReady, realDate, addDays, stateOf } from "../../_shared/notices.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -40,7 +42,7 @@ export async function onRequestGet({ request, env }) {
   const areas = (ar || []).map((a) => ({ id: a.id, name: a.name, state: a.state }));
   const { results: pr } = await env.DB.prepare("SELECT * FROM notice_pauses ORDER BY from_on DESC LIMIT 100").all();
   return json({
-    ready: true, canManage, today, enabled: noticeSettings(s).enabled, checks: CHECKS, counts, notices,
+    ready: true, canManage, today, enabled: noticeSettings(s).enabled, checks: CHECKS, counts, notices, letterCategories: LETTER_CATEGORIES, letters: await lettersReady(env),
     pauses: (pr || []).map((p) => ({ id: p.id, label: p.label, state: p.state, areaId: p.area_id, from: p.from_on, to: p.to_on, createdBy: p.created_by, createdAt: p.created_at,
       removedAt: p.removed_at, removedBy: p.removed_by, removeReason: p.remove_reason, now: !p.removed_at && p.from_on <= today && today <= p.to_on })),
     states: Array.from(new Set(areas.map((a) => a.state).filter(Boolean))), areas,
@@ -85,7 +87,7 @@ export async function onRequestPost({ request, env }) {
   if (!n) return json({ error: "NOT_FOUND" }, 404);
   if (b.action === "approve") {
     if (n.status !== "PENDING") return json({ error: "ALREADY_DECIDED", status: n.status }, 409);
-    const r = await approveNotice(env, n, auth.email, b.checks, origin);
+    const r = await approveNotice(env, n, auth.email, b.checks, origin, b.verifiedHow);
     return json(r.body, r.status);
   }
   if (b.action === "reject") {

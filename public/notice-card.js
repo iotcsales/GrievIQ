@@ -46,6 +46,7 @@
     ".pn .pn-title{font-size:16px;line-height:1.35;margin:2px 0 4px;color:var(--pn-fg)}" +
     ".pn .pn-body{margin:0 0 6px;white-space:pre-line;font-size:14.5px;line-height:1.55;overflow-wrap:anywhere}" +
     ".pn dl.pn-meta{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;margin:0 0 6px;font-size:14px}.pn dl.pn-meta dt{color:var(--pn-muted)}.pn dl.pn-meta dd{margin:0;overflow-wrap:anywhere}" +
+    ".pn .pn-auth{font-size:13px;color:var(--pn-fg);margin:0 0 6px}" +
     ".pn .pn-by{font-size:13px;color:var(--pn-muted);margin:0;border-top:1px dashed var(--pn-border);padding-top:6px}" +
     ".pn-box .pn-more{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:6px 14px;border-radius:8px;border:1px solid var(--pn-border);background:var(--pn-card);color:var(--pn-accent);cursor:pointer}" +
     ".pn-box details{font-size:13.5px;color:var(--pn-fg);margin:2px 0 10px}.pn-box summary{cursor:pointer;color:var(--pn-accent);font-weight:600;min-height:32px;display:inline-flex;align-items:center}" +
@@ -73,6 +74,7 @@
       "<" + hn + ' class="pn-title" id="' + id + '-h"' + (t.lang !== page ? ' lang="' + t.lang + '"' : "") + ">" + esc(t.text) + "</" + hn + ">" +
       '<p class="pn-body"' + (b.lang !== page ? ' lang="' + b.lang + '"' : "") + ">" + esc(b.text) + "</p>" +
       (when || n.place ? '<dl class="pn-meta">' + (when ? "<dt>" + esc(T("pn.when")) + "</dt><dd>" + esc(when) + "</dd>" : "") + (n.place ? "<dt>" + esc(T("pn.where")) + "</dt><dd>" + esc(n.place) + "</dd>" : "") + "</dl>" : "") +
+      (n.authority ? '<p class="pn-auth">' + esc(T("pn.authority", { no: n.authority.no, date: dateText(n.authority.date) })) + "</p>" : "") +
       '<p class="pn-by">' + esc(T("pn.by", { office: officeLabel(n) + ", " + (n.office || "") })) + (n.until ? " · " + esc(T("pn.until", { date: dateText(n.until) })) : "") + "</p></article>";
   }
   function box(el, data, o) {

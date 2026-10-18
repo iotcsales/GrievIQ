@@ -15,7 +15,19 @@
   function preview(n) {
     if (!window.GIQNoticeCard) return "";
     return '<div class="pn-host" data-pn="' + esc(n.id) + '">' + window.GIQNoticeCard.card({ ref: n.ref, category: n.category, titleEn: n.titleEn, titleHi: n.titleHi, bodyEn: n.bodyEn, bodyHi: n.bodyHi,
-      eventDate: n.eventDate, eventTime: n.eventTime, place: n.place, office: n.officeName, officeLabel: n.officeLabel, until: n.to }, { h: 4, idp: "ntv-" }) + "</div>";
+      eventDate: n.eventDate, eventTime: n.eventTime, place: n.place, office: n.officeName, officeLabel: n.officeLabel, until: n.to,
+      authority: n.letter ? { no: n.letter.no, date: n.letter.date } : null }, { h: 4, idp: "ntv-" }) + "</div>";
+  }
+  // grieviq-56: the authority letter, to verify before approving.
+  function sizeText(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+  function letterBox(n) {
+    if (!S.data.letters) return "";
+    if (!n.letter) return n.letterNeeded ? '<p class="nt-flags nt-noletter" role="note"><b>' + esc(T("adm.nt_letter_missing_h")) + "</b> " + esc(T("adm.nt_letter_missing")) + "</p>" : "";
+    var L = n.letter, t = L.type === "application/pdf" ? "PDF" : L.type === "image/png" ? "PNG" : "JPG";
+    return '<div class="nt-letter"><p class="sub-h"><b>' + esc(T(n.letterNeeded ? "adm.nt_letter_h_req" : "adm.nt_letter_h")) + "</b></p>" +
+      dl([[T("adm.nt_letter_no"), L.no], [T("adm.nt_letter_date"), dateText(L.date)], [T("adm.nt_letter_by"), L.by], [T("adm.nt_letter_file"), t + ", " + sizeText(L.size) + " · " + T("adm.gv_by", { date: timeText(L.uploadedAt), by: n.requestedBy })],
+        [T("adm.nt_letter_verified"), L.verifiedHow || ""]]) +
+      '<p><a class="nt-link" href="/api/admin/notice-letter?id=' + encodeURIComponent(n.id) + '" download>' + esc(T("adm.nt_letter_open")) + '<span class="vh"> ' + esc(n.ref) + "</span></a></p></div>";
   }
   // Both languages for the reviewer: the card shows one, the other is listed.
   function otherLang(n) {
@@ -41,11 +53,19 @@
     var h = '<article class="sb-card nt-card st-' + esc(n.state) + '" aria-labelledby="' + p + '-h"><h3 id="' + p + '-h">' + esc(n.ref) + " · " + esc(titleOf(n)) + ' <span class="badge">' + esc(stateText(n)) + "</span></h3>" +
       facts(n) +
       (n.flags && n.flags.length ? '<p class="nt-flags" role="note"><b>' + esc(T("adm.nt_flags")) + "</b> " + esc(n.flags.join(", ")) + "</p>" : "") +
-      preview(n) + otherLang(n);
-    if (d.canManage) {
-      h += '<fieldset class="nt-checks"' + (S.checkErr === n.id ? ' aria-describedby="' + p + '-ce"' : "") + "><legend>" + esc(T("adm.nt_checks_h")) + "</legend>" + d.checks.map(function (k) {
+      preview(n) + otherLang(n) + letterBox(n);
+    var blocked = d.letters && n.letterNeeded && !n.letter;
+    var allChecks = n.letter ? d.checks.concat(["LETTER"]) : d.checks;
+    if (d.canManage && blocked) {
+      h += '<div class="nt-acts"><div class="fld"><label for="' + p + '-n">' + esc(T("adm.nt_reject_note")) + '</label><span class="hint" id="' + p + '-nh">' + esc(T("adm.nt_reject_h")) + '</span><input type="text" id="' + p + '-n" maxlength="300" autocomplete="off" aria-describedby="' + p + '-nh" value="' + esc(S.notes[n.id] || T("adm.nt_letter_reject_text")) + '"></div>' +
+        '<button type="button" class="danger" data-act="reject" data-id="' + esc(n.id) + '">' + esc(T("adm.nt_reject")) + "</button></div>";
+    } else if (d.canManage) {
+      h += '<fieldset class="nt-checks"' + (S.checkErr === n.id ? ' aria-describedby="' + p + '-ce"' : "") + "><legend>" + esc(T("adm.nt_checks_h")) + "</legend>" + allChecks.map(function (k) {
         return '<div class="chk"><input type="checkbox" id="' + p + "-c-" + k + '" data-check="' + k + '" data-id="' + esc(n.id) + '"' + (c[k] ? " checked" : "") + '><label for="' + p + "-c-" + k + '">' + esc(T("adm.nt_c_" + k)) + "</label></div>";
-      }).join("") + (S.checkErr === n.id ? '<span class="ferr" id="' + p + '-ce">' + esc(T("adm.nt_e_checks")) + "</span>" : "") + "</fieldset>" +
+      }).join("") + (S.checkErr === n.id ? '<span class="ferr" id="' + p + '-ce">' + esc(T("adm.nt_e_checks")) + "</span>" : "") +
+        (n.letter ? '<div class="fld"><label for="' + p + '-vh">' + esc(T("adm.nt_verified_how")) + '</label><span class="hint" id="' + p + '-vhh">' + esc(T("adm.nt_verified_how_h")) + "</span>" +
+          '<input type="text" id="' + p + '-vh" data-vh="' + esc(n.id) + '" maxlength="300" autocomplete="off" value="' + esc((S.vh || {})[n.id] || "") + '" aria-describedby="' + p + "-vhh" + (S.vhErr === n.id ? " " + p + "-vhe" : "") + '"' + (S.vhErr === n.id ? ' aria-invalid="true"' : "") + ">" +
+          (S.vhErr === n.id ? '<span class="ferr" id="' + p + '-vhe">' + esc(T("adm.nt_e_verified")) + "</span>" : "") + "</div>" : "") + "</fieldset>" +
         '<div class="nt-acts"><button type="button" class="primary" data-act="approve" data-id="' + esc(n.id) + '">' + esc(T("adm.nt_approve")) + "</button>" +
         '<div class="fld"><label for="' + p + '-n">' + esc(T("adm.nt_reject_note")) + '</label><span class="hint" id="' + p + '-nh">' + esc(T("adm.nt_reject_h")) + '</span><input type="text" id="' + p + '-n" maxlength="300" autocomplete="off" aria-describedby="' + p + '-nh" value="' + esc(S.notes[n.id] || "") + '"></div>' +
         '<button type="button" class="danger" data-act="reject" data-id="' + esc(n.id) + '">' + esc(T("adm.nt_reject")) + "</button></div>";
@@ -55,7 +75,7 @@
   function runningCard(n) {
     var p = "nr-" + n.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
     var h = '<article class="sb-card nt-card st-' + esc(n.state) + '" aria-labelledby="' + p + '-h"><h3 id="' + p + '-h">' + esc(n.ref) + " · " + esc(titleOf(n)) + ' <span class="badge">' + esc(stateText(n)) + "</span></h3>" + facts(n) +
-      "<details><summary>" + esc(T("adm.nt_show")) + "</summary>" + preview(n) + otherLang(n) + "</details>";
+      "<details><summary>" + esc(T("adm.nt_show")) + "</summary>" + preview(n) + otherLang(n) + letterBox(n) + "</details>";
     if (S.data.canManage && n.status === "PAID") {
       h += '<details><summary>' + esc(T("adm.nt_takedown_h")) + '</summary><div class="nt-acts"><div class="fld"><label for="' + p + '-n">' + esc(T("adm.nt_takedown_note")) + '</label><span class="hint" id="' + p + '-nh">' + esc(T("adm.nt_takedown_hint")) + '</span><input type="text" id="' + p + '-n" maxlength="300" autocomplete="off" aria-describedby="' + p + '-nh"></div>' +
         '<button type="button" class="danger" data-act="takedown" data-id="' + esc(n.id) + '">' + esc(T("adm.nt_takedown")) + "</button></div></details>";
@@ -128,7 +148,8 @@
   function wire() {
     document.querySelectorAll("[data-check]").forEach(function (c) { c.addEventListener("change", function () { var id = c.getAttribute("data-id"); (S.checks[id] = S.checks[id] || {})[c.getAttribute("data-check")] = c.checked; }); });
     document.querySelectorAll("[data-act]").forEach(function (b) { b.addEventListener("click", function () { act(b); }); });
-    document.querySelectorAll('.nt-card input[type="text"]').forEach(function (inp) { inp.addEventListener("input", function () { var b = inp.closest(".nt-card").querySelector("[data-id]"); if (b) S.notes[b.getAttribute("data-id")] = inp.value; }); });
+    document.querySelectorAll("[data-vh]").forEach(function (inp) { inp.addEventListener("input", function () { (S.vh = S.vh || {})[inp.getAttribute("data-vh")] = inp.value; }); });
+    document.querySelectorAll('.nt-card input[type="text"]:not([data-vh])').forEach(function (inp) { inp.addEventListener("input", function () { var b = inp.closest(".nt-card").querySelector("[data-id]"); if (b) S.notes[b.getAttribute("data-id")] = inp.value; }); });
     var pf = document.getElementById("np-form");
     if (pf) {
       pf.addEventListener("submit", addPause);
@@ -143,18 +164,21 @@
   }
   async function act(btn) {
     var id = btn.getAttribute("data-id"), a = btn.getAttribute("data-act");
-    var box = btn.closest(".sb-card, .nt-pause"), m = box.querySelector(".row-msg"), note = box.querySelector('input[type="text"]');
+    var box = btn.closest(".sb-card, .nt-pause"), m = box.querySelector(".row-msg"), note = box.querySelector('input[type="text"]:not([data-vh])');
     var n = S.data.notices.find(function (x) { return x.id === id; });
     if (a === "approve") {
-      var c = S.checks[id] || {};
-      if (S.data.checks.some(function (k) { return !c[k]; })) { S.checkErr = id; render(); var first = document.querySelector('[data-id="' + id + '"][data-check]:not(:checked)'); if (first) first.focus(); return; }
+      var c = S.checks[id] || {}, need = n.letter ? S.data.checks.concat(["LETTER"]) : S.data.checks;
+      if (need.some(function (k) { return !c[k]; })) { S.checkErr = id; render(); var first = document.querySelector('[data-id="' + id + '"][data-check]:not(:checked)'); if (first) first.focus(); return; }
+      S.checkErr = null;
+      if (n.letter && String((S.vh || {})[id] || "").trim().length < 10) { S.vhErr = id; render(); var vh = document.querySelector('[data-vh="' + id + '"]'); if (vh) vh.focus(); return; }
+      S.vhErr = null;
       if (!confirm(T("adm.nt_approve_q", { ref: n.ref, total: rupees(n.total) }))) return;
     }
     if (a === "takedown" && !confirm(T("adm.nt_takedown_q", { ref: n.ref }))) return;
     if (note) note.removeAttribute("aria-invalid");
     btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
     try {
-      var body = a === "approve" ? { action: a, id: id, checks: S.checks[id] } : { action: a, id: id, reason: note ? note.value : "" };
+      var body = a === "approve" ? { action: a, id: id, checks: S.checks[id], verifiedHow: (S.vh || {})[id] || "" } : { action: a, id: id, reason: note ? note.value : "" };
       var r = await post(body);
       btn.disabled = false;
       if (r.status === 400 && r.d.fields && r.d.fields.reason) { m.className = "row-msg error"; m.textContent = T("adm.nt_e_reason_" + (a === "takedown" ? "takedown" : "short")); if (note) { note.setAttribute("aria-invalid", "true"); note.focus(); } return; }

@@ -2075,6 +2075,16 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const OF = (who, b) => call(who, b ? "POST" : "GET", "/api/notices/office", b);
   const AD = (who, b) => call(who || S, b ? "POST" : "GET", "/api/admin/notices", b);
   const pub = async (w) => (await fetch(B + "/api/notices?ward=" + w)).json();
+  // grieviq-56: notices about schemes, health camps and service interruptions carry the authority letter
+  const PDF = { bytes: new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"), type: "application/pdf", name: "order.pdf" };
+  const LET = { letterNo: "JK/SD/2026/45", letterDate: today, letterBy: "R. K. Singh, Executive Engineer" };
+  const OFM = async (who, fields, file, path) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v == null ? "" : String(v));
+    if (file) fd.append("letter", new Blob([file.bytes], { type: file.type }), file.name);
+    const x = await fetch(B + (path || "/api/notices/office"), { method: "POST", headers: { "test-email": who }, body: fd });
+    return { status: x.status, body: await x.json().catch(() => ({})) };
+  };
   const base = (o) => Object.assign({ action: "request", officeTier: "LOCAL", officeId: "lu-tilak", category: "CAMP", titleEn: "Ration card help desk", bodyEn: "Bring your Aadhaar card and an old ration card if you have one. Phone 0522 1234567.", place: "Ward office, Tilak Nagar", planId: "week", startOn: today }, o || {});
   // the plans and prices are the admin's to change (Prices & site details)
   let live = (await call(S, "GET", "/api/admin/site-settings")).body.live;
@@ -2098,12 +2108,12 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const n1 = r.body;
   ok(r.status === 200 && /^GIQ-NTC-\d{6}$/.test(n1.ref) && n1.total === 353, "notices: sent for approval with the price quoted", r.body);
   ok(mails().slice(before).some((m) => m.to[0] === "support@grieviq.in" && m.subject.includes(n1.ref)), "notices: GrievIQ told a request is waiting");
-  r = await OF("r2@x.in", base({ titleEn: "", bodyEn: "", titleHi: "जलापूर्ति शिविर", bodyHi: "रविवार को सामुदायिक भवन में जल कनेक्शन संबंधी सहायता मिलेगी।", category: "SERVICE", planId: "fortnight", startOn: plusDays(today, 3) }));
+  r = await OFM("r2@x.in", Object.assign(base({ titleEn: "", bodyEn: "", titleHi: "जलापूर्ति शिविर", bodyHi: "रविवार को सामुदायिक भवन में जल कनेक्शन संबंधी सहायता मिलेगी।", category: "SERVICE", planId: "fortnight", startOn: plusDays(today, 3) }), LET), PDF);
   const n2 = r.body;
   ok(r.status === 200 && n2.total === 589, "notices: Hindi only is fine");
   r = await OF("r2@x.in", base());
   ok(r.status === 409 && r.body.error === "LIMIT" && r.body.limit === 2, "notices: at most two open notices per office");
-  const mlaN = (await OF("mla@x.in", base({ officeTier: "MLA", officeId: "mla-c", category: "HEALTH", titleEn: "Eye camp at the community centre", bodyEn: "Free eye check-up by the district hospital team." }))).body;
+  const mlaN = (await OFM("mla@x.in", Object.assign(base({ officeTier: "MLA", officeId: "mla-c", category: "HEALTH", titleEn: "Eye camp at the community centre", bodyEn: "Free eye check-up by the district hospital team." }), LET), PDF)).body;
   ok(mlaN.total === 1179, "notices: an MLA's notice at the wider price");
   // the admin changes a price: requests keep the price they were quoted
   const d2 = JSON.parse(JSON.stringify(orig));
@@ -2158,7 +2168,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(!("total" in shown) && !("amount" in shown) && !JSON.stringify(P).includes("r2@x.in"), "notices: no price or person on the public page");
   ok((await pub("lu-hazratganj")).notices.length === 0, "notices: a ward's notice isn't shown in other wards");
   // the MLA's notice shows in every ward of the constituency
-  await AD(S, { action: "approve", id: mlaN.id, checks: ALL });
+  await AD(S, { action: "approve", id: mlaN.id, checks: Object.assign({ LETTER: true }, ALL), verifiedHow: "Called the CMO office on its official number" });
   const bill2 = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(mlaN.id);
   await call("mla@x.in", "POST", "/api/billing", { billId: bill2.id, method: "UPI", utr: "NTC1234567891", amount: bill2.total, paidOn: today });
   await call(S, "POST", "/api/admin/bills", { action: "confirm", paymentId: sdb.prepare("SELECT id FROM bill_payments WHERE bill_id = ?").get(bill2.id).id });
@@ -2220,6 +2230,83 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const nb = sdb.prepare("SELECT id FROM bills WHERE kind = 'NOTICE'").all().map((x) => x.id);
   for (const id of nb) { sdb.prepare("DELETE FROM bill_payments WHERE bill_id = ?").run(id); sdb.prepare("DELETE FROM bills WHERE id = ?").run(id); }
   sdb.prepare("DELETE FROM notices").run(); sdb.prepare("DELETE FROM notice_pauses").run(); sdb.prepare("DELETE FROM dept_offices WHERE id = 'nt-dept'").run();
+}
+
+// ---- grieviq-56: authority letters for notices ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const plusDays = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const PDF = { bytes: new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"), type: "application/pdf", name: "order.pdf" };
+  const TXT = { bytes: new TextEncoder().encode("just some text pretending"), type: "application/pdf", name: "fake.pdf" };
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x0e, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 0x47, 0x50, 0x53, 0x21, 0x21, 0x21, 0xff, 0xda, 0x00, 0x08, 1, 2, 3, 4, 5, 6, 0xff, 0xd9]);
+  const OFM = async (who, fields, file, path) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v == null ? "" : String(v));
+    if (file) fd.append("letter", new Blob([file.bytes], { type: file.type }), file.name);
+    const x = await fetch(B + (path || "/api/notices/office"), { method: "POST", headers: { "test-email": who }, body: fd });
+    return { status: x.status, body: await x.json().catch(() => ({})) };
+  };
+  const AD = (who, b) => call(who || S, b ? "POST" : "GET", "/api/admin/notices", b);
+  const base = (o) => Object.assign({ action: "request", officeTier: "LOCAL", officeId: "lu-tilak", category: "SERVICE", titleEn: "Water supply off on Sunday", bodyEn: "Water supply will be off from 10 am to 4 pm for pipeline repair.", planId: "week", startOn: today }, o || {});
+  const LET = { letterNo: "JK/SD/2026/45", letterDate: today, letterBy: "R. K. Singh, Executive Engineer, Jal Kal" };
+  let g = await call("r2@x.in", "GET", "/api/notices/office");
+  ok(g.body.letters === true && g.body.letterCategories.join() === "SCHEME,HEALTH,SERVICE", "letters: offices are told which notices need one");
+  let r = await OFM("r2@x.in", base());
+  ok(r.status === 400 && r.body.letterNeeded && ["letter", "letterNo", "letterDate", "letterBy"].every((k) => r.body.fields[k] === "REQUIRED"), "letters: a service interruption needs the authority letter", r.body);
+  ok((await call("r2@x.in", "POST", "/api/notices/office", base())).body.fields.letter === "REQUIRED", "letters: also when sent without a file at all");
+  ok((await OFM("r2@x.in", Object.assign(base(), LET), TXT)).body.fields.letter === "BAD_TYPE", "letters: only real PDF, JPG or PNG files");
+  ok((await OFM("r2@x.in", Object.assign(base(), LET, { letterDate: plusDays(today, 1) }), PDF)).body.fields.letterDate === "FUTURE", "letters: no future date");
+  ok((await OFM("r2@x.in", Object.assign(base(), LET, { letterDate: plusDays(today, -800) }), PDF)).body.fields.letterDate === "OLD", "letters: not older than two years");
+  ok((await OFM("r2@x.in", Object.assign(base(), LET, { letterBy: "Sir" }), PDF)).body.fields.letterBy === "REQUIRED", "letters: who issued it");
+  ok((await OFM("r2@x.in", base({ category: "CAMP", titleEn: "Ration card help desk", bodyEn: "Help with ration cards at the ward office." }))).status === 200, "letters: optional for a help desk");
+  r = await OFM("r2@x.in", Object.assign(base(), LET), PDF);
+  const n1 = r.body;
+  ok(r.status === 200, "letters: request with its letter", r.body);
+  const row = sdb.prepare("SELECT * FROM notices WHERE id = ?").get(n1.id);
+  ok(row.letter_key && row.letter_key.startsWith("notice-letters/" + n1.id + "/") && row.letter_type === "application/pdf" && row.letter_no === "JK/SD/2026/45" && row.letter_by.includes("Executive Engineer"), "letters: stored privately with its details", row);
+  ok((await OFM("r2@x.in", Object.assign(base(), LET), PDF)).body.error === "LIMIT", "letters: office limit still applies");
+  // the admin opens it (logged); other roles can't
+  let dl = await fetch(B + "/api/admin/notice-letter?id=" + n1.id, { headers: { "test-email": A } });
+  const body = new Uint8Array(await dl.arrayBuffer());
+  ok(dl.status === 200 && /attachment/.test(dl.headers.get("content-disposition")) && dl.headers.get("cache-control") === "no-store" && String.fromCharCode(...body.slice(0, 5)) === "%PDF-", "letters: auditor downloads the letter (never shown in the page)");
+  ok((await fetch(B + "/api/admin/notice-letter?id=" + n1.id, { headers: { "test-email": D } })).status === 403 && (await fetch(B + "/api/admin/notice-letter?id=" + n1.id)).status === 401, "letters: nobody else can open it");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'notice_letter_viewed'").get().n === 1, "letters: every opening logged");
+  // the office sends a new letter while it waits (a JPEG: camera and location details removed)
+  r = await OFM("r2@x.in", { action: "letter", id: n1.id, letterNo: "JK/SD/2026/46", letterDate: today, letterBy: "R. K. Singh, Executive Engineer, Jal Kal" }, { bytes: jpg, type: "image/jpeg", name: "order.jpg" });
+  const row2 = sdb.prepare("SELECT * FROM notices WHERE id = ?").get(n1.id);
+  ok(r.status === 200 && row2.letter_no === "JK/SD/2026/46" && row2.letter_type === "image/jpeg" && row2.letter_key !== row.letter_key, "letters: a new letter replaces the one to check", r.body);
+  dl = new Uint8Array(await (await fetch(B + "/api/admin/notice-letter?id=" + n1.id, { headers: { "test-email": S } })).arrayBuffer());
+  ok(!String.fromCharCode(...dl).includes("Exif") && !String.fromCharCode(...dl).includes("GPS"), "letters: photo metadata removed");
+  ok((await OFM("om@x.in", { action: "letter", id: n1.id, letterNo: "X/1", letterDate: today, letterBy: "Someone Else" }, PDF)).status === 404, "letters: only the office's own notice");
+  // approval needs the letter check and how it was verified
+  const BASE5 = { PUBLIC_INFO: true, NO_PARTY: true, NO_PRAISE: true, NO_CITIZEN: true, TRUTHFUL: true };
+  let A1 = await AD(A);
+  const pn = A1.body.notices.find((n) => n.id === n1.id);
+  ok(A1.body.letters && pn.letterNeeded && pn.letter.no === "JK/SD/2026/46" && pn.letter.by.includes("Jal Kal"), "letters: the admin sees the letter's details", pn.letter);
+  r = await AD(S, { action: "approve", id: n1.id, checks: BASE5 });
+  ok(r.status === 400 && r.body.fields.checks === "ALL" && r.body.missing.join() === "LETTER" && r.body.fields.verifiedHow === "REQUIRED", "letters: the letter check and how it was verified are needed", r.body);
+  r = await AD(S, { action: "approve", id: n1.id, checks: Object.assign({ LETTER: true }, BASE5), verifiedHow: "Called the EE office on its official number from the directory" });
+  ok(r.status === 200 && sdb.prepare("SELECT letter_verified_how FROM notices WHERE id = ?").get(n1.id).letter_verified_how.includes("official number"), "letters: approved, with how it was verified recorded");
+  ok((await OFM("r2@x.in", { action: "letter", id: n1.id, letterNo: "X/2", letterDate: today, letterBy: "R. K. Singh, EE" }, PDF)).status === 409, "letters: can't be changed after approval");
+  // a notice that needs a letter but has none can't be approved
+  const now = new Date().toISOString();
+  sdb.prepare("INSERT INTO notices (id, ref, office_type, office_tier, office_id, office_name, office_label, area_id, state, category, title_en, body_en, plan_id, plan_name, days, reach, amount, gst_rate, gst, total, settings_version, start_on, status, requested_by, requested_at) VALUES ('nl-1', 'GIQ-NTC-910001', 'REP', 'LOCAL', 'lu-hazratganj', 'Hazratganj-Ramtirth', 'LOCAL_URBAN', 'lucknow', 'Uttar Pradesh', 'SCHEME', 'Ayushman enrolment', 'Bring your ration card.', 'week', 'One week', 7, 'LOCAL', 299, 18, 54, 353, 1, ?, 'PENDING', 'om@x.in', ?)").run(today, now);
+  ok((await AD(S, { action: "approve", id: "nl-1", checks: Object.assign({ LETTER: true }, BASE5), verifiedHow: "Called the office to check" })).body.error === "NO_LETTER", "letters: none, so it can only be turned back");
+  // pay it: citizens see the letter's number and date, never the letter
+  const bill = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(n1.id);
+  await call("r2@x.in", "POST", "/api/billing", { billId: bill.id, method: "UPI", utr: "LTR1234567890", amount: bill.total, paidOn: today });
+  await call(S, "POST", "/api/admin/bills", { action: "confirm", paymentId: sdb.prepare("SELECT id FROM bill_payments WHERE bill_id = ?").get(bill.id).id });
+  const P = await (await fetch(B + "/api/notices?ward=lu-tilak")).json();
+  const shown = P.notices.find((n) => n.ref === n1.ref);
+  ok(shown && shown.authority.no === "JK/SD/2026/46" && shown.authority.date === today && !JSON.stringify(P).includes("Singh") && !JSON.stringify(P).includes("notice-letters"), "letters: citizens see only the letter's number and date", shown);
+  const ev = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'notice_letter_%'").all().map((x) => x.action);
+  ok(ev.includes("notice_letter_replaced") && ev.includes("notice_letter_viewed"), "letters: logged", ev);
+  // tidy up
+  const nb = sdb.prepare("SELECT id FROM bills WHERE kind = 'NOTICE'").all().map((x) => x.id);
+  for (const id of nb) { sdb.prepare("DELETE FROM bill_payments WHERE bill_id = ?").run(id); sdb.prepare("DELETE FROM bills WHERE id = ?").run(id); }
+  sdb.prepare("DELETE FROM notices").run();
 }
 
 // ---- audit trail ----
