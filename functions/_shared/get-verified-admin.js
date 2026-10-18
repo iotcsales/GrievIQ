@@ -94,6 +94,9 @@ export const PERMISSIONS = {
   // Department dashboard (grieviq-32): who from a department office may sign
   // in. Giving access to citizens' complaints is a senior decision; the
   // auditor reads the officers, agreements and their activity.
+  // grieviq-55: paid public notices
+  view_notices: ["super_admin", "operations_admin", "auditor"],
+  manage_notices: ["super_admin", "operations_admin"],
   view_dept_officers: ["super_admin", "operations_admin", "auditor"],
   manage_dept_officers: ["super_admin", "operations_admin"],
   // Department performance (grieviq-33): counts and timings only.
@@ -165,6 +168,7 @@ export const PAGES = {
   "admin-speed": "view_speed",                     // grieviq-47
   "admin-gov": "view_gov",                         // grieviq-48
   "admin-handovers": "view_handovers",             // grieviq-53
+  "admin-notices": "view_notices",                 // grieviq-55
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

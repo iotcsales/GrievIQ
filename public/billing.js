@@ -142,8 +142,10 @@
       var out = '<article class="gb-bill gb-st-' + b.status + '" aria-labelledby="gb-h-' + esc(b.id) + '"><' + H2 + ' id="gb-h-' + esc(b.id) + '" tabindex="-1">' + esc(b.ref) +
         '<span class="gb-pill">' + esc(T("bill.st_" + b.status)) + "</span></" + H2 + ">" +
         '<dl class="gb-dl"><dt>' + esc(T("bill.office")) + "</dt><dd>" + esc(b.officeName) + "</dd>" +
-        "<dt>" + esc(T("bill.plan")) + "</dt><dd>" + esc(b.planName) + " · " + esc(T(b.period === "YEAR" ? "bill.year" : "bill.month")) + "</dd>" +
-        "<dt>" + esc(T("bill.period")) + "</dt><dd>" + esc(T("bill.range", { from: dateText(b.from), to: dateText(b.to) })) + "</dd>" +
+        (b.kind === "NOTICE"
+          ? "<dt>" + esc(T("bill.plan")) + "</dt><dd>" + esc(b.planName) + "</dd><dt>" + esc(T("bill.period")) + "</dt><dd>" + esc(T("bill.notice_period")) + "</dd>"
+          : "<dt>" + esc(T("bill.plan")) + "</dt><dd>" + esc(b.planName) + " · " + esc(T(b.period === "YEAR" ? "bill.year" : "bill.month")) + "</dd>" +
+            "<dt>" + esc(T("bill.period")) + "</dt><dd>" + esc(T("bill.range", { from: dateText(b.from), to: dateText(b.to) })) + "</dd>") +
         "<dt>" + esc(T("bill.amount")) + "</dt><dd>" + esc(rupees(b.amount)) + " + " + esc(T("bill.gst", { r: b.gstRate })) + " " + esc(rupees(b.gst)) + "</dd>" +
         "<dt>" + esc(T("bill.total")) + '</dt><dd class="gb-total">' + esc(rupees(b.total)) + "</dd>" +
         (b.status === "DUE" || b.status === "REPORTED" ? "<dt>" + esc(T("bill.due")) + "</dt><dd>" + (late ? "<b>" : "") + esc(dateText(b.dueOn)) + (late ? " — " + esc(T("bill.late")) + "</b>" : "") + "</dd>" : "") +

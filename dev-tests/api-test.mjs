@@ -2062,6 +2062,166 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   for (const id of [gn.id, r.body.id]) await G({ action: "remove", id, reason: "test tidy-up", leaveEmpty: true });
 }
 
+// ---- grieviq-55: paid public notices ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const plusDays = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const SS = (who, b) => call(who, "POST", "/api/admin/site-settings", b);
+  const OF = (who, b) => call(who, b ? "POST" : "GET", "/api/notices/office", b);
+  const AD = (who, b) => call(who || S, b ? "POST" : "GET", "/api/admin/notices", b);
+  const pub = async (w) => (await fetch(B + "/api/notices?ward=" + w)).json();
+  const base = (o) => Object.assign({ action: "request", officeTier: "LOCAL", officeId: "lu-tilak", category: "CAMP", titleEn: "Ration card help desk", bodyEn: "Bring your Aadhaar card and an old ration card if you have one. Phone 0522 1234567.", place: "Ward office, Tilak Nagar", planId: "week", startOn: today }, o || {});
+  // the plans and prices are the admin's to change (Prices & site details)
+  let live = (await call(S, "GET", "/api/admin/site-settings")).body.live;
+  ok(live.data.notices && live.data.notices.plans.length === 3 && live.data.notices.maxShown === 3, "notices: default plans in Prices & site details", live.data.notices);
+  const orig = JSON.parse(JSON.stringify(live.data));
+  let g = await OF("r2@x.in");
+  const week = g.body.offices[0].plans.find((p) => p.id === "week");
+  ok(g.status === 200 && g.body.offices.length === 1 && g.body.offices[0].reach === "LOCAL" && week.amount === 299 && week.total === 353, "notices: a ward office sees the ward price with GST", g.body.offices);
+  ok((await OF("mla@x.in")).body.offices[0].plans.find((p) => p.id === "week").total === 1179, "notices: an MLA's office pays the wider-reach price");
+  ok((await OF("fw@x.in")).status === 403, "notices: field workers can't ask");
+  ok((await OF("om@x.in")).body.offices.some((o) => o.id === "lu-hazratganj"), "notices: the office manager can");
+  // requests: the template's checks
+  let r = await OF("r2@x.in", { action: "request", officeTier: "LOCAL", officeId: "lu-tilak" });
+  ok(r.status === 400 && r.body.fields.category === "REQUIRED" && r.body.fields.titleEn === "ONE_LANGUAGE" && r.body.fields.planId === "REQUIRED" && r.body.fields.startOn === "REQUIRED", "notices: empty request lists what's needed", r.body.fields);
+  for (const [k, v, code] of [["bodyEn", "Details at www.ward7.in please", "LINK"], ["bodyEn", "Write to help@ward.org for details", "EMAIL"], ["bodyEn", "Follow us on @wardseven for updates", "HANDLE"], ["titleEn", "Camp today 🎉 all welcome", "EMOJI"], ["titleEn", "FREE CAMP FOR EVERYONE TODAY", "CAPS"], ["startOn", plusDays(today, -1), "PAST"], ["startOn", plusDays(today, 61), "TOO_FAR"], ["eventDate", plusDays(today, -2), "PAST"]])
+    ok((await OF("r2@x.in", base({ [k]: v }))).body.fields[k] === code, "notices: " + code + " refused in " + k);
+  ok((await OF("r2@x.in", base({ titleHi: "राशन कार्ड" }))).body.fields.bodyHi === "REQUIRED", "notices: a language started must be complete");
+  ok((await OF("r2@x.in", base({ officeId: "lu-hazratganj" }))).body.fields.office === "REQUIRED", "notices: only your own office");
+  let before = mails().length;
+  r = await OF("r2@x.in", base({ bodyEn: "Bring your Aadhaar card. This is not about any vote or party." }));
+  const n1 = r.body;
+  ok(r.status === 200 && /^GIQ-NTC-\d{6}$/.test(n1.ref) && n1.total === 353, "notices: sent for approval with the price quoted", r.body);
+  ok(mails().slice(before).some((m) => m.to[0] === "support@grieviq.in" && m.subject.includes(n1.ref)), "notices: GrievIQ told a request is waiting");
+  r = await OF("r2@x.in", base({ titleEn: "", bodyEn: "", titleHi: "जलापूर्ति शिविर", bodyHi: "रविवार को सामुदायिक भवन में जल कनेक्शन संबंधी सहायता मिलेगी।", category: "SERVICE", planId: "fortnight", startOn: plusDays(today, 3) }));
+  const n2 = r.body;
+  ok(r.status === 200 && n2.total === 589, "notices: Hindi only is fine");
+  r = await OF("r2@x.in", base());
+  ok(r.status === 409 && r.body.error === "LIMIT" && r.body.limit === 2, "notices: at most two open notices per office");
+  const mlaN = (await OF("mla@x.in", base({ officeTier: "MLA", officeId: "mla-c", category: "HEALTH", titleEn: "Eye camp at the community centre", bodyEn: "Free eye check-up by the district hospital team." }))).body;
+  ok(mlaN.total === 1179, "notices: an MLA's notice at the wider price");
+  // the admin changes a price: requests keep the price they were quoted
+  const d2 = JSON.parse(JSON.stringify(orig));
+  d2.notices.plans[0].days = 0; d2.notices.plans[0].priceWide = "abc"; d2.notices.maxShown = 9;
+  r = await SS(S, { action: "save_draft", data: d2 });
+  ok(r.status === 400 && r.body.fields["notices.plans.0.days"] === "RANGE" && r.body.fields["notices.plans.0.priceWide"] === "RANGE" && r.body.fields["notices.maxShown"] === "RANGE", "notices: plan checks", r.body.fields);
+  const d3 = JSON.parse(JSON.stringify(orig)); d3.notices.plans.forEach((p) => p.shown = false);
+  ok((await SS(S, { action: "save_draft", data: d3 })).body.fields["notices.plans"] === "NONE_SHOWN", "notices: at least one plan offered while switched on");
+  ok((await SS(O, { action: "save_draft", data: orig })).status === 403, "notices: only the super admin changes prices");
+  const d4 = JSON.parse(JSON.stringify(orig)); d4.notices.plans[0].priceLocal = 349;
+  r = await SS(S, { action: "save_draft", data: d4 }); ok(r.status === 200, "notices: new price saved", r.body);
+  r = await SS(S, { action: "publish", note: "Notice price" }); ok(r.status === 200, "notices: new price published", r.body);
+  ok((await OF("r2@x.in")).body.offices[0].plans.find((p) => p.id === "week").total === 412, "notices: offices see the new price");
+  // admin: who can see and decide
+  ok((await AD(D)).status === 403 && (await AD(M)).status === 403, "notices: other admin roles can't see");
+  let A1 = await AD(A);
+  ok(A1.status === 200 && !A1.body.canManage && A1.body.counts.PENDING === 3, "notices: auditor reads only", A1.body.counts);
+  ok((await AD(A, { action: "approve", id: n1.id, checks: {} })).status === 403, "notices: auditor can't decide");
+  const pend = A1.body.notices.find((n) => n.id === n1.id);
+  ok(pend.flags.includes("vote") && pend.flags.includes("party") && pend.officeLabel[0] === "Ward Councillor's office", "notices: words to check highlighted for the admin", pend.flags);
+  r = await AD(S, { action: "approve", id: n1.id, checks: { PUBLIC_INFO: true, NO_PARTY: true } });
+  ok(r.status === 400 && r.body.fields.checks === "ALL", "notices: every check needed to approve");
+  const ALL = { PUBLIC_INFO: true, NO_PARTY: true, NO_PRAISE: true, NO_CITIZEN: true, TRUTHFUL: true };
+  before = mails().length;
+  r = await AD(S, { action: "approve", id: n1.id, checks: ALL });
+  ok(r.status === 200 && /^GIQ-PAY-/.test(r.body.bill), "notices: approved, bill made", r.body);
+  const bill1 = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(n1.id);
+  ok(bill1.kind === "NOTICE" && bill1.total === 353 && bill1.status === "DUE" && bill1.office_tier === "LOCAL" && bill1.office_id === "lu-tilak", "notices: the bill keeps the quoted price", bill1);
+  ok(mails().slice(before).some((m) => m.to[0] === "r2@x.in" && /bill/i.test(m.subject)), "notices: the office gets the bill email");
+  ok((await AD(S, { action: "approve", id: n1.id, checks: ALL })).status === 409, "notices: not approved twice");
+  ok((await AD(S, { action: "reject", id: n2.id, reason: "no" })).status === 400, "notices: turning back needs a reason");
+  before = mails().length;
+  ok((await AD(S, { action: "reject", id: n2.id, reason: "Say which ward's water connections this is for." })).body.status === "REJECTED", "notices: turned back");
+  ok(mails().slice(before).some((m) => m.to[0] === "r2@x.in" && /not approved/.test(m.subject) && m.html.includes("which ward")), "notices: the office is told why");
+  g = await OF("r2@x.in");
+  const on1 = g.body.notices.find((n) => n.id === n1.id);
+  ok(on1.state === "APPROVED" && on1.bill.status === "DUE" && !("flags" in on1) && g.body.notices.find((n) => n.id === n2.id).decisionNote.includes("which ward"), "notices: the office sees approved with the bill, and why one was turned back");
+  ok((await pub("lu-tilak")).notices.length === 0, "notices: nothing shown before payment");
+  // the office pays, GrievIQ confirms: it starts today for its full days
+  const bl = await call("r2@x.in", "GET", "/api/billing");
+  ok(bl.body.bills.some((b) => b.id === bill1.id && b.kind === "NOTICE"), "notices: the bill is in the office's Billing");
+  r = await call("r2@x.in", "POST", "/api/billing", { billId: bill1.id, method: "UPI", utr: "NTC1234567890", amount: 353, paidOn: today });
+  ok(r.status === 200, "notices: office records the payment", r.body);
+  const pay1 = sdb.prepare("SELECT id FROM bill_payments WHERE bill_id = ?").get(bill1.id).id;
+  const subBefore = JSON.stringify(sdb.prepare("SELECT * FROM office_subscriptions WHERE office_id = 'lu-tilak'").all());
+  r = await call(S, "POST", "/api/admin/bills", { action: "confirm", paymentId: pay1 });
+  ok(r.status === 200 && sdb.prepare("SELECT status, starts_on FROM notices WHERE id = ?").get(n1.id).status === "PAID", "notices: paid when the payment is confirmed");
+  ok(JSON.stringify(sdb.prepare("SELECT * FROM office_subscriptions WHERE office_id = 'lu-tilak'").all().map((x) => Object.assign(x, { updated_at: null, updated_by: null }))) === JSON.stringify(JSON.parse(subBefore).map((x) => Object.assign(x, { updated_at: null, updated_by: null }))), "notices: a notice's bill doesn't change the office's plan");
+  let P = await pub("lu-tilak");
+  const shown = P.notices[0];
+  ok(P.notices.length === 1 && shown.ref === n1.ref && shown.officeLabel[0] === "Ward Councillor's office" && shown.office === "Tilak Nagar-Kundari Rakabganj" && shown.until === plusDays(today, 6) && P.maxShown === 3, "notices: shown on the ward page with who paid, for 7 days", P);
+  ok(!("total" in shown) && !("amount" in shown) && !JSON.stringify(P).includes("r2@x.in"), "notices: no price or person on the public page");
+  ok((await pub("lu-hazratganj")).notices.length === 0, "notices: a ward's notice isn't shown in other wards");
+  // the MLA's notice shows in every ward of the constituency
+  await AD(S, { action: "approve", id: mlaN.id, checks: ALL });
+  const bill2 = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(mlaN.id);
+  await call("mla@x.in", "POST", "/api/billing", { billId: bill2.id, method: "UPI", utr: "NTC1234567891", amount: bill2.total, paidOn: today });
+  await call(S, "POST", "/api/admin/bills", { action: "confirm", paymentId: sdb.prepare("SELECT id FROM bill_payments WHERE bill_id = ?").get(bill2.id).id });
+  ok((await pub("lu-tilak")).notices.length === 2 && (await pub("lu-hazratganj")).notices.length === 1, "notices: an MLA's notice shows in all the MLA's wards");
+  // a department's service notice and camp (as if paid)
+  const now = new Date().toISOString();
+  sdb.prepare("INSERT INTO dept_offices (id, area_id, name_en, departments, source, last_checked, created_at, created_by, updated_at, updated_by) VALUES ('nt-dept', 'lucknow', 'Jal Sansthan Zone 2', '[\"Water Supply\"]', 'test', ?, ?, 't', ?, 't')").run(today, now, now);
+  const ins = sdb.prepare("INSERT INTO notices (id, ref, office_type, office_tier, office_id, office_name, office_label, area_id, state, category, title_en, body_en, plan_id, plan_name, days, reach, amount, gst_rate, gst, total, settings_version, start_on, starts_on, status, requested_by, requested_at) VALUES (?, ?, 'DEPT', NULL, 'nt-dept', 'Jal Sansthan Zone 2', 'DEPT', 'lucknow', 'Uttar Pradesh', ?, ?, 'Water off from 10 am to 4 pm for pipeline work.', 'week', 'One week', 7, 'LOCAL', 299, 18, 54, 353, 1, ?, ?, 'PAID', 'ae@nic.in', ?)");
+  ins.run("nt-d1", "GIQ-NTC-900001", "SERVICE", "Water supply off on Sunday", today, today, now);
+  ins.run("nt-d2", "GIQ-NTC-900002", "CAMP", "New connection camp", today, today, now);
+  P = await pub("lu-tilak");
+  ok(P.notices.length === 4 && P.notices.some((n) => n.ref === "GIQ-NTC-900001" && n.officeLabel[0] === "Department office"), "notices: a department's notices show in the wards it covers");
+  const order1 = P.notices.map((n) => n.ref).join();
+  ok((await pub("lu-tilak")).notices.map((n) => n.ref).join() === order1, "notices: the same order all day (no paid ranking)");
+  // election code
+  ok((await AD(S, { action: "pause_add", label: "x", state: "Nowhere", from: "bad", to: today })).body.fields.label === "REQUIRED", "pause: checks");
+  r = await AD(S, { action: "pause_add", label: "x", state: "Nowhere", from: "bad", to: today });
+  ok(r.body.fields.state === "REQUIRED" && r.body.fields.from === "DATE", "pause: state and date checked", r.body.fields);
+  ok((await AD(S, { action: "pause_add", label: "UP local body elections", state: "Uttar Pradesh", areaId: "nowhere", from: today, to: today })).body.fields.areaId === "WRONG_STATE", "pause: the city must be in the state");
+  r = await AD(S, { action: "pause_add", label: "UP local body elections", state: "Uttar Pradesh", from: today, to: plusDays(today, 2) });
+  const pz = r.body.id;
+  ok(r.status === 200 && pz, "pause: election code recorded");
+  P = await pub("lu-tilak");
+  ok(P.notices.length === 1 && P.notices[0].ref === "GIQ-NTC-900001", "pause: only the department's service notice shows during the election code", P.notices.map((n) => n.ref));
+  g = await OF("r2@x.in");
+  const pn = g.body.notices.find((n) => n.id === n1.id);
+  ok(pn.state === "PAUSED" && pn.to === plusDays(today, 9) && pn.pausedDays === 3 && g.body.offices[0].pausedNow && g.body.offices[0].pauses.length === 1, "pause: the office sees it paused, with the days added back", pn);
+  ok((await OF("om@x.in", base({ officeId: "lu-hazratganj" }))).body.fields.startOn === "PAUSED", "pause: no new notice can start during it");
+  ok((await AD(S, { action: "pause_remove", id: pz, reason: "" })).status === 400, "pause: removing needs a reason");
+  ok((await AD(S, { action: "pause_remove", id: pz, reason: "Entered for the wrong state" })).status === 200 && (await pub("lu-tilak")).notices.length === 4, "pause: removed; notices back");
+  // take down
+  ok((await AD(S, { action: "takedown", id: n1.id, reason: "short" })).status === 400, "takedown: needs a reason");
+  before = mails().length;
+  r = await AD(S, { action: "takedown", id: n1.id, reason: "Complaint upheld: the notice thanks a person by name." });
+  ok(r.status === 200 && !(await pub("lu-tilak")).notices.some((n) => n.ref === n1.ref) && mails().slice(before).some((m) => m.to[0] === "r2@x.in" && /taken down/.test(m.subject)), "takedown: stops at once, office told");
+  // withdraw and cancel
+  r = await OF("r2@x.in", base({ titleEn: "Pension help desk", startOn: plusDays(today, 1) }));
+  const n4 = r.body;
+  await AD(S, { action: "approve", id: n4.id, checks: ALL });
+  const bill4 = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(n4.id);
+  r = await OF("r2@x.in", { action: "withdraw", id: n4.id });
+  ok(r.status === 200 && sdb.prepare("SELECT status FROM bills WHERE id = ?").get(bill4.id).status === "CANCELLED", "withdraw: the office takes it back; its bill is cancelled");
+  ok((await OF("r2@x.in", { action: "withdraw", id: n1.id })).status === 409, "withdraw: not after payment");
+  ok((await OF("om@x.in", { action: "withdraw", id: n4.id })).status === 404, "withdraw: only the office's own");
+  r = await OF("r2@x.in", base({ titleEn: "Pension help desk", startOn: plusDays(today, 1) }));
+  const n5 = r.body;
+  await AD(S, { action: "approve", id: n5.id, checks: ALL });
+  const bill5 = sdb.prepare("SELECT * FROM bills WHERE notice_id = ?").get(n5.id);
+  await call(S, "POST", "/api/admin/bills", { action: "cancel", id: bill5.id, reason: "Duplicate request" });
+  ok(sdb.prepare("SELECT status FROM notices WHERE id = ?").get(n5.id).status === "CANCELLED", "cancel: a cancelled bill cancels the notice");
+  // switched off: no new requests
+  const d5 = JSON.parse(JSON.stringify(orig)); d5.notices.enabled = false;
+  await SS(S, { action: "save_draft", data: d5 }); await SS(S, { action: "publish", note: "Notices off" });
+  ok((await OF("r2@x.in", base())).body.error === "OFF" && (await pub("lu-tilak")).notices.length === 3, "switched off: no new requests; paid ones keep running");
+  const ev = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'notice_%'").all().map((x) => x.action);
+  ok(["notice_requested", "notice_approved", "notice_paid", "notice_rejected", "notice_taken_down", "notice_withdrawn", "notice_cancelled", "notice_pause_added", "notice_pause_removed"].every((a) => ev.includes(a)), "notices: every step logged", Array.from(new Set(ev)));
+  // back as it was for the browser tests
+  await SS(S, { action: "save_draft", data: orig }); await SS(S, { action: "publish", note: "Notices back to defaults" });
+  const nb = sdb.prepare("SELECT id FROM bills WHERE kind = 'NOTICE'").all().map((x) => x.id);
+  for (const id of nb) { sdb.prepare("DELETE FROM bill_payments WHERE bill_id = ?").run(id); sdb.prepare("DELETE FROM bills WHERE id = ?").run(id); }
+  sdb.prepare("DELETE FROM notices").run(); sdb.prepare("DELETE FROM notice_pauses").run(); sdb.prepare("DELETE FROM dept_offices WHERE id = 'nt-dept'").run();
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

@@ -108,6 +108,7 @@ export async function ensureRow(env, type, tier, id, name, actor, cfg) {
 }
 // After a payment is confirmed: paid up to the end of that bill's period.
 export async function applyPayment(env, bill, actor) {
+  if (bill && bill.kind === "NOTICE") return;   // grieviq-55: a notice's bill is not a plan payment
   if (!(await subsReady(env))) return;
   const cfg = subSettings((await liveVersion(env)).data);
   const tier = bill.office_type === "DEPT" ? "" : bill.office_tier;

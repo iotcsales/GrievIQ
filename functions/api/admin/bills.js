@@ -16,8 +16,9 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
-import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, hasDraftColumns } from "../../_shared/billing.js";
+import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, hasDraftColumns, planBillFilter } from "../../_shared/billing.js";
 import { applyPayment } from "../../_shared/subscriptions.js";
+import { noticePaid, noticeBillCancelled } from "../../_shared/notices.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -124,7 +125,7 @@ export async function onRequestPost({ request, env }) {
     if (note.length > 300) f.note = "LENGTH";
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     // The same office can't be billed twice for a period starting the same day.
-    const twice = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'").bind(type, office.id, from).first();
+    const twice = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'" + (await planBillFilter(env))).bind(type, office.id, from).first();
     if (twice) return json({ error: "CHECK_FIELDS", fields: { from: "TWICE" }, ref: twice.ref }, 400);
     const id = crypto.randomUUID();
     let ref = null;
@@ -169,6 +170,7 @@ export async function onRequestPost({ request, env }) {
     stmts.push(env.DB.prepare("UPDATE bill_payments SET status = 'RETURNED', checked_by = ?, checked_at = ?, reason = ? WHERE bill_id = ? AND status = 'REPORTED'").bind(auth.email, now, "Bill cancelled: " + reason, bill.id));
     await env.DB.batch(stmts);
     await logBill(env, bill.id, auth.email, "CANCELLED", { reason });
+    try { await noticeBillCancelled(env, bill, auth.email, reason); } catch (e) { /* bill is cancelled either way */ }
     await adminLog(env, auth.email, "bill_cancelled", bill.ref, { reason });
     return json({ ok: true });
   }
@@ -186,6 +188,7 @@ export async function onRequestPost({ request, env }) {
       await logBill(env, bill.id, auth.email, "PAYMENT_CONFIRMED", { payment: p.id, utr: p.utr, amount: p.amount });
       // grieviq-46: the office is paid up to the end of this bill's period.
       try { await applyPayment(env, bill, auth.email); } catch (e) { /* bill is paid either way */ }
+      try { await noticePaid(env, bill, auth.email); } catch (e) { /* grieviq-55: the notice can be started by hand if this failed */ }
       await adminLog(env, auth.email, "bill_payment_confirmed", bill.ref, { amount: p.amount, utrEnds: p.utr.slice(-4) });
       await emailOffice(env, origin, bill, "CONFIRMED");
       return json({ ok: true, status: "PAID" });

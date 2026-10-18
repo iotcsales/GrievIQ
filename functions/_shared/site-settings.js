@@ -69,9 +69,27 @@ export const DEFAULTS = {
   // grieviq-46: office subscriptions. Offices already using GrievIQ when
   // this was installed are pilots until defaultPilotEnd.
   subscriptions: { reminderDays: 7, graceDays: 7, defaultPilotEnd: "2026-12-31" },
+  // grieviq-55: paid public notices. One price per plan for every office of
+  // the same reach (priceLocal: ward or village offices and department
+  // offices; priceWide: Mayor, MLA and MP offices, shown across many wards),
+  // GST extra. A request keeps the price it was quoted.
+  notices: {
+    enabled: true, maxLivePerOffice: 2, maxShown: 3,
+    plans: [
+      { id: "week", nameEn: "One week", nameHi: "एक सप्ताह", days: 7, priceLocal: 299, priceWide: 999, shown: true, retired: false },
+      { id: "fortnight", nameEn: "Two weeks", nameHi: "दो सप्ताह", days: 14, priceLocal: 499, priceWide: 1799, shown: true, retired: false },
+      { id: "month", nameEn: "One month (30 days)", nameHi: "एक माह (30 दिन)", days: 30, priceLocal: 899, priceWide: 2999, shown: true, retired: false },
+    ],
+  },
 };
+// Settings published before a section existed get that section's defaults.
+export function withDefaults(data) {
+  const d = data && typeof data === "object" ? data : {};
+  for (const k of Object.keys(DEFAULTS)) if (d[k] === undefined) d[k] = clone(DEFAULTS[k]);
+  return d;
+}
 
-export const LIMITS = { plans: 20, offers: 10, price: 100000000, payMethods: 6 };
+export const LIMITS = { plans: 20, offers: 10, price: 100000000, payMethods: 6, noticePlans: 8 };
 export const PAY_DELAY_HOURS = 24;
 const UPI_RE = /^[a-z0-9][a-z0-9._-]{1,99}@[a-z][a-z0-9.-]{1,49}$/i;
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -260,6 +278,35 @@ export function cleanSettings(raw) {
   const dpe = str(sb.defaultPilotEnd, 10);
   if (!realDate(dpe)) f["subscriptions.defaultPilotEnd"] = "DATE"; else out.subscriptions.defaultPilotEnd = dpe;
 
+  // Paid public notices (grieviq-55)
+  const nt = r.notices && typeof r.notices === "object" ? r.notices : clone(DEFAULTS.notices);
+  const ml = Number(nt.maxLivePerOffice), ms = Number(nt.maxShown);
+  out.notices = { enabled: nt.enabled !== false, maxLivePerOffice: 2, maxShown: 3, plans: [] };
+  if (!(Number.isInteger(ml) && ml >= 1 && ml <= 10)) f["notices.maxLivePerOffice"] = "RANGE"; else out.notices.maxLivePerOffice = ml;
+  if (!(Number.isInteger(ms) && ms >= 1 && ms <= 6)) f["notices.maxShown"] = "RANGE"; else out.notices.maxShown = ms;
+  const nplans = Array.isArray(nt.plans) ? nt.plans : [];
+  if (nplans.length > LIMITS.noticePlans) f["notices.plans"] = "TOO_MANY";
+  const nseen = new Set();
+  out.notices.plans = nplans.slice(0, LIMITS.noticePlans).map((p, i) => {
+    p = p || {};
+    const at = "notices.plans." + i + ".";
+    const q = {};
+    q.id = str(p.id, 30).toLowerCase();
+    if (!ID_RE.test(q.id)) f[at + "id"] = "FORMAT"; else if (nseen.has(q.id)) f[at + "id"] = "DUPLICATE";
+    nseen.add(q.id);
+    q.nameEn = need(at + "nameEn", p.nameEn, 40, true);
+    q.nameHi = need(at + "nameHi", p.nameHi, 40, true);
+    const dd = money(p.days);
+    if (dd === null) { f[at + "days"] = "REQUIRED"; q.days = null; }
+    else if (!Number.isInteger(dd) || dd < 1 || dd > 90) { f[at + "days"] = "RANGE"; q.days = null; } else q.days = dd;
+    q.priceLocal = amount(at + "priceLocal", p.priceLocal, true, 1);
+    q.priceWide = amount(at + "priceWide", p.priceWide, true, 1);
+    q.retired = !!p.retired;
+    q.shown = !q.retired && !!p.shown;
+    return q;
+  });
+  if (out.notices.enabled && !out.notices.plans.some((p) => p.shown)) f["notices.plans"] = "NONE_SHOWN";
+
   // Payment details (grieviq-41)
   const pm = r.payments && Array.isArray(r.payments.methods) ? r.payments.methods : [];
   if (pm.length > LIMITS.payMethods) f["payments"] = "TOO_MANY";
@@ -349,14 +396,14 @@ export function payLine(m) { return m.kind === "UPI" ? "UPI " + m.upiId : "Bank 
 export async function liveVersion(env) {
   try {
     const r = await env.DB.prepare("SELECT version, data, created_at, created_by FROM site_settings_versions ORDER BY version DESC LIMIT 1").first();
-    if (r) return { version: r.version, data: JSON.parse(r.data), publishedAt: r.created_at, publishedBy: r.created_by };
+    if (r) return { version: r.version, data: withDefaults(JSON.parse(r.data)), publishedAt: r.created_at, publishedBy: r.created_by };
   } catch (e) { /* before part27 */ }
   return { version: 0, data: clone(DEFAULTS), publishedAt: null, publishedBy: null };
 }
 export async function draftRow(env) {
   try {
     const r = await env.DB.prepare("SELECT data, base_version, updated_at, updated_by FROM site_settings_draft WHERE id = 'draft'").first();
-    if (r) return { data: JSON.parse(r.data), baseVersion: r.base_version, updatedAt: r.updated_at, updatedBy: r.updated_by };
+    if (r) return { data: withDefaults(JSON.parse(r.data)), baseVersion: r.base_version, updatedAt: r.updated_at, updatedBy: r.updated_by };
   } catch (e) { /* before part27 */ }
   return null;
 }

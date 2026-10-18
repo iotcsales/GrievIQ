@@ -42,6 +42,15 @@ export async function hasDraftColumns(env) {
   try { await env.DB.prepare("SELECT auto, sent_at FROM bills LIMIT 1").all(); draftCols = true; } catch (e) { draftCols = false; }
   return draftCols;
 }
+// grieviq-55: bills for paid public notices (kind NOTICE) are kept apart
+// from plan bills in everything about subscriptions.
+let kindCol = null;
+export async function hasKindColumn(env) {
+  if (kindCol !== null) return kindCol;
+  try { await env.DB.prepare("SELECT kind, notice_id FROM bills LIMIT 1").all(); kindCol = true; } catch (e) { kindCol = false; }
+  return kindCol;
+}
+export async function planBillFilter(env) { return (await hasKindColumn(env)) ? " AND (kind IS NULL OR kind <> 'NOTICE')" : ""; }
 export async function officeBillFilter(env) { return (await hasDraftColumns(env)) ? " AND (auto = 0 OR sent_at IS NOT NULL)" : ""; }
 export async function billingReady(env) {
   try { await env.DB.prepare("SELECT 1 FROM bills LIMIT 1").all(); return true; } catch (e) { return false; }
@@ -145,6 +154,7 @@ export function billOut(b, payments) {
     id: b.id, ref: b.ref, officeType: b.office_type, officeTier: b.office_tier, officeId: b.office_id, officeName: b.office_name,
     planId: b.plan_id, planName: b.plan_name, period: b.period, from: b.period_from, to: b.period_to,
     amount: b.amount, gstRate: b.gst_rate, gst: b.gst, total: b.total, offerId: b.offer_id, dueOn: b.due_on, status: b.status,
+    kind: b.kind || "PLAN", noticeId: b.notice_id || null,
     issuedAt: b.issued_at, issuedBy: b.issued_by, paidAt: b.paid_at, auto: !!b.auto, sentAt: b.sent_at || null, waiting: !!b.auto && !b.sent_at, cancelledAt: b.cancelled_at, cancelReason: b.cancel_reason, note: b.note,
     payments: (payments || []).filter((p) => p.bill_id === b.id).map((p) => ({ id: p.id, method: p.method, utr: p.utr, amount: p.amount, paidOn: p.paid_on,
       reportedBy: p.reported_by, reportedAt: p.reported_at, status: p.status, checkedAt: p.checked_at, reason: p.reason })),

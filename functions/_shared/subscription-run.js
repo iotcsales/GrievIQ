@@ -13,7 +13,7 @@
 // Emails carry the office name, dates and amounts only.
 
 import { liveVersion, istToday } from "./site-settings.js";
-import { TIER_TABLE, quote, nextRef, periodEnd, billPeople, logBill, hasDraftColumns } from "./billing.js";
+import { TIER_TABLE, quote, nextRef, periodEnd, billPeople, logBill, hasDraftColumns, planBillFilter } from "./billing.js";
 import { sendEmailNow } from "./dept-auth.js";
 import { subsReady, subSettings, statusOf, officeKey, ensureRow, logSub, addDays } from "./subscriptions.js";
 
@@ -42,9 +42,10 @@ async function draftBill(env, o, row, live, from) {
   if (!row.plan_id || !(await hasDraftColumns(env))) return null;
   const plan = live.data.plans.find((p) => p.id === row.plan_id);
   if (!plan) return null;
-  const exists = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'").bind(o.type, o.id, from).first();
+  const pf = await planBillFilter(env);
+  const exists = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'" + pf).bind(o.type, o.id, from).first();
   if (exists) return null;
-  const last = await env.DB.prepare("SELECT period FROM bills WHERE office_type = ? AND office_id = ? AND status = 'PAID' ORDER BY period_to DESC LIMIT 1").bind(o.type, o.id).first();
+  const last = await env.DB.prepare("SELECT period FROM bills WHERE office_type = ? AND office_id = ? AND status = 'PAID'" + pf + " ORDER BY period_to DESC LIMIT 1").bind(o.type, o.id).first();
   const period = plan.billing === "YEARLY" || (last && last.period === "YEAR") ? "YEAR" : "MONTH";
   const q = quote(live.data, plan, period, istToday());
   if (!q) return null;

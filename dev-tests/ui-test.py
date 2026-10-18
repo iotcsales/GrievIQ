@@ -1537,7 +1537,7 @@ with sync_playwright() as pw:
                 tag = "%s-%s-%d" % (theme, lang, width)
                 ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
                 p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("[role=tab]")
-                ok(p.locator("[role=tab]").count() == 8 and p.get_attribute("#tab-plans", "aria-selected") == "true", "eight tabs, Plans open " + tag)
+                ok(p.locator("[role=tab]").count() == 9 and p.get_attribute("#tab-plans", "aria-selected") == "true", "nine tabs, Plans open " + tag)
                 for t in ("plans", "discounts", "company", "claims", "history"):
                     p.click("#tab-" + t); p.wait_for_timeout(100)
                     ok(no_hscroll(p), "settings %s: no sideways scroll %s" % (t, tag))
@@ -1551,7 +1551,7 @@ with sync_playwright() as pw:
     ctx, p, errs = P("super@test.in")
     p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("[role=tab]")
     p.focus("#tab-plans"); p.keyboard.press("ArrowRight")
-    ok(p.evaluate("document.activeElement.id") == "tab-gst" and p.get_attribute("#tab-gst", "aria-selected") == "true", "arrow keys move between tabs")
+    ok(p.evaluate("document.activeElement.id") == "tab-notices" and p.get_attribute("#tab-notices", "aria-selected") == "true", "arrow keys move between tabs")
     p.click("#tab-plans")
     p.fill("#f-plans-0-monthly", "1199"); p.wait_for_timeout(100)
     ok("₹1,199 a month (₹1,415 with GST)" in p.inner_text(".card .today >> nth=0") and p.locator(".unsaved").count() == 1, "price worked out as you type; marked not saved")
@@ -1689,7 +1689,7 @@ with sync_playwright() as pw:
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
                 p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
-                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-takeover", "gqd-reports", "gqd-billing"], "representative sees all nine guides " + tag, sop_ids(p))
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-takeover", "gqd-reports", "gqd-billing", "gqd-notices"], "representative sees all ten guides " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
                 if lang == "hi": ok(not re.findall(r"guide\.\w+", p.inner_text(".gq-drawer")) and "सहायता" in p.inner_text("#help-btn"), "Help in Hindi " + tag)
                 ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1") and p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "Help panel: no sideways scroll " + tag)
@@ -1741,7 +1741,7 @@ with sync_playwright() as pw:
         p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
         p.goto(B + "/dept"); p.wait_for_selector(".tiles")
         p.click("#guide-link"); p.wait_for_selector(".gq-drawer")
-        ok(sop_ids(p) == ["gqd-signin", "gqd-reply", "gqd-officers", "gqd-performance", "gqd-billing"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
+        ok(sop_ids(p) == ["gqd-signin", "gqd-reply", "gqd-officers", "gqd-performance", "gqd-billing", "gqd-notices"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
         bad = p.evaluate(DLG_CONTRAST); ok(not bad, "dept Help contrast AA " + theme, bad[:6])
         shot(p, "51-dept-help-" + theme, full=False)
         p.keyboard.press("Escape"); ok(p.evaluate("document.activeElement.id") == "guide-link", "focus back on the guide link " + theme)
@@ -1754,7 +1754,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 12), ("deo@test.in", ["gqd-data", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-gov", "gqd-audit"])):
+    for who, want in (("super@test.in", 13), ("deo@test.in", ["gqd-data", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2730,6 +2730,150 @@ with sync_playwright() as pw:
     ok(_d54.execute("SELECT status FROM gov_users WHERE id = ?", (ps_id,)).fetchone()[0] == "ACTIVE", "not removed without the tick")
     ok(not errs, "no script errors (official transfer flow)", errs)
     ctx.close(); _d54.close()
+
+    # ---------- grieviq-55: paid public notices ----------
+    _d55 = _sq.connect(WORK + "/test.db", timeout=10)
+    import datetime as _dt55
+    today55 = (_dt55.datetime.utcnow() + _dt55.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    # Prices & site details: the notice plans
+    for lang in ("en", "hi"):
+        for theme in ("dark", "light"):
+            tag = "%s %s" % (lang, theme)
+            ctx, p, errs = P("super@test.in", theme=theme, lang=lang)
+            p.goto(B + "/admin-site-settings.html"); p.wait_for_selector("#tab-notices")
+            p.click("#tab-notices"); p.wait_for_selector(".ncard")
+            ok(p.locator(".ncard").count() == 3 and p.locator("#f-notices-enabled").is_checked(), "Prices: three notice plans, switched on " + tag)
+            if lang == "en":
+                p.fill("#f-notices-plans-0-priceLocal", "349")
+                ok("₹412" in p.inner_text(".ncard >> nth=0"), "Prices: price with GST worked out as you type")
+            if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "Prices notices tab in Hindi", re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+            bad = p.evaluate(CONTRAST_JS); ok(not bad, "Prices notices tab contrast AA " + tag, bad[:5])
+            shot(p, "92-prices-notices-%s-%s" % (lang, theme), full=False)
+            ok(not errs, "no script errors (prices notices %s)" % tag, errs)
+            ctx.close()
+    # representative console: ask for a notice
+    for lang in ("en", "hi"):
+        for theme in ("light", "dark"):
+            for width in (1280, 390):
+                tag = "%s %s %d" % (lang, theme, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900})
+                ctx.add_cookies([{"name": "test_email", "value": "r2@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('griq-theme','%s');localStorage.setItem('%s','%s')}catch(e){}" % (theme, LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e))); p.on("dialog", lambda d: d.accept())
+                p.goto(B + "/rep.html"); p.wait_for_selector('.tab-btn[data-tab="notices"]')
+                p.click('.tab-btn[data-tab="notices"]'); p.wait_for_selector("#gn-form")
+                ok(p.locator('input[name="gn-category"]').count() == 7 and p.locator('input[name="gn-planId"]').count() == 3, "rep notices: the form with types and plans " + tag)
+                p.check("#gn-category-CAMP"); p.fill("#gn-titleEn", "Ration card help desk"); p.fill("#gn-bodyEn", "Bring your Aadhaar card. Help with new and corrected ration cards.")
+                p.fill("#gn-titleHi", "राशन कार्ड सहायता डेस्क"); p.fill("#gn-bodyHi", "अपना आधार कार्ड साथ लाएँ। नए और सुधार वाले राशन कार्ड में सहायता।"); p.fill("#gn-place", "Ward office, Tilak Nagar")
+                ok("Paid notice" in p.inner_text("#gn-preview") or "सशुल्क सूचना" in p.inner_text("#gn-preview"), "rep notices: live preview with the paid label " + tag)
+                if lang == "hi": ok(not re.findall(r"(ntc|pn)\.\w+", p.inner_text("#notices-box")), "rep notices in Hindi " + tag, re.findall(r"(ntc|pn)\.\w+", p.inner_text("#notices-box"))[:5])
+                ok(no_hscroll(p), "rep notices: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('notices-box')", 1)); ok(not bad, "rep notices contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "rep notices targets " + tag, small[:5])
+                if width == 1280: p.locator("#notices-box").screenshot(path=os.path.join(SHOTS, "93-rep-notice-form-%s-%s.png" % (lang, theme)))
+                ok(not errs, "no script errors (rep notices %s)" % tag, errs)
+                ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    ctx.add_cookies([{"name": "test_email", "value": "r2@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e))); p.on("dialog", lambda d: d.accept())
+    p.goto(B + "/rep.html"); p.wait_for_selector('.tab-btn[data-tab="notices"]'); p.click('.tab-btn[data-tab="notices"]'); p.wait_for_selector("#gn-form")
+    p.fill("#gn-bodyEn", "See www.example.com")
+    with p.expect_response(lambda r: "/api/notices/office" in r.url and r.request.method == "POST"): p.click("#gn-send")
+    p.wait_for_selector("#gn-errs")
+    ok(p.evaluate("document.activeElement.id") == "gn-errs" and p.locator("#gn-errs li").count() >= 3 and p.get_attribute("#gn-bodyEn", "aria-invalid") == "true", "rep notices: what to fix listed, focus on the list")
+    p.click("#gn-errs a[data-go=category]"); ok(p.evaluate("document.activeElement.name") == "gn-category", "error link moves to the choice")
+    p.check("#gn-category-CAMP"); p.fill("#gn-titleEn", "Ration card help desk"); p.fill("#gn-bodyEn", "Bring your Aadhaar card. Help with new and corrected ration cards.")
+    p.fill("#gn-place", "Ward office, Tilak Nagar"); p.check("#gn-planId-week")
+    with p.expect_response(lambda r: "/api/notices/office" in r.url and r.request.method == "POST"): p.click("#gn-send")
+    p.wait_for_selector("#gn-msg")
+    ok("Sent for approval" in p.inner_text("#gn-msg") and p.evaluate("document.activeElement.id") == "gn-msg" and p.locator(".gn-item.gn-st-PENDING").count() == 1, "rep notices: sent; listed as waiting")
+    ok(not errs, "no script errors (rep notice request)", errs)
+    ctx.close()
+    nid = _d55.execute("SELECT id, ref FROM notices WHERE office_id = 'lu-tilak' AND status = 'PENDING'").fetchone()
+    # admin: check and approve
+    for lang in ("en", "hi"):
+        for theme in ("dark", "light"):
+            for width in (1280, 375):
+                tag = "%s %s %d" % (lang, theme, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-notices.html"); p.wait_for_selector(".nt-card")
+                ok(p.locator(".nt-card .pn").count() == 1 and p.locator(".nt-checks input").count() == 5, "admin notices: the notice as citizens see it, and the checklist " + tag)
+                if lang == "hi": ok(not re.findall(r"(adm|pn)\.\w+", p.inner_text("main")), "admin notices in Hindi " + tag, re.findall(r"(adm|pn)\.\w+", p.inner_text("main"))[:5])
+                ok(no_hscroll(p), "admin notices: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "admin notices contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "admin notices targets " + tag, small[:5])
+                if width == 1280: shot(p, "94-admin-notices-%s-%s" % (lang, theme), full=True)
+                ok(not errs, "no script errors (admin notices %s)" % tag, errs)
+                ctx.close()
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-notices.html"); p.wait_for_selector(".nt-card")
+    p.click("[data-act=approve]"); p.wait_for_selector(".nt-checks .ferr")
+    ok(p.evaluate("document.activeElement.getAttribute('data-check')") == "PUBLIC_INFO", "approve: every check needed; focus on the first")
+    for k in ("PUBLIC_INFO", "NO_PARTY", "NO_PRAISE", "NO_CITIZEN", "TRUTHFUL"): p.check("[data-check=%s]" % k)
+    with p.expect_response(lambda r: "/api/admin/notices" in r.url and r.request.method == "POST"): p.click("[data-act=approve]")
+    p.wait_for_selector("#nt-msg.success")
+    ok("approved" in p.inner_text("#nt-msg") and "GIQ-PAY-" in p.inner_text("#nt-msg") and p.locator(".nt-card.st-APPROVED").count() == 1, "approve: bill sent, notice waits for payment")
+    # election code form
+    p.fill("#np-label", "UP urban local body elections 2027"); p.select_option("#np-state", "Uttar Pradesh")
+    p.fill("#np-from", today55); p.fill("#np-to", today55)
+    p.click("#np-go"); p.wait_for_selector("#nt-msg.success")
+    ok(p.locator(".nt-pause.now").count() == 1, "election code recorded and shown as in force")
+    p.fill(".nt-pause.now input[type=text]", "Entered to test the page")
+    p.click(".nt-pause.now [data-act=pause_remove]"); p.wait_for_selector(".nt-pause.gone")
+    ok(not errs, "no script errors (admin approve)", errs)
+    ctx.close()
+    # pay it (office records, admin confirms), and three more paid notices for the ward
+    bill = _d55.execute("SELECT id, total FROM bills WHERE notice_id = ?", (nid[0],)).fetchone()
+    import urllib.request as _ur55
+    def post55(path, body, email):
+        req = _ur55.Request(B + path, method="POST", data=_json.dumps(body).encode(), headers={"content-type": "application/json", "test-email": email})
+        with _ur55.urlopen(req) as r: return _json.loads(r.read())
+    post55("/api/billing", {"billId": bill[0], "method": "UPI", "utr": "UIN1234567890", "amount": bill[1], "paidOn": today55}, "r2@x.in")
+    pay = _d55.execute("SELECT id FROM bill_payments WHERE bill_id = ?", (bill[0],)).fetchone()[0]
+    post55("/api/admin/bills", {"action": "confirm", "paymentId": pay}, "super@test.in")
+    for i, (tier, oid, name, label, cat, t_en, t_hi) in enumerate([
+        ("MLA", "mla-c", "Lucknow Central", "MLA", "HEALTH", "Free eye camp at the community centre", "सामुदायिक केंद्र में निःशुल्क नेत्र शिविर"),
+        ("MP", "mp-lko", "Lucknow", "MP", "SCHEME", "Ayushman card enrolment drive", "आयुष्मान कार्ड पंजीकरण अभियान"),
+        ("LOCAL", "lu-tilak", "Tilak Nagar-Kundari Rakabganj", "LOCAL_URBAN", "SABHA", "Ward Sabha meeting on Sunday", "रविवार को वार्ड सभा की बैठक")]):
+        _d55.execute("INSERT INTO notices (id, ref, office_type, office_tier, office_id, office_name, office_label, area_id, state, category, title_en, title_hi, body_en, body_hi, event_date, event_time, place, plan_id, plan_name, days, reach, amount, gst_rate, gst, total, settings_version, start_on, starts_on, status, requested_by, requested_at) VALUES (?, ?, 'REP', ?, ?, ?, ?, 'lucknow', 'Uttar Pradesh', ?, ?, ?, 'Everyone is welcome. Bring an identity card.', 'सभी का स्वागत है। पहचान पत्र साथ लाएँ।', ?, '10 am to 2 pm', 'Community centre, Tilak Nagar', 'week', 'One week', 7, 'WIDE', 999, 18, 180, 1179, 1, ?, ?, 'PAID', 'x@x.in', ?)",
+                     ("ui-n%d" % i, "GIQ-NTC-80000%d" % i, tier, oid, name, label, cat, t_en, t_hi, today55, today55, today55, today55 + "T00:00:00Z"))
+    _d55.commit()
+    # the citizen's ward page
+    for lang in ("en", "hi"):
+        for theme in ("light", "dark"):
+            for width in (390, 1280):
+                tag = "%s %s %d" % (lang, theme, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900})
+                ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                p.route("**/maps.googleapis.com/**", lambda rt: rt.abort())
+                p.goto(B + "/lucknow/lu-tilak"); p.wait_for_selector(".pn-box")
+                ok(p.locator(".pn-box > .pn").count() == 3 and p.locator("#pn-rest").is_hidden() and p.locator(".pn-more").count() == 1, "ward page: three notices, then Show all " + tag)
+                txt = p.inner_text(".pn-box")
+                ok(("Paid notice" in txt and "Published and paid for by" in txt) if lang == "en" else ("सशुल्क सूचना" in txt and "प्रकाशक और भुगतानकर्ता" in txt), "ward page: every notice says it is paid, and by whom " + tag)
+                ok("₹" not in txt and "@" not in txt, "ward page: no prices or emails " + tag)
+                p.click(".pn-more")
+                ok(p.locator(".pn-box .pn:visible").count() == 4 and p.get_attribute(".pn-more", "aria-expanded") == "true" and "pn-title" in (p.evaluate("document.activeElement.className") or ""), "ward page: Show all opens the rest, focus on the next notice " + tag)
+                if lang == "hi": ok(not re.findall(r"pn\.\w+", txt), "ward page notices in Hindi " + tag)
+                ok(no_hscroll(p), "ward page notices: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('pn-slot')", 1)); ok(not bad, "ward page notices contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS.replace("document.querySelectorAll(", "document.getElementById('pn-slot').querySelectorAll(", 1)) if "document.querySelectorAll(" in TARGET_JS else p.evaluate(TARGET_JS)
+                ok(not small, "ward page notices targets " + tag, small[:5])
+                p.evaluate("document.getElementById('pn-slot').scrollIntoView()")
+                shot(p, "95-ward-notices-%s-%s-%d" % (lang, theme, width), full=False)
+                ok(not errs, "no script errors (ward page notices %s)" % tag, errs)
+                ctx.close()
+    # the department dashboard: Public notices screen
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    st55 = dept_signin(ctx)
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/dept#notices"); p.wait_for_selector("#gn-form, .gn-msg")
+    ok(st55 == 200 and p.locator('input[name="gn-category"]').count() == 7 and "Public notices" in p.inner_text("#gn-h"), "department dashboard: the notice form", st55)
+    bad = p.evaluate(CONTRAST_JS); ok(not bad, "department notices contrast AA", bad[:5])
+    p.click("#back"); p.wait_for_selector("#go-notices"); ok(p.evaluate("document.activeElement.id") == "go-notices", "back: focus on Open public notices")
+    ok(not errs, "no script errors (department notices)", errs)
+    ctx.close()
+    _d55.execute("DELETE FROM notices WHERE id LIKE 'ui-n%'"); _d55.commit(); _d55.close()
 
     br.close()
 

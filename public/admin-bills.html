@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=55"></script>
-<script src="/admin-nav.js?v=r17"></script>
+<script src="/i18n.js?v=57"></script>
+<script src="/admin-nav.js?v=r18"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -401,7 +401,8 @@ function renderList() {
     var late = (b.status === "DUE" || b.status === "REPORTED") && b.dueOn < today;
     var h = '<article class="bl-card st-' + b.status + (b.waiting ? " st-WAITING" : "") + '" aria-labelledby="bh-' + esc(b.id) + '"><h3 id="bh-' + esc(b.id) + '">' + esc(b.ref) + " · " + esc(b.officeName) + ' <span class="badge">' + esc(T(b.waiting ? "adm.bl_st_WAITING" : "adm.bl_st_" + b.status)) + "</span></h3>" +
       (b.waiting ? '<p class="warnline">' + esc(T("adm.bl_auto_note")) + "</p>" + (B.data.canManage ? '<div class="acts"><button type="button" class="primary" data-send="' + esc(b.id) + '" data-ref="' + esc(b.ref) + '">' + esc(T("adm.bl_send")) + "</button></div>" : "") : "") +
-      "<dl><dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + esc(planName(b.planId)) + " · " + esc(T(b.period === "YEAR" ? "adm.bl_year" : "adm.bl_month")) + " · " + esc(T("adm.bl_range", { from: dateText(b.from), to: dateText(b.to) })) + "</dd>" +
+      "<dl><dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + (b.kind === "NOTICE" ? esc(b.planName) + ' · <a href="/admin-notices.html" style="color:var(--admin-accent)">' + esc(T("adm.bl_notice_link")) + "</a>"
+        : esc(planName(b.planId)) + " · " + esc(T(b.period === "YEAR" ? "adm.bl_year" : "adm.bl_month")) + " · " + esc(T("adm.bl_range", { from: dateText(b.from), to: dateText(b.to) }))) + "</dd>" +
       "<dt>" + esc(T("adm.bl_amount")) + "</dt><dd>" + esc(T("adm.bl_quote", { a: rupees(b.amount), r: b.gstRate, g: rupees(b.gst), t: rupees(b.total) })) + "</dd>" +
       "<dt>" + esc(T("adm.bl_due")) + "</dt><dd" + (late ? ' class="overdue"' : "") + ">" + esc(dateText(b.dueOn)) + (late ? " — " + esc(T("adm.bl_late")) : "") + "</dd>" +
       "<dt>" + esc(T("adm.bl_issued")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(b.issuedAt), who: b.issuedBy })) + "</dd>" +

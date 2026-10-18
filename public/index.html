@@ -424,7 +424,8 @@
     .home-more > .feedback-card { order: 0; grid-column: 2; grid-row: 1; font-size: 13.5px; }
   }
 </style>
-<script src="/i18n.js?v=55"></script>
+<script src="/i18n.js?v=57"></script>
+<script src="/notice-card.js?v=2"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
     key: "AIzaSyCvS9q69tvHzemwFCt00J26lr-UfUUKRV4",
@@ -694,7 +695,8 @@
       '<div class="loc-share"><span>' + esc(T('home.loc_share')) + '</span>' +
         '<a class="loc-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(shareText) + '">' + esc(T('home.loc_whatsapp')) + '</a>' +
         '<button type="button" class="loc-small" id="loc-copy">' + esc(T('home.loc_copy')) + '</button>' +
-      '</div>';
+      '</div>' +
+      '<div id="pn-slot" hidden></div>';
     $('loc-change').addEventListener('click', () => { current = null; outside = null; render(); $('loc-gps').focus(); });
     if ($('loc-forget')) $('loc-forget').addEventListener('click', () => { forget(); current = null; render(); $('loc-gps').focus(); });
     if ($('loc-adjust')) $('loc-adjust').addEventListener('click', () => { const pin = { lat: current.lat, lng: current.lng }; current = null; render(); openPicker(pin); });
@@ -706,7 +708,25 @@
       try { sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ wardId: p.id, wardName: p.name, lat: current.lat, lng: current.lng, at: Date.now() })); } catch (e) {}
     });
     if (current.lat != null) drawMini(current.lat, current.lng);
+    showNotices(p.id);
   }
+
+  // grieviq-55: paid public notices from the offices that serve this place
+  // (notice-card.js). Each is labelled "Paid notice" with who paid for it.
+  let pnCache = { id: null, data: null };
+  async function showNotices(id) {
+    if (!window.GIQNoticeCard || !id) return;
+    if (pnCache.id !== id) {
+      pnCache = { id: id, data: null };
+      try { const r = await fetch('/api/notices?ward=' + encodeURIComponent(id)); pnCache.data = r.ok ? await r.json() : null; } catch (e) { pnCache.data = null; }
+    }
+    const slot = $('pn-slot');
+    if (!slot || pnCache.id !== id || !pnCache.data) return;
+    window.GIQNoticeCard.box(slot, pnCache.data, { h: 3 });
+  }
+  function pnTheme() { const s = $('pn-slot'); if (s && !s.hidden && window.GIQNoticeCard) window.GIQNoticeCard.theme(s); }
+  new MutationObserver(pnTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (window.matchMedia) { try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', pnTheme); } catch (e) {} }
 
   // The main "Report a problem" card carries the area too, once Home knows
   // it, so the form never asks for it again.

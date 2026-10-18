@@ -22,7 +22,7 @@
 // record each changed value (before and after).
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
-import { cleanSettings, liveVersion, draftRow, settingsReady, publicView, diffSettings, istToday,
+import { withDefaults, cleanSettings, liveVersion, draftRow, settingsReady, publicView, diffSettings, istToday,
   paymentState, forCompare, editablePayments, settlePayments, maskPayments, payLine, PAY_DELAY_HOURS } from "../../_shared/site-settings.js";
 import { sendEmailNow } from "../../_shared/dept-auth.js";
 
@@ -88,7 +88,7 @@ export async function onRequestGet({ request, env }) {
     if (!ready) return json({ error: "NOT_READY" }, 409);
     const r = await env.DB.prepare("SELECT version, data, created_at, created_by, note, restored_from FROM site_settings_versions WHERE version = ?").bind(Number(v) || 0).first();
     if (!r) return json({ error: "NOT_FOUND" }, 404);
-    const vd = forCompare(JSON.parse(r.data));
+    const vd = forCompare(withDefaults(JSON.parse(r.data)));
     return json({ version: r.version, data: canEdit ? vd : maskPayments(vd), createdAt: r.created_at, createdBy: r.created_by, note: r.note, restoredFrom: r.restored_from });
   }
 
@@ -170,7 +170,7 @@ export async function onRequestPost({ request, env }) {
     const r = Number.isInteger(n) && n > 0 ? await env.DB.prepare("SELECT version, data FROM site_settings_versions WHERE version = ?").bind(n).first() : null;
     if (!r) return json({ error: "NOT_FOUND" }, 404);
     if (n === live.version) return json({ error: "ALREADY_LIVE" }, 409);
-    const data = JSON.parse(r.data);
+    const data = withDefaults(JSON.parse(r.data));
     // Bringing back old payment details follows the same 24-hour rule.
     const settled = settlePayments(live.data, editablePayments(data), Date.parse(now), auth.email);
     data.payments = settled.payments;

@@ -16,7 +16,7 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
-import { repOffice, realDate } from "../../_shared/billing.js";
+import { repOffice, realDate, planBillFilter } from "../../_shared/billing.js";
 import { subsReady, subSettings, statusOf, officeKey, ensureRow, logSub, addDays } from "../../_shared/subscriptions.js";
 import { allOffices } from "../../_shared/subscription-run.js";
 
@@ -50,7 +50,7 @@ export async function onRequestGet({ request, env }) {
   }
   let bills = [];
   try {
-    const { results } = await env.DB.prepare("SELECT office_type, office_tier, office_id, ref, status, period_to, total, auto, sent_at, issued_at FROM bills ORDER BY issued_at DESC").all();
+    const { results } = await env.DB.prepare("SELECT office_type, office_tier, office_id, ref, status, period_to, total, auto, sent_at, issued_at FROM bills WHERE 1 = 1" + (await planBillFilter(env)) + " ORDER BY issued_at DESC").all();
     bills = results || [];
   } catch (e) { bills = []; }
   const counts = {};
