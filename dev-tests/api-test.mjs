@@ -661,7 +661,9 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   r = await call(S, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId, reason: "short" });
   ok(r.status === 400, "removal needs a reason", r.body);
   r = await call(O, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId, reason: "Transferred to another zone" });
-  ok(r.status === 200 && (await dcall("GET", "/api/dept/cases")).status === 401, "removed officer is signed out at once", r.body);
+  ok(r.status === 400 && r.body.fields.succ === "REQUIRED" && r.body.last === true && r.body.waiting >= 1, "grieviq-54: the office's only officer: successor or a recorded choice needed", r.body);
+  r = await call(O, "POST", "/api/admin/dept-officers", { action: "officer_remove", officerId, reason: "Transferred to another zone", leaveEmpty: true });
+  ok(r.status === 200 && r.body.leftEmpty && (await dcall("GET", "/api/dept/cases")).status === 401, "removed officer is signed out at once", r.body);
   // agreement ended: nobody from the office can sign in
   r = await dp({ action: "officer_add", officeId: jal.id, name: "Ravi Kumar", designation: "Assistant Engineer", email: "ae.zone3@nic.in" });
   ok(r.status === 200, "second officer added");
@@ -1607,7 +1609,10 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 200 && r.body.reviewBy > "2027-01-01", "review done: one more year", r.body);
   sdb.prepare("INSERT INTO gov_sessions (id_hash, user_id, created_at, last_seen_at, expires_at) VALUES ('h48', ?, '2026-10-01', '2026-10-01', '2099-01-01')").run(pv);
   r = await call(S, "POST", "/api/admin/gov", { action: "remove", id: pv, reason: "Officer transferred" });
-  ok(r.status === 200 && sdb.prepare("SELECT status FROM gov_users WHERE id = ?").get(pv).status === "REMOVED" && sdb.prepare("SELECT end_reason FROM gov_sessions WHERE id_hash = 'h48'").get().end_reason === "REMOVED", "removed: signed out at once, record kept");
+  ok(r.status === 400 && r.body.fields.leaveEmpty === "REQUIRED", "grieviq-54: the state's only official: asked to confirm", r.body);
+  ok((await call(S, "GET", "/api/admin/gov")).body.users.find((u) => u.id === pv).alone === true, "grieviq-54: shown as the only one for the state");
+  r = await call(S, "POST", "/api/admin/gov", { action: "remove", id: pv, reason: "Officer transferred", leaveEmpty: true });
+  ok(r.status === 200 && r.body.leftEmpty && sdb.prepare("SELECT status FROM gov_users WHERE id = ?").get(pv).status === "REMOVED" && sdb.prepare("SELECT end_reason FROM gov_sessions WHERE id_hash = 'h48'").get().end_reason === "REMOVED", "removed: signed out at once, record kept");
   ok((await call(S, "POST", "/api/admin/gov", { action: "remove", id: pv, reason: "again" })).status === 409, "can't remove twice");
   ok((await call(S, "POST", "/api/admin/gov", good)).status === 200, "the same email can be given access again later");
   // view log can't be changed
@@ -1718,7 +1723,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await signIn("ravi.dm@gmail.com")).status === 200, "within the 30 days' grace: still works");
   // removed: signed out
   const dm2 = await signIn("ravi.dm@gmail.com");
-  await call(S, "POST", "/api/admin/gov", { action: "remove", id: other, reason: "Officer transferred" });
+  await call(S, "POST", "/api/admin/gov", { action: "remove", id: other, reason: "Officer transferred", leaveEmpty: true });
   ok((await gq(dm2.cookie, "/api/gov/stats")).status === 401, "removed official is signed out at once");
   // sign out
   const so = await fetch(B + "/api/gov/signout", { method: "POST", headers: { cookie: st.cookie } });
@@ -1950,6 +1955,111 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("DELETE FROM grievances WHERE id = 'g-ho'").run();
   sdb.prepare("DELETE FROM office_team WHERE id = 't-ho'").run();
   sdb.prepare("DELETE FROM office_gov_share WHERE office_id = 'lu-tilak'").run();
+}
+
+// ---- grieviq-54: transfers of department officers and government officials ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const now = new Date().toISOString(), today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const mk = (id, name) => sdb.prepare("INSERT INTO dept_offices (id, area_id, name_en, departments, source, last_checked, created_at, created_by, updated_at, updated_by) VALUES (?, 'lucknow', ?, '[\"Water Supply\"]', 'test', ?, ?, 't', ?, 't')").run(id, name, today, now, now);
+  mk("tr-a", "Transfer Test Office A"); mk("tr-b", "Transfer Test Office B"); mk("tr-c", "Transfer Test Office C");
+  for (const o of ["tr-a", "tr-b"]) sdb.prepare("INSERT INTO dept_agreements (office_id, signed_on, signed_by, document_ref, recorded_by, recorded_at, updated_at) VALUES (?, '2026-10-01', 'R. K. Singh, EE', 'TR/1', 't', ?, ?)").run(o, now, now);
+  const DP = (b, who) => call(who || S, "POST", "/api/admin/dept-officers", b);
+  const o1 = (await DP({ action: "officer_add", officeId: "tr-a", name: "Meera Shukla", designation: "Assistant Engineer", email: "ae1.tr@nic.in" })).body.id;
+  const o2 = (await DP({ action: "officer_add", officeId: "tr-a", name: "Arun Pal", designation: "Junior Engineer", email: "ae2.tr@nic.in" })).body.id;
+  // one open complaint waiting with office A
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g-tr','GRV-TR0001','9000000098','lu-hazratganj','water-sanitation','OPEN','Leak','LOCAL',?)").run(now);
+  sdb.prepare("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, actor, created_at) VALUES ('st-tr','g-tr','FORWARDED','Water Supply','tr-a','Transfer Test Office A','r1@x.in',?)").run(now);
+  let g = await call(S, "GET", "/api/admin/dept-officers?office=tr-a");
+  ok(g.body.transfersReady && g.body.waiting === 1 && g.body.targets.some((t) => t.id === "tr-b") && !g.body.targets.some((t) => t.id === "tr-a" || t.id === "tr-c"), "transfers: only offices with an agreement are offered; open cases counted", g.body.targets);
+  ok((await call(A, "GET", "/api/admin/dept-officers?office=tr-a")).body.targets.length === 0, "transfers: the auditor gets no transfer list");
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "LEFT", reason: "Retired on 31 October" }, A)).status === 403, "transfers: the auditor can't change officers");
+  // checks
+  let r = await DP({ action: "officer_leave", officerId: o1 });
+  ok(r.status === 400 && r.body.fields.kind === "REQUIRED", "transfers: say what is happening");
+  r = await DP({ action: "officer_leave", officerId: o1, kind: "TRANSFER" });
+  ok(r.body.fields.toOfficeId === "REQUIRED" && r.body.fields.orderRef === "LENGTH", "transfers: new office and order number needed", r.body.fields);
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "TRANSFER", toOfficeId: "tr-c", orderRef: "TR/77" })).body.fields.toOfficeId === "NO_AGREEMENT", "transfers: not to an office without an agreement");
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "TRANSFER", toOfficeId: "tr-a", orderRef: "TR/77" })).body.fields.toOfficeId === "SAME", "transfers: not to the same office");
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "TRANSFER", toOfficeId: "tr-b", orderRef: "TR/77", email: "ae2.tr@nic.in" })).body.fields.email === "OTHER_OFFICE", "transfers: not to someone else's email");
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "LEFT", reason: "short" })).body.fields.reason === "SHORT", "leaving: a reason is needed");
+  // transfer, with a new email and designation at the new office
+  sdb.prepare("INSERT INTO dept_sessions (id_hash, officer_id, created_at, last_seen_at, expires_at) VALUES ('ds-tr', ?, ?, ?, '2099-01-01')").run(o1, now, now);
+  sdb.prepare("INSERT INTO push_subscriptions (id, email, endpoint, p256dh, auth, created_at) VALUES ('ps-tr', ?, 'https://push.example/tr', 'k', 'a', ?)").run("dept:" + o1, now);
+  sdb.prepare("UPDATE dept_officers SET rules_version = 'v1', rules_accepted_at = ? WHERE id = ?").run(now, o1);
+  let before = mails().length;
+  r = await DP({ action: "officer_leave", officerId: o1, kind: "TRANSFER", toOfficeId: "tr-b", designation: "Executive Engineer", email: "ee.b@nic.in", orderRef: "UPJN/TR/2026/77" });
+  ok(r.status === 200 && r.body.id && !r.body.successorId, "transfers: officer transferred", r.body);
+  const oldRow = sdb.prepare("SELECT * FROM dept_officers WHERE id = ?").get(o1), newRow = sdb.prepare("SELECT * FROM dept_officers WHERE id = ?").get(r.body.id);
+  ok(oldRow.status === "REMOVED" && oldRow.moved_to === newRow.id && oldRow.order_ref === "UPJN/TR/2026/77" && newRow.office_id === "tr-b" && newRow.moved_from === o1 && newRow.email === "ee.b@nic.in" && newRow.designation === "Executive Engineer" && newRow.rules_version === "v1", "transfers: record moves with them, linked both ways, rules kept", { oldRow, newRow });
+  ok(sdb.prepare("SELECT end_reason FROM dept_sessions WHERE id_hash = 'ds-tr'").get().end_reason === "TRANSFERRED" && !sdb.prepare("SELECT id FROM push_subscriptions WHERE id = 'ps-tr'").get(), "transfers: signed out, phone alerts stopped");
+  const tm = mails().slice(before);
+  ok(tm.length === 1 && tm[0].to[0] === "ee.b@nic.in" && /moved/.test(tm[0].subject) && /Transfer Test Office B/.test(tm[0].html) && /स्थानांतरित/.test(tm[0].html) && !/GRV-|Leak/.test(tm[0].html), "transfers: a short email in English and Hindi, no case details", tm.map((m) => m.subject));
+  g = await call(S, "GET", "/api/admin/dept-officers?office=tr-a");
+  ok(g.body.officers.find((x) => x.id === o1).movedTo.office === "Transfer Test Office B" && g.body.officers.find((x) => x.id === o1).orderRef === "UPJN/TR/2026/77", "transfers: the old office shows where they went");
+  ok((await call(S, "GET", "/api/admin/dept-officers?office=tr-b")).body.officers.find((x) => x.id === r.body.id).movedFrom.office === "Transfer Test Office A", "transfers: the new office shows where they came from");
+  ok((await DP({ action: "officer_leave", officerId: o1, kind: "LEFT", reason: "Retired on 31 October" })).status === 409, "transfers: a closed record can't leave again");
+  // the guard: Arun is now the only officer of office A
+  r = await DP({ action: "officer_leave", officerId: o2, kind: "LEFT", reason: "Retired on 31 October" });
+  ok(r.status === 400 && r.body.fields.succ === "REQUIRED" && r.body.waiting === 1, "guard: the only officer needs a successor or a recorded choice", r.body);
+  ok((await DP({ action: "officer_leave", officerId: o2, kind: "LEFT", reason: "Retired on 31 October", successor: { name: "K", designation: "", email: "ae2.tr@nic.in" } })).body.fields.sEmail === "SAME", "guard: the successor needs their own email");
+  r = await DP({ action: "officer_leave", officerId: o2, kind: "LEFT", reason: "Retired on 31 October", successor: { name: "K", designation: "", email: "ee.b@nic.in" } });
+  ok(r.body.fields.sEmail === "OTHER_OFFICE" && r.body.fields.sName === "LENGTH" && r.body.fields.sDesignation === "LENGTH", "guard: successor's details checked", r.body.fields);
+  before = mails().length;
+  r = await DP({ action: "officer_leave", officerId: o2, kind: "LEFT", reason: "Retired on 31 October", successor: { name: "Kiran Rao", designation: "Junior Engineer", email: "je.a.tr@nic.in" } });
+  ok(r.status === 200 && r.body.successorId && mails().slice(before).some((m) => m.to[0] === "je.a.tr@nic.in" && /Welcome/.test(m.subject)), "guard: successor added in the same step and welcomed", r.body);
+  g = await call(S, "GET", "/api/admin/dept-officers?office=tr-a");
+  ok(g.body.officers.filter((x) => x.status === "ACTIVE").map((x) => x.name).join() === "Kiran Rao", "guard: the office still has someone to reply");
+  r = await DP({ action: "officer_leave", officerId: r.body.successorId, kind: "LEFT", reason: "Posted outside Lucknow", leaveEmpty: true });
+  ok(r.status === 200 && r.body.leftEmpty, "guard: left with nobody only when chosen");
+  const empty = sdb.prepare("SELECT detail FROM admin_events WHERE action = 'dept_office_left_empty' AND target = 'tr-a'").get();
+  ok(empty && JSON.parse(empty.detail).waiting === 1, "guard: the choice is recorded with the open cases");
+  const dl = await call(S, "GET", "/api/admin/departments?area=lucknow");
+  ok(dl.body.offices.find((o) => o.id === "tr-a").noOfficer === true && !dl.body.offices.find((o) => o.id === "tr-b").noOfficer && !dl.body.offices.find((o) => o.id === "tr-c").noOfficer, "departments list: an office with an agreement and nobody to reply is marked");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'dept_officer_transferred' AND target = ?").get(o1).n === 1, "transfers: logged");
+  // the old removal call still works for an office with others left
+  sdb.prepare("DELETE FROM case_dept_steps WHERE id = 'st-tr'").run(); sdb.prepare("DELETE FROM grievances WHERE id = 'g-tr'").run();
+  sdb.prepare("DELETE FROM dept_sessions WHERE officer_id IN (SELECT id FROM dept_officers WHERE office_id IN ('tr-a','tr-b','tr-c'))").run();
+  sdb.prepare("DELETE FROM dept_officers WHERE office_id IN ('tr-a','tr-b','tr-c')").run();
+  sdb.prepare("DELETE FROM dept_agreements WHERE office_id IN ('tr-a','tr-b','tr-c')").run();
+  sdb.prepare("DELETE FROM dept_offices WHERE id IN ('tr-a','tr-b','tr-c')").run();
+
+  // government officials
+  const G = (b) => call(S, "POST", "/api/admin/gov", b);
+  const L = { letterRef: "BR/GA/2026/9", letterDate: today };
+  const sb = (await G(Object.assign({ action: "add", name: "Sunita Prasad", designation: "Principal Secretary", email: "ps.tr@bihar.gov.in", level: "STATE", stateId: "bihar" }, L))).body.id;
+  const dpz = (await G(Object.assign({ action: "add", name: "Vikram Singh", designation: "District Magistrate", email: "dm.tr@nic.in", level: "DISTRICT", stateId: "bihar", districtId: "bihar--patna" }, L))).body.id;
+  let gv = await call(S, "GET", "/api/admin/gov");
+  ok(gv.body.transfersReady && gv.body.users.find((u) => u.id === sb).alone === true && gv.body.users.find((u) => u.id === dpz).alone === false, "officials: the state's only official is marked; a district covered by the state is not");
+  sdb.prepare("INSERT INTO gov_sessions (id_hash, user_id, created_at, last_seen_at, expires_at) VALUES ('gs-tr', ?, ?, ?, '2099-01-01')").run(dpz, now, now);
+  sdb.prepare("INSERT INTO gov_report_prefs (user_id, monthly, weekly, updated_at) VALUES (?, 1, 0, ?)").run(dpz, now);
+  r = await G({ action: "transfer", id: dpz });
+  ok(r.status === 400 && ["level", "letterRef", "letterDate", "reason"].every((k) => r.body.fields[k]), "officials: transfer needs the new place, letter and reason", r.body.fields);
+  ok((await G(Object.assign({ action: "transfer", id: dpz, level: "DISTRICT", stateId: "bihar", districtId: "bihar--patna", reason: "No change" }, L))).body.fields.level === "SAME", "officials: nothing changing is refused");
+  ok((await G(Object.assign({ action: "transfer", id: dpz, level: "DISTRICT", stateId: "bihar", districtId: "bihar--gaya", email: "vikram@gmail.com", reason: "Transferred" }, L))).body.fields.email === "OFFICIAL", "officials: a new email must be official");
+  ok((await G(Object.assign({ action: "transfer", id: dpz, level: "DISTRICT", stateId: "bihar", districtId: "bihar--gaya", email: "ps.tr@bihar.gov.in", reason: "Transferred" }, L))).body.fields.email === "TAKEN", "officials: not someone else's email");
+  ok((await G(Object.assign({ action: "transfer", id: dpz, level: "DISTRICT", stateId: "uttar-pradesh", districtId: "bihar--gaya", reason: "Transferred" }, L))).body.fields.districtId === "WRONG_STATE", "officials: district must be in the state");
+  before = mails().length;
+  r = await G(Object.assign({ action: "transfer", id: dpz, level: "DISTRICT", stateId: "bihar", districtId: "bihar--gaya", designation: "District Magistrate, Gaya", reason: "Transferred as DM Gaya" }, L));
+  ok(r.status === 200 && r.body.id, "officials: moved to another district", r.body);
+  const go = sdb.prepare("SELECT * FROM gov_users WHERE id = ?").get(dpz), gn = sdb.prepare("SELECT * FROM gov_users WHERE id = ?").get(r.body.id);
+  ok(go.status === "REMOVED" && go.moved_to === gn.id && gn.moved_from === dpz && gn.district_id === "bihar--gaya" && gn.letter_ref === "BR/GA/2026/9" && gn.email === "dm.tr@nic.in" && /^Transferred: /.test(go.remove_reason), "officials: old access closed, new one opened, linked", { go, gn });
+  ok(sdb.prepare("SELECT end_reason FROM gov_sessions WHERE id_hash = 'gs-tr'").get().end_reason === "TRANSFERRED" && sdb.prepare("SELECT monthly FROM gov_report_prefs WHERE user_id = ?").get(gn.id).monthly === 1, "officials: signed out; report-email choice goes with them");
+  const gm = mails().slice(before);
+  ok(gm.length === 1 && gm[0].to[0] === "dm.tr@nic.in" && /Gaya/.test(gm[0].html) && /\/state/.test(gm[0].html) && /डैशबोर्ड/.test(gm[0].html), "officials: a short email in English and Hindi with where to sign in", gm.map((m) => m.subject));
+  // the state's only official: moving away needs the recorded choice
+  r = await G(Object.assign({ action: "transfer", id: sb, level: "NATIONAL", designation: "Joint Secretary, DARPG", email: "js.tr@darpg.gov.in", reason: "Deputed to the Union government" }, L));
+  ok(r.status === 400 && r.body.fields.leaveEmpty === "REQUIRED", "guard: the state's only official can't move away without confirming");
+  r = await G(Object.assign({ action: "transfer", id: sb, level: "NATIONAL", designation: "Joint Secretary, DARPG", email: "js.tr@darpg.gov.in", reason: "Deputed to the Union government", leaveEmpty: true }, L));
+  ok(r.status === 200 && sdb.prepare("SELECT level, email FROM gov_users WHERE id = ?").get(r.body.id).level === "NATIONAL", "guard: moved after confirming; new email recorded");
+  const tev = sdb.prepare("SELECT detail FROM admin_events WHERE action = 'gov_user_transferred' ORDER BY created_at").all().map((x) => JSON.parse(x.detail));
+  ok(tev.length === 2 && tev[1].leftEmpty === true && tev[1].emailChanged === true && tev[0].to.district === "bihar--gaya", "officials: every transfer logged", tev);
+  // tidy up so the browser tests see the same people as before
+  for (const id of [gn.id, r.body.id]) await G({ action: "remove", id, reason: "test tidy-up", leaveEmpty: true });
 }
 
 // ---- audit trail ----

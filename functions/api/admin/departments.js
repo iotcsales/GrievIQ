@@ -25,6 +25,7 @@
 // to, so the page shows them next to it.
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
+import { officesWithNobody } from "../../_shared/transfers.js";
 import { listAreas } from "../../_shared/areas.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { checkTypeNames, addType, renameType, retireType, restoreType, canRetire, typeUsage, typesReady } from "../../_shared/dept-types.js";
@@ -90,6 +91,8 @@ export async function onRequestGet({ request, env }) {
   let offices;
   try { offices = await listOffices(env, area.id); }
   catch (e) { if (isMissingDeptTable(e)) return json(NOT_SET_UP, 503); throw e; }
+  // grieviq-54: offices with an agreement in force but nobody to reply.
+  if (allows(auth, "view_dept_officers")) { const empty = await officesWithNobody(env); for (const o of offices) if (empty.has(o.id)) o.noOfficer = true; }
   const units = await areaUnits(env, area.id);
   let pending = [];
   try { pending = await pendingFor(env, area.id); } catch (e) { pending = []; }
