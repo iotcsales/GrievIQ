@@ -44,7 +44,7 @@ export async function onRequestPost({ request, env }) {
 
   const rows = await env.DB.prepare(
     // Only wards in areas that are live (switched on for citizens).
-    `SELECT lu.id, lu.name, lu.localities, lu.rep_email, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.ward_boundary_geojson IS NOT NULL`
+    `SELECT lu.id, lu.name, lu.localities, lu.rep_email, lu.seat_status, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.ward_boundary_geojson IS NOT NULL`
   ).all();
 
   for (const row of rows.results || []) {
@@ -63,7 +63,8 @@ export async function onRequestPost({ request, env }) {
         localities: row.localities || null,
         // A ward can be known (boundary on file) before it can take
         // complaints: that needs a ward representative email on file.
-        open_for_filing: row.rep_email != null && String(row.rep_email).trim() !== "",
+        // grieviq-53: a vacant seat's complaints go straight to the next level.
+        open_for_filing: (row.rep_email != null && String(row.rep_email).trim() !== "") || row.seat_status === "VACANT",
       });
     }
   }

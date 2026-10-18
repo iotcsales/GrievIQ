@@ -189,7 +189,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // Only wards and villages in an area that is live (switched on).
     const localUnit = await env.DB.prepare(
-      `SELECT lu.id, lu.rep_email, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.id = ?`
+      `SELECT lu.id, lu.rep_email, lu.seat_status, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.id = ?`
     )
       .bind(local_unit_id)
       .first();
@@ -209,7 +209,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // A ward can be known before it can take complaints: that needs a ward
     // representative email on file (same rule as the Home page). Without
     // it, the complaint would reach no one.
-    if (!hasText(localUnit.rep_email)) {
+    if (!hasText(localUnit.rep_email) && localUnit.seat_status !== "VACANT") {   // grieviq-53: vacant seats go to the next level
       return new Response(
         JSON.stringify({ error: "This area can't take complaints yet. Please choose another area.", code: "not_open" }),
         { status: 400, headers: { "Content-Type": "application/json" } }

@@ -124,6 +124,12 @@ export const PERMISSIONS = {
   // and the view log.
   view_gov: ["super_admin", "operations_admin", "auditor"],
   manage_gov: ["super_admin"],
+  // grieviq-53: change of representative. Operators ask, super and
+  // operations admins approve (never their own) or apply directly; the
+  // auditor reads every change.
+  view_handovers: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
+  request_handover: ["data_entry_operator"],
+  apply_handover: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -158,6 +164,7 @@ export const PAGES = {
   "admin-subscriptions": "view_subscriptions",     // grieviq-46
   "admin-speed": "view_speed",                     // grieviq-47
   "admin-gov": "view_gov",                         // grieviq-48
+  "admin-handovers": "view_handovers",             // grieviq-53
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

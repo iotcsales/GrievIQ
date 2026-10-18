@@ -40,6 +40,7 @@ export async function resolveChain(env, localUnitId) {
       name: localUnit.rep_name,
       phone: localUnit.rep_phone,
       email: localUnit.rep_email,
+      status: localUnit.seat_status || "ELECTED",   // grieviq-53: ELECTED, ADMINISTRATOR or VACANT
     },
   ];
 
@@ -50,6 +51,7 @@ export async function resolveChain(env, localUnitId) {
       name: municipalBody.mayor_name,
       phone: municipalBody.mayor_phone,
       email: municipalBody.mayor_email,
+      status: municipalBody.seat_status || "ELECTED",
     });
   }
 
@@ -59,6 +61,7 @@ export async function resolveChain(env, localUnitId) {
     name: mla.mla_name,
     phone: mla.mla_phone,
     email: mla.mla_email,
+    status: mla.seat_status || "ELECTED",
   });
 
   tiers.push({
@@ -67,6 +70,7 @@ export async function resolveChain(env, localUnitId) {
     name: mp.mp_name,
     phone: mp.mp_phone,
     email: mp.mp_email,
+    status: mp.seat_status || "ELECTED",
   });
 
   return { localUnit, municipalBody, mla, mp, tiers };

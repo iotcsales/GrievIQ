@@ -91,10 +91,10 @@ export async function lookupMandates(env, emailIn) {
   let teamRes = { results: [] };
   let localUnits, municipalBodies, mlaConstituencies, mpConstituencies;
   const own = [
-    env.DB.prepare("SELECT id, name, unit_type FROM local_units WHERE rep_email = ?").bind(email),
-    env.DB.prepare("SELECT id, name FROM municipal_bodies WHERE mayor_email = ?").bind(email),
-    env.DB.prepare("SELECT id, name FROM mla_constituencies WHERE mla_email = ?").bind(email),
-    env.DB.prepare("SELECT id, name FROM mp_constituencies WHERE mp_email = ?").bind(email),
+    env.DB.prepare("SELECT * FROM local_units WHERE rep_email = ?").bind(email),
+    env.DB.prepare("SELECT * FROM municipal_bodies WHERE mayor_email = ?").bind(email),
+    env.DB.prepare("SELECT * FROM mla_constituencies WHERE mla_email = ?").bind(email),
+    env.DB.prepare("SELECT * FROM mp_constituencies WHERE mp_email = ?").bind(email),
   ];
   try {
     [localUnits, municipalBodies, mlaConstituencies, mpConstituencies, teamRes] = await env.DB.batch(own.concat([
@@ -110,17 +110,17 @@ export async function lookupMandates(env, emailIn) {
       id: row.id,
       name: row.name,
       label: row.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan",
-      role: ROLE.REP, officeRepEmail: email,
+      role: ROLE.REP, officeRepEmail: email, seat: row.seat_status || "ELECTED",
     });
   }
   for (const row of municipalBodies.results || []) {
-    mandates.push({ tier: "MAYOR", id: row.id, name: row.name, label: "Mayor", role: ROLE.REP, officeRepEmail: email });
+    mandates.push({ tier: "MAYOR", id: row.id, name: row.name, label: "Mayor", role: ROLE.REP, officeRepEmail: email, seat: row.seat_status || "ELECTED" });
   }
   for (const row of mlaConstituencies.results || []) {
-    mandates.push({ tier: "MLA", id: row.id, name: row.name, label: "MLA", role: ROLE.REP, officeRepEmail: email });
+    mandates.push({ tier: "MLA", id: row.id, name: row.name, label: "MLA", role: ROLE.REP, officeRepEmail: email, seat: row.seat_status || "ELECTED" });
   }
   for (const row of mpConstituencies.results || []) {
-    mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP", role: ROLE.REP, officeRepEmail: email });
+    mandates.push({ tier: "MP", id: row.id, name: row.name, label: "MP", role: ROLE.REP, officeRepEmail: email, seat: row.seat_status || "ELECTED" });
   }
 
   // Team memberships come after the person's own offices (so their own

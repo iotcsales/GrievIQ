@@ -1683,7 +1683,7 @@ with sync_playwright() as pw:
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
                 p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
-                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-reports", "gqd-billing"], "representative sees all eight guides " + tag, sop_ids(p))
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-takeover", "gqd-reports", "gqd-billing"], "representative sees all nine guides " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
                 if lang == "hi": ok(not re.findall(r"guide\.\w+", p.inner_text(".gq-drawer")) and "सहायता" in p.inner_text("#help-btn"), "Help in Hindi " + tag)
                 ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1") and p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "Help panel: no sideways scroll " + tag)
@@ -1748,7 +1748,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 11), ("deo@test.in", ["gqd-data"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-gov", "gqd-audit"])):
+    for who, want in (("super@test.in", 12), ("deo@test.in", ["gqd-data", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-gov", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2549,6 +2549,92 @@ with sync_playwright() as pw:
     shot(p, "84-national-official", full=False)
     ok(not errs, "no script errors (doors sign-in)", errs)
     ctx.close(); _d52.close()
+
+    # ---------- grieviq-53: change of representative ----------
+    import urllib.request, urllib.error
+    def ho_api(method, body=None, email="super@test.in", path="/api/admin/handovers"):
+        req = urllib.request.Request(B + path, method=method, data=(_json.dumps(body).encode() if body is not None else None), headers={"content-type": "application/json", "test-email": email})
+        try:
+            with urllib.request.urlopen(req) as r: return r.status, _json.loads(r.read())
+        except urllib.error.HTTPError as e: return e.code, _json.loads(e.read() or b"{}")
+    _d53 = _sq.connect(WORK + "/test.db", timeout=10)
+    for lang in ("en", "hi"):
+        for theme in ("dark", "light"):
+            for width in (1280, 375):
+                tag = "%s %s %d" % (lang, theme, width)
+                ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+                p.goto(B + "/admin-handovers.html"); p.wait_for_selector("#ho-form")
+                ok(p.locator("#ho-seat option").count() > 3 and p.locator("#ho-apply").count() == 1 and p.locator("#ho-ask").count() == 1, "handover page: super admin can apply or ask " + tag)
+                p.select_option("#ho-seat", "lu-tilak"); p.wait_for_selector(".ho-cur")
+                ok("r2@x.in" in p.inner_text(".ho-cur"), "handover page: shows who holds the seat now " + tag)
+                if lang == "hi": ok(not re.findall(r"adm\.\w+", p.inner_text("main")), "handover page in Hindi " + tag, re.findall(r"adm\.\w+", p.inner_text("main"))[:5])
+                ok(no_hscroll(p), "handover page: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS); ok(not bad, "handover page contrast AA " + tag, bad[:5])
+                small = p.evaluate(TARGET_JS); ok(not small, "handover page targets " + tag, small[:5])
+                if width == 1280: shot(p, "85-handover-admin-%s-%s" % (lang, theme), full=True)
+                ok(not errs, "no script errors (handover page %s)" % tag, errs)
+                ctx.close()
+    # an operator asks with nothing filled in: errors listed and linked; then a real request
+    ctx, p, errs = P("deo@test.in", width=375)
+    p.goto(B + "/admin-handovers.html"); p.wait_for_selector("#ho-form")
+    ok(p.locator("#ho-apply").count() == 0, "operator: only 'Send for approval'")
+    p.click("#ho-ask"); p.wait_for_selector("#ho-errs")
+    ok(p.evaluate("document.activeElement.id") == "ho-errs" and p.locator("#ho-errs li").count() >= 4 and p.get_attribute("#ho-seat", "aria-invalid") == "true", "operator: empty request lists what to fix, focus on the list")
+    p.click("#ho-errs a[href='#ho-seat']"); ok(p.evaluate("document.activeElement.id") == "ho-seat", "error link moves to the field")
+    p.select_option("#ho-seat", "lu-tilak"); p.wait_for_selector(".ho-cur")
+    p.fill("#ho-newName", "Rina New"); p.fill("#ho-newEmail", "r3@x.in"); p.select_option("#ho-reason", "ELECTION")
+    p.fill("#ho-evidence", "SEC/UP/2027/123"); p.fill("#ho-effectiveDate", p.get_attribute("#ho-effectiveDate", "max"))
+    p.click("#ho-ask"); p.wait_for_selector("#ho-msg.success")
+    ok(p.locator(".ho-sec .sb-card").count() == 1 and p.locator("[data-act=withdraw]").count() == 1 and p.locator("[data-act=approve]").count() == 0, "operator: request waits, can withdraw, cannot approve")
+    shot(p, "86-handover-operator-375", full=True)
+    ok(not errs, "no script errors (handover operator)", errs)
+    ctx.close()
+    # a second admin approves; the change shows in the record
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-handovers.html"); p.wait_for_selector("[data-act=approve]")
+    p.click("[data-act=reject]"); p.wait_for_selector(".row-msg.error")
+    ok(p.evaluate("document.activeElement.getAttribute('aria-invalid')") == "true", "reject without a reason: asked for one, focus on the box")
+    p.click("[data-act=approve]"); p.wait_for_selector("#ho-msg.success")
+    ok(p.locator(".ho-sec .sb-card").count() == 0 and "Rina New" in p.inner_text(".ho-log") and p.locator(".ho-log .st-APPLIED").count() >= 1, "approved: shown in recent changes")
+    ok(_d53.execute("SELECT rep_email FROM local_units WHERE id = 'lu-tilak'").fetchone()[0] == "r3@x.in", "approved: the seat has the new representative")
+    ok(not errs, "no script errors (handover approve)", errs)
+    ctx.close()
+    # the new representative's first sign-in: the summary card
+    hid = _d53.execute("SELECT id FROM seat_handovers WHERE new_email = 'r3@x.in' AND status = 'APPLIED' ORDER BY requested_at DESC").fetchone()[0]
+    for lang in ("en", "hi"):
+        for theme in ("light", "dark"):
+            tag = "%s %s" % (lang, theme)
+            ctx = br.new_context(viewport={"width": 390 if theme == "dark" else 1280, "height": 900})
+            ctx.add_cookies([{"name": "test_email", "value": "r3@x.in", "url": B}])
+            ctx.add_init_script("try{localStorage.setItem('griq-theme','%s');localStorage.setItem('%s','%s')}catch(e){}" % (theme, LANGKEY, lang))
+            p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+            p.goto(B + "/rep.html"); p.wait_for_selector(".ho-card")
+            txt = p.inner_text(".ho-card")
+            ok(("Tilak Nagar" in txt) and p.locator(".ho-card .ho-stats li").count() == 4 and p.locator("[data-ho-act=accept_plan]").count() == 1, "new representative sees the handover summary " + tag, txt[:200])
+            if lang == "hi": ok(not re.findall(r"rep\.\w+", txt), "summary in Hindi " + tag)
+            bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.ho-card')", 1)); ok(not bad, "summary contrast AA " + tag, bad[:5])
+            small = p.evaluate(TARGET_JS); ok(not small, "summary targets " + tag, small[:5])
+            ok(no_hscroll(p), "summary: no sideways scroll " + tag)
+            p.evaluate("document.querySelector('.ho-card').scrollIntoView()")
+            shot(p, "87-handover-rep-%s-%s" % (lang, theme), full=False)
+            ok(not errs, "no script errors (handover summary %s)" % tag, errs)
+            ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    ctx.add_cookies([{"name": "test_email", "value": "r3@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep.html"); p.wait_for_selector(".ho-card")
+    p.click("[data-ho-act=accept_plan]"); p.wait_for_selector(".ho-card .ho-ok")
+    ok(p.evaluate("document.activeElement.className") == "ho-ok" and _d53.execute("SELECT plan_accepted_at FROM seat_handovers WHERE id = ?", (hid,)).fetchone()[0], "continue the plan: recorded, focus on the confirmation")
+    p.click("[data-ho-act=seen]"); p.wait_for_timeout(400)
+    ok(p.locator(".ho-card").count() == 0 and p.evaluate("document.activeElement.getAttribute('data-tab')") == "cases", "Done: card goes, focus on Cases")
+    p.reload(); p.wait_for_selector(".tab-bar")
+    ok(p.locator(".ho-card").count() == 0, "summary not shown again")
+    ok(not errs, "no script errors (handover summary actions)", errs)
+    ctx.close()
+    # back as it was
+    st, r = ho_api("POST", {"action": "propose", "seatType": "ward", "seatId": "lu-tilak", "kind": "NEW_REP", "newName": "R Two", "newEmail": "r2@x.in", "reason": "OTHER", "reasonNote": "test reset", "evidence": "test reset", "effectiveDate": _d53.execute("SELECT date('now', '+330 minutes')").fetchone()[0], "applyNow": True})
+    ok(st == 200 and r.get("status") == "APPLIED", "handover: seat put back", r)
+    _d53.execute("UPDATE local_units SET rep_name = NULL WHERE id = 'lu-tilak'"); _d53.execute("UPDATE seat_handovers SET welcome_seen_at = 'x' WHERE welcome_seen_at IS NULL"); _d53.commit(); _d53.close()
 
     br.close()
 

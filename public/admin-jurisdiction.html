@@ -11,7 +11,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.j_page_title">GrievIQ Admin — Jurisdiction</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=53"></script><script src="/admin-nav.js?v=r16"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=54"></script><script src="/admin-nav.js?v=r17"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -174,6 +174,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
   html[lang='hi'] body { font-family: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  p.subtitle a { color: var(--admin-accent); }
 </style>
 </head>
 <body>
@@ -191,6 +192,7 @@
 <main>
   <h1 data-i18n="adm.j_title">Jurisdiction hierarchy</h1>
   <p class="subtitle" data-i18n="adm.j_sub">MP constituencies, their MLAs, and each MLA's wards. Fix contact details or correct a ward/MLA's assignment.</p>
+  <p class="subtitle" style="margin-top:-18px" data-i18n-html="adm.ho_jur_hint">A new person in a seat? Use <a href="/admin-handovers.html">Change of representative</a>, so their predecessor's access ends and the office is handed over properly. Edit here only to correct details of the same person.</p>
   <div class="request-banner" id="request-banner" hidden data-i18n-html="adm.j_banner">
     <b>You can request changes.</b> Nothing you send changes the live data straight away: each request is checked and
     approved by an administrator first. You can follow your requests on <a href="/admin-change-requests.html">Change requests</a>.

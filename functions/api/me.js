@@ -9,6 +9,7 @@
 // itself, not from an office admin assigning a role.
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
+import { welcomesFor } from "../_shared/handover.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -43,10 +44,12 @@ export async function onRequestGet(context) {
   return Response.json({
     email: result.email,
     // Item 8b: each office with this person's role there.
-    mandates: result.mandates.map(({ tier, id, name, label, role, job, sub }) => ({ tier, id, name, label, role: role || "REPRESENTATIVE", job: withNames(job),
+    mandates: result.mandates.map(({ tier, id, name, label, role, job, sub, seat }) => ({ tier, id, name, label, seat: seat || "ELECTED", role: role || "REPRESENTATIVE", job: withNames(job),
       // grieviq-46: the office's plan. Dates only for the representative and office manager.
       sub: sub ? (["OFFICE_MANAGER", "REPRESENTATIVE", undefined, null].includes(role) ? { status: sub.status, until: sub.until || null, graceUntil: sub.graceUntil || null, byAdmin: !!sub.byAdmin } : { status: sub.status === "PAUSED" ? "PAUSED" : "OK" }) : null })),
     // Item 8a: "google" (our own sign-in, can sign out) or "access".
     via: result.via || "access",
+    // grieviq-53: offices this person has just taken over (handover summary).
+    handovers: await welcomesFor(env, result.email).catch(() => []),
   }, { headers: { "Cache-Control": "no-store" } });
 }

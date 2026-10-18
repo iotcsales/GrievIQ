@@ -1828,6 +1828,130 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await fetch(B + "/gov-report")).status === 200, "page opens: /gov-report");
 }
 
+// ---- grieviq-53: change of representative ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const H = (who, b) => call(who, b ? "POST" : "GET", "/api/admin/handovers", b);
+  const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const base = (o) => Object.assign({ action: "propose", seatType: "ward", seatId: "lu-tilak", kind: "NEW_REP", newName: "Rina New", newEmail: "r3@x.in", reason: "ELECTION", evidence: "SEC/UP/2027/123", effectiveDate: today }, o || {});
+  // access
+  ok((await H(M)).status === 403, "handovers: data moderator has no access");
+  const au = await H(A);
+  ok(au.status === 200 && au.body.ready && !au.body.canRequest && !au.body.canApply, "handovers: auditor reads only", au.body);
+  ok((await H(A, base())).status === 403, "handovers: auditor can't propose");
+  const dv = await H(D);
+  ok(dv.body.canRequest && !dv.body.canApply, "handovers: operator may ask, not apply");
+  const sv = await H(S);
+  ok(sv.body.canApply && sv.body.seats.ward.some((w) => w.id === "lu-tilak" && w.email === "r2@x.in" && w.status === "ELECTED") && sv.body.seats.mla.some((m) => m.id === "mla-c") && sv.body.seats.mp.length === 1, "handovers: every seat with its holder", sv.body.seats && sv.body.seats.ward);
+  // checks
+  let r = await H(D, { action: "propose" });
+  ok(r.status === 400 && ["seat", "kind", "reason", "evidence", "effectiveDate"].every((k) => r.body.fields[k]), "handovers: empty request names each field", r.body);
+  r = await H(D, base({ effectiveDate: "2099-01-01" }));
+  ok(r.body.fields && r.body.fields.effectiveDate === "FUTURE", "handovers: no future date");
+  r = await H(D, base({ newEmail: "r2@x.in" }));
+  ok(r.body.fields && r.body.fields.newEmail === "SAME", "handovers: the same email is a correction, not a handover");
+  r = await H(D, base({ newEmail: "bad@" }));
+  ok(r.body.fields && r.body.fields.newEmail === "FORMAT", "handovers: email format");
+  r = await H(D, base({ reason: "OTHER" }));
+  ok(r.body.fields && r.body.fields.reasonNote === "REQUIRED", "handovers: 'Other' needs a note");
+  r = await H(D, base({ newName: "" }));
+  ok(r.body.fields && r.body.fields.newName === "REQUIRED", "handovers: name needed");
+  // the office before: a team member, an assignment, sharing on, a session and phone alerts for r2
+  sdb.prepare("INSERT INTO office_team (id, office_tier, office_id, member_email, member_name, role, status, confirmed_by_rep_email, added_by, added_at) VALUES ('t-ho','LOCAL','lu-tilak','fw2@x.in','Fatima Worker','FIELD_WORKER','ACTIVE','r2@x.in','r2@x.in','2026-10-01T00:00:00Z')").run();
+  sdb.prepare("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at) VALUES ('g-ho','GRV-HO0001','9000000099','lu-tilak','other','OPEN','Street light out','LOCAL',?)").run(new Date(Date.now() - 3600000).toISOString());
+  sdb.prepare("INSERT INTO case_assignments (id, grievance_id, office_tier, office_id, assignee_email, assigned_by, assigned_at) VALUES ('as-ho','g-ho','LOCAL','lu-tilak','fw2@x.in','r2@x.in',?)").run(new Date().toISOString());
+  sdb.prepare("INSERT OR REPLACE INTO office_gov_share (office_tier, office_id, office_name, share, changed_at, changed_by) VALUES ('LOCAL','lu-tilak','Tilak Nagar',1,?, 'r2@x.in')").run(new Date().toISOString());
+  sdb.prepare("INSERT INTO rep_sessions (id_hash, email, created_at, last_seen_at, expires_at) VALUES ('sess-ho-r2','r2@x.in',?,?,?)").run(new Date().toISOString(), new Date().toISOString(), new Date(Date.now() + 3600000).toISOString());
+  sdb.prepare("INSERT INTO push_subscriptions (id, email, endpoint, p256dh, auth, created_at) VALUES ('ps-ho','r2@x.in','https://push.example/ho','k','a',?)").run(new Date().toISOString());
+  // an operator asks; nobody approves their own; a second request for the same seat waits
+  r = await H(D, base());
+  ok(r.status === 200 && r.body.status === "PENDING", "handovers: operator's request waits for approval", r.body);
+  const id1 = r.body.id;
+  ok(sdb.prepare("SELECT rep_email FROM local_units WHERE id = 'lu-tilak'").get().rep_email === "r2@x.in", "handovers: nothing changes until approved");
+  r = await H(D, base({ newEmail: "r4@x.in" }));
+  ok(r.status === 409 && r.body.fields.seat === "PENDING", "handovers: one waiting request per seat");
+  ok((await H(D, { action: "approve", id: id1 })).status === 403, "handovers: operator can't approve");
+  let before = mails().length;
+  r = await H(S, { action: "approve", id: id1 });
+  ok(r.status === 200 && r.body.status === "APPLIED" && r.body.summary.assignmentsReturned === 1 && r.body.summary.shareSwitchedOff && r.body.summary.outgoingSignedOut, "handovers: approved and applied, with what was done", r.body);
+  const lu = sdb.prepare("SELECT rep_name, rep_email, seat_status FROM local_units WHERE id = 'lu-tilak'").get();
+  ok(lu.rep_email === "r3@x.in" && lu.rep_name === "Rina New" && lu.seat_status === null, "handovers: the seat shows the new representative", lu);
+  ok(sdb.prepare("SELECT ended_at, end_reason FROM rep_sessions WHERE id_hash = 'sess-ho-r2'").get().end_reason === "HANDOVER", "handovers: the outgoing person's sessions end");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM push_subscriptions WHERE email = 'r2@x.in'").get().n === 0, "handovers: and their phone alerts");
+  ok(sdb.prepare("SELECT end_reason FROM case_assignments WHERE id = 'as-ho'").get().end_reason === "HANDOVER", "handovers: the old team's cases return to the office");
+  ok(sdb.prepare("SELECT share FROM office_gov_share WHERE office_id = 'lu-tilak'").get().share === 0, "handovers: sharing with the state switched off");
+  const hm = mails().slice(before);
+  const out = hm.find((m) => m.to[0] === "r2@x.in"), inn = hm.find((m) => m.to[0] === "r3@x.in");
+  ok(out && /access to the office has ended/.test(out.subject) && inn && /welcome/.test(inn.subject), "handovers: emails to both people", hm.map((m) => m.to[0] + ": " + m.subject));
+  ok(hm.every((m) => !/GRV-|Street light|9000000099/.test(m.html)) && /पहुँच/.test(out.html) && /स्वागत|कार्यालय/.test(inn.html), "handovers: emails carry no case details, in English and Hindi");
+  ok((await call("r2@x.in", "GET", "/api/me")).status === 403, "handovers: the outgoing person can no longer open the office");
+  // the new representative's summary
+  let me = await call("r3@x.in", "GET", "/api/me");
+  const ho = me.body.handovers && me.body.handovers[0];
+  ok(me.status === 200 && ho && ho.id === id1 && ho.office === "Tilak Nagar-Kundari Rakabganj" && ho.teamPaused === 1 && !ho.planAccepted && me.body.mandates.some((m) => m.id === "lu-tilak" && m.seat === "ELECTED"), "handovers: the new representative sees the summary", me.body);
+  ok((await call("r1@x.in", "POST", "/api/handover", { id: id1, action: "seen" })).status === 404, "handovers: nobody else can answer it");
+  r = await call("r3@x.in", "POST", "/api/handover", { id: id1, action: "accept_plan" });
+  ok(r.status === 200 && r.body.planAccepted, "handovers: the new representative continues the plan");
+  r = await call("r3@x.in", "POST", "/api/handover", { id: id1, action: "seen" });
+  me = await call("r3@x.in", "GET", "/api/me");
+  ok(r.status === 200 && me.body.handovers.length === 0, "handovers: once read, not shown again");
+  const tm = await call("r3@x.in", "GET", "/api/team?office=LOCAL:lu-tilak");
+  ok(tm.status === 200 && (tm.body.members || []).some((m) => m.email === "fw2@x.in" && m.paused), "handovers: the old team is paused until confirmed", tm.body);
+  // a vacant seat: complaints go straight to the next level, not late
+  r = await H(S, base({ kind: "VACANT", reason: "RESIGNATION", newName: "", newEmail: "" }));
+  ok(r.status === 200 && r.body.status === "PENDING", "handovers: an admin's own request also waits if not applied now");
+  const id2 = r.body.id;
+  ok((await H(S, { action: "approve", id: id2 })).body.error === "OWN_REQUEST", "handovers: never approve your own");
+  r = await H(O, { action: "approve", id: id2 });
+  ok(r.status === 200 && r.body.status === "APPLIED", "handovers: a second admin approves");
+  const v = sdb.prepare("SELECT rep_name, rep_email, seat_status FROM local_units WHERE id = 'lu-tilak'").get();
+  ok(v.seat_status === "VACANT" && v.rep_email === null && v.rep_name === null, "handovers: the seat is vacant", v);
+  ok((await call("r3@x.in", "GET", "/api/me")).status === 403, "handovers: the previous holder loses access");
+  const io = await (await fetch(B + "/api/intake-options")).json();
+  ok(io.localUnits.some((u) => u.id === "lu-tilak"), "handovers: citizens can still file in a vacant ward");
+  const ml = await call("mla@x.in", "GET", "/api/grievances");
+  const gc = (ml.body.grievances || []).find((c) => c.id === "g-ho");
+  ok(gc && gc.currentTopTier === "MLA" && !gc.isLate, "handovers: the next level has the case at once, not late", gc);
+  ok((await H(S, base({ kind: "VACANT", reason: "RESIGNATION" }))).body.fields.kind === "ALREADY_VACANT", "handovers: already vacant");
+  // out of date: the seat changed after the request
+  r = await H(D, base({ kind: "ADMINISTRATOR", reason: "ADMINISTRATOR", newName: "BDO Kakori (Administrator)", newEmail: "bdo@x.in" }));
+  const id3 = r.body.id;
+  sdb.prepare("UPDATE local_units SET seat_status = NULL, rep_email = 'someone@x.in' WHERE id = 'lu-tilak'").run();
+  r = await H(S, { action: "approve", id: id3 });
+  ok(r.status === 409 && r.body.error === "OUT_OF_DATE" && sdb.prepare("SELECT status FROM seat_handovers WHERE id = ?").get(id3).status === "OUT_OF_DATE", "handovers: a request made against old details is not applied");
+  sdb.prepare("UPDATE local_units SET seat_status = 'VACANT', rep_email = NULL WHERE id = 'lu-tilak'").run();
+  // reject (with a reason) and withdraw
+  r = await H(D, base({ kind: "ADMINISTRATOR", reason: "ADMINISTRATOR", newName: "BDO Kakori (Administrator)", newEmail: "bdo@x.in" }));
+  const id4 = r.body.id;
+  ok((await H(S, { action: "reject", id: id4 })).status === 400, "handovers: rejecting needs a reason");
+  ok((await H(S, { action: "reject", id: id4, note: "Order not yet issued" })).body.status === "REJECTED", "handovers: rejected with a reason");
+  r = await H(D, base({ kind: "ADMINISTRATOR", reason: "ADMINISTRATOR", newName: "BDO Kakori (Administrator)", newEmail: "bdo@x.in" }));
+  ok((await H(S, { action: "withdraw", id: r.body.id })).status === 403 && (await H(D, { action: "withdraw", id: r.body.id })).body.status === "WITHDRAWN", "handovers: only the person who asked can withdraw");
+  // an administrator, applied directly
+  r = await H(S, base({ kind: "ADMINISTRATOR", reason: "ADMINISTRATOR", newName: "BDO Kakori (Administrator)", newEmail: "bdo@x.in", applyNow: true }));
+  ok(r.body.status === "APPLIED" && sdb.prepare("SELECT seat_status FROM local_units WHERE id = 'lu-tilak'").get().seat_status === "ADMINISTRATOR", "handovers: an administrator takes charge");
+  me = await call("bdo@x.in", "GET", "/api/me");
+  ok(me.status === 200 && me.body.mandates.some((m) => m.id === "lu-tilak" && m.seat === "ADMINISTRATOR") && me.body.handovers[0].kind === "ADMINISTRATOR", "handovers: the administrator sees the office, labelled");
+  const recent = (await H(A)).body.recent;
+  ok(recent.length >= 5 && recent.some((x) => x.status === "REJECTED" && x.decisionNote === "Order not yet issued"), "handovers: the auditor sees every decision");
+  const ev = sdb.prepare("SELECT action, COUNT(*) n FROM admin_events WHERE action LIKE 'seat_handover_%' GROUP BY action").all().reduce((m, x) => (m[x.action] = x.n, m), {});
+  ok(ev.seat_handover_requested >= 6 && ev.seat_handover_applied >= 3 && ev.seat_handover_rejected === 1 && ev.seat_handover_withdrawn === 1 && ev.seat_handover_out_of_date === 1 && ev.seat_handover_plan_accepted === 1 && ev.seat_handover_summary_read === 1, "handovers: every step logged", ev);
+  // back as it was for the browser tests
+  r = await H(S, base({ newName: "R Two", newEmail: "r2@x.in", applyNow: true }));
+  ok(r.body.status === "APPLIED", "handovers: seat returned to its first representative");
+  sdb.prepare("UPDATE local_units SET rep_name = NULL WHERE id = 'lu-tilak'").run();
+  sdb.prepare("UPDATE seat_handovers SET welcome_seen_at = ? WHERE new_email = 'r2@x.in'").run(new Date().toISOString());
+  sdb.prepare("DELETE FROM case_assignments WHERE id = 'as-ho'").run();
+  sdb.prepare("DELETE FROM notify_state WHERE grievance_id = 'g-ho'").run();
+  sdb.prepare("DELETE FROM grievances WHERE id = 'g-ho'").run();
+  sdb.prepare("DELETE FROM office_team WHERE id = 't-ho'").run();
+  sdb.prepare("DELETE FROM office_gov_share WHERE office_id = 'lu-tilak'").run();
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

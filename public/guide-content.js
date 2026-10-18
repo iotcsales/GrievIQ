@@ -127,6 +127,15 @@
             ["When someone leaves your office, tap **Remove** the same day.", "कोई कार्यालय छोड़े तो उसी दिन **हटाएँ** दबाएँ।"],
             ["**Share with the state government** (optional): the state's dashboard shows your area only inside district totals. Tap **Share my office's figures** only if you want the state to see your office's own figures; **Stop sharing** at any time.", "**राज्य सरकार के साथ साझा करें** (वैकल्पिक): राज्य के डैशबोर्ड पर आपका क्षेत्र केवल ज़िले के कुल योग में दिखता है। राज्य को अपने कार्यालय के आँकड़े दिखाने हों तभी **मेरे कार्यालय के आँकड़े साझा करें** दबाएँ; कभी भी **साझा करना बंद करें**।"],
           ] },
+        { id: "takeover", roles: ["REPRESENTATIVE"], title: ["When you take over an office", "जब आप कार्यालय संभालें"],
+          who: ["A newly elected representative, or an administrator.", "नव-निर्वाचित जनप्रतिनिधि, या प्रशासक।"],
+          steps: [
+            ["Sign in with the Google account for the email GrievIQ has on record for you. The **handover summary** at the top shows the office's open complaints, those past their time limit, those waiting on a department, and the team to confirm.", "GrievIQ में दर्ज ईमेल वाले Google खाते से साइन इन करें। ऊपर **हस्तांतरण सारांश** में कार्यालय की खुली शिकायतें, समय-सीमा पार शिकायतें, विभाग के पास लंबित शिकायतें, और पुष्टि हेतु टीम दिखती है।"],
+            ["Open **Team**: **Confirm** each person you want to keep, and **Remove** anyone who has left. Until you confirm them, the previous team can't see or change anything.", "**टीम** खोलें: जिन्हें रखना है उनकी **पुष्टि करें**, और जो चले गए उन्हें **हटाएँ**। पुष्टि होने तक पिछली टीम कुछ देख या बदल नहीं सकती।"],
+            ["Tap **Continue the office's plan** to agree to it; bills will then be raised to you.", "सहमति के लिए **कार्यालय की योजना जारी रखें** दबाएँ; इसके बाद बिल आपके नाम बनेंगे।"],
+            ["Start with the complaints past their time limit; they may already have moved up to the next level.", "समय-सीमा पार शिकायतों से शुरू करें; वे अगले स्तर तक जा चुकी हो सकती हैं।"],
+            ["Sharing your office's figures with the state government is off until you choose it, in **Team**.", "राज्य सरकार के साथ अपने कार्यालय के आँकड़े साझा करना तब तक बंद है जब तक आप **टीम** में इसे न चुनें।"],
+          ] },
         { id: "reports", roles: ["REPRESENTATIVE", "OFFICE_MANAGER", "OFFICE_ASSISTANT"], title: ["Reports and audit", "रिपोर्ट और ऑडिट"],
           who: ["Anyone in the office who can see them.", "कार्यालय में जिन्हें ये दिखते हैं।"],
           steps: [
@@ -246,6 +255,16 @@
             ["**Operations or super admin:** open **Change requests**, check the source, then approve or reject with a reason.", "**संचालन या सुपर एडमिन:** **बदलाव अनुरोध** खोलें, स्रोत जाँचें, फिर कारण सहित स्वीकार या अस्वीकार करें।"],
             ["A new city or district: add it in **Areas**, import wards, check them, then switch the area on for citizens.", "नया नगर या जिला: **क्षेत्र** में जोड़ें, वार्ड आयात करें, जाँचें, फिर नागरिकों के लिए चालू करें।"],
           ] },
+        { id: "handover", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Change of representative", "जनप्रतिनिधि परिवर्तन"],
+          who: ["A data entry operator asks; a super or operations admin approves or applies.", "डेटा एंट्री ऑपरेटर अनुरोध करता है; सुपर या संचालन एडमिन स्वीकृत या लागू करता है।"],
+          steps: [
+            ["Do this **only on official evidence**: the election result, the government order appointing an administrator, or the accepted resignation. Have its number or link ready.", "यह **केवल आधिकारिक प्रमाण पर** करें: चुनाव परिणाम, प्रशासक नियुक्ति का सरकारी आदेश, या स्वीकृत त्यागपत्र। उसकी संख्या या लिंक तैयार रखें।"],
+            ["Open **Change of representative** (Areas & data). Choose the kind of seat and the seat, then what is changing: **a new representative**, **an administrator takes charge**, or **the seat becomes vacant**.", "**जनप्रतिनिधि परिवर्तन** (क्षेत्र और डेटा) खोलें। पद का प्रकार और पद चुनें, फिर क्या बदल रहा है: **नया जनप्रतिनिधि**, **प्रशासक कार्यभार लेता है**, या **पद रिक्त होता है**।"],
+            ["Fill the new person's name and the email of the Google account they will use, the reason, the evidence and the date it took effect.", "नए व्यक्ति का नाम और उस Google खाते का ईमेल जिसका वे उपयोग करेंगे, कारण, प्रमाण और लागू होने की तारीख़ भरें।"],
+            ["**Operator:** tap **Send for approval**. **Super or operations admin:** tap **Apply now**, or approve a waiting request (never your own).", "**ऑपरेटर:** **स्वीकृति हेतु भेजें** दबाएँ। **सुपर या संचालन एडमिन:** **अभी लागू करें** दबाएँ, या प्रतीक्षारत अनुरोध स्वीकृत करें (अपना कभी नहीं)।"],
+            ["Once applied, the outgoing person's access ends, the team waits for the new person to confirm them, and both get a short email. Check **Recent changes** to see what was done.", "लागू होने पर जाने वाले व्यक्ति की पहुँच समाप्त होती है, टीम नए व्यक्ति की पुष्टि की प्रतीक्षा करती है, और दोनों को छोटा ईमेल जाता है। क्या हुआ, **हाल के परिवर्तन** में देखें।"],
+          ],
+          note: [["To correct a spelling or phone number for the **same** person, use **Jurisdiction** instead.", "**उसी** व्यक्ति की वर्तनी या फ़ोन नंबर सुधारने के लिए **क्षेत्राधिकार** उपयोग करें।"]] },
         { id: "dept", roles: ["super_admin", "operations_admin"], title: ["Bring a department office on board", "विभागीय कार्यालय को जोड़ें"],
           who: ["Operations or super admin.", "संचालन या सुपर एडमिन।"],
           steps: [

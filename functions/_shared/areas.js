@@ -49,7 +49,7 @@ export async function listAreas(env, opts) {
               COUNT(lu.id) AS units,
               SUM(CASE WHEN lu.unit_type = 'URBAN' THEN 1 ELSE 0 END) AS urban,
               SUM(CASE WHEN lu.unit_type = 'RURAL' THEN 1 ELSE 0 END) AS rural,
-              SUM(CASE WHEN COALESCE(TRIM(lu.rep_email), '') <> '' THEN 1 ELSE 0 END) AS with_email,
+              SUM(CASE WHEN COALESCE(TRIM(lu.rep_email), '') <> '' OR lu.seat_status = 'VACANT' THEN 1 ELSE 0 END) AS with_email,
               SUM(CASE WHEN lu.ward_boundary_geojson IS NOT NULL THEN 1 ELSE 0 END) AS with_boundary
          FROM areas a LEFT JOIN local_units lu ON lu.area_id = a.id
         ${liveOnly ? "WHERE a.live = 1" : ""}

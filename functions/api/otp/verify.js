@@ -143,6 +143,8 @@ async function buildCaseDetail(env, grievance) {
   const tiers = chain.tiers.map((t, i) => ({
     tier: t.tier,
     label: t.label,
+    // grieviq-53: "VACANT" or "ADMINISTRATOR" when the seat isn't held by an elected representative.
+    seat: t.status === "VACANT" || t.status === "ADMINISTRATOR" ? t.status : null,
     visible: i <= result.currentTierIndex,
     current: limits.tiers[i].current,
     slaBreached: limits.tiers[i].slaBreached,

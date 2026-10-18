@@ -11,7 +11,8 @@
 // only asked when the answer would actually fill a gap. The flags reveal
 // nothing about who the representatives are.
 //
-// Only wards with a representative email on file are offered, so every
+// Only wards with a representative email on file (or a vacant seat, whose
+// complaints go straight to the next level: grieviq-53) are offered, so every
 // complaint filed can reach someone -- and only in areas (cities and
 // districts) that are live. Each ward carries its area's name and link
 // name, and the list of live areas comes too (Home uses it to recognise a
@@ -37,7 +38,7 @@ export async function onRequestGet({ env }) {
        LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id
        LEFT JOIN mp_constituencies mp ON mp.id = mla.mp_constituency_id
        ${join}
-       WHERE lu.rep_email IS NOT NULL
+       WHERE (lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT')
        ORDER BY lu.name ASC`
     ).all();
 

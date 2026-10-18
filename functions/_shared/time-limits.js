@@ -71,7 +71,7 @@ export function timeLimitStatus(grievance, category, chainTiers, result) {
     return {
       current: isCurrent && isUnresolved,
       slaBreached: isUnresolved && (
-        (i >= startIndex && i < result.currentTierIndex) ||
+        (i >= startIndex && i < result.currentTierIndex && !(t && t.status === "VACANT")) ||
         (isCurrent && result.ackOverdue) ||
         (isCurrent && lastLevelOverdue)
       ),

@@ -26,6 +26,16 @@
 
 import { toUtcMs } from "./time-limits.js";
 
+// grieviq-53: a VACANT seat has nobody to act, so a case never waits there:
+// it goes on to the next level that has someone (the top level keeps it if
+// every level is vacant). The level it skips to is not marked late for the
+// empty seat; its own time is counted from the same clock as usual.
+export function skipVacant(chainTiers, index) {
+  let i = Math.max(0, index);
+  while (i < chainTiers.length - 1 && chainTiers[i] && chainTiers[i].status === "VACANT") i++;
+  return i;
+}
+
 // Where the escalation clock starts: filing at the first level, or (for a
 // reopened case) the reopening at the level it was sent to.
 export function clockStart(grievance, chainTiers) {
@@ -53,10 +63,11 @@ export function computeEscalation(grievance, category, chainTiers) {
   // auto-escalate — they're flagged for manual/legal review instead of
   // being pushed up the chain on a clock that doesn't fairly apply.
   if (!category.resolution_sla_hours) {
+    const idx = skipVacant(chainTiers, start.index);
     return {
       ...base,
-      currentTierIndex: start.index,
-      currentTier: chainTiers[start.index],
+      currentTierIndex: idx,
+      currentTier: chainTiers[idx],
       ackOverdue,
       needsLegalReview: true,
     };
@@ -90,6 +101,8 @@ export function computeEscalation(grievance, category, chainTiers) {
       tierIndex = i;
     }
   }
+
+  tierIndex = skipVacant(chainTiers, tierIndex);
 
   return {
     ...base,

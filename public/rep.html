@@ -21,8 +21,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=53"></script>
-<script src="/guide-content.js?v=48"></script>
+<script src="/i18n.js?v=54"></script>
+<script src="/guide-content.js?v=49"></script>
 <script src="/guide.js?v=40"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -849,6 +849,21 @@
   .plan-note p + p { margin-top: 6px; }
   .plan-note .plan-pay { margin-top: 8px; font: inherit; font-weight: 700; color: var(--brand); background: var(--card); border: 2px solid var(--brand); border-radius: 8px; padding: 6px 14px; cursor: pointer; min-height: 36px; }
   .plan-note .plan-pay:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+  /* grieviq-53: handover summary for a new representative or administrator */
+  .ho-card { margin: 0 0 16px; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--line); border-left: 4px solid var(--brand); background: var(--card); color: var(--ink); font-size: 14px; line-height: 1.55; }
+  .ho-card h2 { font-size: 17px; margin: 0 0 4px; }
+  .ho-card p { margin: 0 0 8px; }
+  .ho-card .ho-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; padding: 0; list-style: none; }
+  .ho-card .ho-stats li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .ho-card .ho-stats b { display: block; font-size: 22px; line-height: 1.2; }
+  .ho-card .ho-plan { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
+  .ho-card .ho-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .ho-card button { font: inherit; font-weight: 700; border-radius: 8px; padding: 6px 14px; min-height: 40px; cursor: pointer; border: 2px solid var(--brand); background: var(--card); color: var(--brand); }
+  .ho-card button.ho-main { background: var(--brand); color: #fff; }
+  :root[data-theme="dark"] .ho-card button.ho-main { color: var(--card); }
+  .ho-card button:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+  .ho-card .ho-ok { font-weight: 700; }
+  @media print { html.printing-ho .top-strip, html.printing-ho .console-header, html.printing-ho .authority-bar, html.printing-ho .mandate-strip, html.printing-ho .tab-bar, html.printing-ho main > *:not(.ho-card), html.printing-ho .ho-card .ho-acts, html.printing-ho .ho-card .ho-plan button { display: none !important; } }
   .welcome-card { margin: 0 0 16px; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--brand); background: var(--brand-tint); color: var(--ink); }
   .welcome-card h2 { margin: 0 0 6px; font-size: 18px; font-family: "Source Serif 4", Georgia, serif; }
   .welcome-card p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; }
@@ -3258,6 +3273,76 @@ function planNotes() {
   });
   return out;
 }
+// grieviq-53: the summary someone sees after taking over an office (a new
+// representative, or an administrator). Figures are counted from the cases
+// already loaded; nothing is shown about any citizen.
+function hoMandate(h) { return myMandates().filter(function(m) { return m.tier === h.tier && m.id === h.officeId; })[0] || null; }
+function hoCounts(h) {
+  var key = h.tier + ':' + h.officeId, n = { open: 0, late: 0, dept: 0 };
+  currentCases.forEach(function(c) {
+    if (c.officeKey !== key || c.status === 'RESOLVED' || c.status === 'CLOSED') return;
+    n.open++;
+    if (c.isLate || c.ackOverdue) n.late++;
+    if (c.deptState && c.deptState.phase === 'WITH_DEPT') n.dept++;
+  });
+  return n;
+}
+function hoPlanText(m) {
+  var s = m && m.sub; if (!s) return T('rep.ho_plan_none');
+  var k = 'rep.ho_plan_' + s.status;
+  var t = T(k, { date: s.until ? planDate(s.until) : '' });
+  return t === k ? T('rep.ho_plan_none') : t;
+}
+var hoNotice = {};
+function handoverCards() {
+  var list = (currentMe && currentMe.handovers) || [];
+  return list.map(function(h) {
+    var m = hoMandate(h); if (!m) return '';
+    var n = hoCounts(h), id = 'ho-' + h.id.replace(/[^a-zA-Z0-9]/g, '');
+    return '<section class="ho-card" id="' + id + '" aria-labelledby="' + id + '-h" data-ho="' + esc(h.id) + '">' +
+      '<h2 id="' + id + '-h" tabindex="-1">' + esc(T(h.kind === 'ADMINISTRATOR' ? 'rep.ho_h_admin' : 'rep.ho_h', { office: h.office })) + '</h2>' +
+      '<p>' + esc(T(h.from ? 'rep.ho_since_from' : 'rep.ho_since', { date: dcDate(h.effectiveDate), name: h.from || '' })) + ' ' + esc(T('rep.ho_records')) + '</p>' +
+      '<ul class="ho-stats">' +
+        '<li><b>' + n.open + '</b>' + esc(T('rep.ho_n_open')) + '</li>' +
+        '<li><b>' + n.late + '</b>' + esc(T('rep.ho_n_late')) + '</li>' +
+        '<li><b>' + n.dept + '</b>' + esc(T('rep.ho_n_dept')) + '</li>' +
+        '<li><b>' + h.teamPaused + '</b>' + esc(T('rep.ho_n_team')) + '</li>' +
+      '</ul>' +
+      (h.teamPaused ? '<p>' + esc(T('rep.ho_team_p')) + '</p>' : '') +
+      '<div class="ho-plan"><p><b>' + esc(T('rep.ho_plan_h')) + '</b> ' + esc(hoPlanText(m)) + '</p>' +
+        (h.planAccepted ? '<p class="ho-ok" role="status">' + esc(T('rep.ho_plan_ok')) + '</p>'
+          : '<p>' + esc(T('rep.ho_plan_ask')) + '</p><button type="button" class="ho-main" data-ho-act="accept_plan">' + esc(T('rep.ho_plan_btn')) + '</button>') + '</div>' +
+      (hoNotice[h.id] ? '<p class="ho-ok" role="status">' + esc(hoNotice[h.id]) + '</p>' : '') +
+      '<div class="ho-acts">' + (h.teamPaused && teamOffices().length ? '<button type="button" data-ho-act="team">' + esc(T('rep.ho_team_btn')) + '</button>' : '') +
+        '<button type="button" data-ho-act="print">' + esc(T('rep.ho_print')) + '</button>' +
+        '<button type="button" data-ho-act="seen">' + esc(T('rep.ho_done')) + '</button></div>' +
+    '</section>';
+  }).join('');
+}
+async function hoAct(btn) {
+  var card = btn.closest('.ho-card'), id = card.getAttribute('data-ho'), act = btn.getAttribute('data-ho-act');
+  if (act === 'team') { var t = document.querySelector('.tab-btn[data-tab="team"]'); if (t) { t.click(); t.focus(); } return; }
+  if (act === 'print') { document.documentElement.classList.add('printing-ho'); window.print(); setTimeout(function() { document.documentElement.classList.remove('printing-ho'); }, 500); return; }
+  btn.disabled = true;
+  try {
+    var res = await fetch('/api/handover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, action: act }) });
+    btn.disabled = false;
+    if (!res.ok) { hoNotice[id] = T('rep.ho_err'); }
+    else if (act === 'accept_plan') {
+      currentMe.handovers.forEach(function(h) { if (h.id === id) h.planAccepted = true; });
+      hoNotice[id] = '';
+    } else if (act === 'seen') {
+      currentMe.handovers = currentMe.handovers.filter(function(h) { return h.id !== id; });
+      card.remove();
+      var c = document.querySelector('.tab-btn[data-tab="cases"]'); if (c) c.focus();
+      return;
+    }
+  } catch (e) { btn.disabled = false; hoNotice[id] = T('rep.ho_err'); }
+  var fresh = document.createElement('div'); fresh.innerHTML = handoverCards();
+  var again = fresh.querySelector('[data-ho="' + id + '"]');
+  if (again) { card.replaceWith(again); wireHandover(again); var ok = again.querySelector('.ho-ok') || again.querySelector('h2'); if (ok) { ok.setAttribute('tabindex', '-1'); ok.focus(); } }
+}
+function wireHandover(root) { (root || document).querySelectorAll('[data-ho-act]').forEach(function(b) { b.addEventListener('click', function() { hoAct(b); }); }); }
 function renderShell() {
   document.getElementById('app').innerHTML =
     '<div class="top-strip"><div class="top-strip-inner"><span>' + esc(T('rep.strip')) + '</span>' +
@@ -3281,7 +3366,7 @@ function renderShell() {
       (hasAuditTab() ? '<button type="button" class="tab-btn" data-tab="audit">' + auditTabLabel() + '</button>' : '') +
       (billingOffices().length ? '<button type="button" class="tab-btn" data-tab="billing">' + esc(T('rep.tab_billing')) + '</button>' : '') +
     '</div>' +
-    '<main>' + planNotes() + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
+    '<main>' + planNotes() + handoverCards() + welcomeCard() + '<div id="filter-slot"></div><div id="content"></div></main>';
   filterKey = '';
   if (window.GIQGuide) window.GIQGuide.setRoles('rep', myMandates().map(function(m) { return m.role || 'REPRESENTATIVE'; }));
   if (window.GIQ) window.GIQ.apply(document.querySelector('.top-strip'));   // draws the हिन्दी / English button
@@ -3291,6 +3376,7 @@ function renderShell() {
   updateSummary();
   updateTabs();
   if (window.GIQN) window.GIQN.mount();   // the notification bell (rep-notify.js)
+  wireHandover();
   document.querySelectorAll('[data-plan-pay]').forEach(function(b) {
     b.addEventListener('click', function() { var t = document.querySelector('.tab-btn[data-tab="billing"]'); if (t) { t.click(); t.focus(); } });
   });

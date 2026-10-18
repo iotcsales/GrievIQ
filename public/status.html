@@ -250,6 +250,7 @@
   .tier-label { font-weight: 700; font-size: 14px; }
   .ladder li:not(.reached) .tier-label { color: var(--ink-soft); font-weight: 500; }
   .tier-status { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .tier-seat { font-size: 12.5px; color: var(--ink); margin-top: 2px; font-style: italic; }
   .tier-status.breached { color: var(--brick); font-weight: 600; }
 
   .next-box { background: var(--teal-tint); border: 1px solid var(--teal); border-radius: 12px; padding: 12px 14px; margin: 14px 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
@@ -372,7 +373,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=53"></script>
+<script src="/i18n.js?v=54"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=43" defer></script>
 </head>
@@ -901,6 +902,9 @@
       else if (waiting && t.visible) statusText = GIQ.t(i === c.currentTierIndex ? 'status.tier_waiting' : 'status.tier_handled');
       else if (t.visible) statusText = finished ? GIQ.t('status.tier_handled') : GIQ.t('status.tier_current');
       else statusText = GIQ.t('status.tier_not_yet');
+      // grieviq-53: a vacant seat is skipped (not late); an administrator holds some seats.
+      if (t.seat === 'VACANT' && !t.current) statusText = GIQ.t('status.tier_vacant');
+      const seatNote = t.seat === 'ADMINISTRATOR' ? `<div class="tier-seat">${escapeHtml(GIQ.t('status.seat_admin'))}</div>` : (t.seat === 'VACANT' && t.current ? `<div class="tier-seat">${escapeHtml(GIQ.t('status.seat_vacant_top'))}</div>` : '');
 
       // Deadlines for the level currently handling the case.
       let dueHtml = '';
@@ -914,6 +918,7 @@
       li.innerHTML = `
       <span class="dot" aria-hidden="true">${dotIcon}</span>
         <div class="tier-label">${escapeHtml(GIQ.level(t.label))}</div>
+        ${seatNote}
         <div class="tier-status${t.slaBreached ? ' breached' : ''}">${statusText}</div>
         ${dueHtml}
       `;

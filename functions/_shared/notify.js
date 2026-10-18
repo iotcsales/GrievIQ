@@ -27,7 +27,7 @@
 // about cases assigned to them.
 
 import { resolveChain } from "./jurisdiction.js";
-import { computeEscalation } from "./escalation.js";
+import { computeEscalation, skipVacant } from "./escalation.js";
 import { toUtcMs } from "./time-limits.js";
 import { coversWard, ROLE } from "./team.js";
 import { sendPush, pushConfigured } from "./webpush.js";
@@ -450,17 +450,19 @@ export async function notifyNewCase(env, origin, g, preload) {
     const category = (preload && preload.category) || await env.DB.prepare("SELECT * FROM grievance_categories WHERE id = ?").bind(g.category_id).first();
     if (!chain || !category) return;
     const offices = chainOffices(chain);
-    const first = offices[0];
+    // grieviq-53: a vacant seat is skipped; the complaint starts with the next level.
+    const startIdx = skipVacant(chain.tiers, 0);
+    const first = offices[startIdx];
     const created = toUtcMs(g.created_at) || Date.now();
     const ackMs = category.ack_sla_hours ? created + category.ack_sla_hours * 3600000 : null;
-    const dueMs = levelDueMs(g, category, chain.tiers, 0);
+    const dueMs = levelDueMs(g, category, chain.tiers, startIdx);
     const people = await officeRecipients(env, first.tier, first.id, chain.localUnit.id, first.email);
     await createNotices(env, origin, people, {
       kind: KIND.NEW_CASE, key: "NEW:" + g.id, officeTier: first.tier, officeId: first.id, g, category,
       wardName: chain.localUnit.name, dueMs, data: ackMs ? { ackDue: new Date(ackMs).toISOString() } : null,
     });
     await emailCitizen(env, origin, "RECEIVED", g, { category, wardName: chain.localUnit.name, label: first.label, ackMs, dueMs });
-    await setState(env, g.id, 0, "");
+    await setState(env, g.id, startIdx, "");
     await flushOutbox(env, 5);
   } catch (e) { /* the hourly job catches up */ }
 }
@@ -552,10 +554,10 @@ async function openCasesWithChains(env) {
     const p = m && mp.get(String(m.mp_constituency_id));
     if (!lu || !c || !m || !p) continue;
     const body = lu.municipal_body_id ? mb.get(String(lu.municipal_body_id)) : null;
-    const tiers = [{ tier: "LOCAL", label: lu.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan", email: lu.rep_email }];
-    if (body && body.has_mayor) tiers.push({ tier: "MAYOR", label: "Mayor", email: body.mayor_email });
-    tiers.push({ tier: "MLA", label: "MLA", email: m.mla_email });
-    tiers.push({ tier: "MP", label: "MP", email: p.mp_email });
+    const tiers = [{ tier: "LOCAL", label: lu.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan", email: lu.rep_email, status: lu.seat_status || "ELECTED" }];
+    if (body && body.has_mayor) tiers.push({ tier: "MAYOR", label: "Mayor", email: body.mayor_email, status: body.seat_status || "ELECTED" });
+    tiers.push({ tier: "MLA", label: "MLA", email: m.mla_email, status: m.seat_status || "ELECTED" });
+    tiers.push({ tier: "MP", label: "MP", email: p.mp_email, status: p.seat_status || "ELECTED" });
     out.push({ g, category: c, chain: { localUnit: lu, municipalBody: body, mla: m, mp: p, tiers } });
   }
   return out;
@@ -582,7 +584,7 @@ export async function runNotifications(env, origin, nowMs) {
       const st = states.get(g.id);
       if (!st) {
         const ageH = (now - toUtcMs(g.created_at)) / 3600000;
-        if (!marker && idx === 0 && ageH <= NEW_CASE_CATCHUP_HOURS) { await notifyNewCase(env, origin, g, { chain, category }); done.newCases++; }
+        if (!marker && idx === skipVacant(chain.tiers, 0) && ageH <= NEW_CASE_CATCHUP_HOURS) { await notifyNewCase(env, origin, g, { chain, category }); done.newCases++; }
         else { await setState(env, g.id, idx, marker); done.baseline++; }      // older cases: start from where they are, silently
         continue;
       }
