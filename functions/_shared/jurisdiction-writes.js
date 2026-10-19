@@ -10,6 +10,7 @@
 
 import { validateContact, emailDomainCanReceive, EMAIL_RE } from "./contact-validation.js";
 import { areasReady } from "./areas.js";
+import { isSeatOffice } from "./seats.js";
 
 // Which area (city or district) a new ward or village goes in: the one
 // given, else the area most of its MLA constituency's wards are in, else
@@ -36,10 +37,25 @@ export const CONTACT_TABLES = {
   mayor: { table: "municipal_bodies", nameCol: "mayor_name", phoneCol: "mayor_phone", emailCol: "mayor_email", label: "Mayor" },
 };
 
+// grieviq-57: seats B-F of a ward with several members ("<ward>~B") are
+// kept in ward_seats. They are still "ward" records everywhere else.
+export const SEAT_TABLE = { table: "ward_seats", nameCol: "rep_name", phoneCol: "rep_phone", emailCol: "rep_email", label: "Ward member", seat: true };
+export function contactDef(type, id) {
+  if (type === "ward" && isSeatOffice(id)) return SEAT_TABLE;
+  return CONTACT_TABLES[type] || null;
+}
+
 // Current contact values of one record, plus a readable label, or null.
 export async function readContact(env, type, id) {
-  const def = CONTACT_TABLES[type];
+  const def = contactDef(type, id);
   if (!def || !id) return null;
+  if (def.seat) {
+    const row = await env.DB.prepare(
+      "SELECT s.rep_name AS name, s.rep_phone AS phone, s.rep_email AS email, lu.name || ' · Seat ' || s.seat_label AS place FROM ward_seats s JOIN local_units lu ON lu.id = s.local_unit_id WHERE s.id = ?"
+    ).bind(id).first();
+    if (!row) return null;
+    return { values: { name: row.name ?? null, phone: row.phone ?? null, email: row.email ?? null }, label: def.label + " — " + row.place };
+  }
   const labelCol = type === "mp" ? "name" : type === "mla" ? "name" : type === "ward" ? "name" : "name";
   const row = await env.DB.prepare(
     `SELECT ${def.nameCol} AS name, ${def.phoneCol} AS phone, ${def.emailCol} AS email, ${labelCol} AS place

@@ -11,7 +11,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="adm.j_page_title">GrievIQ Admin — Jurisdiction</title>
-<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=58"></script><script src="/admin-nav.js?v=r18"></script><style>
+<script>try{if(localStorage.getItem("griq-admin-theme")==="light")document.documentElement.classList.add("light-theme");}catch(e){}</script><script src="/i18n.js?v=59"></script><script src="/admin-nav.js?v=r18"></script><style>
   :root {
     --admin-bg: #14181f;
     --admin-panel: #1c222c;
@@ -77,6 +77,10 @@
   }
   button.small-btn:hover { background: #2b3341; }
   .hidden { display: none; }
+  /* grieviq-57: seats of a ward with several members */
+  .node-row.seat { padding-left: 88px; background: transparent; }
+  .seat-tag { display: inline-block; font-size: 12px; font-weight: 600; border: 1px solid var(--admin-border); border-radius: 4px; padding: 1px 6px; margin-right: 6px; }
+  .seats-note { font-size: 13px; color: var(--admin-muted); margin: 8px 0 0; line-height: 1.45; }
 
   .modal-backdrop {
     display: none;
@@ -237,6 +241,21 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="seats-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="seats-modal-title">
+    <h3 id="seats-modal-title" data-i18n="adm.j_members_title">Members in this ward</h3>
+    <p class="modal-context" id="seats-modal-ward"></p>
+    <label for="seats-count" data-i18n="adm.j_members_label">How many elected members this ward has</label>
+    <select id="seats-count" aria-describedby="seats-note seats-error"></select>
+    <p class="seats-note" id="seats-note" data-i18n="adm.j_members_note">Use the number in the official ward notification. Each member is a separate office on GrievIQ, with its own sign-in, team and plan. Seats are lettered A, B, C… as in the notification. Seat A keeps this ward's current representative and complaints.</p>
+    <div class="form-error" id="seats-error" role="alert"></div>
+    <div class="modal-actions">
+      <button class="small-btn" id="seats-cancel" data-i18n="adm.cancel">Cancel</button>
+      <button class="small-btn primary" id="seats-save" data-i18n="adm.save">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="reassign-modal">
   <div class="modal">
     <h3 id="reassign-modal-title">Reassign</h3>
@@ -386,6 +405,11 @@ async function loadTree() {
 function matchesSearch(text, query) {
   return text && text.toLowerCase().includes(query);
 }
+// A ward matches by its name or any of its members' names (grieviq-57: every seat).
+function wardMatchesSearch(w, query) {
+  return matchesSearch(w.name, query) || matchesSearch(w.rep_name, query) ||
+    (DATA.wardSeats || []).some((x) => x.local_unit_id === w.id && matchesSearch(x.rep_name, query));
+}
 
 function renderTree() {
   const treeEl = document.getElementById("tree");
@@ -402,7 +426,7 @@ function renderTree() {
       mlasUnder = mlasUnder.filter((mla) => {
         const mlaMatches = matchesSearch(mla.mla_name, query);
         const wardsUnder = DATA.localUnits.filter((w) => w.mla_constituency_id === mla.id);
-        const wardMatches = wardsUnder.some((w) => matchesSearch(w.name, query) || matchesSearch(w.rep_name, query));
+        const wardMatches = wardsUnder.some((w) => wardMatchesSearch(w, query));
         return mpMatches || mlaMatches || wardMatches;
       });
       if (!mpMatches && mlasUnder.length === 0) return;
@@ -429,7 +453,7 @@ function renderTree() {
         if (searching) {
           const mlaMatches = matchesSearch(mla.mla_name, query);
           if (!mlaMatches) {
-            wardsUnder = wardsUnder.filter((w) => matchesSearch(w.name, query) || matchesSearch(w.rep_name, query));
+            wardsUnder = wardsUnder.filter((w) => wardMatchesSearch(w, query));
           }
         }
 
@@ -461,16 +485,34 @@ function renderTree() {
               mayorHtml = ` &nbsp;|&nbsp; ${T("adm.j_mayor")} ${fmtContact(mb.mayor_name, mb.mayor_phone, mb.mayor_email)}${waitingTag("mayor", mb.id)}
                 ${MODE === "view" ? "" : `<button class="small-btn" data-edit="mayor" data-id="${escapeText(mb.id)}">${MODE === "request" ? T("adm.j_req_change_mayor") : T("adm.j_edit_mayor")}</button>`}`;
             }
+            // grieviq-57: a ward with several elected members lists every seat.
+            const nSeats = Number(ward.seat_count) > 1 ? Number(ward.seat_count) : 1;
+            const seatTag = nSeats > 1 ? '<span class="seat-tag">' + escapeText(T("adm.j_seat", { s: "A" })) + '</span>' : "";
             wardRow.innerHTML = `
               <div style="width:16px;"></div>
-              <div class="node-name">${escapeText(ward.name)} <span class="node-count">(${escapeText(T("adm.type_" + ward.unit_type) === "adm.type_" + ward.unit_type ? ward.unit_type : T("adm.type_" + ward.unit_type))})</span></div>
-              <div class="node-contact">${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${waitingTag("ward", ward.id)}${mayorHtml}</div>
+              <div class="node-name">${escapeText(ward.name)} <span class="node-count">(${escapeText(T("adm.type_" + ward.unit_type) === "adm.type_" + ward.unit_type ? ward.unit_type : T("adm.type_" + ward.unit_type))})</span>${nSeats > 1 ? ' <span class="node-count">· ' + escapeText(T("adm.j_n_members", { n: nSeats })) + '</span>' : ""}</div>
+              <div class="node-contact">${seatTag}${fmtContact(ward.rep_name, ward.rep_phone, ward.rep_email)}${waitingTag("ward", ward.id)}${mayorHtml}</div>
               <div class="row-actions">
-                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="ward" data-id="${escapeText(ward.id)}">${editLabel()}</button>`}
+                ${MODE === "view" ? "" : `<button class="small-btn" data-edit="ward" data-id="${escapeText(ward.id)}" aria-label="${escapeText(editLabel() + " — " + ward.name + (nSeats > 1 ? ", " + T("adm.j_seat", { s: "A" }) : ""))}">${editLabel()}</button>`}
                 ${MODE === "edit" ? `<button class="small-btn" data-reassign="ward" data-id="${escapeText(ward.id)}">${T("adm.j_reassign")}</button>` : ""}
+                ${MODE === "edit" && DATA.seatsReady && ward.unit_type === "URBAN" ? `<button class="small-btn" data-seats="${escapeText(ward.id)}" aria-label="${escapeText(T("adm.j_members_btn_for", { ward: ward.name }))}">${escapeText(T("adm.j_members_btn"))}</button>` : ""}
               </div>
             `;
             treeEl.appendChild(wardRow);
+            if (nSeats > 1) {
+              (DATA.wardSeats || []).filter((x) => x.local_unit_id === ward.id).forEach((st) => {
+                const seatRow = document.createElement("div");
+                seatRow.className = "node-row ward seat";
+                seatRow.innerHTML = `
+                  <div style="width:16px;"></div>
+                  <div class="node-name"><span class="seat-tag">${escapeText(T("adm.j_seat", { s: st.seat_label }))}</span></div>
+                  <div class="node-contact">${st.seat_status === "VACANT" ? escapeText(T("adm.j_seat_vacant")) : fmtContact(st.rep_name, st.rep_phone, st.rep_email)}${waitingTag("ward", st.id)}</div>
+                  <div class="row-actions">
+                    ${MODE === "view" ? "" : `<button class="small-btn" data-edit="ward" data-id="${escapeText(st.id)}" aria-label="${escapeText(editLabel() + " — " + ward.name + ", " + T("adm.j_seat", { s: st.seat_label }))}">${editLabel()}</button>`}
+                  </div>`;
+                treeEl.appendChild(seatRow);
+              });
+            }
           });
         }
       });
@@ -494,6 +536,9 @@ function renderTree() {
   treeEl.querySelectorAll("[data-edit]").forEach((btn) => {
     btn.addEventListener("click", () => openEditModal(btn.dataset.edit, btn.dataset.id));
   });
+  treeEl.querySelectorAll("[data-seats]").forEach((btn) => {
+    btn.addEventListener("click", () => openSeatsModal(btn.dataset.seats, btn));
+  });
   treeEl.querySelectorAll("[data-reassign]").forEach((btn) => {
     btn.addEventListener("click", () => openReassignModal(btn.dataset.reassign, btn.dataset.id));
   });
@@ -513,7 +558,13 @@ let editContext = null;
 function findRecord(type, id) {
   if (type === "mp") return DATA.mps.find((m) => m.id === id);
   if (type === "mla") return DATA.mlas.find((m) => m.id === id);
-  if (type === "ward") return DATA.localUnits.find((w) => w.id === id);
+  if (type === "ward" && String(id).indexOf("~") > 0) {
+    // grieviq-57: a seat B-F of a ward with several members.
+    const st = (DATA.wardSeats || []).find((x) => x.id === id);
+    const w = st && DATA.localUnits.find((u) => u.id === st.local_unit_id);
+    return st ? Object.assign({}, st, { unit_type: "URBAN", name: w ? w.name : "", seatLetter: st.seat_label }) : null;
+  }
+  if (type === "ward") { const w = DATA.localUnits.find((u) => u.id === id); return w && Number(w.seat_count) > 1 ? Object.assign({}, w, { seatLetter: "A" }) : w; }
   if (type === "mayor") return DATA.municipalBodies.find((m) => m.id === id);
   return null;
 }
@@ -528,7 +579,7 @@ function openEditModal(type, id) {
   const email = type === "mp" ? record.mp_email : type === "mla" ? record.mla_email : type === "ward" ? record.rep_email : record.mayor_email;
 
   const labels = { mp: "MP", mla: "MLA", ward: record.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan", mayor: "Mayor" };
-  const who = window.GIQ ? window.GIQ.level(labels[type]) : labels[type];
+  const who = (window.GIQ ? window.GIQ.level(labels[type]) : labels[type]) + (record.seatLetter ? " — " + record.name + ", " + T("adm.j_seat", { s: record.seatLetter }) : "");
   document.getElementById("edit-modal-title").textContent = T("adm.j_edit_title", { what: who });
   document.getElementById("edit-name").value = name || "";
   document.getElementById("edit-phone").value = phone || "";
@@ -655,6 +706,66 @@ async function saveEdit() {
   }
 }
 document.getElementById("edit-save").addEventListener("click", saveEdit);
+
+// --- grieviq-57: members in a ward (seats) ---
+let seatsContext = null;
+function openSeatsModal(id, opener) {
+  const ward = DATA.localUnits.find((w) => w.id === id);
+  if (!ward) return;
+  seatsContext = { id, opener };
+  document.getElementById("seats-modal-ward").textContent = ward.name;
+  const sel = document.getElementById("seats-count");
+  const cur = Number(ward.seat_count) > 1 ? Number(ward.seat_count) : 1;
+  sel.innerHTML = "";
+  for (let n = 1; n <= (DATA.maxSeats || 6); n++) {
+    const o = document.createElement("option");
+    o.value = String(n);
+    o.textContent = n === 1 ? T("adm.j_members_one") : T("adm.j_n_members", { n }) + " (" + T("adm.j_seats_letters", { to: "ABCDEF"[n - 1] }) + ")";
+    if (n === cur) o.selected = true;
+    sel.appendChild(o);
+  }
+  document.getElementById("seats-error").textContent = "";
+  sel.removeAttribute("aria-invalid");
+  document.getElementById("seats-modal").classList.add("open");
+  sel.focus();
+}
+function closeSeatsModal() {
+  document.getElementById("seats-modal").classList.remove("open");
+  if (seatsContext && seatsContext.opener && document.body.contains(seatsContext.opener)) seatsContext.opener.focus();
+}
+document.getElementById("seats-cancel").addEventListener("click", closeSeatsModal);
+document.getElementById("seats-modal").addEventListener("keydown", (e) => { if (e.key === "Escape") closeSeatsModal(); });
+document.getElementById("seats-save").addEventListener("click", async () => {
+  if (!seatsContext) return;
+  const sel = document.getElementById("seats-count");
+  const err = document.getElementById("seats-error");
+  const btn = document.getElementById("seats-save");
+  err.textContent = "";
+  btn.disabled = true; btn.textContent = T("adm.saving");
+  try {
+    const res = await fetch("/api/admin/jurisdiction", { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_seats", id: seatsContext.id, count: Number(sel.value) }) });
+    const data = await res.json();
+    if (!res.ok) {
+      err.textContent = data.code === "SEAT_IN_USE" ? T("adm.j_seat_in_use", { s: data.seat, why: T("adm.j_inuse_" + String(data.why || "").replace(/[^a-z]+/gi, "_").toLowerCase()) })
+        : data.code === "OPEN_CASES" ? T("adm.j_seat_open_cases", { n: data.n })
+        : (data.fields && data.fields.count === "RURAL") ? T("adm.j_seat_rural") : (srvMsg(data.error) || T("adm.j_err_save"));
+      sel.setAttribute("aria-invalid", "true");
+      sel.focus();
+      return;
+    }
+    const wardId = seatsContext.id;
+    document.getElementById("seats-modal").classList.remove("open");
+    setStatus(T("adm.j_members_saved", { n: Number(sel.value) }), "success");
+    await loadTree();
+    const again = document.querySelector('[data-seats="' + CSS.escape(wardId) + '"]');
+    if (again) again.focus();
+  } catch (e) {
+    err.textContent = T("adm.network");
+  } finally {
+    btn.disabled = false; btn.textContent = T("adm.save");
+  }
+});
 
 // --- Reassign modal ---
 let reassignContext = null;

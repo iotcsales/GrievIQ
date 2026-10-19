@@ -14,6 +14,13 @@
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
 import { validateContact } from "../../_shared/contact-validation.js";
 import { areasReady, getArea } from "../../_shared/areas.js";
+import { seatsReady, LETTERS, MAX_SEATS, seatId } from "../../_shared/seats.js";
+
+// grieviq-57: an optional "seat" column (A-F) for wards with several
+// elected members. Seat A (or blank) is the ward's own representative, as
+// before. A row for seat B-F updates that seat's member only, and raises the
+// ward's number of seats to cover it. Urban wards only.
+function seatOf(get, row) { const v = (get(row, "seat") || "A").toUpperCase(); return v; }
 
 // Areas (cities and districts): every file is imported INTO one area,
 // chosen on the page (areaId), so its wards and villages are matched and
@@ -121,6 +128,9 @@ function rowProblem(get, row) {
   const unitType = (get(row, "unit_type") || "").toUpperCase();
   if (!mpName || !mlaName || !unitName) return "missing MP constituency, MLA constituency, or ward/village name";
   if (unitType !== "RURAL" && unitType !== "URBAN") return `unit_type must be RURAL or URBAN, got "${unitType}"`;
+  const seat = seatOf(get, row);
+  if (!LETTERS.includes(seat)) return `seat must be a letter from A to ${LETTERS[MAX_SEATS - 1]}, got "${seat}"`;
+  if (seat !== "A" && unitType !== "URBAN") return "only urban wards can have more than one seat";
   for (const [who, n, ph, em] of [["MP", "mp_name", "mp_phone", "mp_email"], ["MLA", "mla_name", "mla_phone", "mla_email"],
     ["Mayor", "mayor_name", "mayor_phone", "mayor_email"], ["Representative", "rep_name", "rep_phone", "rep_email"]]) {
     const v = validateContact({ name: get(row, n) || undefined, phone: get(row, ph) || undefined, email: get(row, em) || undefined });
@@ -146,15 +156,18 @@ async function preview(env, rows, get, area) {
     if (mlaId === undefined) { const e = await byName("mla_constituencies", mlaName); mlaId = e ? e.id : null; seen.mla.set(mlaName, mlaId); if (!e) out.mlaCreated++; }
     const mbName = (get(row, "municipal_body_name") || "").toLowerCase();
     if (mbName && !seen.mb.has(mbName)) { seen.mb.add(mbName); if (!(await byName("municipal_bodies", mbName))) out.municipalBodyCreated++; }
+    const seat = seatOf(get, row);
     const key = unitName + "|" + mlaName;
-    if (seen.unit.has(key)) { out.errors.push(`Row ${rowNum}: "${get(row, "local_unit_name")}" appears twice in this file under the same MLA constituency — the later row would update the earlier one.`); }
-    seen.unit.add(key);
+    if (seen.unit.has(key + "|" + seat)) { out.errors.push(`Row ${rowNum}: "${get(row, "local_unit_name")}"${seat !== "A" ? " seat " + seat : ""} appears twice in this file under the same MLA constituency — the later row would update the earlier one.`); }
+    seen.unit.add(key + "|" + seat);
+    if (seat !== "A") { if (!(await seatsReady(env))) { out.errors.push(`Row ${rowNum}: seats B–F need the part40 database step first — would be skipped.`); continue; } out.seatRows = (out.seatRows || 0) + 1; }
     const existing = mlaId ? await env.DB.prepare(`SELECT id${area ? ", area_id" : ""} FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?`).bind(unitName, mlaId).first() : null;
     if (existing && area && existing.area_id && existing.area_id !== area.id) {
       out.errors.push(`Row ${rowNum}: "${get(row, "local_unit_name")}" already exists in another area (${existing.area_id}) — would be skipped.`);
       continue;
     }
-    if (existing) out.localUnitsUpdated++; else if (!seen.unit.has(key + "#counted")) { out.localUnitsCreated++; seen.unit.add(key + "#counted"); }
+    if (seat !== "A") { if (!existing && !seen.unit.has(key + "#counted")) { out.localUnitsCreated++; seen.unit.add(key + "#counted"); } }
+    else if (existing) out.localUnitsUpdated++; else if (!seen.unit.has(key + "#counted")) { out.localUnitsCreated++; seen.unit.add(key + "#counted"); }
     if (!get(row, "rep_email")) out.withoutEmail++;
     out.rowsOk++;
   }
@@ -315,9 +328,15 @@ export async function onRequestPost({ request, env }) {
       }
       const block = unitType === "RURAL" ? get(row, "block") : null;
 
-      const repName = get(row, "rep_name");
-      const repPhone = get(row, "rep_phone");
-      const repEmail = get(row, "rep_email");
+      const seat = seatOf(get, row);
+      if (seat !== "A" && !(await seatsReady(env))) {
+        summary.errors.push(`Row ${rowNum}: seats B–F need the part40 database step first — skipped.`);
+        continue;
+      }
+      // A seat B-F row fills that seat's member; the ward's own representative is left as it is.
+      const repName = seat === "A" ? get(row, "rep_name") : null;
+      const repPhone = seat === "A" ? get(row, "rep_phone") : null;
+      const repEmail = seat === "A" ? get(row, "rep_email") : null;
       const localities = get(row, "localities");
 
       if (existingUnit) {
@@ -330,7 +349,7 @@ export async function onRequestPost({ request, env }) {
         )
           .bind(...[unitType, municipalBodyId, repName, repPhone, repEmail, localities].concat(area ? [area.id, block] : []), existingUnit.id)
           .run();
-        summary.localUnitsUpdated++;
+        if (seat === "A") summary.localUnitsUpdated++;
       } else {
         const id = `lu-${slugify(localUnitName)}-${slugify(mlaName)}`;
         await env.DB.prepare(
@@ -341,6 +360,22 @@ export async function onRequestPost({ request, env }) {
           .bind(...[id, localUnitName, unitType, mla.id, municipalBodyId, repName, repPhone, repEmail, localities].concat(area ? [area.id, block] : []))
           .run();
         summary.localUnitsCreated++;
+      }
+
+      if (seat !== "A") {
+        const unit = await env.DB.prepare("SELECT id, seat_count FROM local_units WHERE LOWER(name) = LOWER(?) AND mla_constituency_id = ?").bind(localUnitName, mla.id).first();
+        const need = LETTERS.indexOf(seat) + 1;
+        const now = new Date().toISOString();
+        if (!unit.seat_count || unit.seat_count < need) await env.DB.prepare("UPDATE local_units SET seat_count = ? WHERE id = ?").bind(need, unit.id).run();
+        // Every seat up to this one exists (empty seats wait for their member).
+        for (let i = 1; i < need; i++) {
+          await env.DB.prepare("INSERT OR IGNORE INTO ward_seats (id, local_unit_id, seat_label, created_at, created_by) VALUES (?, ?, ?, ?, ?)")
+            .bind(seatId(unit.id, LETTERS[i]), unit.id, LETTERS[i], now, auth.email).run();
+        }
+        await env.DB.prepare(
+          "UPDATE ward_seats SET rep_name = COALESCE(?, rep_name), rep_phone = COALESCE(?, rep_phone), rep_email = COALESCE(?, rep_email), updated_at = ?, updated_by = ? WHERE id = ?"
+        ).bind(get(row, "rep_name"), get(row, "rep_phone"), get(row, "rep_email") ? String(get(row, "rep_email")).toLowerCase() : null, now, auth.email, seatId(unit.id, seat)).run();
+        summary.seatsUpdated = (summary.seatsUpdated || 0) + 1;
       }
 
       summary.rowsProcessed++;

@@ -18,6 +18,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* grieviq-57: who handles it in a ward with several members */
+  .case-seat { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink); font-weight: 600; }
   :root {
     --paper: #F6F5F1;
     --card: #FFFFFF;
@@ -373,7 +375,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=58"></script>
+<script src="/i18n.js?v=59"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=43" defer></script>
 </head>
@@ -453,6 +455,7 @@
       <div class="case-meta">
         <span id="status-meta"></span><span class="status-pill" id="status-pill"></span>
       </div>
+      <p class="case-seat" id="status-seat" hidden></p>
     </div>
 
     <div class="next-box" id="status-next" role="status" hidden></div>
@@ -835,6 +838,13 @@
     document.getElementById('status-desc').textContent = c.description;
     document.getElementById('status-meta').textContent =
       `${c.localUnitName} · ${GIQ.t('status.filed', { when: formatFiled(c.createdAt) })}`;
+    // grieviq-57: in a ward with several members, who handles it.
+    const ws = document.getElementById('status-seat');
+    if (ws) {
+      ws.hidden = !c.wardSeat;
+      ws.textContent = !c.wardSeat ? '' : c.wardSeat.open ? GIQ.t('status.seat_open', { ward: c.localUnitName })
+        : GIQ.t('status.seat_by', { ward: c.localUnitName, s: c.wardSeat.letter }) + (c.wardSeat.name ? ' — ' + c.wardSeat.name : '');
+    }
 
     const pill = document.getElementById('status-pill');
     const resolved = c.status === 'RESOLVED' || c.status === 'CLOSED';

@@ -13,14 +13,14 @@
 // Emails carry the office name, dates and amounts only.
 
 import { liveVersion, istToday } from "./site-settings.js";
-import { TIER_TABLE, quote, nextRef, periodEnd, billPeople, logBill, hasDraftColumns, planBillFilter } from "./billing.js";
+import { TIER_TABLE, tierTable, quote, nextRef, periodEnd, billPeople, logBill, hasDraftColumns, planBillFilter } from "./billing.js";
 import { sendEmailNow } from "./dept-auth.js";
 import { subsReady, subSettings, statusOf, officeKey, ensureRow, logSub, addDays } from "./subscriptions.js";
 
 export async function allOffices(env) {
   const list = [];
   for (const tier of ["LOCAL", "MAYOR", "MLA", "MP"]) {
-    const t = TIER_TABLE[tier];
+    const t = await tierTable(env, tier);
     const extra = tier === "LOCAL" ? ", unit_type" : "";
     const { results } = await env.DB.prepare(`SELECT id, name${extra} FROM ${t.table} WHERE ${t.email} IS NOT NULL AND ${t.email} != '' ORDER BY name`).all();
     for (const r of results || []) list.push({ type: "REP", tier, id: r.id, name: r.name, label: tier === "LOCAL" ? (r.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan") : tier === "MAYOR" ? "Mayor" : tier });

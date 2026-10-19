@@ -21,6 +21,7 @@
 
 import { liveVersion, planPrices, withGst, istToday, paymentState, LIMITS } from "./site-settings.js";
 import { sendEmailNow } from "./dept-auth.js";
+import { localTable } from "./seats.js";
 
 export const MAX_REPORTS = 5;
 export const LEDGER_TAG = "13F1965C40903C1E";
@@ -32,6 +33,14 @@ export const TIER_TABLE = {
   MLA: { table: "mla_constituencies", email: "mla_email" },
   MP: { table: "mp_constituencies", email: "mp_email" },
 };
+
+// grieviq-57: ward offices are read from the local_offices view once part40
+// is in, so every seat of a ward with several members is its own office.
+export async function tierTable(env, tier) {
+  const t = TIER_TABLE[tier];
+  if (!t) return null;
+  return tier === "LOCAL" ? { table: await localTable(env), email: t.email } : t;
+}
 
 export function isMissingBillTables(e) { return /no such table: bill/i.test(String(e && e.message || e)); }
 // grieviq-46: bills the hourly job makes wait for staff to send them; offices
@@ -96,7 +105,7 @@ export async function logBill(env, billId, actor, action, detail) {
 // A representative office: its name and the people who see its bills
 // (the representative and active office managers).
 export async function repOffice(env, tier, id) {
-  const t = TIER_TABLE[tier];
+  const t = await tierTable(env, tier);
   if (!t) return null;
   const extra = tier === "LOCAL" ? ", unit_type" : "";
   const row = await env.DB.prepare(`SELECT id, name, ${t.email} AS email${extra} FROM ${t.table} WHERE id = ?`).bind(String(id || "")).first();

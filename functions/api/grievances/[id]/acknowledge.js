@@ -38,10 +38,6 @@ export async function onRequestPost(context) {
     return Response.json({ error: "Grievance not found" }, { status: 404 });
   }
 
-  if (grievance.acknowledged_at) {
-    return Response.json({ error: "This case has already been acknowledged" }, { status: 409 });
-  }
-
   // Confirm this rep actually has jurisdiction over this case's local unit --
   // same check grievances.js and mark-resolved.js use to decide visibility.
   // Jurisdiction and role (item 8b): acknowledging is for the
@@ -52,6 +48,11 @@ export async function onRequestPost(context) {
   }
   if (!canManageCases(access.role)) {
     return Response.json({ error: "Only the representative or office manager can acknowledge a case.", code: "ROLE" }, { status: 403 });
+  }
+  // grieviq-57: checked after the jurisdiction check, so an office learns
+  // nothing about a case that isn't its own.
+  if (grievance.acknowledged_at) {
+    return Response.json({ error: "This case has already been acknowledged" }, { status: 409 });
   }
 
   if (grievance.reopened_at) {

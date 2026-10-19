@@ -23,6 +23,7 @@
 
 import { pointInGeometry } from "../_shared/geo.js";
 import { liveJoin } from "../_shared/areas.js";
+import { isMulti, seatsOfUnit, seatsReady } from "../_shared/seats.js";
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -44,7 +45,7 @@ export async function onRequestPost({ request, env }) {
 
   const rows = await env.DB.prepare(
     // Only wards in areas that are live (switched on for citizens).
-    `SELECT lu.id, lu.name, lu.localities, lu.rep_email, lu.seat_status, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.ward_boundary_geojson IS NOT NULL`
+    `SELECT lu.* FROM local_units lu ${await liveJoin(env)} WHERE lu.ward_boundary_geojson IS NOT NULL`
   ).all();
 
   for (const row of rows.results || []) {
@@ -56,6 +57,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (pointInGeometry(lng, lat, geometry)) {
+      // grieviq-57: a ward with several members is open when any seat has an email.
+      let open = (row.rep_email != null && String(row.rep_email).trim() !== "") || row.seat_status === "VACANT";
+      if (isMulti(row) && await seatsReady(env)) open = (await seatsOfUnit(env, row)).some((x) => x.email && x.status !== "VACANT");
       return Response.json({
         matched: true,
         local_unit_id: row.id,
@@ -64,7 +68,7 @@ export async function onRequestPost({ request, env }) {
         // A ward can be known (boundary on file) before it can take
         // complaints: that needs a ward representative email on file.
         // grieviq-53: a vacant seat's complaints go straight to the next level.
-        open_for_filing: (row.rep_email != null && String(row.rep_email).trim() !== "") || row.seat_status === "VACANT",
+        open_for_filing: open,
       });
     }
   }

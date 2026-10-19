@@ -144,6 +144,14 @@ http.createServer(async (req, res) => {
       const out = await m.runGovReports(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now(), da.sendEmailNow);
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
+    // Test only (grieviq-57): the hourly check that gives cases back to the ward.
+    if (url.pathname === "/__test/return-stuck" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "seats.js")).href);
+      const n = await import(pathToFileURL(path.join(repo, "functions", "_shared", "notify.js")).href);
+      const back = await m.returnStuckCases(env, "system");
+      await n.notifyReturned(env, "http://localhost:" + port, back);
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ returned: back.map((x) => ({ id: x.g.id, from: x.from, why: x.why })) }));
+    }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);
       const out = await m.runSubscriptions(env, "http://localhost:" + port, Date.now());

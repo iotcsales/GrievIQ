@@ -28,6 +28,7 @@ import { loadRatings, shapeForRep } from "../_shared/ratings.js";
 import { officerNames } from "../_shared/dept-cases.js";
 import { dashboardOffices } from "../_shared/dept-auth.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
+import { seatsReady, letterOf } from "../_shared/seats.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -245,7 +246,13 @@ export async function onRequestGet(context) {
   const evidenceCtx = new Map();
 
   for (const grievance of grievanceRows) {
-    const myMandate = unitToMandate.get(grievance.local_unit_id);
+    let myMandate = unitToMandate.get(grievance.local_unit_id);
+    // grieviq-57: someone who is a ward member and also holds another office
+    // over the ward sees another member's case only through that office.
+    if (myMandate && myMandate.tier === "LOCAL" && myMandate.multi && grievance.seat_owner && grievance.seat_owner !== myMandate.id) {
+      myMandate = auth.mandates.find((m, i) => m.tier !== "LOCAL" && unitLists[i].includes(grievance.local_unit_id)) || null;
+      if (!myMandate) continue;
+    }
     const myTier = myMandate.tier;
     // Item 8b: a field worker sees only the cases assigned to them in that office.
     const myRole = myMandate.role || ROLE.REP;
@@ -379,6 +386,23 @@ export async function onRequestGet(context) {
         ? (({ outcome, method, note, checked_at }) => ({ outcome, method, note: note || null, at: checked_at }))(checkByGrievance.get(grievance.id))
         : null,
       acknowledgedAt: grievance.acknowledged_at || null,
+      // grieviq-57: a ward with several members. For a member's office: whether
+      // the case is still open to every member (take it first) or its own, and
+      // whether it may give it back. For the levels above: who handles it.
+      seat: myMandate.tier === "LOCAL" && myMandate.multi ? {
+        pool: !grievance.seat_owner,
+        mine: grievance.seat_owner === myMandate.id,
+        letter: myMandate.seatLabel || letterOf(myMandate.id),
+        chosen: !!grievance.seat_owner && grievance.seat_choice !== "ANY",
+        takenAt: grievance.seat_owner === myMandate.id ? grievance.seat_owner_at || null : null,
+        canReturn: grievance.seat_owner === myMandate.id && grievance.seat_choice === "ANY" && isUnresolved && grievance.status !== "PENDING_CONFIRMATION" &&
+          canManageCases(myRole) && !(myMandate.sub && myMandate.sub.status === "PAUSED"),
+        canTake: !grievance.seat_owner && isUnresolved && grievance.status !== "PENDING_CONFIRMATION" && canManageCases(myRole) && !(myMandate.sub && myMandate.sub.status === "PAUSED"),
+      } : null,
+      handledBy: myMandate.tier !== "LOCAL" && chain.tiers[0].multi ? (() => {
+        const s0 = grievance.seat_owner ? chain.tiers[0].seats.find((x) => x.id === grievance.seat_owner) : null;
+        return s0 ? { letter: s0.letter, name: s0.name || null } : { none: true };
+      })() : null,
       currentDepartment: latestFollowup ? latestFollowup.reason : null,
       adminNudges: nudgeEvents.map((e) => ({ note: e.note, createdAt: e.created_at })), followupHistory: followupEvents.map((e) => ({
         department: e.reason,
@@ -467,12 +491,34 @@ export async function onRequestGet(context) {
   // assistants don't.
   const ratingsBy = await loadRatings(env, visible.filter((c) => canManageCases(c.myRole) && (c.status === "RESOLVED" || c.status === "CLOSED")).map((c) => c.id));
   for (const c of visible) c.rating = shapeForRep(ratingsBy.get(c.id) || null);
+  // grieviq-57: "any member" cases another member of the ward took: one
+  // line each for the member's office (type, filed, status, which seat), so
+  // the office knows they are being handled. No description, place, photos
+  // or citizen details.
+  const wardTaken = [];
+  if (await seatsReady(env)) {
+    for (const m of auth.mandates.filter((x) => x.tier === "LOCAL" && x.multi && (x.role || ROLE.REP) !== ROLE.FW)) {
+      try {
+        const { results } = await env.DB.prepare(
+          `SELECT id, category_id, status, acknowledged_at, created_at, seat_owner, seat_owner_at FROM grievances
+            WHERE local_unit_id = ? AND seat_owner IS NOT NULL AND seat_owner <> ? AND seat_choice = 'ANY' AND status IN ('OPEN', 'ACKNOWLEDGED', 'PENDING_CONFIRMATION')
+            ORDER BY created_at DESC LIMIT 100`
+        ).bind(String(m.unit), String(m.id)).all();
+        for (const r of results || []) {
+          const cat = categoryById.get(r.category_id);
+          wardTaken.push({ officeKey: officeKey(m.tier, m.id), wardId: String(m.unit), category: { id: r.category_id, name: cat ? cat.name : r.category_id },
+            status: r.status === "OPEN" && r.acknowledged_at ? "ACKNOWLEDGED" : r.status, createdAt: r.created_at, takenBy: letterOf(r.seat_owner), takenAt: r.seat_owner_at || null });
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
   return Response.json({
+    wardTaken,
     deptDirectory,
     departments: types.filter((t) => !t.retired).map((t) => t.key),
     deptNames: namesOf(types),
     email: auth.email,
-    mandates: auth.mandates.map(({ tier, id, name, label, role }) => ({ tier, id, name, label, role: role || ROLE.REP })),
+    mandates: auth.mandates.map(({ tier, id, name, label, role, multi, seatLabel, unit }) => ({ tier, id, name, label, role: role || ROLE.REP, multi: !!multi, seatLabel: seatLabel || null, unit: unit || null })),
     grievances: visible,
     teams,
     workloadWarn: WORKLOAD_WARN,

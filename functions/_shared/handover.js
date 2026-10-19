@@ -23,7 +23,8 @@
 // is written to admin_events.
 
 import { validateContact, emailDomainCanReceive } from "./contact-validation.js";
-import { CONTACT_TABLES } from "./jurisdiction-writes.js";
+import { CONTACT_TABLES, contactDef } from "./jurisdiction-writes.js";
+import { returnCasesOf, seatsReady } from "./seats.js";
 import { lookupMandates } from "./get-verified-rep.js";
 import { endAllSessions } from "./rep-session.js";
 import { queueEmail, flushOutbox } from "./notify.js";
@@ -48,11 +49,14 @@ function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().
 
 // One seat, as it is now: { type, id, tier, place, name, phone, email, status } or null.
 export async function readSeat(env, type, id) {
-  const def = CONTACT_TABLES[type];
+  const def = contactDef(type, id);
   if (!def || !id) return null;
-  const row = await env.DB.prepare(
-    `SELECT id, name AS place, ${def.nameCol} AS name, ${def.phoneCol} AS phone, ${def.emailCol} AS email, seat_status FROM ${def.table} WHERE id = ?`
-  ).bind(String(id)).first();
+  // grieviq-57: seats B-F of a ward with several members.
+  const row = def.seat
+    ? await env.DB.prepare("SELECT s.id, lu.name || ' · Seat ' || s.seat_label AS place, s.rep_name AS name, s.rep_phone AS phone, s.rep_email AS email, s.seat_status FROM ward_seats s JOIN local_units lu ON lu.id = s.local_unit_id WHERE s.id = ?").bind(String(id)).first()
+    : await env.DB.prepare(
+      `SELECT id, name AS place, ${def.nameCol} AS name, ${def.phoneCol} AS phone, ${def.emailCol} AS email, seat_status FROM ${def.table} WHERE id = ?`
+    ).bind(String(id)).first();
   if (!row) return null;
   return { type, id: row.id, tier: TIER_OF[type], place: row.place, label: def.label + " — " + row.place,
     name: row.name || null, phone: row.phone || null, email: row.email ? low(row.email) : null, status: seatStatus(row.seat_status) };
@@ -73,6 +77,19 @@ export async function listSeats(env) {
     catch (e) { rows = t === "ward" ? ((await env.DB.prepare("SELECT id, name AS place, unit_type, rep_name AS name, rep_email AS email, seat_status FROM local_units ORDER BY name").all()).results || []) : []; }
     out[t] = rows.map((r) => ({ id: r.id, place: r.place, area: r.area || null, rural: r.unit_type === "RURAL",
       name: r.name || null, email: r.email ? low(r.email) : null, status: seatStatus(r.seat_status) }));
+  }
+  // grieviq-57: in a ward with several members each seat is listed apart.
+  if (await seatsReady(env)) {
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT o.id, o.name AS place, o.seat_label, o.unit_id, o.unit_type, o.rep_name AS name, o.rep_email AS email, o.seat_status, ar.name AS area FROM local_offices o LEFT JOIN areas ar ON ar.id = o.area_id WHERE o.seat_count > 1"
+      ).all();
+      const multi = new Map((results || []).map((r) => [r.id, r]));
+      const rest = out.ward.filter((w) => !multi.has(w.id));
+      const seats = Array.from(multi.values()).map((r) => ({ id: r.id, place: r.place, area: r.area || null, rural: r.unit_type === "RURAL",
+        name: r.name || null, email: r.email ? low(r.email) : null, status: seatStatus(r.seat_status), seat: r.seat_label }));
+      out.ward = rest.concat(seats).sort((a, b) => String(a.area || "").localeCompare(String(b.area || "")) || String(a.place).localeCompare(String(b.place)));
+    } catch (e) { /* view not there */ }
   }
   return out;
 }
@@ -173,7 +190,7 @@ export async function applyHandover(env, h, actor, origin) {
     await logEvent(env, actor, "seat_handover_out_of_date", h.seat_type + ":" + h.seat_id, { id: h.id });
     return { ok: false, error: "OUT_OF_DATE" };
   }
-  const def = CONTACT_TABLES[h.seat_type];
+  const def = contactDef(h.seat_type, h.seat_id);
   const tier = TIER_OF[h.seat_type];
   const newStatus = STATUS_OF_KIND[h.kind];
   const keep = h.kind === "VACANT" ? { name: null, phone: null, email: null } : { name: h.new_name, phone: h.new_phone, email: h.new_email };
@@ -193,6 +210,13 @@ export async function applyHandover(env, h, actor, origin) {
     ).bind(now, actor, tier, h.seat_id, low(keep.email)).run();
     summary.assignmentsReturned = (r.meta && r.meta.changes) || 0;
   } catch (e) { /* no assignments table yet */ }
+
+  // 2b. grieviq-57: a seat of a ward with several members that becomes vacant
+  // gives its open cases back to the ward, so the other members can take them.
+  summary.casesReturnedToWard = 0;
+  if (tier === "LOCAL" && h.kind === "VACANT") {
+    try { summary.casesReturnedToWard = (await returnCasesOf(env, [{ id: h.seat_id, why: "VACANT" }], "handover:" + h.id)).length; } catch (e) { /* before part40 */ }
+  }
 
   // 3. Sharing figures with the state was the outgoing person's choice.
   try {

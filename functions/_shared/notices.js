@@ -23,7 +23,7 @@
 //     confirmed, for its full number of days from then (or the start date).
 
 import { liveVersion, withGst, istToday, DEFAULTS } from "./site-settings.js";
-import { nextRef, logBill, emailOffice, TIER_TABLE } from "./billing.js";
+import { nextRef, logBill, emailOffice, TIER_TABLE, tierTable } from "./billing.js";
 import { sendEmailNow } from "./dept-auth.js";
 
 export const CATEGORIES = ["CAMP", "SCHEME", "HEALTH", "SABHA", "OFFICE", "SERVICE", "SAFETY"];
@@ -200,7 +200,7 @@ export function labelKey(type, tier, unitType) { return type === "DEPT" ? "DEPT"
 export function labelText(key) { return LABELS[key] || LABELS.DEPT; }
 // A representative's office: its name, label key, home area and state.
 export async function repOfficeInfo(env, tier, id) {
-  const t = TIER_TABLE[tier]; if (!t) return null;
+  const t = await tierTable(env, tier); if (!t) return null;
   const row = await env.DB.prepare(`SELECT * FROM ${t.table} WHERE id = ?`).bind(String(id || "")).first();
   if (!row) return null;
   let area = null;
@@ -389,6 +389,8 @@ export async function liveForWard(env, wardId, today) {
   if (!lu) return null;
   const keys = ["REP|LOCAL|" + lu.id, "REP|MLA|" + lu.mla_constituency_id, "REP|MP|" + lu.mp_constituency_id];
   if (lu.municipal_body_id && lu.has_mayor) keys.push("REP|MAYOR|" + lu.municipal_body_id);
+  // grieviq-57: every member of a ward with several members (seats B-F).
+  try { const { results: ss } = await env.DB.prepare("SELECT id FROM ward_seats WHERE local_unit_id = ?").bind(lu.id).all(); for (const x of ss || []) keys.push("REP|LOCAL|" + x.id); } catch (e) { /* before part40 */ }
   if (lu.area_id) {
     const { results } = await env.DB.prepare("SELECT id, wards FROM dept_offices WHERE area_id = ? AND retired_at IS NULL").bind(lu.area_id).all();
     for (const d of results || []) { const w = parse(d.wards, null); if (!Array.isArray(w) || !w.length || w.includes(lu.id)) keys.push("DEPT||" + d.id); }

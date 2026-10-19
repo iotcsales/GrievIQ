@@ -16,7 +16,7 @@
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
-import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, hasDraftColumns, planBillFilter } from "../../_shared/billing.js";
+import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, tierTable, hasDraftColumns, planBillFilter } from "../../_shared/billing.js";
 import { applyPayment } from "../../_shared/subscriptions.js";
 import { noticePaid, noticeBillCancelled } from "../../_shared/notices.js";
 
@@ -57,7 +57,7 @@ export async function onRequestGet({ request, env }) {
       for (const r of results || []) out.push({ type: "DEPT", tier: null, id: r.id, name: r.name_en, nameHi: r.name_hi, label: "Department office", canSee: r.officers > 0 });
     } else {
       for (const tier of ["LOCAL", "MAYOR", "MLA", "MP"]) {
-        const t = TIER_TABLE[tier];
+        const t = await tierTable(env, tier);
         const extra = tier === "LOCAL" ? ", unit_type" : "";
         const { results } = await env.DB.prepare(`SELECT id, name, ${t.email} AS email${extra} FROM ${t.table} WHERE name LIKE ? ORDER BY name LIMIT 20`).bind(q).all();
         for (const r of results || []) {

@@ -21,7 +21,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=58"></script>
+<script src="/i18n.js?v=59"></script>
 <script src="/guide-content.js?v=52"></script>
 <script src="/guide.js?v=40"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
@@ -494,6 +494,20 @@
   .badge.escalated { background: var(--red-tint); color: var(--red-strong); }
   .badge.resolved { background: var(--green-tint); color: var(--green); font-weight: 700; font-size: 12px; padding: 4px 9px; }
   .badge.pending { background: var(--gold-tint); color: var(--gold-strong); }
+  /* grieviq-57: wards with several members */
+  .seat-note { margin: 8px 0 0; padding: 8px 10px; border: 1px solid var(--line, #d5d9de); border-left: 3px solid var(--brand); border-radius: 4px; font-size: 13px; color: var(--ink); line-height: 1.5; max-width: 52ch; }
+  .seat-note b { font-weight: 700; }
+  .seat-return { margin-top: 8px; max-width: 46ch; }
+  .seat-return label { display: block; font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .seat-return textarea { width: 100%; min-height: 72px; font: inherit; font-size: 16px; padding: 6px 8px; border: 1px solid var(--steel-2); border-radius: 6px; background: var(--card); color: var(--ink); box-sizing: border-box; }
+  .seat-return textarea[aria-invalid="true"] { border: 2px solid var(--red); }
+  .seat-return .hint { font-size: 12.5px; color: var(--steel-2); margin: 4px 0 0; }
+  .ward-taken { margin: 24px 0 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  .ward-taken h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
+  .ward-taken p { margin: 0 0 8px; font-size: 13px; color: var(--steel); }
+  .ward-taken ul { margin: 0; padding: 0; list-style: none; }
+  .ward-taken li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink); }
+  .take-btn, .seat-return-btn { min-height: 44px; }
   .dispute-note {
     margin: 8px 0 0;
     padding: 8px 10px;
@@ -936,7 +950,7 @@ async function reloadCases(extra) {
   var r = await fetch(casesUrl(extra));
   if (!r.ok) return null;
   var d = await r.json();
-  takeDepartments(d); currentCases = d.grievances || []; teamsData = d.teams || {}; closedInfo = d.closed || null;
+  takeDepartments(d); currentCases = d.grievances || []; teamsData = d.teams || {}; closedInfo = d.closed || null; wardTaken = d.wardTaken || [];
   if (d.workloadWarn) workloadWarn = d.workloadWarn;
   return d;
 }
@@ -1557,11 +1571,13 @@ function renderCase(c) {
       renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
       renderTeamNotes(c) +
       // Actions sit beside the details on a laptop, below them on a phone.
+      renderSeatNote(c) +
       '<div class="case-actions">' +
+        (c.seat && c.seat.pool ? renderTakeControl(c) :
         renderAssignControl(c) +
         renderFollowupControl(c) +
         renderAcknowledgeControl(c) +
-        renderResolveControl(c) +
+        renderResolveControl(c) + renderSeatReturn(c)) +
       '</div>' +
     '</div>' +
     '<div class="case-meta">' +
@@ -1571,6 +1587,133 @@ function renderCase(c) {
       renderLadder(c) +
     '</div>' +
   '</div>';
+}
+
+// ================= Wards with several members (grieviq-57) =================
+// A member's office sees cases still open to every member (take it first),
+// its own cases, and one line for each case another member took. The levels
+// above see which member handles each case.
+var seatReturn = {};   // case id -> { open, reason, error, busy }
+var wardTaken = [];
+function renderSeatNote(c) {
+  if (c.handledBy) {
+    return '<p class="seat-note">' + (c.handledBy.none ? esc(T('rep.seat_none_yet'))
+      : esc(T('rep.seat_handled_by', { s: c.handledBy.letter })) + (c.handledBy.name ? ' — ' + esc(c.handledBy.name) : '')) + '</p>';
+  }
+  if (!c.seat) return '';
+  if (c.seat.pool) {
+    return '<p class="seat-note"><b>' + esc(T('rep.seat_pool_h')) + '</b> ' + esc(T('rep.seat_pool_p')) + '</p>';
+  }
+  if (c.seat.mine) {
+    return '<p class="seat-note">' + esc(T(c.seat.chosen ? 'rep.seat_chosen' : 'rep.seat_yours', { s: c.seat.letter })) + '</p>';
+  }
+  return '';
+}
+function renderTakeControl(c) {
+  if (!c.seat || !c.seat.canTake) return '';
+  return '<button type="button" class="resolve-btn take-btn" data-id="' + esc(c.id) + '" aria-describedby="take-error-' + esc(c.id) + '">' + esc(T('rep.seat_take')) + '</button>' +
+    '<div class="resolve-error" id="take-error-' + esc(c.id) + '" role="alert"></div>';
+}
+function renderSeatReturn(c) {
+  if (!c.seat || !c.seat.canReturn) return '';
+  var st = seatReturn[c.id] || {};
+  if (!st.open) {
+    return '<button type="button" class="resolve-btn seat-return-btn" data-id="' + esc(c.id) + '" aria-expanded="false" aria-controls="seat-return-' + esc(c.id) + '">' + esc(T('rep.seat_return')) + '</button>';
+  }
+  var bad = !!st.error;
+  return '<div class="seat-return" id="seat-return-' + esc(c.id) + '">' +
+    '<label for="seat-reason-' + esc(c.id) + '">' + esc(T('rep.seat_return_why')) + '</label>' +
+    '<textarea id="seat-reason-' + esc(c.id) + '" maxlength="300" aria-describedby="seat-reason-hint-' + esc(c.id) + ' seat-reason-err-' + esc(c.id) + '"' + (bad ? ' aria-invalid="true"' : '') + '>' + esc(st.reason || '') + '</textarea>' +
+    '<p class="hint" id="seat-reason-hint-' + esc(c.id) + '">' + esc(T('rep.seat_return_hint')) + '</p>' +
+    '<div class="resolve-error" id="seat-reason-err-' + esc(c.id) + '" role="alert">' + esc(st.error || '') + '</div>' +
+    '<button type="button" class="resolve-btn seat-return-go" data-id="' + esc(c.id) + '"' + (st.busy ? ' disabled' : '') + '>' + esc(T(st.busy ? 'rep.seat_returning' : 'rep.seat_return_confirm')) + '</button>' +
+    '<button type="button" class="resolve-btn seat-return-cancel" data-id="' + esc(c.id) + '">' + esc(T('rep.seat_cancel')) + '</button>' +
+  '</div>';
+}
+function renderWardTaken() {
+  var list = (wardTaken || []).filter(function(x) {
+    return (activeMandateId === null || ('LOCAL:' + activeMandateId) === x.officeKey) && (!activeWardId || activeWardId === x.wardId) && (!activeCatId || activeCatId === x.category.id);
+  });
+  if (!list.length) return '';
+  return '<section class="ward-taken" aria-labelledby="ward-taken-h"><h3 id="ward-taken-h">' + esc(T('rep.seat_others_h', { n: list.length })) + '</h3>' +
+    '<p>' + esc(T('rep.seat_others_p')) + '</p><ul>' +
+    list.map(function(x) {
+      return '<li>' + esc(catName(x.category.id, x.category.name)) + ' · ' + esc(T('rep.seat_filed', { date: formatDateOnly(x.createdAt) })) + ' · ' +
+        esc(T('rep.seat_taken_by', { s: x.takenBy })) + ' · ' + esc(statusWord(x.status)) + '</li>';
+    }).join('') + '</ul></section>';
+}
+function attachSeatHandlers() {
+  document.querySelectorAll('.take-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      var errorEl = document.getElementById('take-error-' + id);
+      errorEl.textContent = '';
+      btn.disabled = true; btn.textContent = T('rep.seat_taking');
+      try {
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/seat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'take' }) });
+        var data = await res.json();
+        if (!res.ok) {
+          if (data.code === 'TAKEN') { await reloadCases(); renderContent(); var st = document.getElementById('resolve-status'); if (st) st.textContent = T('rep.seat_taken_already'); var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); } return; }
+          errorEl.textContent = errText(data.error);
+          btn.disabled = false; btn.textContent = T('rep.seat_take');
+          return;
+        }
+        await reloadCases(); renderContent();
+        var s2 = document.getElementById('resolve-status'); if (s2) s2.textContent = T('rep.seat_took');
+        var row = document.getElementById('case-' + id); if (row) { row.setAttribute('tabindex', '-1'); row.focus(); }
+      } catch (e) {
+        errorEl.textContent = T('common.network_error');
+        btn.disabled = false; btn.textContent = T('rep.seat_take');
+      }
+    });
+  });
+  document.querySelectorAll('.seat-return-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-id');
+      seatReturn[id] = { open: true, reason: '' };
+      renderContent();
+      var t = document.getElementById('seat-reason-' + id); if (t) t.focus();
+    });
+  });
+  document.querySelectorAll('.seat-return-cancel').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-id');
+      delete seatReturn[id];
+      renderContent();
+      var b = document.querySelector('.seat-return-btn[data-id="' + cssId(id) + '"]'); if (b) b.focus();
+    });
+  });
+  document.querySelectorAll('.seat-return-go').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      var t = document.getElementById('seat-reason-' + id);
+      var st = seatReturn[id] = Object.assign(seatReturn[id] || {}, { reason: t ? t.value : '' });
+      if (String(st.reason || '').trim().length < 10) {
+        st.error = T('rep.seat_return_short'); renderContent();
+        var t2 = document.getElementById('seat-reason-' + id); if (t2) t2.focus();
+        return;
+      }
+      st.error = ''; st.busy = true; renderContent();
+      try {
+        var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/seat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'return', reason: st.reason }) });
+        var data = await res.json();
+        if (!res.ok) {
+          st.busy = false; st.error = data.code === 'CHOSEN' ? T('rep.seat_return_chosen') : errText(data.error); renderContent();
+          var t3 = document.getElementById('seat-reason-' + id); if (t3) t3.focus();
+          return;
+        }
+        delete seatReturn[id];
+        await reloadCases(); renderContent();
+        var s3 = document.getElementById('resolve-status'); if (s3) s3.textContent = T('rep.seat_returned');
+        var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+      } catch (e) {
+        st.busy = false; st.error = T('common.network_error'); renderContent();
+      }
+    });
+  });
+  document.querySelectorAll('.seat-return textarea').forEach(function(t) {
+    t.addEventListener('input', function() { var id = t.id.replace('seat-reason-', ''); if (seatReturn[id]) seatReturn[id].reason = t.value; });
+  });
 }
 
 // ================= Team (item 8b) =================
@@ -3529,9 +3672,11 @@ function renderContent() {
   } else {
     html += cases.map(renderCase).join('');
   }
+  html += renderWardTaken();
   html += moreClosedBox();
   el.innerHTML = html;
   attachMoreClosed();
+  attachSeatHandlers();
   var tc = document.getElementById('ov-type-clear');
   if (tc) tc.addEventListener('click', function() { activeCatId = null; ovJump = null; renderContent(); var h = document.querySelector('.register-title'); if (h) { h.setAttribute('tabindex', '-1'); h.focus(); } });
   var back = document.getElementById('ov-back');
@@ -4173,6 +4318,7 @@ async function init() {
   takeDepartments(casesData);
   closedInfo = casesData.closed || null;
   currentCases = casesData.grievances || [];
+  wardTaken = casesData.wardTaken || [];
   teamsData = casesData.teams || {};
   if (casesData.workloadWarn) workloadWarn = casesData.workloadWarn;
   // Item 9c: the Audit tab appears once the office has an observation; a

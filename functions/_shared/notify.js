@@ -38,6 +38,7 @@ import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { DEPT_HI } from "./departments.js";
 import { officeCaseList } from "./dept-cases.js";
 import { officerRecipient } from "./dept-auth.js";
+import { caseLocalOffices, isMulti, seatsOfUnits, wardLevelStatus, seatsReady } from "./seats.js";
 
 export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
@@ -48,11 +49,12 @@ export const KIND = {
   DEPT_O_NEW: "DEPT_O_NEW",       // a case was forwarded to their office
   DEPT_O_BACK: "DEPT_O_BACK",     // the field check found it not fixed / partly fixed
   DEPT_O_LATE: "DEPT_O_LATE",     // their office is past the target time on a case
+  WARD_OPEN: "WARD_OPEN",         // grieviq-57: a case came back open to every member of the ward
 };
 const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE]);
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
-const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY]);
+const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.WARD_OPEN, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY]);
 
 export const SUMMARY_HOUR_IST = 9;          // daily summary at 9:00 am India time
 export const NEW_CASE_CATCHUP_HOURS = 6;
@@ -139,8 +141,12 @@ export function noticeText(n, lang) {
   switch (n.kind) {
     case KIND.NEW_CASE:
       return { title: hi ? "नई शिकायत " + n.tracking_ref : "New complaint " + n.tracking_ref,
-        body: wt + (hi ? "। " : ". ") + (ack ? (hi ? ack + " तक स्वीकार करें" : "Acknowledge by " + ack) : "") +
+        body: wt + (hi ? "। " : ". ") + (d.pool ? (hi ? "वार्ड के सभी सदस्यों के लिए खुली: जो सदस्य इसे सँभालेगा वह इसे ले। " : "Open to every member of the ward: take it if your office will handle it. ") : "") +
+          (ack ? (hi ? ack + " तक स्वीकार करें" : "Acknowledge by " + ack) : "") +
           (due ? (hi ? ", " + due + " तक कार्यवाही करें।" : ", act by " + due + ".") : (hi ? "। पहले अलग से समीक्षा होगी।" : ". Reviewed separately first.")) };
+    case KIND.WARD_OPEN:
+      return { title: hi ? "वार्ड के लिए फिर खुली: " + n.tracking_ref : "Open for your ward again: " + n.tracking_ref,
+        body: wt + (hi ? "। जिस सदस्य के पास यह थी वह अब कार्यवाही नहीं कर सकता। जो सदस्य इसे सँभालेगा वह इसे ले।" : ". The member who had it can't act on it now. Take it if your office will handle it.") };
     case KIND.MOVED_UP:
       return { title: hi ? "शिकायत " + n.tracking_ref + " आपके कार्यालय में आई है" : "Complaint " + n.tracking_ref + " has come to your office",
         body: wt + (hi ? "। " : ". ") + (d.reason === "REOPENED" ? (hi ? "नागरिक ने इसे फिर से खोला है।" : "The citizen reopened it.") : (hi ? "पिछले स्तर की समय-सीमा बीत गई।" : "The time limit at the previous level passed.")) +
@@ -441,6 +447,46 @@ async function setState(env, gid, index, marker) {
   } catch (e) { /* ignore */ }
 }
 
+// grieviq-57: how a citizen email names the ward level of a ward with
+// several members: the member chosen, or "the members of your ward".
+function wardWords(chain, g) {
+  const seats = (chain.tiers[0] && chain.tiers[0].seats) || [];
+  const s = g.seat_owner ? seats.find((x) => x.id === g.seat_owner) : null;
+  if (s) return { levelEn: "ward member (Seat " + s.letter + (s.name ? ", " + s.name : "") + ")", levelHi: "वार्ड सदस्य (सीट " + s.letter + (s.name ? ", " + s.name : "") + ")" };
+  return { levelEn: "ward members (any member of your ward can take it up)", levelHi: "वार्ड सदस्यों (आपके वार्ड का कोई भी सदस्य इसे ले सकता है)" };
+}
+
+// grieviq-57: a member took a case open to every member of the ward.
+// The citizen hears who; the other members' alerts about it are marked
+// read (their list no longer shows it). Never throws.
+export async function notifyTaken(env, origin, g, seat) {
+  try {
+    await env.DB.prepare("UPDATE notifications SET read_at = COALESCE(read_at, ?), seen_at = COALESCE(seen_at, ?) WHERE grievance_id = ? AND kind IN ('NEW_CASE', 'WARD_OPEN') AND office_tier = 'LOCAL' AND office_id <> ?")
+      .bind(new Date().toISOString(), new Date().toISOString(), g.id, String(seat.id)).run();
+  } catch (e) { /* ignore */ }
+  try { await pushCitizen(env, g, "TAKEN", { seat: seat.letter, name: seat.name || "" }, "TAKEN:" + g.id + ":" + seat.id + ":" + (g.seat_owner_at || "")); } catch (e) { /* ignore */ }
+}
+
+// grieviq-57: cases given back to the ward ([{ g, from, why }]): every
+// member who can take them is told, and the citizen too. Never throws.
+export async function notifyReturned(env, origin, list) {
+  for (const item of list || []) {
+    try {
+      const g = item.g;
+      const chain = await resolveChain(env, g.local_unit_id);
+      if (!chain) continue;
+      const category = await env.DB.prepare("SELECT * FROM grievance_categories WHERE id = ?").bind(g.category_id).first();
+      const stamp = Date.now();
+      for (const o of await caseLocalOffices(env, g, chain.localUnit)) {
+        if (o.id === item.from) continue;
+        const people = await officeRecipients(env, "LOCAL", o.id, chain.localUnit.id, o.email);
+        await createNotices(env, origin, people, { kind: KIND.WARD_OPEN, key: "WOPEN:" + g.id + ":" + o.id + ":" + stamp, officeTier: "LOCAL", officeId: o.id, g, category, wardName: chain.localUnit.name, data: { why: item.why } });
+      }
+      await pushCitizen(env, g, "BACK_TO_WARD", {}, "BACK:" + g.id + ":" + stamp);
+    } catch (e) { /* ignore */ }
+  }
+}
+
 // ---------------------------------------------------------- the events
 // A complaint was filed: tell the ward's office, and the citizen (if they
 // gave an email). Never throws.
@@ -456,12 +502,20 @@ export async function notifyNewCase(env, origin, g, preload) {
     const created = toUtcMs(g.created_at) || Date.now();
     const ackMs = category.ack_sla_hours ? created + category.ack_sla_hours * 3600000 : null;
     const dueMs = levelDueMs(g, category, chain.tiers, startIdx);
-    const people = await officeRecipients(env, first.tier, first.id, chain.localUnit.id, first.email);
-    await createNotices(env, origin, people, {
-      kind: KIND.NEW_CASE, key: "NEW:" + g.id, officeTier: first.tier, officeId: first.id, g, category,
-      wardName: chain.localUnit.name, dueMs, data: ackMs ? { ackDue: new Date(ackMs).toISOString() } : null,
-    });
-    await emailCitizen(env, origin, "RECEIVED", g, { category, wardName: chain.localUnit.name, label: first.label, ackMs, dueMs });
+    // grieviq-57: in a ward with several members, the member the citizen
+    // chose, or every member who can take it.
+    const seatsMode = startIdx === 0 && chain.tiers[0].multi;
+    const targets = seatsMode ? (await caseLocalOffices(env, g, chain.localUnit)).map((x) => ({ tier: "LOCAL", id: x.id, email: x.email }))
+      : [{ tier: first.tier, id: first.id, email: first.email }];
+    for (const o of targets) {
+      const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
+      await createNotices(env, origin, people, {
+        kind: KIND.NEW_CASE, key: "NEW:" + g.id + (seatsMode ? ":" + o.id : ""), officeTier: o.tier, officeId: o.id, g, category,
+        wardName: chain.localUnit.name, dueMs, data: Object.assign(ackMs ? { ackDue: new Date(ackMs).toISOString() } : {}, seatsMode && !g.seat_owner ? { pool: true } : {}),
+      });
+    }
+    const who = seatsMode ? wardWords(chain, g) : {};
+    await emailCitizen(env, origin, "RECEIVED", g, Object.assign({ category, wardName: chain.localUnit.name, label: first.label, ackMs, dueMs }, who));
     await setState(env, g.id, startIdx, "");
     await flushOutbox(env, 5);
   } catch (e) { /* the hourly job catches up */ }
@@ -519,9 +573,13 @@ export async function notifyNudge(env, origin, g, chain, category, upToIndex) {
   try {
     const offices = chainOffices(chain).slice(0, upToIndex + 1);
     const stamp = Date.now();
-    for (const o of offices) {
-      const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
-      await createNotices(env, origin, people, { kind: KIND.NUDGE, key: "NUDGE:" + g.id + ":" + stamp + ":" + o.tier, officeTier: o.tier, officeId: o.id, g, category, wardName: chain.localUnit.name });
+    for (const o0 of offices) {
+      // grieviq-57: the ward level of a ward with several members: its member offices.
+      const list = o0.tier === "LOCAL" && chain.tiers[0].multi ? (await caseLocalOffices(env, g, chain.localUnit)).map((x) => ({ tier: "LOCAL", id: x.id, email: x.email })) : [o0];
+      for (const o of list) {
+        const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
+        await createNotices(env, origin, people, { kind: KIND.NUDGE, key: "NUDGE:" + g.id + ":" + stamp + ":" + o.tier + (o.tier === "LOCAL" && list.length > 1 ? ":" + o.id : ""), officeTier: o.tier, officeId: o.id, g, category, wardName: chain.localUnit.name });
+      }
     }
   } catch (e) { /* never blocks the nudge */ }
 }
@@ -560,6 +618,15 @@ async function openCasesWithChains(env) {
     tiers.push({ tier: "MP", label: "MP", email: p.mp_email, status: p.seat_status || "ELECTED" });
     out.push({ g, category: c, chain: { localUnit: lu, municipalBody: body, mla: m, mp: p, tiers } });
   }
+  // grieviq-57: wards with several members: the ward level is vacant only
+  // when every seat is; it carries its seats.
+  if (out.some((x) => isMulti(x.chain.localUnit))) {
+    const seatsBy = await seatsOfUnits(env, Array.from(new Set(out.filter((x) => isMulti(x.chain.localUnit)).map((x) => x.chain.localUnit))));
+    for (const x of out) {
+      const seats = seatsBy.get(String(x.chain.localUnit.id));
+      if (seats && seats.length > 1) Object.assign(x.chain.tiers[0], { email: null, status: wardLevelStatus(seats), seats, multi: true });
+    }
+  }
   return out;
 }
 
@@ -597,6 +664,15 @@ export async function runNotifications(env, origin, nowMs) {
       }
     } catch (e) { done.errors++; }
   }
+
+  // grieviq-57: members' offices that can't act (seat vacant, plan paused or
+  // ended) give their open cases back to the ward.
+  try {
+    const { returnStuckCases } = await import("./seats.js");
+    const back = await returnStuckCases(env, "system");
+    if (back.length) await notifyReturned(env, origin, back);
+    done.returnedToWard = back.length;
+  } catch (e) { done.errors++; }
 
   try { done.deptOverdue = await deptOverdueNotices(env, origin, list, now); } catch (e) { done.errors++; }
 
@@ -767,10 +843,17 @@ export async function dailySummaries(env, origin, list, nowMs) {
   const offices = new Map();
   for (const { g, category, chain } of list) {
     const r = computeEscalation(g, category, chain.tiers);
-    const o = chainOffices(chain)[r.currentTierIndex];
+    const o0 = chainOffices(chain)[r.currentTierIndex];
+    if (!o0) continue;
+    // grieviq-57: a ward with several members: the member who has the case,
+    // or every member who can take it.
+    const list = o0.tier === "LOCAL" && chain.tiers[0].multi
+      ? (await caseLocalOffices(env, g, chain.localUnit)).map((x) => ({ tier: "LOCAL", id: x.id, email: x.email, seatLetter: x.letter }))
+      : [o0];
+    for (const o of list) {
     if (!o || !o.email) continue;
     const key = o.tier + ":" + o.id;
-    if (!offices.has(key)) offices.set(key, { o, name: o.tier === "LOCAL" ? chain.localUnit.name : o.tier === "MAYOR" ? chain.municipalBody.name : o.tier === "MLA" ? chain.mla.name : chain.mp.name, overdue: 0, dueToday: 0, waitingAck: 0, ids: new Set() });
+    if (!offices.has(key)) offices.set(key, { o, name: o.tier === "LOCAL" ? chain.localUnit.name + (o.seatLetter ? " · Seat " + o.seatLetter : "") : o.tier === "MAYOR" ? chain.municipalBody.name : o.tier === "MLA" ? chain.mla.name : chain.mp.name, overdue: 0, dueToday: 0, waitingAck: 0, ids: new Set() });
     const s = offices.get(key);
     const due = levelDueMs(g, category, chain.tiers, r.currentTierIndex);
     let counted = false;
@@ -778,6 +861,7 @@ export async function dailySummaries(env, origin, list, nowMs) {
     else if (due != null && due - nowMs <= 24 * 3600000) { s.dueToday++; counted = true; }
     if (!g.acknowledged_at) { s.waitingAck++; if (r.ackOverdue && !counted) { s.overdue++; } counted = true; }
     if (counted) s.ids.add(g.id);
+    }
   }
   let n = 0;
   for (const s of offices.values()) {

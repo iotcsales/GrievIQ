@@ -2940,6 +2940,85 @@ with sync_playwright() as pw:
     ctx.close()
     _d55.execute("DELETE FROM notices WHERE id LIKE 'ui-n%'"); _d55.commit(); _d55.close()
 
+    # ---------- grieviq-57: wards with more than one elected member ----------
+    # The API tests leave Maulvi Ganj with 4 seats: A (ma@x.in), B (mb@x.in),
+    # C vacant, D empty, and complaints open to every member.
+    W57 = "lu-maulvi"
+    for lang, theme in (("en", "light"), ("hi", "dark")):
+        ctx = br.new_context(viewport={"width": 390, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s');localStorage.setItem('griq-place',JSON.stringify({id:'%s'}))}catch(e){}" % (LANGKEY, lang, theme, W57))
+        p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+        p.route("**/maps.googleapis.com/**", lambda rt: rt.abort())
+        p.goto(B + "/submit"); p.wait_for_selector("#seatPick:not([hidden])")
+        radios = p.locator("#seatPick input[type=radio]")
+        ok(radios.count() == 3 and p.is_checked("#seat-any"), "form: any member (chosen) + the 2 members who can take complaints " + lang, radios.count())
+        ok(p.locator("#seatPick legend").count() == 1 and p.is_visible("#seatConsent"), "form: a named group and the consent line " + lang)
+        ok(p.locator("#seatPick label[for=seat-any] .seat-sub").count() == 1 and p.get_attribute("#seat-any", "aria-describedby") == "seat-any-sub", "form: the hint is read with the choice " + lang)
+        p.focus("#seat-any"); p.keyboard.press("ArrowDown"); p.wait_for_timeout(100)
+        ok(p.is_checked("#seat-0"), "form: arrow keys move between members " + lang)
+        ok(no_hscroll(p), "form: no sideways scroll at 390 px " + lang)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('seatPick')", 1))
+        ok(not bad, "form: seat choice contrast " + lang + " " + theme, bad[:4])
+        p.goto(B + "/lucknow/" + W57); p.wait_for_selector(".loc-who")
+        ok(p.locator(".loc-who li").count() == 6 and ("Seat C" in p.inner_text(".loc-who") or "सीट C" in p.inner_text(".loc-who")), "ward page: every seat listed " + lang, p.inner_text(".loc-who"))
+        ok(not errs, "no script errors (citizen seats) " + lang, errs)
+        ctx.close()
+    # a member's console: take, then return with a reason
+    for lang, theme in (("en", "light"), ("hi", "dark")):
+        ctx = br.new_context(viewport={"width": 1280, "height": 900}, color_scheme=theme)
+        ctx.add_cookies([{"name": "test_email", "value": "mb@x.in", "url": B}])
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s');localStorage.setItem('giq-welcome-mb@x.in','1')}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/rep"); p.wait_for_selector(".take-btn")
+        row = p.locator(".case-row:has(.take-btn)").first
+        ok(row.locator(".ack-btn, .resolve-btn:not(.take-btn)").count() == 0 and row.locator(".seat-note").count() == 1, "console: an open-to-all case shows only Take " + lang)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.querySelector('.seat-note')", 1))
+        ok(not bad, "console: seat note contrast " + lang + " " + theme, bad[:4])
+        if lang == "en":
+            cid = row.get_attribute("id").replace("case-", "")
+            with p.expect_response(lambda r: "/seat" in r.url): row.locator(".take-btn").click()
+            p.wait_for_selector("#case-" + cid + " .seat-return-btn")
+            ok("taken the case" in p.inner_text("#resolve-status") and p.evaluate("document.activeElement.id") == "case-" + cid, "console: taken, said, focus on the case")
+            p.click("#case-" + cid + " .seat-return-btn"); p.wait_for_selector("#seat-reason-" + cid)
+            ok(p.evaluate("document.activeElement.id") == "seat-reason-" + cid, "console: the reason box gets focus")
+            p.click("#case-" + cid + " .seat-return-go"); p.wait_for_timeout(150)
+            ok(p.get_attribute("#seat-reason-" + cid, "aria-invalid") == "true" and "10 letters" in p.inner_text("#seat-reason-err-" + cid) and p.evaluate("document.activeElement.id") == "seat-reason-" + cid, "console: a reason is needed, said next to the box")
+            p.click("#case-" + cid + " .seat-return-cancel"); p.wait_for_timeout(100)
+            ok(p.evaluate("document.activeElement.className").find("seat-return-btn") >= 0, "console: cancel puts focus back")
+            p.click("#case-" + cid + " .seat-return-btn"); p.fill("#seat-reason-" + cid, "Outside our part of the ward, please take it")
+            with p.expect_response(lambda r: "/seat" in r.url): p.click("#case-" + cid + " .seat-return-go")
+            p.wait_for_selector("#case-" + cid + " .take-btn")
+            ok("Returned to the ward" in p.inner_text("#resolve-status"), "console: returned to the ward")
+            shot(p, "99-member-console", full=False)
+        ok(not errs, "no script errors (member console) " + lang, errs)
+        ctx.close()
+    # the member who took a case is shown to the others in one line
+    _d57 = _sq.connect(WORK + "/test.db", timeout=10)
+    gid = _d57.execute("SELECT id FROM grievances WHERE local_unit_id = ? AND seat_owner IS NULL AND status = 'OPEN' LIMIT 1", (W57,)).fetchone()[0]
+    _d57.close()
+    _ur55.urlopen(_ur55.Request(B + "/api/grievances/" + gid + "/seat", data=json.dumps({"action": "take"}).encode(), method="POST", headers={"content-type": "application/json", "test-email": "mb@x.in"})).read()
+    ctx, p, errs = P("ma@x.in")
+    p.goto(B + "/rep"); p.wait_for_selector(".ward-taken")
+    ok(p.locator(".ward-taken h3").count() == 1 and "taken by Seat B" in p.inner_text(".ward-taken"), "console: other members' cases, one line each")
+    ok(not errs, "no script errors (taken list)", errs)
+    ctx.close()
+    # admin: members in a ward
+    for theme in ("light", "dark"):
+        ctx, p, errs = P("super@test.in", theme=theme if theme == "light" else None)
+        p.goto(B + "/admin-jurisdiction.html"); p.wait_for_selector("[data-toggle-mp]")
+        p.click("[data-toggle-mp]"); p.wait_for_selector("[data-toggle-mla]"); p.click("[data-toggle-mla]"); p.wait_for_selector(".node-row.seat")
+        ok(p.locator(".node-row.seat").count() == 3, "admin: seats B-D listed under the ward " + theme)
+        p.click('[data-seats="lu-maulvi"]'); p.wait_for_selector("#seats-modal.open")
+        ok(p.evaluate("document.activeElement.id") == "seats-count" and p.input_value("#seats-count") == "4", "admin: members box opens on the number " + theme)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.querySelector('#seats-modal .modal')", 1))
+        ok(not bad, "admin: members box contrast " + theme, bad[:4])
+        p.select_option("#seats-count", "2"); p.click("#seats-save"); p.wait_for_timeout(300)
+        ok("Seat C" in p.inner_text("#seats-error") and p.get_attribute("#seats-count", "aria-invalid") == "true", "admin: a seat in use can't be removed, said in the box " + theme, p.inner_text("#seats-error"))
+        p.keyboard.press("Escape"); p.wait_for_timeout(100)
+        ok(not p.is_visible("#seats-modal") and p.evaluate("document.activeElement.getAttribute('data-seats')") == "lu-maulvi", "admin: Escape closes, focus back on Members " + theme)
+        ok(not errs, "no script errors (admin seats) " + theme, errs)
+        ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

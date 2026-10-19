@@ -54,6 +54,10 @@ export function citizenText(kind, ref, data, lang) {
       : { title: "2 days left to confirm", body: "Tell us by " + d.by + " if " + ref + " is really fixed, or it closes as not confirmed." };
     case "CLOSED": return hi ? { title: "शिकायत बंद", body: ref + " बंद कर दी गई है। GrievIQ का उपयोग करने के लिए धन्यवाद।" + (d.hasEmail ? " यदि यह वास्तव में ठीक नहीं हुई, तो आप 30 दिन में मेरी शिकायतें पृष्ठ पर इसे फिर से खोल सकते हैं।" : "") }
       : { title: "Complaint closed", body: ref + " is closed. Thank you for using GrievIQ." + (d.hasEmail ? " If it isn't really fixed, you can reopen it within 30 days on the Track page." : "") };
+    case "TAKEN": return hi ? { title: "वार्ड सदस्य ने शिकायत ली", body: ref + ": वार्ड की सीट " + (d.seat || "") + (d.name ? " (" + d.name + ")" : "") + " के कार्यालय ने आपकी शिकायत ले ली है और वह इसे सँभालेगा।" }
+      : { title: "A ward member took your complaint", body: ref + ": the office of Seat " + (d.seat || "") + (d.name ? " (" + d.name + ")" : "") + " in your ward has taken it and will handle it." };
+    case "BACK_TO_WARD": return hi ? { title: "शिकायत फिर से वार्ड के सभी सदस्यों के लिए खुली", body: ref + ": जिस सदस्य के पास यह थी वह अब कार्यवाही नहीं कर सकता, इसलिए आपके वार्ड का कोई भी सदस्य इसे ले सकता है। समय-सीमा वही रहती है।" }
+      : { title: "Your complaint is open to all ward members again", body: ref + ": the member who had it can't act on it now, so any member of your ward can take it. The time limits stay the same." };
     case "ON": return hi ? { title: "अपडेट चालू हैं", body: ref + " के बारे में अपडेट इस डिवाइस पर आएँगे।" }
       : { title: "Updates are on", body: "Updates about " + ref + " will appear on this device." };
     default: return { title: "GrievIQ", body: ref };

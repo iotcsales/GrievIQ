@@ -41,6 +41,8 @@
 // The representative is reminded to review the team every
 // TEAM_REVIEW_DAYS (NIST AC-6(7) / AC-2(j)).
 
+import { localTable, unitOf } from "./seats.js";
+
 export const ROLE = { REP: "REPRESENTATIVE", OM: "OFFICE_MANAGER", FW: "FIELD_WORKER", OA: "OFFICE_ASSISTANT" };
 export const TEAM_ROLES = [ROLE.OM, ROLE.FW, ROLE.OA];
 export const TEAM_LIMIT = 25;
@@ -98,13 +100,16 @@ export function coversWard(row, wardId) {
 // the label shown for it.
 export async function officeInfo(env, tier, id) {
   let row = null;
-  if (tier === "LOCAL") row = await env.DB.prepare("SELECT id, name, unit_type, rep_email AS email FROM local_units WHERE id = ?").bind(id).first();
+  // grieviq-57: a seat of a ward with several members is its own office.
+  if (tier === "LOCAL") row = await env.DB.prepare(`SELECT * , rep_email AS email FROM ${await localTable(env)} WHERE id = ?`).bind(id).first();
   else if (tier === "MAYOR") row = await env.DB.prepare("SELECT id, name, mayor_email AS email FROM municipal_bodies WHERE id = ?").bind(id).first();
   else if (tier === "MLA") row = await env.DB.prepare("SELECT id, name, mla_email AS email FROM mla_constituencies WHERE id = ?").bind(id).first();
   else if (tier === "MP") row = await env.DB.prepare("SELECT id, name, mp_email AS email FROM mp_constituencies WHERE id = ?").bind(id).first();
   if (!row) return null;
   const label = tier === "LOCAL" ? (row.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan") : tier === "MAYOR" ? "Mayor" : tier;
-  return { tier, id: row.id, name: row.name, label, repEmail: String(row.email || "").trim().toLowerCase() || null };
+  const multi = tier === "LOCAL" && Number(row.seat_count) > 1;
+  return { tier, id: row.id, name: row.name, label, repEmail: String(row.email || "").trim().toLowerCase() || null,
+    unit: tier === "LOCAL" ? (row.unit_id || unitOf(row.id)) : null, multi, seatLabel: multi ? (row.seat_label || "A") : null };
 }
 
 // Team memberships that are active and confirmed by the office's current
@@ -117,7 +122,7 @@ export async function teamMandates(env, email, rows) {
     if (String(t.confirmed_by_rep_email || "").toLowerCase() !== office.repEmail) continue; // paused
     // Item 8c-1: the member's wards limit what they see (null = all).
     out.push({ tier: office.tier, id: office.id, name: office.name, label: office.label, role: t.role, memberId: t.id,
-      officeRepEmail: office.repEmail, wards: parseList(t.wards), job: jobProfile(t) });
+      officeRepEmail: office.repEmail, wards: parseList(t.wards), job: jobProfile(t), unit: office.unit, multi: office.multi, seatLabel: office.seatLabel });
   }
   return out;
 }
@@ -125,11 +130,18 @@ export async function teamMandates(env, email, rows) {
 // The caller's best role for this case (and the mandate it comes from), or
 // null. A field worker counts only for cases assigned to them in that
 // office. getUnits(mandate) -> list of local unit ids the mandate covers.
-export async function caseAccess(env, auth, g, getUnits) {
+export async function caseAccess(env, auth, g, getUnits, opts) {
   let best = null;
   for (const m of auth.mandates) {
     const units = await getUnits(env, m);
     if (!units.includes(g.local_unit_id)) continue;
+    // grieviq-57: in a ward with several members, only the member's office
+    // that handles the case may act on it. A case still open to every member
+    // must be taken first (opts.pool: the "take" and acknowledge actions).
+    if (m.tier === "LOCAL" && m.multi) {
+      if (g.seat_owner && g.seat_owner !== m.id) continue;
+      if (!g.seat_owner && !(opts && opts.pool)) continue;
+    }
     const role = m.role || ROLE.REP;
     if (role === ROLE.FW) {
       const a = await activeAssignment(env, g.id);

@@ -19,6 +19,7 @@ import { statusForMandates, officeKey, canAct } from "./subscriptions.js";
 import { verifyAccessJwt } from "./verify-access-jwt.js";
 import { sessionEmail } from "./rep-session.js";
 import { teamMandates, ROLE } from "./team.js";
+import { localTable, unitOf } from "./seats.js";
 
 // Item 8a (Sept 2026): who is signed in comes first from our own "Sign in
 // with Google" session (_shared/rep-session.js). During the switch-over a
@@ -90,8 +91,10 @@ export async function lookupMandates(env, emailIn) {
   // the offices where this person is on the representative's team.
   let teamRes = { results: [] };
   let localUnits, municipalBodies, mlaConstituencies, mpConstituencies;
+  // grieviq-57: every seat of a ward with several members is its own office.
+  const lt = await localTable(env);
   const own = [
-    env.DB.prepare("SELECT * FROM local_units WHERE rep_email = ?").bind(email),
+    env.DB.prepare(`SELECT * FROM ${lt} WHERE rep_email = ?`).bind(email),
     env.DB.prepare("SELECT * FROM municipal_bodies WHERE mayor_email = ?").bind(email),
     env.DB.prepare("SELECT * FROM mla_constituencies WHERE mla_email = ?").bind(email),
     env.DB.prepare("SELECT * FROM mp_constituencies WHERE mp_email = ?").bind(email),
@@ -105,12 +108,14 @@ export async function lookupMandates(env, emailIn) {
     [localUnits, municipalBodies, mlaConstituencies, mpConstituencies] = await env.DB.batch(own);
   }
   for (const row of localUnits.results || []) {
+    const multi = Number(row.seat_count) > 1;
     mandates.push({
       tier: "LOCAL",
       id: row.id,
       name: row.name,
       label: row.unit_type === "URBAN" ? "Corporator" : "Gram Pradhan",
       role: ROLE.REP, officeRepEmail: email, seat: row.seat_status || "ELECTED",
+      unit: row.unit_id || unitOf(row.id), multi, seatLabel: multi ? (row.seat_label || "A") : null,
     });
   }
   for (const row of municipalBodies.results || []) {

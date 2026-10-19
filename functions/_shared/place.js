@@ -79,9 +79,12 @@ export async function placeInfo(env, localUnitId) {
     mlaConstituency: chain.mla ? chain.mla.name : null,
     mpConstituency: chain.mp ? chain.mp.name : null,
     localities: lu.localities || null,
-    openForFiling: has(lu.rep_email),
+    openForFiling: chain.tiers[0].multi ? chain.tiers[0].seats.some((x) => x.email && x.status !== "VACANT") : has(lu.rep_email),
     // Names only -- never phone or email.
     levels: chain.tiers.map((t) => ({ tier: t.tier, label: t.label, name: has(t.name) ? String(t.name).trim() : null })),
+    // grieviq-57: a ward with several members: every seat, in seat order,
+    // with its member's name (or vacant); no party, phone or email.
+    members: chain.tiers[0].multi ? chain.tiers[0].seats.map((x) => ({ letter: x.letter, name: x.status === "VACANT" ? null : (has(x.name) ? String(x.name).trim() : null), vacant: x.status === "VACANT" })) : null,
     last30Days: { filed: (counts && counts.filed) || 0, resolved: (counts && counts.resolved) || 0 },
   };
 }

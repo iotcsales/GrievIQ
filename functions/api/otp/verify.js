@@ -32,6 +32,7 @@ import { loadResolution, shapeResolution, parseWard } from "../../_shared/resolu
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shared/photo-store.js";
 import { reopenStatus, loadReopen, shapeReopen } from "../../_shared/reopen.js";
 import { ratingsReady, loadRatings, ratingStatus, departmentFor, shapeForCitizen } from "../../_shared/ratings.js";
+import { seatsReady } from "../../_shared/seats.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -76,6 +77,11 @@ async function listReports(env, email) {
 async function buildCaseDetail(env, grievance) {
   const chain = await resolveChain(env, grievance.local_unit_id);
   if (!chain) return { error: "Could not resolve jurisdiction for this case" };
+  // grieviq-57: who handles it in a ward with several members.
+  if (chain.tiers[0].multi && grievance.seat_owner === undefined && await seatsReady(env)) {
+    const so = await env.DB.prepare("SELECT seat_owner, seat_choice FROM grievances WHERE id = ?").bind(grievance.id).first();
+    if (so) { grievance.seat_owner = so.seat_owner; grievance.seat_choice = so.seat_choice; }
+  }
 
   const category = await env.DB.prepare(
     "SELECT * FROM grievance_categories WHERE id = ?"
@@ -185,6 +191,12 @@ async function buildCaseDetail(env, grievance) {
       reopen: shapeReopen(await loadReopen(env, grievance.id), "citizen"),
       reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(grievance)),
       currentLevelLabel: result.currentTier ? result.currentTier.label : null,
+      // grieviq-57: a ward with several members: who handles it (seat letter
+      // and name only), or that it is open to every member of the ward.
+      wardSeat: chain.tiers[0].multi ? (() => {
+        const s0 = grievance.seat_owner ? chain.tiers[0].seats.find((x) => x.id === grievance.seat_owner) : null;
+        return s0 ? { letter: s0.letter, name: s0.name || null } : { open: true };
+      })() : null,
       beforePhotos: await complaintPhotoList(env, grievance, await loadComplaintPhotos(env, grievance.id)),
       elapsedDays: Math.round((result.elapsedHours / 24) * 10) / 10,
       ackOverdue: result.ackOverdue,

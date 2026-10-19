@@ -19,6 +19,8 @@ import { liveVersion, istToday } from "../../_shared/site-settings.js";
 import { repOffice, realDate, planBillFilter } from "../../_shared/billing.js";
 import { subsReady, subSettings, statusOf, officeKey, ensureRow, logSub, addDays } from "../../_shared/subscriptions.js";
 import { allOffices } from "../../_shared/subscription-run.js";
+import { returnCasesOf } from "../../_shared/seats.js";
+import { notifyReturned } from "../../_shared/notify.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -143,5 +145,15 @@ export async function onRequestPost({ request, env }) {
     .bind(crypto.randomUUID(), auth.email, "subscription_" + b.action, name, JSON.stringify(Object.assign({ office: key }, detail))).run();
   const after = await env.DB.prepare("SELECT * FROM office_subscriptions WHERE office_type = ? AND office_tier = ? AND office_id = ?").bind(type, tier, id).first();
   const st = statusOf(after, cfg, today);
-  return json({ ok: true, status: st.status, until: st.until || null });
+  // grieviq-57: a ward member's office that can no longer act gives its open
+  // cases back to the ward at once (the hourly check catches every other way).
+  let returned = 0;
+  if (type === "REP" && tier === "LOCAL" && (st.status === "PAUSED" || st.status === "ENDED")) {
+    try {
+      const back = await returnCasesOf(env, [{ id, why: st.status }], auth.email);
+      returned = back.length;
+      if (back.length) await notifyReturned(env, env.SITE_ORIGIN || new URL(request.url).origin, back);
+    } catch (e) { /* before part40 */ }
+  }
+  return json({ ok: true, status: st.status, until: st.until || null, returnedToWard: returned || undefined });
 }

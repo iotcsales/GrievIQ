@@ -99,6 +99,15 @@
   details.rep-ask .rep-ask-body { padding: 0 16px 6px; }
   details.rep-ask .rep-ask-body .hint { margin: 0 0 14px; }
 
+  /* grieviq-57: a ward with several elected members: who should handle it */
+  .seat-pick { border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px 6px; margin: 0 0 18px; }
+  .seat-pick legend { font-size: 14px; font-weight: 700; color: var(--ink); padding: 0 6px; }
+  .seat-pick p { font-size: 13px; color: var(--ink-soft); margin: 0 0 10px; line-height: 1.5; }
+  .seat-opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; min-height: 44px; }
+  .seat-opt input { width: 20px; height: 20px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--teal); }
+  .seat-opt label { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+  .seat-opt .seat-sub { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-soft); }
+  .seat-consent { font-size: 12.5px; color: var(--ink-soft); margin: -8px 0 16px 30px; line-height: 1.5; }
   .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
   .chip {
     padding: 9px 15px; border: 1.5px solid var(--border); border-radius: 100px;
@@ -244,7 +253,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=58"></script>
+<script src="/i18n.js?v=59"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/site.js?v=43" defer></script>
@@ -270,6 +279,7 @@
         <p data-i18n="submit.done_keep">Keep this reference number to check on your complaint later.</p>
         <div class="tracking-ref" id="trackingRefDisplay"></div>
         <p id="trackHint"></p>
+        <p id="seatDone" hidden></p>
         <div class="next-box" id="nextBox" hidden>
           <h3 data-i18n="submit.next_h">What happens next</h3>
           <ol id="nextList"></ol>
@@ -339,6 +349,12 @@
         <div class="field-error" id="areaError" data-i18n="submit.area_err">Please select your area from the list.</div>
         <div class="area-open-error" id="areaOpenError" role="alert"></div>
 
+        <fieldset class="seat-pick" id="seatPick" hidden>
+          <legend data-i18n="submit.seat_q">Who should handle this?</legend>
+          <p data-i18n="submit.seat_hint">This ward has more than one elected member. Any of them can take up your complaint, or you can choose one.</p>
+          <div id="seatOptions"></div>
+        </fieldset>
+
         <label for="locationDetail" data-i18n="submit.landmark">Landmark or street address</label>
         <div class="hint" data-i18n="submit.landmark_hint">Helps your representative find the exact spot — e.g. "near Shiv temple, Mohalla Rampur" or a street name.</div>
         <textarea id="locationDetail" placeholder="e.g. Near the water tank on Station Road" data-i18n-ph="submit.landmark_ph" style="min-height: 60px; margin-bottom: 0;"></textarea>
@@ -401,6 +417,7 @@
           <input type="checkbox" id="consent" aria-describedby="consentError" />
           <label for="consent" data-i18n="submit.n_agree">I am 18 or older, and I agree to my details being used for this complaint as described above. If you are under 18, please ask a parent or guardian to file it.</label>
         </div>
+        <p class="seat-consent" id="seatConsent" hidden data-i18n="submit.seat_consent">In a ward with several members: if the member you chose cannot act on it, any member of this ward may handle it.</p>
         <div class="field-error" id="consentError" role="alert" data-i18n="submit.n_agree_err">Please tick this box to confirm you are 18 or older and agree, so we can file your complaint.</div>
 
         <!-- Honeypot field: real users never see or fill this -->
@@ -586,9 +603,33 @@
     document.getElementById('whereSearch').hidden = true;
     document.getElementById('matchConfirm').style.display = 'none';
     updateRepQuestion(unit.id);
+    renderSeatPick();
     renderPinNote();
     checkSimilar();
   }
+
+  // grieviq-57: in a ward with several elected members, the citizen may
+  // leave it to any member (the default) or choose one. Seat letter and
+  // name only, in seat order, no party. Members who can't take complaints
+  // now are not offered.
+  let seatChoice = 'ANY';
+  function renderSeatPick() {
+    const box = document.getElementById('seatPick');
+    const list = document.getElementById('seatOptions');
+    const members = selectedUnit && Array.isArray(selectedUnit.members) ? selectedUnit.members : [];
+    const show = members.length >= 2;
+    box.hidden = !show;
+    document.getElementById('seatConsent').hidden = !show;
+    if (!show) { seatChoice = 'ANY'; list.innerHTML = ''; return; }
+    if (seatChoice !== 'ANY' && !members.some((m) => m.id === seatChoice)) seatChoice = 'ANY';
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const opt = (value, id, main, sub) => '<div class="seat-opt"><input type="radio" name="seatChoice" id="' + id + '" value="' + esc(value) + '"' + (seatChoice === value ? ' checked' : '') + (sub ? ' aria-describedby="' + id + '-sub"' : '') + ' />' +
+      '<label for="' + id + '">' + esc(main) + (sub ? '<span class="seat-sub" id="' + id + '-sub">' + esc(sub) + '</span>' : '') + '</label></div>';
+    list.innerHTML = opt('ANY', 'seat-any', GIQ.t('submit.seat_any', { ward: selectedUnit.name }), GIQ.t('submit.seat_any_sub')) +
+      members.map((m, i) => opt(m.id, 'seat-' + i, GIQ.t('submit.seat_member', { s: m.letter }) + (m.name ? ' — ' + m.name : ''), '')).join('');
+    list.querySelectorAll('input[name="seatChoice"]').forEach((r) => r.addEventListener('change', () => { if (r.checked) seatChoice = r.value; }));
+  }
+  document.addEventListener('giq:lang', () => { if (selectedUnit) renderSeatPick(); });
 
   let selectedUnit = null;
   function drawSelectedLabel() {
@@ -602,6 +643,8 @@
     document.getElementById('whereSearch').hidden = false;
     localUnitIdField.value = '';
     updateRepQuestion(null);
+    seatChoice = 'ANY';
+    renderSeatPick();
     renderPinNote();
     setPinStatus('');
     areaSelected.style.display = 'none';
@@ -1448,6 +1491,7 @@
           form_loaded_at: formLoadedAt,
           lang: GIQ.lang,
           consent: true,
+          seat_choice: selectedUnit && Array.isArray(selectedUnit.members) && selectedUnit.members.length >= 2 ? seatChoice : undefined,
         }),
       });
 
@@ -1501,6 +1545,15 @@
         hint.append(parts[0] || '', a, parts[2] || '');
       } else {
         hint.textContent = GIQ.t('submit.done_noemail');
+      }
+      // grieviq-57: who it went to, in a ward with several members.
+      const seatDone = document.getElementById('seatDone');
+      const many = selectedUnit && Array.isArray(selectedUnit.members) && selectedUnit.members.length >= 2;
+      seatDone.hidden = !many;
+      if (many) {
+        const chosen = !data.seat_fallback && seatChoice !== 'ANY' ? selectedUnit.members.find((m) => m.id === seatChoice) : null;
+        seatDone.textContent = data.seat_fallback ? GIQ.t('submit.seat_done_fallback')
+          : chosen ? GIQ.t('submit.seat_done_one', { s: chosen.letter, name: chosen.name ? ' (' + chosen.name + ')' : '' }) : GIQ.t('submit.seat_done_any');
       }
       lastNext = { next: data.next || {}, email: !!email };
       drawNext();

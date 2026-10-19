@@ -29,7 +29,7 @@
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { validateContact, emailDomainCanReceive } from "../../_shared/contact-validation.js";
-import { CONTACT_TABLES, readContact, checkNewUnit, insertUnit } from "../../_shared/jurisdiction-writes.js";
+import { CONTACT_TABLES, contactDef, readContact, checkNewUnit, insertUnit } from "../../_shared/jurisdiction-writes.js";
 import { applyDeptRequest } from "../../_shared/dept-directory.js";
 import { applyTypeRequest } from "../../_shared/dept-types.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
@@ -285,7 +285,7 @@ async function approve(env, auth, body) {
     const now = new Date().toISOString();
 
     if (r.kind === "contact") {
-      const def = CONTACT_TABLES[r.target_type];
+      const def = contactDef(r.target_type, r.target_id);
       const oldValues = parse(r.old_values) || {};
       const newValues = parse(r.new_values) || {};
       const fields = FIELDS.filter((f) => f in newValues);

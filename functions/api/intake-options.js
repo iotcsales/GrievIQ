@@ -19,6 +19,7 @@
 // covered city that has no ward map yet).
 
 import { liveJoin, areasReady, PILOT_AREA } from "../_shared/areas.js";
+import { seatsReady, isMulti, choosableSeats } from "../_shared/seats.js";
 
 export async function onRequestGet({ env }) {
   try {
@@ -29,8 +30,10 @@ export async function onRequestGet({ env }) {
       `SELECT id, name, ack_sla_hours, resolution_sla_hours FROM grievance_categories ORDER BY name ASC`
     ).all();
 
+    // grieviq-57: a ward with several members is open when any seat has an email.
+    const seats = await seatsReady(env);
     const unitsResult = await env.DB.prepare(
-      `SELECT lu.id, lu.name, lu.unit_type, lu.localities,${ready ? " lu.block, ar.id AS area_id, ar.name AS area_name, ar.slug AS area_slug," : ""}
+      `SELECT lu.id, lu.name, lu.unit_type, lu.localities,${seats ? " lu.seat_count," : ""}${ready ? " lu.block, ar.id AS area_id, ar.name AS area_name, ar.slug AS area_slug," : ""}
               CASE WHEN COALESCE(TRIM(lu.rep_name), '') = '' OR COALESCE(TRIM(lu.rep_phone), '') = '' THEN 1 ELSE 0 END AS rep_missing,
               CASE WHEN mla.id IS NULL OR COALESCE(TRIM(mla.mla_name), '') = '' OR COALESCE(TRIM(mla.mla_phone), '') = '' THEN 1 ELSE 0 END AS mla_missing,
               CASE WHEN mp.id IS NULL OR COALESCE(TRIM(mp.mp_name), '') = '' OR COALESCE(TRIM(mp.mp_phone), '') = '' THEN 1 ELSE 0 END AS mp_missing
@@ -38,9 +41,19 @@ export async function onRequestGet({ env }) {
        LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id
        LEFT JOIN mp_constituencies mp ON mp.id = mla.mp_constituency_id
        ${join}
-       WHERE (lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT')
+       WHERE (lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT'${seats ? " OR EXISTS (SELECT 1 FROM ward_seats ws WHERE ws.local_unit_id = lu.id AND ws.rep_email IS NOT NULL)" : ""})
        ORDER BY lu.name ASC`
     ).all();
+    // grieviq-57: the members a citizen may choose in a ward with several
+    // members: seat letter and name only (never phone or email), in seat
+    // order, no party. Members who can't take complaints now aren't listed.
+    for (const u of unitsResult.results || []) {
+      if (seats && isMulti(u)) {
+        u.members = (await choosableSeats(env, u.id)).map((x) => ({ id: x.id, letter: x.letter, name: x.name || null }));
+        u.rep_missing = 0;   // several members: "do you know your representative?" doesn't fit
+      }
+      delete u.seat_count;
+    }
 
     return new Response(
       JSON.stringify({

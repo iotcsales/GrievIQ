@@ -79,6 +79,7 @@ function isPlausiblePhone(phone) {
 // whenever that notice's wording changes, so each consent record says which
 // text the citizen agreed to.
 import { liveJoin } from "../../_shared/areas.js";
+import { isMulti, seatsOfUnit, choosableSeats, seatsReady } from "../../_shared/seats.js";
 
 export const NOTICE_VERSION = "2026-10-09.2";
 
@@ -117,6 +118,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     pin_lat, pin_lng, // optional: where the problem is, from a map pin, current location or address search
     lang, // "hi" or "en": the language the citizen used, for emails about this complaint
     consent, // true: 18 or older, and agrees to the notice on the form (DPDP Act s.5-6)
+    seat_choice, // grieviq-57: in a ward with several members, "ANY" or the chosen member's seat id
     // Spam-protection fields, not stored:
     website,      // honeypot — real users never see/fill this
     form_loaded_at, // ms timestamp from when the form rendered
@@ -189,7 +191,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // Only wards and villages in an area that is live (switched on).
     const localUnit = await env.DB.prepare(
-      `SELECT lu.id, lu.rep_email, lu.seat_status, lu.ward_boundary_geojson FROM local_units lu ${await liveJoin(env)} WHERE lu.id = ?`
+      `SELECT lu.* FROM local_units lu ${await liveJoin(env)} WHERE lu.id = ?`
     )
       .bind(local_unit_id)
       .first();
@@ -209,7 +211,14 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // A ward can be known before it can take complaints: that needs a ward
     // representative email on file (same rule as the Home page). Without
     // it, the complaint would reach no one.
-    if (!hasText(localUnit.rep_email) && localUnit.seat_status !== "VACANT") {   // grieviq-53: vacant seats go to the next level
+    // grieviq-57: a ward with several members is open when any seat can take
+    // complaints (or every seat is vacant: they go to the next level).
+    const multi = isMulti(localUnit) && await seatsReady(env);
+    const wardSeats = multi ? await seatsOfUnit(env, localUnit) : null;
+    const wardOpen = multi
+      ? wardSeats.some((x) => x.email && x.status !== "VACANT") || wardSeats.every((x) => x.status === "VACANT")
+      : hasText(localUnit.rep_email) || localUnit.seat_status === "VACANT";   // grieviq-53: vacant seats go to the next level
+    if (!wardOpen) {
       return new Response(
         JSON.stringify({ error: "This area can't take complaints yet. Please choose another area.", code: "not_open" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -294,6 +303,20 @@ export async function onRequestPost({ request, env, waitUntil }) {
       ).bind(...values).run();
     }
 
+    // grieviq-57: who handles it in a ward with several members: the member
+    // the citizen chose (if that member can take complaints now), or any member.
+    let seatOwner = null, seatFallback = false;
+    if (multi) {
+      const want = String(seat_choice || "ANY");
+      if (want !== "ANY") {
+        const ok = (await choosableSeats(env, localUnit)).find((x) => x.id === want);
+        if (ok) seatOwner = ok.id; else seatFallback = true;
+      }
+      const at = new Date().toISOString();
+      await env.DB.prepare("UPDATE grievances SET seat_choice = ?, seat_owner = ?, seat_owner_at = ? WHERE id = ?")
+        .bind(seatOwner || "ANY", seatOwner, seatOwner ? at : null, id).run();
+    }
+
     // Attach the photos (only ones not attached to anything yet). A failure
     // here must not lose the complaint; unattached photos are cleaned up.
     if (photoIds.length) {
@@ -329,6 +352,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const told = notifyNewCase(env, env.SITE_ORIGIN || new URL(request.url).origin, {
       id, tracking_ref: trackingRef, category_id, local_unit_id, created_at: new Date().toISOString(),
       citizen_email: trimmedEmail || null, lang: lang === "hi" ? "hi" : "en", status: "OPEN",
+      seat_choice: multi ? (seatOwner || "ANY") : null, seat_owner: seatOwner,
     });
     if (typeof waitUntil === "function") waitUntil(told); else await told;
     // "Get updates on this phone" (Oct 2026): a one-time pass, valid 24
@@ -336,7 +360,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const updatesPass = await makeFilingPass(env, id);
 
     return new Response(
-      JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category), updates_pass: updatesPass || undefined }),
+      JSON.stringify({ success: true, tracking_ref: trackingRef, next: nextSteps(category), updates_pass: updatesPass || undefined,
+        // grieviq-57: the member chosen couldn't take complaints just now, so any member can take it.
+        seat_fallback: seatFallback || undefined }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

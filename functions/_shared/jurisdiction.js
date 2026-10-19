@@ -9,6 +9,12 @@
 // or 4 tiers (Mayor present) without any hardcoded rural/urban branching
 // anywhere else in the app. Adding a new city with a different structure
 // later just means inserting a new municipal_bodies row — no code changes.
+//
+// grieviq-57: a ward may have several elected members (seats A-F, see
+// _shared/seats.js). Its first level then has no single person: the step
+// carries the seats instead, and is vacant only when every seat is.
+
+import { isMulti, seatsOfUnit, wardLevelStatus, unitOf } from "./seats.js";
 
 export async function resolveChain(env, localUnitId) {
   const localUnit = await env.DB.prepare(
@@ -43,6 +49,10 @@ export async function resolveChain(env, localUnitId) {
       status: localUnit.seat_status || "ELECTED",   // grieviq-53: ELECTED, ADMINISTRATOR or VACANT
     },
   ];
+  if (isMulti(localUnit)) {
+    const seats = await seatsOfUnit(env, localUnit);
+    if (seats.length > 1) Object.assign(tiers[0], { name: null, phone: null, email: null, status: wardLevelStatus(seats), seats, multi: true });
+  }
 
   if (municipalBody && municipalBody.has_mayor) {
     tiers.push({
@@ -91,7 +101,7 @@ export async function getLocalUnitIdsForMandate(env, mandate) {
 // Every ward of the office itself, whoever is asking.
 export async function officeUnitIds(env, mandate) {
   if (mandate.tier === "LOCAL") {
-    return [mandate.id];
+    return [unitOf(mandate.id)];   // grieviq-57: a seat office covers its ward
   }
 
   if (mandate.tier === "MAYOR") {
@@ -140,7 +150,11 @@ export function mandateScope(mandate) {
 
 function officeScope(mandate) {
   if (mandate.tier === "LOCAL") {
-    return { join: "", where: "g.local_unit_id = ?", binds: [mandate.id] };
+    // grieviq-57: in a ward with several members, a member's office sees the
+    // cases it handles and those still open to every member (never a case the
+    // citizen sent to another member, or one another member took).
+    if (mandate.multi) return { join: "", where: "g.local_unit_id = ? AND (g.seat_owner IS NULL OR g.seat_owner = ?)", binds: [unitOf(mandate.id), String(mandate.id)] };
+    return { join: "", where: "g.local_unit_id = ?", binds: [unitOf(mandate.id)] };
   }
   if (mandate.tier === "MAYOR") {
     return {

@@ -2309,6 +2309,137 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("DELETE FROM notices").run();
 }
 
+// ---- grieviq-57: wards with more than one elected member ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const J = (who, b) => call(who, "PATCH", "/api/admin/jurisdiction", b);
+  const W = "lu-maulvi";
+  let r = await J(A, { action: "set_seats", id: W, count: 4 });
+  ok(r.status === 403, "seats: the auditor can't change them", r.status);
+  r = await J(S, { action: "set_seats", id: W, count: 7 });
+  ok(r.status === 400 && r.body.fields.count === "RANGE", "seats: 1 to 6 only");
+  sdb.prepare("INSERT INTO local_units (id, name, unit_type, mla_constituency_id, area_id) VALUES ('lu-vill57', 'Village 57', 'RURAL', 'mla-c', 'lucknow')").run();
+  r = await J(S, { action: "set_seats", id: "lu-vill57", count: 2 });
+  ok(r.status === 400 && r.body.fields.count === "RURAL", "seats: a village has one Gram Pradhan");
+  sdb.prepare("DELETE FROM local_units WHERE id = 'lu-vill57'").run();
+  r = await J(S, { action: "set_seats", id: W, count: 4 });
+  ok(r.status === 200 && r.body.count === 4, "seats: a ward with 4 members", r.body);
+  let g = (await call(S, "GET", "/api/admin/jurisdiction")).body;
+  ok(g.wardSeats.filter((x) => x.local_unit_id === W).map((x) => x.seat_label).join() === "B,C,D" && g.localUnits.find((u) => u.id === W).seat_count === 4, "seats: B, C and D made, empty");
+  for (const [id, name, email] of [[W, "Asha Member", "ma@x.in"], [W + "~B", "Bina Member", "mb@x.in"], [W + "~C", "Chand Member", "mc@x.in"]]) {
+    r = await J(S, { action: "update_contact", type: "ward", id, name, phone: "9876500057", email });
+    ok(r.status === 200, "seats: member's contact saved " + id, r.body);
+  }
+  ok(sdb.prepare("SELECT rep_email FROM ward_seats WHERE id = ?").get(W + "~B").rep_email === "mb@x.in", "seats: seat B's member stored apart from the ward");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'ward_seats_changed' AND target = ?").get(W).n === 1, "seats: change logged");
+  // what citizens see
+  const io = await (await fetch(B + "/api/intake-options")).json();
+  const u = io.localUnits.find((x) => x.id === W);
+  ok(u && u.members.map((m) => m.letter).join() === "A,B,C" && !JSON.stringify(u.members).includes("@") && u.rep_missing === 0, "citizens: members to choose from, names only (empty seat D left out)", u);
+  const pl = await (await fetch(B + "/api/place?ward=" + W)).json();
+  ok(pl.place.members.length === 4 && pl.place.members[3].name === null && pl.place.openForFiling, "ward page: every seat listed", pl.place.members);
+  // each member signs in to their own office
+  r = await call("mb@x.in", "GET", "/api/me");
+  const mB = r.body.mandates[0];
+  ok(r.status === 200 && mB.id === W + "~B" && mB.multi && mB.seatLabel === "B" && mB.unit === W && /Seat B/.test(mB.name), "sign-in: seat B is its own office", r.body);
+  // filing
+  let n57 = 0;
+  const file = async (extra) => {
+    n57++;
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-57-" + n57, "cf-connecting-ip": "10.57.0." + n57 },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: W, description: "Water pipe leaking near the market " + n57, citizen_phone: "98157000" + String(n57).padStart(2, "0"), citizen_email: "c57" + n57 + "@example.com", consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, body: await x.json() };
+  };
+  const fAny = await file({ seat_choice: "ANY" });
+  const fB = await file({ seat_choice: W + "~B" });
+  const fD = await file({ seat_choice: W + "~D" });
+  const row = (ref) => sdb.prepare("SELECT * FROM grievances WHERE tracking_ref = ?").get(ref);
+  ok(row(fAny.body.tracking_ref).seat_choice === "ANY" && row(fAny.body.tracking_ref).seat_owner === null, "filing: any member = open to all");
+  ok(row(fB.body.tracking_ref).seat_owner === W + "~B" && row(fB.body.tracking_ref).seat_choice === W + "~B", "filing: the chosen member has it from the start");
+  ok(fD.body.seat_fallback === true && row(fD.body.tracking_ref).seat_owner === null, "filing: a member who can't take complaints: open to all, and the citizen is told", fD.body);
+  const gA = row(fAny.body.tracking_ref), gB = row(fB.body.tracking_ref);
+  await new Promise((res) => setTimeout(res, 300));
+  const nt = (kind, gid) => sdb.prepare("SELECT recipient, office_id, data FROM notifications WHERE kind = ? AND grievance_id = ? ORDER BY recipient").all(kind, gid);
+  ok(nt("NEW_CASE", gA.id).map((x) => x.recipient).join() === "ma@x.in,mb@x.in,mc@x.in" && JSON.parse(nt("NEW_CASE", gA.id)[0].data).pool === true, "alerts: every member told about an any-member case", nt("NEW_CASE", gA.id));
+  ok(nt("NEW_CASE", gB.id).map((x) => x.recipient).join() === "mb@x.in", "alerts: only the chosen member", nt("NEW_CASE", gB.id));
+  // who sees what
+  const list = async (who) => (await call(who, "GET", "/api/grievances")).body;
+  const refs = (L) => (L.grievances || []).filter((c) => c.localUnit.id === W).map((c) => c.trackingRef).sort().join();
+  let LA = await list("ma@x.in"), LB = await list("mb@x.in");
+  ok(!refs(LA).includes(fB.body.tracking_ref) && refs(LA).includes(fAny.body.tracking_ref), "visibility: another member's chosen case is hidden", refs(LA));
+  ok(refs(LB).includes(fB.body.tracking_ref) && LB.grievances.find((c) => c.trackingRef === fB.body.tracking_ref).seat.chosen, "visibility: the chosen member sees it as theirs");
+  ok(LA.grievances.find((c) => c.trackingRef === fAny.body.tracking_ref).seat.pool && LA.grievances.find((c) => c.trackingRef === fAny.body.tracking_ref).seat.canTake, "visibility: open cases can be taken");
+  // acting needs taking first
+  ok((await call("ma@x.in", "POST", "/api/grievances/" + gA.id + "/acknowledge")).status === 403, "an open-to-all case is taken, not acknowledged");
+  ok((await call("mb@x.in", "POST", "/api/grievances/" + gA.id + "/mark-resolved", { note: "Fixed it" })).status === 403, "nobody acts on it before taking it");
+  // take: first come, first served
+  r = await call("mc@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "take" });
+  ok(r.status === 200 && r.body.owner === W + "~C" && r.body.acknowledgedAt, "take: member C takes it (and it is acknowledged)", r.body);
+  r = await call("mb@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "take" });
+  ok(r.status === 409 && r.body.code === "TAKEN", "take: too late for member B", r.body);
+  ok((await call("om@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "take" })).status === 403, "take: an office from another ward can't");
+  ok((await call("mb@x.in", "POST", "/api/grievances/" + gA.id + "/acknowledge")).status === 403, "acknowledge: another member's case says nothing about it");
+  LB = await list("mb@x.in");
+  ok(!refs(LB).includes(fAny.body.tracking_ref) && LB.wardTaken.length === 1 && LB.wardTaken[0].takenBy === "C" && LB.wardTaken[0].status === "ACKNOWLEDGED" && !JSON.stringify(LB.wardTaken).includes("leaking"), "visibility: one line for a case another member took, no details", LB.wardTaken);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM team_activity WHERE action = 'CASE_TAKEN' AND grievance_id = ? AND office_id = ?").get(gA.id, W + "~C").n === 1, "take: written to the tamper-proof team log");
+  await new Promise((res) => setTimeout(res, 200));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'NEW_CASE' AND read_at IS NULL AND recipient <> 'mc@x.in'").get(gA.id).n === 0, "take: the other members' alerts are cleared");
+  // return to the ward
+  r = await call("mc@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "return", reason: "short" });
+  ok(r.status === 400 && r.body.fields.reason === "REQUIRED", "return: needs a reason");
+  r = await call("mb@x.in", "POST", "/api/grievances/" + gB.id + "/seat", { action: "return", reason: "Not in our part of the ward" });
+  ok(r.status === 409 && r.body.code === "CHOSEN", "return: not a case the citizen sent to this member", r.body);
+  r = await call("mc@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "return", reason: "Not in our part of the ward, please take it" });
+  ok(r.status === 200 && row(fAny.body.tracking_ref).seat_owner === null, "return: back to the ward", r.body);
+  await new Promise((res) => setTimeout(res, 300));
+  ok(nt("WARD_OPEN", gA.id).map((x) => x.recipient).sort().join() === "ma@x.in,mb@x.in", "return: the other members are told", nt("WARD_OPEN", gA.id));
+  ok(sdb.prepare("SELECT detail FROM team_activity WHERE action = 'CASE_RETURNED' AND grievance_id = ?").get(gA.id).detail.includes("please take"), "return: reason kept in the team log");
+  // the office's plan is paused: its cases go back to the ward at once
+  r = await call(S, "POST", "/api/admin/subscriptions", { type: "REP", tier: "LOCAL", id: W + "~B", action: "pause", reason: "Testing a paused member" });
+  ok(r.status === 200 && r.body.returnedToWard === 1 && row(fB.body.tracking_ref).seat_owner === null && row(fB.body.tracking_ref).seat_choice === "ANY", "paused: the chosen member's case goes back to the ward", r.body);
+  ok(!(await (await fetch(B + "/api/intake-options")).json()).localUnits.find((x) => x.id === W).members.some((m) => m.letter === "B"), "paused: not offered to citizens");
+  await call(S, "POST", "/api/admin/subscriptions", { type: "REP", tier: "LOCAL", id: W + "~B", action: "resume", reason: "Testing over now" });
+  // the hourly check: a seat that became vacant some other way
+  await call("ma@x.in", "POST", "/api/grievances/" + gB.id + "/seat", { action: "take" });
+  sdb.prepare("UPDATE local_units SET seat_status = 'VACANT' WHERE id = ?").run(W);
+  r = await (await fetch(B + "/__test/return-stuck", { method: "POST" })).json();
+  ok(r.returned.length === 1 && r.returned[0].from === W && r.returned[0].why === "VACANT", "hourly: a vacant seat's cases go back", r);
+  sdb.prepare("UPDATE local_units SET seat_status = NULL WHERE id = ?").run(W);
+  // change of representative: seat C becomes vacant
+  await call("mc@x.in", "POST", "/api/grievances/" + gA.id + "/seat", { action: "take" });
+  r = await call(S, "POST", "/api/admin/handovers", { action: "propose", seatType: "ward", seatId: W + "~C", kind: "VACANT", reason: "RESIGNATION", evidence: "Resignation letter seen", effectiveDate: today, applyNow: true });
+  ok(r.status === 200 && r.body.summary.casesReturnedToWard === 1 && row(fAny.body.tracking_ref).seat_owner === null, "handover: a seat made vacant gives its cases back", r.body);
+  ok((await call(S, "GET", "/api/admin/handovers")).body.seats.ward.some((w) => w.id === W + "~C" && w.seat === "C" && w.status === "VACANT"), "handover: each seat listed apart");
+  // fewer seats: only when unused
+  r = await J(S, { action: "set_seats", id: W, count: 2 });
+  ok(r.status === 409 && r.body.code === "SEAT_IN_USE" && r.body.seat === "C", "seats: a seat in use can't be removed", r.body);
+  // a ward that had one member: its earlier complaints stay with seat A
+  r = await J(S, { action: "set_seats", id: "lu-hazratganj", count: 3 });
+  const LR = await list("r1@x.in");
+  ok(r.status === 200 && LR.grievances.filter((c) => c.localUnit.id === "lu-hazratganj").every((c) => c.seat && c.seat.mine && c.seat.chosen), "seats: earlier complaints stay with seat A", r.body);
+  r = await J(S, { action: "set_seats", id: "lu-hazratganj", count: 1 });
+  ok(r.status === 200 && (await list("r1@x.in")).grievances.filter((c) => c.localUnit.id === "lu-hazratganj").every((c) => !c.seat), "seats: back to one member, as before");
+  // the levels above see who handles each case
+  sdb.prepare("UPDATE grievances SET created_at = '2026-01-01T00:00:00Z' WHERE id = ?").run(gB.id);
+  const LM = await list("mla@x.in");
+  const hb = LM.grievances.find((c) => c.id === gB.id);
+  ok(hb && hb.handledBy && hb.handledBy.none, "MLA: sees whether a member has taken it", hb && hb.handledBy);
+  // bills and plans: each seat is an office
+  ok((await call(S, "GET", "/api/admin/bills?offices=REP&q=Seat")).body.offices.some((o) => o.id === W + "~B" && o.tier === "LOCAL"), "bills: seat offices can be billed");
+  ok((await call("mb@x.in", "GET", "/api/billing")).status === 200, "billing: the member's office opens its bills");
+  // import: a seat column
+  const csv = "mp_constituency_name,mla_constituency_name,local_unit_name,unit_type,rep_name,rep_email,seat\nLucknow,Lucknow Central,Gomti Nagar,URBAN,Gita Seat A,ga@x.in,\nLucknow,Lucknow Central,Gomti Nagar,URBAN,Gopal Seat B,gb@x.in,B\nLucknow,Lucknow Central,Aishbagh,URBAN,Wrong,w@x.in,G\n";
+  r = await call(S, "POST", "/api/admin/import-jurisdiction", { csv, areaId: "lucknow", dryRun: true });
+  ok(r.status === 200 && r.body.summary.seatRows === 1 && r.body.summary.errors.some((e) => /seat must be/.test(e)), "import: preview counts seat rows and flags a bad letter", r.body.summary);
+  r = await call(S, "POST", "/api/admin/import-jurisdiction", { csv, areaId: "lucknow" });
+  ok(r.status === 200 && r.body.summary.seatsUpdated === 1 && sdb.prepare("SELECT rep_email FROM ward_seats WHERE id = 'lu-gomti~B'").get().rep_email === "gb@x.in" && sdb.prepare("SELECT seat_count, rep_email FROM local_units WHERE id = 'lu-gomti'").get().seat_count === 2, "import: seat B filled, the ward now has 2 members", r.body.summary);
+  ok(sdb.prepare("SELECT rep_email FROM local_units WHERE id = 'lu-gomti'").get().rep_email === "ga@x.in", "import: seat A stays the ward's own representative");
+  // tidy: Gomti Nagar back as it was (other tests use it)
+  sdb.prepare("DELETE FROM ward_seats WHERE local_unit_id = 'lu-gomti'").run();
+  sdb.prepare("UPDATE local_units SET seat_count = NULL, rep_email = NULL, rep_name = NULL WHERE id = 'lu-gomti'").run();
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
