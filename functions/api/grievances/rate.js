@@ -62,6 +62,8 @@ export async function onRequestPost({ request, env }) {
   const low = office <= LOW_MAX || (deptScore != null && deptScore <= LOW_MAX) ? 1 : 0;
   const roundClosed = new Date(closedAtMs(g)).toISOString();
   const chain = await resolveChain(env, g.local_unit_id);
+  // grieviq-57: which member's office had it, in a ward with several members.
+  try { const so = await env.DB.prepare("SELECT seat_owner FROM grievances WHERE id = ?").bind(g.id).first(); if (so) g.seat_owner = so.seat_owner; } catch (e) { /* before part40 */ }
   const off = resolvingOffice(g, chain);
 
   if (!existing) {

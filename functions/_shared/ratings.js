@@ -109,6 +109,8 @@ export function resolvingOffice(g, chain) {
   if (!chain) return { tier: g.current_tier || null, id: null };
   const ids = { LOCAL: chain.localUnit && chain.localUnit.id, MAYOR: chain.municipalBody && chain.municipalBody.id, MLA: chain.mla && chain.mla.id, MP: chain.mp && chain.mp.id };
   const tier = g.current_tier || "LOCAL";
+  // grieviq-57: in a ward with several members, the member's office that had it.
+  if (tier === "LOCAL" && g.seat_owner && chain.tiers && chain.tiers[0] && chain.tiers[0].multi) return { tier, id: String(g.seat_owner) };
   return { tier, id: ids[tier] != null ? String(ids[tier]) : null };
 }
 

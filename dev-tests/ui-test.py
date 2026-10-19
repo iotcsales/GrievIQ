@@ -1754,7 +1754,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 13), ("deo@test.in", ["gqd-data", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-audit"])):
+    for who, want in (("super@test.in", 14), ("deo@test.in", ["gqd-data", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-audit"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2992,6 +2992,16 @@ with sync_playwright() as pw:
             shot(p, "99-member-console", full=False)
         ok(not errs, "no script errors (member console) " + lang, errs)
         ctx.close()
+    # grieviq-58: the member's Overview and guide
+    ctx, p, errs = P("mb@x.in")
+    p.add_init_script("try{localStorage.setItem('giq-welcome-mb@x.in','1')}catch(e){}")
+    p.goto(B + "/rep"); p.wait_for_selector('.tab-btn[data-tab="overview"]')
+    p.click('.tab-btn[data-tab="overview"]'); p.wait_for_selector(".ov-ward")
+    ok(p.locator(".ov-ward h3").count() == 1 and "waiting for a member" in p.inner_text(".ov-ward"), "overview: the whole ward shown apart")
+    p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
+    ok("gqd-seats" in sop_ids(p), "guide: members of multi-member wards get the take/return guide", sop_ids(p))
+    ok(not errs, "no script errors (member overview)", errs)
+    ctx.close()
     # the member who took a case is shown to the others in one line
     _d57 = _sq.connect(WORK + "/test.db", timeout=10)
     gid = _d57.execute("SELECT id FROM grievances WHERE local_unit_id = ? AND seat_owner IS NULL AND status = 'OPEN' LIMIT 1", (W57,)).fetchone()[0]

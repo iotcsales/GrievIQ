@@ -14,6 +14,7 @@
 
 import { parseOfficeKey, ROLE } from "./team.js";
 import { isDay, todayIst, logObservation } from "./audit.js";
+import { localTable } from "./seats.js";
 
 const TIER_ORDER = { MP: 0, MLA: 1, MAYOR: 2, LOCAL: 3 };
 const OFFICE_SQL = {
@@ -39,11 +40,15 @@ export function officeText(o) {
 }
 
 // Every office an observation can be addressed to (for the auditor's list).
+// grieviq-57: every seat of a ward with several members is its own office.
+async function sqlFor(env, tier) {
+  return tier === "LOCAL" ? "SELECT id, name, rep_name AS person, rep_email AS email, unit_type FROM " + (await localTable(env)) : OFFICE_SQL[tier];
+}
 export async function officeOptions(env) {
   const out = [];
   for (const tier of Object.keys(OFFICE_SQL)) {
     try {
-      const { results } = await env.DB.prepare(OFFICE_SQL[tier] + (tier === "MAYOR" ? " ORDER BY name" : " ORDER BY name")).all();
+      const { results } = await env.DB.prepare((await sqlFor(env, tier)) + (tier === "MAYOR" ? " ORDER BY name" : " ORDER BY name")).all();
       for (const r of results || []) out.push(shapeOffice(tier, r));
     } catch (e) { /* a table missing in an old database */ }
   }
@@ -53,7 +58,7 @@ export async function officeOptions(env) {
 export async function officeByKey(env, key) {
   const k = parseOfficeKey(key);
   if (!k || !OFFICE_SQL[k.tier]) return null;
-  const sql = OFFICE_SQL[k.tier] + (k.tier === "MAYOR" ? " AND id = ?" : " WHERE id = ?");
+  const sql = (await sqlFor(env, k.tier)) + (k.tier === "MAYOR" ? " AND id = ?" : " WHERE id = ?");
   const r = await env.DB.prepare(sql).bind(k.id).first();
   return r ? Object.assign(shapeOffice(k.tier, r), { email: String(r.email || "").trim().toLowerCase() || null }) : null;
 }
@@ -136,6 +141,7 @@ export async function recipientName(env, email) {
     ["SELECT mla_name AS name FROM mla_constituencies WHERE LOWER(mla_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
     ["SELECT mp_name AS name FROM mp_constituencies WHERE LOWER(mp_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
     ["SELECT rep_name AS name FROM local_units WHERE LOWER(rep_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
+    ["SELECT rep_name AS name FROM ward_seats WHERE LOWER(rep_email) = ? LIMIT 1", (r) => r.name ? { name: r.name, id: null } : null],
   ];
   for (const [sql, pick] of tries) {
     try { const r = await env.DB.prepare(sql).bind(e).first(); const v = r && pick(r); if (v) return v; } catch (err) { /* table or column missing */ }

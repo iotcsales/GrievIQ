@@ -57,7 +57,11 @@
     ],
   };
 
+  // grieviq-57: an SOP with `needs` (e.g. "MULTI_SEAT") shows only when the
+  // roles given include it (the console adds it for members of wards with
+  // several members). Without roles (the public guide page) everything shows.
   function allowed(sop, roles) {
+    if (sop.needs && roles && roles.length && roles.indexOf(sop.needs) < 0) return false;
     if (!sop.roles || !roles || !roles.length) return true;
     for (var i = 0; i < roles.length; i++) if (sop.roles.indexOf(roles[i]) >= 0) return true;
     return false;

@@ -36,6 +36,12 @@ export async function audienceOffices(env, audience) {
   const list = units || [];
   if (tiers.includes("LOCAL")) {
     for (const u of list) if (String(u.rep_email || "").trim()) offices.push({ tier: "LOCAL", id: String(u.id), name: u.name, email: u.rep_email });
+    // grieviq-57: the other members of wards with several members (seats B-F).
+    try {
+      const { results } = await env.DB.prepare("SELECT o.id, o.name, o.rep_email FROM local_offices o WHERE o.seat_label <> 'A' AND COALESCE(TRIM(o.rep_email), '') <> '' AND COALESCE(o.seat_status, '') <> 'VACANT' AND o.unit_id IN (SELECT value FROM json_each(?))")
+        .bind(JSON.stringify(list.map((u) => String(u.id)))).all();
+      for (const r of results || []) offices.push({ tier: "LOCAL", id: String(r.id), name: r.name, email: r.rep_email });
+    } catch (e) { /* before part40 */ }
   }
   const ids = (k) => JSON.stringify(Array.from(new Set(list.map((u) => u[k]).filter(Boolean).map(String))));
   if (tiers.includes("MAYOR")) {

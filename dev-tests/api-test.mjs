@@ -2435,6 +2435,23 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   r = await call(S, "POST", "/api/admin/import-jurisdiction", { csv, areaId: "lucknow" });
   ok(r.status === 200 && r.body.summary.seatsUpdated === 1 && sdb.prepare("SELECT rep_email FROM ward_seats WHERE id = 'lu-gomti~B'").get().rep_email === "gb@x.in" && sdb.prepare("SELECT seat_count, rep_email FROM local_units WHERE id = 'lu-gomti'").get().seat_count === 2, "import: seat B filled, the ward now has 2 members", r.body.summary);
   ok(sdb.prepare("SELECT rep_email FROM local_units WHERE id = 'lu-gomti'").get().rep_email === "ga@x.in", "import: seat A stays the ward's own representative");
+  // grieviq-58: reports, ratings, auditor and messages per seat
+  const ov = (await call("mb@x.in", "GET", "/api/overview?office=" + encodeURIComponent("LOCAL:" + W + "~B") + "&from=2026-01-01&to=" + today)).body;
+  const ownN = sdb.prepare("SELECT COUNT(*) n FROM grievances WHERE seat_owner = ?").get(W + "~B").n;
+  const wardN = sdb.prepare("SELECT COUNT(*) n FROM grievances WHERE local_unit_id = ?").get(W).n;
+  ok(ov.total && ov.total.received === ownN && ov.ward && ov.ward.received === wardN && ov.ward.notTaken >= 1, "overview: a member's own cases, and the whole ward apart", { total: ov.total && ov.total.received, ownN, ward: ov.ward, wardN });
+  ok((await call("r1@x.in", "GET", "/api/overview?office=LOCAL:lu-hazratganj")).body.ward === null, "overview: one-member wards unchanged");
+  const rp = (await call("mb@x.in", "GET", "/api/grievances/report?mandate=" + encodeURIComponent(W + "~B"))).body;
+  ok(rp.stats && rp.stats.totalCases === ownN, "report: only the member's own cases", rp.stats && rp.stats.totalCases);
+  const { resolvingOffice } = await import(new URL("../functions/_shared/ratings.js", import.meta.url).href);
+  const chainM = { localUnit: { id: W }, mla: { id: "mla-c" }, mp: { id: "mp-lko" }, tiers: [{ tier: "LOCAL", multi: true }] };
+  ok(resolvingOffice({ current_tier: "LOCAL", seat_owner: W + "~B" }, chainM).id === W + "~B" && resolvingOffice({ current_tier: "LOCAL" }, { localUnit: { id: "lu-tilak" }, mla: { id: "mla-c" }, mp: { id: "mp-lko" }, tiers: [{ tier: "LOCAL" }] }).id === "lu-tilak", "ratings: the member's office that had the case is rated");
+  const obs = (await call(A, "GET", "/api/admin/observations")).body;
+  ok(obs.offices && obs.offices.some((o) => o.key === "LOCAL:" + W + "~B" && /Seat B/.test(o.name)), "auditor: each seat can be addressed", obs.offices && obs.offices.filter((o) => o.tier === "LOCAL").map((o) => o.key));
+  const msgPrev = (await call(S, "POST", "/api/admin/messages", { action: "preview", tiers: ["LOCAL"] })).body;
+  const localOffices = sdb.prepare("SELECT COUNT(*) n FROM local_offices o JOIN areas a ON a.id = o.area_id AND a.live = 1 WHERE COALESCE(TRIM(o.rep_email), '') <> '' AND COALESCE(o.seat_status, '') <> 'VACANT'").get().n;
+  ok(msgPrev.offices === localOffices, "messages: every member's office receives staff messages", { got: msgPrev, want: localOffices });
+
   // tidy: Gomti Nagar back as it was (other tests use it)
   sdb.prepare("DELETE FROM ward_seats WHERE local_unit_id = 'lu-gomti'").run();
   sdb.prepare("UPDATE local_units SET seat_count = NULL, rep_email = NULL, rep_name = NULL WHERE id = 'lu-gomti'").run();

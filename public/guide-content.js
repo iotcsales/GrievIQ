@@ -26,6 +26,7 @@
           steps: [
             ["Open **grieviq.in** and tap **Use my current location**, or search an address, landmark or PIN code.", "**grieviq.in** खोलें और **मेरी मौजूदा लोकेशन उपयोग करें** दबाएँ, या पता, लैंडमार्क या पिन कोड खोजें।"],
             ["Check the ward and representative shown, then tap **Report a problem**.", "दिखाए गए वार्ड और जनप्रतिनिधि को जाँचें, फिर **समस्या दर्ज करें** दबाएँ।"],
+            ["If your ward has **more than one elected member**, the form asks **Who should handle this?** Leave it as **Any member** (the first member's office to take it handles it), or choose one member. If the member you chose can't act on it, any member of the ward may handle it.", "यदि आपके वार्ड में **एक से अधिक निर्वाचित सदस्य** हैं, तो फ़ॉर्म पूछता है **इसे कौन सँभाले?** इसे **कोई भी सदस्य** पर छोड़ें (जिस सदस्य का कार्यालय इसे पहले लेगा वही सँभालेगा), या किसी एक सदस्य को चुनें। यदि चुने हुए सदस्य कार्यवाही नहीं कर सकते, तो वार्ड का कोई भी सदस्य इसे सँभाल सकता है।"],
             ["Choose the **type of complaint** and describe it (at least 15 letters): what is wrong and since when. You can tap **Speak instead of typing**.", "**शिकायत का प्रकार** चुनें और विवरण लिखें (कम से कम 15 अक्षर): क्या गड़बड़ है और कब से। चाहें तो **टाइप के बजाय बोलें** दबाएँ।"],
             ["Add a landmark, and up to **3 photos** (optional). If your phone asks for location, allowing it shows the photo was taken at the spot; saying no is fine.", "लैंडमार्क लिखें और अधिकतम **3 फ़ोटो** जोड़ें (वैकल्पिक)। फ़ोन लोकेशन माँगे तो अनुमति देने से दिखता है कि फ़ोटो मौके पर ली गई; मना करना भी ठीक है।"],
             ["Enter your **mobile number** and, if you want online updates, your **email**.", "अपना **मोबाइल नंबर** लिखें, और ऑनलाइन सूचना चाहिए तो **ईमेल** भी।"],
@@ -94,6 +95,17 @@
             ["If a department must do the work, forward it (next guide).", "यदि काम किसी विभाग का है, तो उसे अग्रेषित करें (अगली मार्गदर्शिका)।"],
           ],
           check: [["No new case is left unacknowledged.", "कोई नई शिकायत बिना पावती के नहीं।"], ["Every open case has a field worker or a department.", "हर खुली शिकायत किसी फ़ील्ड कर्मी या विभाग को सौंपी गई।"]] },
+        { id: "seats", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], needs: "MULTI_SEAT", title: ["Wards with several members: take or return a case", "कई सदस्यों वाले वार्ड: शिकायत लें या लौटाएँ"],
+          what: ["Only for wards that elect more than one member (seats A, B, C…). Each member's office is separate; each complaint has one office handling it.", "केवल उन वार्डों के लिए जहाँ एक से अधिक सदस्य चुने जाते हैं (सीट A, B, C…)। हर सदस्य का कार्यालय अलग है; हर शिकायत को एक ही कार्यालय सँभालता है।"],
+          who: ["Representative or office manager of a member's office.", "सदस्य के कार्यालय के जनप्रतिनिधि या कार्यालय प्रबंधक।"],
+          steps: [
+            ["In **Cases**, a complaint marked **Open to every member of this ward** can be taken by any member. If your office will handle it, tap **Take this case**. Taking it also acknowledges it.", "**शिकायतें** में, **इस वार्ड के सभी सदस्यों के लिए खुली** चिह्नित शिकायत कोई भी सदस्य ले सकता है। यदि आपका कार्यालय इसे सँभालेगा, तो **यह मामला लें** दबाएँ। लेने से इसकी पावती भी हो जाती है।"],
+            ["If another member's office took it first, it leaves your list and appears under **Taken by other members of your ward**, as one line without details.", "यदि किसी अन्य सदस्य के कार्यालय ने इसे पहले ले लिया, तो यह आपकी सूची से हटकर **आपके वार्ड के अन्य सदस्यों ने लीं** में एक पंक्ति के रूप में, बिना विवरण के, दिखती है।"],
+            ["A complaint the citizen sent to **your office** is yours from the start. Handle it as usual.", "जो शिकायत नागरिक ने **आपके कार्यालय** को भेजी, वह शुरू से आपकी है। उसे सामान्य रूप से सँभालें।"],
+            ["Took an open complaint that isn't yours to handle (for example, another part of the ward)? Tap **Return to the ward**, write why (at least 10 letters) and confirm. Every member and the citizen are told; the time limits don't change.", "ऐसी खुली शिकायत ले ली जो आपको नहीं सँभालनी (जैसे वार्ड का दूसरा हिस्सा)? **वार्ड को लौटाएँ** दबाएँ, कारण लिखें (कम से कम 10 अक्षर) और पुष्टि करें। सभी सदस्यों और नागरिक को बताया जाता है; समय-सीमा नहीं बदलती।"],
+          ],
+          check: [["No complaint open to every member waits past its acknowledgement time: if nobody takes it, it moves up to the next level as usual.", "सभी सदस्यों के लिए खुली कोई शिकायत पावती समय से अधिक प्रतीक्षा न करे: कोई न ले तो वह सामान्य रूप से अगले स्तर पर चली जाती है।"]],
+          note: [["If your office's plan is paused or your seat becomes vacant, your open complaints go back to the ward so another member can take them; the citizen's service doesn't stop. Your **Overview** counts only the complaints your office handles, with the whole ward's figures shown separately.", "यदि आपके कार्यालय की योजना रुक जाए या आपकी सीट रिक्त हो, तो आपकी खुली शिकायतें वार्ड को लौट जाती हैं ताकि कोई अन्य सदस्य उन्हें ले सके; नागरिक की सेवा नहीं रुकती। आपका **सारांश** केवल आपके कार्यालय की शिकायतें गिनता है; पूरे वार्ड के आँकड़े अलग दिखते हैं।"]] },
         { id: "forward", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Forward to a department", "विभाग को अग्रेषित करें"],
           who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
@@ -273,6 +285,16 @@
             ["**Operations or super admin:** open **Change requests**, check the source, then approve or reject with a reason.", "**संचालन या सुपर एडमिन:** **बदलाव अनुरोध** खोलें, स्रोत जाँचें, फिर कारण सहित स्वीकार या अस्वीकार करें।"],
             ["A new city or district: add it in **Areas**, import wards, check them, then switch the area on for citizens.", "नया नगर या जिला: **क्षेत्र** में जोड़ें, वार्ड आयात करें, जाँचें, फिर नागरिकों के लिए चालू करें।"],
           ] },
+        { id: "seats", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Wards with more than one elected member", "एक से अधिक निर्वाचित सदस्यों वाले वार्ड"],
+          who: ["Super or operations admin sets the number of members; a data entry operator can request members' contact changes.", "सदस्यों की संख्या सुपर या संचालन एडमिन तय करता है; डेटा एंट्री ऑपरेटर सदस्यों के संपर्क विवरण में बदलाव का अनुरोध कर सकता है।"],
+          steps: [
+            ["Use the **official ward notification** (for example the state election commission's ward list) for the number of members and their seat letters.", "सदस्यों की संख्या और सीट के अक्षरों के लिए **आधिकारिक वार्ड अधिसूचना** (जैसे राज्य निर्वाचन आयोग की वार्ड सूची) उपयोग करें।"],
+            ["Open **Jurisdiction**, find the ward and tap **Members**. Choose the number (up to 6) and **Save**. Seat A keeps the ward's current representative and complaints.", "**क्षेत्राधिकार** खोलें, वार्ड ढूँढें और **सदस्य** दबाएँ। संख्या चुनें (अधिकतम 6) और **सहेजें**। सीट A के पास वार्ड के वर्तमान जनप्रतिनिधि और शिकायतें रहती हैं।"],
+            ["Under the ward, tap **Edit** on each seat and fill the member's name, official phone and the email of the Google account they will sign in with. For many wards, use **Import** with the **seat** column (A to F).", "वार्ड के नीचे हर सीट पर **संपादित करें** दबाएँ और सदस्य का नाम, आधिकारिक फ़ोन और उस Google खाते का ईमेल भरें जिससे वे साइन इन करेंगे। कई वार्डों के लिए **आयात** में **seat** कॉलम (A से F) उपयोग करें।"],
+            ["Each member is a separate office: make bills and plans for each seat on its own, at the same plan price for every member.", "हर सदस्य अलग कार्यालय है: हर सीट के बिल और योजना अलग बनाएँ, हर सदस्य के लिए एक ही योजना मूल्य पर।"],
+          ],
+          check: [["Only elected members are added, never former members, candidates or party office-bearers.", "केवल निर्वाचित सदस्य जोड़े जाएँ, कभी पूर्व सदस्य, प्रत्याशी या दल के पदाधिकारी नहीं।"]],
+          note: [["A seat in use can't be removed. When a member's term ends, use **Change of representative** to make the seat vacant: its open complaints go back to the ward.", "उपयोग में चल रही सीट हटाई नहीं जा सकती। जब किसी सदस्य का कार्यकाल समाप्त हो, तो सीट रिक्त करने के लिए **जनप्रतिनिधि परिवर्तन** उपयोग करें: उसकी खुली शिकायतें वार्ड को लौट जाती हैं।"]] },
         { id: "handover", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Change of representative", "जनप्रतिनिधि परिवर्तन"],
           who: ["A data entry operator asks; a super or operations admin approves or applies.", "डेटा एंट्री ऑपरेटर अनुरोध करता है; सुपर या संचालन एडमिन स्वीकृत या लागू करता है।"],
           steps: [

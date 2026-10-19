@@ -12,7 +12,7 @@
 // showing.
 
 import { getVerifiedRep } from "../../_shared/get-verified-rep.js";
-import { getLocalUnitIdsForMandate, resolveChain, mandateScope } from "../../_shared/jurisdiction.js";
+import { getLocalUnitIdsForMandate, resolveChain, mandateScope, ownScope } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { settleOverdueConfirmations } from "../../_shared/confirmation.js";
 
@@ -128,7 +128,9 @@ export async function onRequestGet(context) {
   const wardMap = new Map();
 
   for (const m of mandatesToQuery) {
-    const s = mandateScope(m);
+    // grieviq-57: a member of a ward with several members reports only on
+    // the cases their own office handles.
+    const s = ownScope(m);
 
     const { results: gRows } = await env.DB.prepare(
       `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where} ${dateClause} ORDER BY g.created_at ASC`

@@ -17,7 +17,7 @@
 // open and overdue cases now, and median days from assignment to fix.
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
-import { resolveChain, mandateScope, officeUnitIds } from "../_shared/jurisdiction.js";
+import { resolveChain, mandateScope, ownScope, officeUnitIds } from "../_shared/jurisdiction.js";
 import { settleOverdueConfirmations } from "../_shared/confirmation.js";
 import { ROLE, parseOfficeKey, logTeam } from "../_shared/team.js";
 import { caseFacts, summarise, monthlyTrend, isDay, dayStartMs, dayEndMs, todayIst, pct, AGE_BUCKETS } from "../_shared/overview.js";
@@ -58,7 +58,9 @@ export async function onRequestGet({ request, env }) {
   await settleOverdueConfirmations(env);
 
   // Every case in the office's area (a team member's own wards only).
-  const s = mandateScope(m);
+  // grieviq-57: a member of a ward with several members: only the cases
+  // their own office handles (never another member's).
+  const s = ownScope(m);
   let where = s.where;
   const binds = s.binds.slice();
   if (mlaId) { where = "(" + where + ") AND lu_scope.mla_constituency_id = ?"; binds.push(mlaId); }
@@ -205,7 +207,7 @@ export async function onRequestGet({ request, env }) {
     office: officeOut, myRole: m.role || ROLE.REP, from, to, today, groupBy, mla: mlaId,
     mlaName: mlaId && rows.length ? await mlaNameOf(env, mlaId) : null,
     ages: AGE_BUCKETS.map(([lo, hi]) => ({ from: lo, to: hi === Infinity ? null : hi })),
-    rows, total, trend, workload, ratings, departments,
+    rows, total, trend, workload, ratings, departments, ward: await wardTotals(env, m, fromMs, toMs, now),
   }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 
@@ -243,4 +245,22 @@ function csvResponse(office, from, to, groupBy, rows, total, mlaId) {
     "Content-Disposition": `attachment; filename="grieviq-overview-${safe}${mlaId ? "-" + String(mlaId).replace(/[^A-Za-z0-9]+/g, "") : ""}-${from}-to-${to}.csv"`,
     "Cache-Control": "no-store",
   } });
+}
+
+// grieviq-57: for a member of a ward with several members, the whole ward's
+// figures together (every member's cases and those not taken), counts only:
+// received and resolved in the period, open now, and open with nobody yet.
+// Never one member against another.
+async function wardTotals(env, m, fromMs, toMs, now) {
+  if (m.tier !== "LOCAL" || !m.multi) return null;
+  const { results } = await env.DB.prepare("SELECT status, created_at, resolved_at, seat_owner FROM grievances WHERE local_unit_id = ?").bind(String(m.unit)).all();
+  const rows = results || [];
+  const inP = (t) => { const x = toUtcMs(t); return !isNaN(x) && x >= fromMs && x <= toMs; };
+  const fixed = (st) => st === "RESOLVED" || st === "CLOSED";
+  return {
+    received: rows.filter((r) => inP(r.created_at)).length,
+    resolved: rows.filter((r) => fixed(r.status) && inP(r.resolved_at)).length,
+    open: rows.filter((r) => !fixed(r.status)).length,
+    notTaken: rows.filter((r) => !fixed(r.status) && r.status !== "PENDING_CONFIRMATION" && !r.seat_owner).length,
+  };
 }

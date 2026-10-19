@@ -138,6 +138,18 @@ export async function officeUnitIds(env, mandate) {
 // IN list; this always uses exactly one parameter.
 //
 // Usage: `SELECT g.* FROM grievances g ${s.join} WHERE ${s.where}` .bind(...s.binds)
+// grieviq-57: only the cases an office itself handles. For a member of a
+// ward with several members: the cases that member's office took or was
+// sent (its reports and figures); for every other office: as mandateScope.
+export function ownScope(mandate) {
+  if (mandate.tier === "LOCAL" && mandate.multi) {
+    const s = { join: "", where: "g.local_unit_id = ? AND g.seat_owner = ?", binds: [unitOf(mandate.id), String(mandate.id)] };
+    if (Array.isArray(mandate.wards)) return { join: "", where: s.where + " AND g.local_unit_id IN (SELECT value FROM json_each(?))", binds: s.binds.concat([JSON.stringify(mandate.wards)]) };
+    return s;
+  }
+  return mandateScope(mandate);
+}
+
 export function mandateScope(mandate) {
   const s = officeScope(mandate);
   // Item 8c-1: a team member limited to some of the office's wards (one

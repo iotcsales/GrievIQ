@@ -261,8 +261,23 @@ export async function govStats(env, scope, month, nowMs, opts) {
   try {
     const { results } = await env.DB.prepare("SELECT office_tier, office_id, office_name FROM office_gov_share WHERE share = 1").all();
     const field = { LOCAL: "unitId", MAYOR: "mbId", MLA: "mlaId", MP: "mpId" };
+    // grieviq-57: a member of a ward with several members shares only the
+    // cases their own office handled, never the other members'.
+    const own = new Map();
+    for (const o of results || []) {
+      if (o.office_tier !== "LOCAL") continue;
+      try {
+        const m = await env.DB.prepare("SELECT seat_count, unit_id FROM local_offices WHERE id = ?").bind(String(o.office_id)).first();
+        if (m && Number(m.seat_count) > 1) {
+          const { results: ids } = await env.DB.prepare("SELECT id FROM grievances WHERE seat_owner = ?").bind(String(o.office_id)).all();
+          own.set(String(o.office_id), { unit: String(m.unit_id), ids: new Set((ids || []).map((x) => x.id)) });
+        }
+      } catch (e) { /* before part40 */ }
+    }
     shared = (results || []).map((o) => {
-      const list = all.filter((f) => String(f[field[o.office_tier]] || "") === String(o.office_id));
+      const seat = own.get(String(o.office_id));
+      const list = seat ? all.filter((f) => String(f.unitId) === seat.unit && seat.ids.has(f.id))
+        : all.filter((f) => String(f[field[o.office_tier]] || "") === String(o.office_id));
       return list.length ? Object.assign({ name: o.office_name || o.office_id, tier: o.office_tier }, rowOf(list)) : null;
     }).filter(Boolean);
   } catch (e) { shared = []; }

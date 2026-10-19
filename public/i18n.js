@@ -20,6 +20,9 @@
 (function () {
   var STORE = 'griq-lang';
   var D = {
+"rep.ov_ward_h": ["Your whole ward, all members together", "आपका पूरा वार्ड, सभी सदस्य मिलाकर"],
+"rep.ov_ward_own": ["The figures above count only the complaints your office handles. These count every complaint in the ward.", "ऊपर के आँकड़े केवल उन शिकायतों के हैं जिन्हें आपका कार्यालय सँभालता है। ये आँकड़े वार्ड की सभी शिकायतों के हैं।"],
+"rep.ov_ward_line": ["In this period: {received} received · {resolved} resolved. Now: {open} open, of which {notTaken} still waiting for a member to take them.", "इस अवधि में: {received} प्राप्त · {resolved} निस्तारित। अभी: {open} खुली, जिनमें से {notTaken} किसी सदस्य के लेने की प्रतीक्षा में।"],
 "rep.seat_none_yet": ["Ward members: no member has taken this case yet.", "वार्ड सदस्य: अभी किसी सदस्य ने यह मामला नहीं लिया है।"],
 "rep.seat_handled_by": ["Handled by the ward member's office, Seat {s}", "वार्ड सदस्य का कार्यालय देख रहा है, सीट {s}"],
 "rep.seat_pool_h": ["Open to every member of this ward.", "इस वार्ड के सभी सदस्यों के लिए खुली।"],

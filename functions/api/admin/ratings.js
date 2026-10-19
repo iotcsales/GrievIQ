@@ -13,6 +13,7 @@
 // (admin Cases page) and the representative's office.
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
+import { localTable } from "../../_shared/seats.js";
 import { ratingsReady, shapeForAdmin, summarise, FOLLOW_NOTE_MIN, FOLLOW_NOTE_MAX } from "../../_shared/ratings.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
 
@@ -25,7 +26,8 @@ const NOT_SET_UP = { error: "Ratings aren't set up yet. Run the database update 
 async function officeNames(env, rows) {
   const want = { LOCAL: new Set(), MAYOR: new Set(), MLA: new Set(), MP: new Set() };
   for (const r of rows) if (r.office_tier && r.office_id && want[r.office_tier]) want[r.office_tier].add(String(r.office_id));
-  const table = { LOCAL: "local_units", MAYOR: "municipal_bodies", MLA: "mla_constituencies", MP: "mp_constituencies" };
+  // grieviq-57: seats of wards with several members are named "Ward · Seat B".
+  const table = { LOCAL: await localTable(env), MAYOR: "municipal_bodies", MLA: "mla_constituencies", MP: "mp_constituencies" };
   const out = {};
   for (const [tier, ids] of Object.entries(want)) {
     if (!ids.size) continue;
