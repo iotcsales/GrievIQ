@@ -1,5 +1,5 @@
 /*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
-// public/guide.js (grieviq-40)
+// public/guide.js (grieviq-40; grieviq-59: department journey uses the real reply wording)
 //
 // Draws the step-by-step guides in public/guide-content.js, in the language
 // the reader has chosen (English or Hindi), in two ways:
@@ -51,7 +51,7 @@
     dept: [
       ["A representative's office forwards a complaint", "जनप्रतिनिधि कार्यालय शिकायत भेजता है"],
       ["Read it on your dashboard", "अपने डैशबोर्ड पर पढ़ें"],
-      ["Reply: scheduled, in progress or done, with a photo", "उत्तर दें: निर्धारित, प्रगति पर या पूर्ण, फ़ोटो सहित"],
+      ["Reply with the position: a date fixed, work started or work done, with photos", "स्थिति बताएँ: तारीख़ तय, काम शुरू या काम पूरा, फ़ोटो सहित"],
       ["The representative's team checks on the ground", "जनप्रतिनिधि की टीम धरातल पर जाँचती है"],
       ["Your office's record builds up in the performance report", "प्रदर्शन रिपोर्ट में कार्यालय का रिकॉर्ड बनता है"],
     ],

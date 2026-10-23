@@ -29,6 +29,10 @@
   .mark { width: 34px; height: 34px; border-radius: 9px; background: #13233F; display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .who { font-size: 13px; color: var(--ink-soft); text-align: right; }
   .who b { color: var(--ink); }
+  /* grieviq-59: Help opens the officials' guide (guide.js); 44 px target, colours from the page tokens (4.5:1 light and dark). */
+  .top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .help-btn { min-height: 44px; padding: 0 14px; font-size: 14px; }
+  @media print { .help-btn { display: none !important; } }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
   h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; margin: 0 0 4px; color: var(--teal-dark); }
   h2 { font-size: 18px; margin: 0 0 8px; }

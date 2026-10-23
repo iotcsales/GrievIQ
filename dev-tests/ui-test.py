@@ -1638,7 +1638,7 @@ with sync_playwright() as pw:
                     ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "How a complaint moves" in txt and "112" in txt, "citizen guide in English " + tag, txt[:200])
                 else:
                     ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
-                ok(p.locator("#gq-page .gq-sop").count() == 4 and p.locator("#gq-page ol.gq-flow li").count() == 5, "four guides and the five-step journey " + tag)
+                ok(p.locator("#gq-page .gq-sop").count() == 6 and p.locator("#gq-page ol.gq-flow li").count() == 5, "six guides and the five-step journey " + tag)
                 ok(p.locator("#gq-page strong").count() > 5 and p.locator("#gq-page script").count() == 0, "bold words drawn, nothing else " + tag)
                 ok(no_hscroll(p), "guide page: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS); ok(not bad, "guide page contrast AA " + tag, bad[:6])
@@ -1689,7 +1689,7 @@ with sync_playwright() as pw:
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
                 p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
-                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-takeover", "gqd-reports", "gqd-billing", "gqd-notices"], "representative sees all ten guides " + tag, sop_ids(p))
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all twelve guides " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
                 if lang == "hi": ok(not re.findall(r"guide\.\w+", p.inner_text(".gq-drawer")) and "सहायता" in p.inner_text("#help-btn"), "Help in Hindi " + tag)
                 ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1") and p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "Help panel: no sideways scroll " + tag)
@@ -1741,7 +1741,7 @@ with sync_playwright() as pw:
         p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
         p.goto(B + "/dept"); p.wait_for_selector(".tiles")
         p.click("#guide-link"); p.wait_for_selector(".gq-drawer")
-        ok(sop_ids(p) == ["gqd-signin", "gqd-reply", "gqd-officers", "gqd-performance", "gqd-billing", "gqd-notices"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
+        ok(sop_ids(p) == ["gqd-signin", "gqd-dashboard", "gqd-reply", "gqd-sentback", "gqd-officers", "gqd-performance", "gqd-billing", "gqd-notices"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
         bad = p.evaluate(DLG_CONTRAST); ok(not bad, "dept Help contrast AA " + theme, bad[:6])
         shot(p, "51-dept-help-" + theme, full=False)
         p.keyboard.press("Escape"); ok(p.evaluate("document.activeElement.id") == "guide-link", "focus back on the guide link " + theme)
@@ -1754,7 +1754,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 14), ("deo@test.in", ["gqd-data", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-audit"])):
+    for who, want in (("super@test.in", 20), ("deo@test.in", ["gqd-data", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -1768,6 +1768,46 @@ with sync_playwright() as pw:
             p.keyboard.press("Escape"); ok(p.evaluate("document.activeElement.id") == "adm-help", "admin: focus back on Help " + theme)
             ok(not errs, "no script errors (admin help %s)" % who, errs)
             ctx.close()
+
+    # ---------- grieviq-59: Help on the government dashboards (officials' guide) ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                p.goto(B + ("/state" if width == 375 else "/national") + "?demo=1"); p.wait_for_selector(".tiles")
+                ok(p.inner_text(".help-btn").strip() == ("Help" if lang == "en" else "सहायता"), "gov Help button labelled " + tag)
+                ok(p.evaluate("(() => { const r = document.querySelector('.help-btn').getBoundingClientRect(); return r.height >= 44 && r.width >= 44; })()"), "gov Help button 44px " + tag)
+                ok(no_hscroll(p), "gov header with Help: no sideways scroll " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('header.top')", 1)); ok(not bad, "gov header contrast " + tag, bad)
+                p.click(".help-btn"); p.wait_for_selector(".gq-drawer")
+                ok(sop_ids(p) == ["gqd-signin", "gqd-read", "gqd-reports", "gqd-followup", "gqd-access", "gqd-demo"], "officials' guide: six parts " + tag, sop_ids(p))
+                txt = p.inner_text(".gq-drawer")
+                ok(("fewer than 10" in txt and "never named or ranked" in txt) if lang == "en" else ("10 से कम" in txt and not re.findall(r"guide\.\w+", txt)), "officials' guide rules in " + lang + " " + tag)
+                bad = p.evaluate(DLG_CONTRAST); ok(not bad, "gov Help contrast AA " + tag, bad[:6])
+                ok(not p.evaluate(DLG_TARGETS), "gov Help targets >= 24px " + tag, p.evaluate(DLG_TARGETS))
+                ok(p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "gov Help: no sideways scroll " + tag)
+                if lang == "en" or width == 375: shot(p, "59-gov-help-" + tag, full=False)
+                p.keyboard.press("Escape"); p.wait_for_timeout(100)
+                ok(p.locator(".gq-drawer").count() == 0 and "help-btn" in (p.evaluate("document.activeElement.className") or ""), "gov: Esc closes, focus back on Help " + tag)
+                ok(not errs, "no script errors (gov help %s)" % tag, errs)
+                ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}); p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/state"); p.wait_for_selector("#f-email")
+    ok(p.locator(".help-btn").count() == 1, "Help is there before signing in")
+    p.click(".help-btn"); p.wait_for_selector(".gq-drawer")
+    p.click(".gq-drawer [data-gq-jump=signin]"); ok(p.evaluate("document.activeElement.id") == "gqd-signin", "officials' guide opens at sign-in")
+    p.keyboard.press("Escape"); ok(not errs, "no script errors (gov sign-in help)", errs); ctx.close()
+    # The department reply guide uses the dashboard's own words
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}); p = ctx.new_page()
+    p.goto(B + "/guide"); p.wait_for_selector("#gq-page")
+    p.evaluate("document.getElementById('gq-page').innerHTML = GIQGuide.render('dept', { prefix: 'x-' })")
+    t = p.inner_text("#gq-page")
+    ok(all(w in t for w in ("The work is scheduled for a date", "The work has started", "The work is done", "This isn't our office's work", "It can't be done", "What is the position?")), "department guide uses the reply words on the dashboard")
+    ok("Scheduled" not in t and "Work started" not in t, "old reply words are gone")
+    ctx.close()
 
     # ---------- grieviq-41: payment details, bills, billing for offices ----------
     import numpy as _np, cv2 as _cv2
