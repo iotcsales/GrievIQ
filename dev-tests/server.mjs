@@ -24,7 +24,16 @@ const db = new DatabaseSync(dbFile);
 db.exec("PRAGMA foreign_keys = ON"); db.exec("PRAGMA busy_timeout = 5000");   // D1 checks foreign keys
 function norm(v) { if (v === undefined) throw new Error("D1_TYPE_ERROR: undefined bound"); return typeof v === "boolean" ? (v ? 1 : 0) : v; }
 class Stmt {
-  constructor(sql, binds) { this.sql = sql; this.binds = binds || []; }
+  constructor(sql, binds) {
+    // grieviq-60: refuse what D1 refuses, so the tests catch it before the
+    // live site does: a compound SELECT with more than 5 terms (a person with
+    // 6 ward offices got "too many terms in compound SELECT") and more than
+    // 100 bound values in one statement.
+    const terms = (String(sql).match(/\b(UNION|INTERSECT|EXCEPT)\b/gi) || []).length + 1;
+    if (terms > 5) throw new Error("D1_ERROR: too many terms in compound SELECT: SQLITE_ERROR");
+    if (binds && binds.length > 100) throw new Error("D1_ERROR: too many SQL variables: SQLITE_ERROR");
+    this.sql = sql; this.binds = binds || [];
+  }
   bind(...b) { return new Stmt(this.sql, b.map(norm)); }
   first(col) { const r = db.prepare(this.sql).get(...this.binds); const row = r ? { ...r } : null; return Promise.resolve(col && row ? row[col] : row); }
   all() { return Promise.resolve({ results: db.prepare(this.sql).all(...this.binds).map((r) => ({ ...r })), success: true }); }

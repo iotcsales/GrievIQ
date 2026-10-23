@@ -1769,6 +1769,48 @@ with sync_playwright() as pw:
             ok(not errs, "no script errors (admin help %s)" % who, errs)
             ctx.close()
 
+    # ---------- grieviq-60: the Rep console never shows a blank page ----------
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (theme, lang, width)
+                ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+                ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+                ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+                p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+                fails = {"n": 1}
+                def _route(route):
+                    if fails["n"] > 0:
+                        fails["n"] -= 1; route.fulfill(status=500, body="Internal error")
+                    else: route.continue_()
+                p.route("**/api/grievances?*", _route); p.route("**/api/grievances", _route)
+                p.goto(B + "/rep"); p.wait_for_selector("#load-retry", timeout=15000)
+                txt = p.inner_text("#app")
+                ok(("couldn't load" in txt and "support@grieviq.in" in txt) if lang == "en" else ("लोड नहीं हो सका" in txt and not re.findall(r"rep\.\w+", txt)), "rep: a failed load says so, with Try again " + tag, txt[:200])
+                ok(p.get_attribute(".notice", "role") == "alert" and p.evaluate("document.activeElement.id") == "load-retry", "rep: failure is announced and Try again has focus " + tag)
+                bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.notice')", 1)); ok(not bad, "rep: failure message contrast AA " + tag, bad)
+                ok(p.evaluate("[...document.querySelectorAll('.notice-actions button')].every(b => b.getBoundingClientRect().height >= 44)"), "rep: failure buttons 44px " + tag)
+                ok(no_hscroll(p), "rep: failure message, no sideways scroll " + tag)
+                if lang == "en" or width == 375: shot(p, "60-rep-load-failed-" + tag, full=False)
+                p.click("#load-retry"); p.wait_for_selector("#help-btn", timeout=15000)
+                ok(p.locator("#load-retry").count() == 0, "rep: Try again loads the console " + tag)
+                ok(not errs, "no script errors (rep load failure %s)" % tag, errs)
+                ctx.close()
+    # A representative holding 6 ward offices sees the console (live bug of 23 Oct: compound SELECT limit)
+    import sqlite3 as _sq60
+    _c60 = _sq60.connect(WORK + "/test.db", timeout=10)
+    for _i in range(1, 7):
+        _c60.execute("INSERT OR IGNORE INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id) VALUES (?,?,?,?,?,?)", ("lu-six-ui-%d" % _i, "Six UI %d" % _i, "URBAN", "mla-c", "six-ui@x.in", "lucknow"))
+    _c60.commit()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}); ctx.add_cookies([{"name": "test_email", "value": "six-ui@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000)
+    ok(p.locator("#load-retry").count() == 0 and "Six UI" in p.inner_text("body"), "rep with 6 ward offices: console opens", p.inner_text("body")[:300])
+    ok(not errs, "no script errors (6-ward console)", errs)
+    ctx.close()
+    for _i in range(1, 7): _c60.execute("DELETE FROM local_units WHERE id = ?", ("lu-six-ui-%d" % _i,))
+    _c60.commit(); _c60.close()
+
     # ---------- grieviq-59: Help on the government dashboards (officials' guide) ----------
     for theme in ("light", "dark"):
         for lang in ("en", "hi"):

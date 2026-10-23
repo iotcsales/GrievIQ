@@ -2457,6 +2457,25 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("UPDATE local_units SET seat_count = NULL, rep_email = NULL, rep_name = NULL WHERE id = 'lu-gomti'").run();
 }
 
+// ---- grieviq-60: a representative holding 6 ward offices opens the console ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const d6 = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const ids = [1, 2, 3, 4, 5, 6].map((i) => "lu-six-" + i);
+  for (const id of ids) d6.prepare("INSERT INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id) VALUES (?,?,?,?,?,?)").run(id, "Six Ward " + id.slice(-1), "URBAN", "mla-c", "six@x.in", "lucknow");
+  const me6 = await call("six@x.in", "GET", "/api/me");
+  ok(me6.status === 200 && me6.body.mandates && me6.body.mandates.length === 6, "6-ward representative signs in", me6.body);
+  const g6 = await call("six@x.in", "GET", "/api/grievances");
+  ok(g6.status === 200 && Array.isArray(g6.body.grievances) && g6.body.closed && g6.body.closed.total === 0, "6-ward representative's cases load (no compound SELECT limit)", g6.body);
+  const g6b = await call("six@x.in", "GET", "/api/grievances?closed=100&ref=GRV-NONE");
+  ok(g6b.status === 200 && g6b.body.found === null, "6-ward: more closed cases and a search by number", g6b.body);
+  for (const path of ["/api/overview", "/api/grievances/report", "/api/team", "/api/notifications", "/api/notices", "/api/handover", "/api/billing", "/api/observations", "/api/messages"]) {
+    const x = await call("six@x.in", "GET", path);
+    ok(x.status < 500, "6-ward representative: " + path + " answers without a server error", { status: x.status, body: x.body });
+  }
+  for (const id of ids) d6.prepare("DELETE FROM local_units WHERE id = ?").run(id);
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

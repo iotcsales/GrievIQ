@@ -13,6 +13,10 @@
 // A rep can in principle hold more than one mandate (see
 // get-verified-rep.js); this endpoint unions the visible cases across all
 // of them.
+//
+// grieviq-60: never build a UNION of one SELECT per office: D1 allows only a
+// few terms in a compound SELECT. Combine offices with OR (see the closed
+// cases below) or run one statement per office in a batch.
 
 import { deptTypes, namesOf } from "../_shared/departments.js";
 import { loadSteps, deptState, shapeStepForRep, targetDaysByType } from "../_shared/dept-steps.js";
@@ -97,20 +101,25 @@ export async function onRequestGet(context) {
   const extraRef = String(url.searchParams.get("ref") || "").trim().toUpperCase().slice(0, 40);
   const extraId = String(url.searchParams.get("id") || "").trim().slice(0, 80);
   const RANK = { LOCAL: 0, MAYOR: 1, MLA: 2, MP: 3 };
+  // grieviq-60 fix: one "g.id IN (...)" test per office, joined with OR,
+  // instead of a UNION of one SELECT per office. D1 refuses a compound
+  // SELECT with more than a few terms ("too many terms in compound SELECT"),
+  // so a person holding 6 ward offices got a blank console.
   const parts = [], partBinds = [];
   for (const mandate of auth.mandates) {
     const s = mandateScope(mandate);
     const fw = (mandate.role || ROLE.REP) === ROLE.FW;
-    parts.push(`SELECT g.id AS id, COALESCE(g.closed_at, g.resolved_at, g.updated_at, g.created_at) AS k FROM grievances g ${s.join}
+    parts.push(`g0.id IN (SELECT g.id FROM grievances g ${s.join}
       WHERE (${s.where}) AND g.status IN ('RESOLVED', 'CLOSED')
         AND (CASE g.current_tier WHEN 'MAYOR' THEN 1 WHEN 'MLA' THEN 2 WHEN 'MP' THEN 3 ELSE 0 END) >= ?` +
-      (fw ? ` AND EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.grievance_id = g.id AND ca.ended_at IS NULL AND ca.assignee_email = ? AND ca.office_tier = ? AND ca.office_id = ?)` : ""));
+      (fw ? ` AND EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.grievance_id = g.id AND ca.ended_at IS NULL AND ca.assignee_email = ? AND ca.office_tier = ? AND ca.office_id = ?)` : "") + ")");
     partBinds.push(...s.binds, RANK[mandate.tier] || 0, ...(fw ? [auth.email, mandate.tier, mandate.id] : []));
   }
-  const closedUnion = parts.join(" UNION ");
+  const closedWhere = `g0.status IN ('RESOLVED', 'CLOSED') AND (${parts.join(" OR ")})`;
   const [closedCountRow, closedPage, extraRow] = await Promise.all([
-    env.DB.prepare(`SELECT COUNT(*) AS n FROM (${closedUnion})`).bind(...partBinds).first(),
-    env.DB.prepare(`SELECT id FROM (${closedUnion}) ORDER BY k DESC LIMIT ?`).bind(...partBinds, closedWanted).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM grievances g0 WHERE ${closedWhere}`).bind(...partBinds).first(),
+    env.DB.prepare(`SELECT g0.id AS id FROM grievances g0 WHERE ${closedWhere}
+      ORDER BY COALESCE(g0.closed_at, g0.resolved_at, g0.updated_at, g0.created_at) DESC LIMIT ?`).bind(...partBinds, closedWanted).all(),
     extraRef || extraId ? env.DB.prepare("SELECT id FROM grievances WHERE tracking_ref = ? OR id = ?").bind(extraRef || "-", extraId || "-").first() : null,
   ]);
   const closedTotal = closedCountRow ? Number(closedCountRow.n) : 0;
