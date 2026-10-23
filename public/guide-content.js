@@ -166,7 +166,7 @@
         { id: "team", roles: ["REPRESENTATIVE"], title: ["Manage the team", "टीम प्रबंधन"],
           who: ["Representative.", "जनप्रतिनिधि।"],
           steps: [
-            ["Open **Team** and fill **Add a person**: name, the email of their Google account and their role. Tap **Add to team**; GrievIQ emails them how to sign in.", "**टीम** खोलें और **व्यक्ति जोड़ें** भरें: नाम, उनके Google खाते का ईमेल और भूमिका। **टीम में जोड़ें** दबाएँ; GrievIQ उन्हें साइन इन का तरीका ईमेल करता है।"],
+            ["Open **Team** and fill **Add a person** (an office manager, field worker or office assistant): name, the email of their Google account and their role. Tap **Add to team**; GrievIQ emails them how to sign in.", "**टीम** खोलें और **व्यक्ति जोड़ें** भरें (कार्यालय प्रबंधक, फ़ील्ड कर्मी या कार्यालय सहायक): नाम, उनके Google खाते का ईमेल और भूमिका। **टीम में जोड़ें** दबाएँ; GrievIQ उन्हें साइन इन का तरीका ईमेल करता है।"],
             ["Tap **Edit job profile**: duties, **Wards covered**, issue types they usually handle and **Availability**. For leave, set **On leave — don't give them new cases**, and set it back on return.", "**कार्य विवरण बदलें** दबाएँ: कर्तव्य, **कवर किए गए वार्ड**, सामान्य शिकायत प्रकार और **उपलब्धता**। अवकाश के लिए **अवकाश पर — उन्हें नई शिकायतें न सौंपें** चुनें, और लौटने पर वापस करें।"],
             ["Changing duties? Use **Change role**. When someone leaves, tap **Remove** the same day.", "कर्तव्य बदल रहे हैं? **भूमिका बदलें** उपयोग करें। कोई कार्यालय छोड़े तो उसी दिन **हटाएँ** दबाएँ।"],
             ["When **Time to check your team** appears (every 90 days), check each person and tap **Confirm team is still correct**.", "जब **अपनी टीम जाँचने का समय** दिखे (हर 90 दिन), हर व्यक्ति जाँचें और **पुष्टि करें कि टीम अब भी सही है** दबाएँ।"],
@@ -536,7 +536,7 @@
             ["Watch **Database size**: past the yellow mark (5 GB), plan archiving or splitting by region. **Visitors** shows citizen-page visitors by city only.", "**डेटाबेस का आकार** देखें: पीला निशान (5 GB) पार होने पर अलग करने या क्षेत्रवार बाँटने की योजना बनाएँ। **विज़िटर** केवल शहर के स्तर पर नागरिक पृष्ठों के विज़िटर दिखाता है।"],
           ],
           check: [["Never run the load test against the live site.", "लोड टेस्ट लाइव साइट पर कभी न चलाएँ।"]] },
-        { id: "staff", roles: ["super_admin", "auditor"], title: ["Staff accounts: joining, leave, email and leaving", "स्टाफ़ खाते: जुड़ना, अवकाश, ईमेल और जाना"],
+        { id: "staff", roles: ["super_admin", "auditor"], title: ["Staff accounts: add a staff member, leave, email and leaving", "स्टाफ़ खाते: स्टाफ़ सदस्य जोड़ना, अवकाश, ईमेल और जाना"],
           who: ["Super admin; the auditor can look.", "सुपर एडमिन; ऑडिटर देख सकता है।"],
           steps: [
             ["**Joining:** create their own @grieviq.in address in Email Routing, add it to the Cloudflare Access staff policy, then add them on **Staff & roles** with name, employee ID, mobile and role. Test sign-in in a private window.", "**जुड़ना:** Email Routing में उनका अपना @grieviq.in पता बनाएँ, Cloudflare Access स्टाफ़ नीति में जोड़ें, फिर **कर्मचारी और भूमिकाएँ** में नाम, कर्मचारी आईडी, मोबाइल और भूमिका के साथ जोड़ें। निजी विंडो में साइन-इन जाँचें।"],

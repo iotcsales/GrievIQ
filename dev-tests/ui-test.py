@@ -1851,6 +1851,79 @@ with sync_playwright() as pw:
     ok("Scheduled" not in t and "Work started" not in t, "old reply words are gone")
     ctx.close()
 
+    # ---------- grieviq-61: search box in Help ----------
+    def _first_hit(p): return p.eval_on_selector_all("[data-gq-results] .gq-stitle", "els => els.map(e => e.textContent)")
+    for theme in ("light", "dark"):
+        for width in (1280, 375):
+            tag = "%s-%d" % (theme, width)
+            ctx, p, errs = P("super@test.in", theme=theme, width=width)
+            p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
+            if not p.is_visible("#adm-help"): p.click("#adm-menu-btn")
+            p.click("#adm-help"); p.wait_for_selector(".gq-drawer [data-gq-q]")
+            ok(p.locator(".gq-drawer label[for=gqd-q]").count() == 1 and p.locator(".gq-drawer .gq-lens").count() == 1, "admin Help: labelled search box with a lens " + tag)
+            ok(p.evaluate("document.getElementById('gqd-q').getBoundingClientRect().height >= 44"), "search box 44px " + tag)
+            p.fill("#gqd-q", "how do I add a new staff member"); p.wait_for_timeout(700)
+            hits = _first_hit(p)
+            ok(hits and hits[0].startswith("Staff accounts"), "'add a new staff member' finds Staff accounts first " + tag, hits)
+            ok(p.locator("[data-gq-results] mark").count() >= 2, "matching words are marked " + tag)
+            ok(p.inner_text(".gq-drawer [data-gq-status]").strip().endswith("matching parts of the guide") or "1 matching" in p.inner_text(".gq-drawer [data-gq-status]"), "result count announced " + tag, p.inner_text(".gq-drawer [data-gq-status]"))
+            bad = p.evaluate(DLG_CONTRAST); ok(not bad, "search results contrast AA " + tag, bad[:6])
+            ok(not p.evaluate(DLG_TARGETS), "search results targets >= 24px " + tag, p.evaluate(DLG_TARGETS))
+            ok(p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "search: no sideways scroll " + tag)
+            shot(p, "61-admin-search-" + tag, full=False)
+            p.focus("#gqd-q"); p.keyboard.press("Enter"); p.wait_for_timeout(150)
+            ok(p.evaluate("document.activeElement.id") == "gqd-staff", "Enter opens the first result " + tag, p.evaluate("document.activeElement.id"))
+            p.focus("#gqd-q"); p.keyboard.press("Escape"); p.wait_for_timeout(100)
+            ok(p.locator(".gq-drawer").count() == 1 and p.input_value("#gqd-q") == "" and p.locator("[data-gq-results] li").count() == 0, "Esc first clears the search " + tag)
+            p.fill("#gqd-q", "zzqx flibber"); p.wait_for_timeout(100)
+            ok("Nothing matched" in p.inner_text("[data-gq-results]"), "nothing found says so " + tag)
+            p.fill("#gqd-q", ""); p.keyboard.press("Escape"); p.wait_for_timeout(100)
+            ok(p.locator(".gq-drawer").count() == 0, "Esc on an empty search closes Help " + tag)
+            ok(not errs, "no script errors (admin search %s)" % tag, errs)
+            ctx.close()
+    # Hindi question, and the language switch keeps the question
+    ctx, p, errs = P("super@test.in", theme="light", width=1280)
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
+    if not p.is_visible("#adm-help"): p.click("#adm-menu-btn")
+    p.click("#adm-help"); p.wait_for_selector("#gqd-q")
+    p.fill("#gqd-q", "payment not matching bank statement"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Bills and payments"], "'payment not matching' finds Bills and payments", _first_hit(p))
+    p.evaluate("GIQ.setLang ? GIQ.setLang('hi') : document.querySelector('[data-lang-toggle]').click()"); p.wait_for_timeout(300)
+    ok(p.input_value("#gqd-q") == "payment not matching bank statement" and len(_first_hit(p)) >= 1 and _first_hit(p)[0] == "बिल और भुगतान", "language switch keeps the question; titles in Hindi", _first_hit(p))
+    p.fill("#gqd-q", "कर्मचारी अवकाश"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] and _first_hit(p)[0].startswith("स्टाफ़ खाते"), "Hindi question finds staff leave", _first_hit(p))
+    ok(not errs, "no script errors (Hindi search)", errs); ctx.close()
+    # Citizen guide page, rep, dept and gov panels
+    ctx = br.new_context(viewport={"width": 375, "height": 900}); p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/guide"); p.wait_for_selector("#gq-q")
+    p.fill("#gq-q", "how to reopen complaint"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Confirm the fix, or reopen"], "citizen guide page: reopen", _first_hit(p))
+    p.click("[data-gq-results] a.gq-stitle >> nth=0"); p.wait_for_timeout(150)
+    ok(p.evaluate("document.activeElement.id") == "gq-confirm", "citizen guide page: result opens that part")
+    ok(no_hscroll(p), "citizen guide page search: no sideways scroll")
+    bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.gq-search')", 1)); ok(not bad, "citizen search contrast AA", bad)
+    shot(p, "61-guide-search-375", full=False)
+    ok(not errs, "no script errors (citizen search)", errs); ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}, color_scheme="dark"); ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000); p.click("#help-btn"); p.wait_for_selector("#gqd-q")
+    p.fill("#gqd-q", "how do I add a field worker"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Manage the team"], "rep Help: add a field worker", _first_hit(p))
+    bad = p.evaluate(DLG_CONTRAST); ok(not bad, "rep search contrast AA dark", bad[:6])
+    ok(not errs, "no script errors (rep search)", errs); ctx.close()
+    ctx = br.new_context(viewport={"width": 375, "height": 900}); p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/state?demo=1"); p.wait_for_selector(".tiles"); p.click(".help-btn"); p.wait_for_selector("#gqd-q")
+    p.fill("#gqd-q", "download excel report"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["The six MIS reports"], "officials' Help: excel report", _first_hit(p))
+    ok(not errs, "no script errors (gov search)", errs); ctx.close()
+    ctx = br.new_context(viewport={"width": 1280, "height": 900})
+    ok(dept_signin(ctx) == 200, "dept signed in (search)")
+    p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/dept"); p.wait_for_selector(".tiles"); p.click("#guide-link"); p.wait_for_selector("#gqd-q")
+    p.fill("#gqd-q", "case is not ours"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Reply on a forwarded case"], "department Help: not ours", _first_hit(p))
+    ok(not errs, "no script errors (dept search)", errs); ctx.close()
+
     # ---------- grieviq-41: payment details, bills, billing for offices ----------
     import numpy as _np, cv2 as _cv2
     def qr_text(p, sel):
@@ -2331,7 +2404,17 @@ with sync_playwright() as pw:
         bad = p.evaluate(CONTRAST_JS); ok(not bad, "department list contrast AA " + theme, bad[:5])
         ok(not errs, "no script errors (dept paging %s)" % theme, errs)
         ctx.close()
-    # Speed page (slow figures were added by the API tests)
+    # Speed page. The slow figures are recorded again here, for the 2 hours
+    # before now: the API tests' figures can fall outside "the last 2 hours"
+    # when a test run crosses the top of an hour (grieviq-61).
+    import time as _t61, urllib.request as _ur61
+    _h0 = int(_t61.time() // 3600) * 3600
+    _iso = lambda sec: _dt.datetime.fromtimestamp(sec, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    _samples = []
+    for i in range(20):
+        _samples += [{"area": "REP", "ms": 200 + i * 40, "at": _iso(_h0 - 7200 + (5 + i) * 60)}, {"area": "REP", "ms": 200 + i * 40, "at": _iso(_h0 - 3600 + (5 + i) * 60)}, {"area": "CITIZEN", "ms": 80 + i, "at": _iso(_h0 - 3600 + (10 + i) * 60)}]
+    _ur61.urlopen(_ur61.Request(B + "/__test/speed-sample", data=json.dumps({"samples": _samples}).encode(), method="POST")).read()
+    _ur61.urlopen(_ur61.Request(B + "/__test/run-speed", data=b"{}", method="POST")).read()
     for theme in ("dark", "light"):
         for lang in ("en", "hi"):
             for width in (1280, 375):

@@ -17,6 +17,7 @@
 // reflows at 320 px and is read in order. Colours are its own, checked at
 // 4.5:1 in light and dark; light or dark follows the page behind it.
 // "Print / save as PDF" prints only the guide, in light colours.
+// grieviq-61: a search box at the top finds the steps for a question.
 (function () {
   "use strict";
   var G = function () { return window.GIQ_GUIDES || {}; };
@@ -71,6 +72,173 @@
     return list.length ? list : (g.sops || []);
   }
 
+  // ---- grieviq-61: search the guide ----
+  // A question typed in the box finds the matching steps at once, in English
+  // or Hindi, using the guide's own words plus everyday words (UTR -> bills,
+  // leave -> staff leave, ...). It runs in the browser on the guide text only:
+  // nothing typed is sent anywhere or stored.
+  var STOP = ("a an the to of in on for and or is are am be do does did i my me we our you your it its this that these those how what when where which who why can could should would will shall may please there here with from by at as about into get give make want need tell show find someone somebody anyone going go new old just now also any some all one " +
+    "कैसे क्या कब कहाँ कौन क्यों मैं मेरा मेरी मेरे हम हमारा आप आपका आपकी आपके का की के को से में पर है हैं था थी थे हो होता होती करें करना करूँ करते कर और या भी तो यह वह ये वे एक लिए साथ बारे चाहिए सकता सकती सकते").split(" ");
+  var STOPSET = {}; STOP.forEach(function (w) { STOPSET[w] = 1; });
+  // Words that mean the same thing to the reader, in either language.
+  var SYN = [
+    "pay payment paid bill bills invoice upi utr bank money fee fees refund भुगतान बिल पैसा राशि",
+    "price prices plan plans cost charge charges rate pricing subscription शुल्क मूल्य योजना कीमत सदस्यता",
+    "sign signin login log logout code otp password access साइन लॉगिन कोड पासवर्ड पहुँच",
+    "staff employee employees user users member members person people team colleague स्टाफ़ कर्मचारी टीम सदस्य व्यक्ति",
+    "leave holiday absent absence vacation cover अवकाश छुट्टी",
+    "remove delete left leaving quit resign resigned हटाएँ हटाना छोड़",
+    "transfer transferred move posting स्थानांतरण",
+    "complaint complaints case cases grievance issue problem शिकायत शिकायतें मामला मामले समस्या",
+    "department departments dept office offices officer officers विभाग कार्यालय अधिकारी",
+    "forward forwarded refer send sent अग्रेषित भेजें भेजना",
+    "photo photos picture pictures image images pic फ़ोटो तस्वीर",
+    "notice notices announcement advertisement advert सूचना सूचनाएँ",
+    "election elections mcc vote votes poll चुनाव आचार संहिता",
+    "ward wards area areas city district village वार्ड क्षेत्र शहर ज़िला गाँव",
+    "rating ratings feedback review stars satisfaction रेटिंग फ़ीडबैक",
+    "reopen reopened again दोबारा",
+    "track tracking status progress स्थिति ट्रैक",
+    "alert alerts notification notifications notify bell push घंटी अपडेट",
+    "report reports pdf excel download export csv print रिपोर्ट डाउनलोड प्रिंट",
+    "privacy personal data erase consent गोपनीयता डेटा सहमति",
+    "late overdue delay delayed pending slow देर लंबित",
+    "representative representatives corporator councillor mla mp mayor पार्षद जनप्रतिनिधि विधायक सांसद",
+    "government state official officials ministry सरकार सरकारी राज्य मंत्रालय",
+    "check verify confirm confirmed जाँच पुष्टि",
+    "resolve resolved fix fixed done solve solved निस्तारित समाधान ठीक",
+    "email mail ईमेल",
+    "phone mobile number call फ़ोन मोबाइल नंबर",
+  ].map(function (g) { return g.split(" ").map(normWord); });
+  function normWord(w) {
+    w = String(w || "").toLowerCase().replace(/़/g, "").replace(/ँ/g, "ं");
+    if (/^[a-z]+$/.test(w)) {
+      if (w.length > 5 && /ing$/.test(w)) w = w.slice(0, -3);
+      else if (w.length > 4 && /ed$/.test(w)) w = w.slice(0, -2);
+      else if (w.length > 4 && /es$/.test(w)) w = w.slice(0, -2);
+      else if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) w = w.slice(0, -1);
+    }
+    return w;
+  }
+  function words(text) {
+    return String(text || "").replace(/\*\*/g, "").toLowerCase().split(/[^\p{L}\p{M}\p{N}@]+/u).filter(Boolean).map(normWord);
+  }
+  function same(a, b) {   // b is a word of the guide
+    if (a === b) return true;
+    return a.length >= 4 && b.length >= 4 && (b.indexOf(a) === 0 || a.indexOf(b) === 0);
+  }
+  // Each word of the question becomes a "concept": the word and its synonyms.
+  function concepts(q) {
+    var out = [];
+    words(q).forEach(function (w) {
+      if (!w || STOPSET[w] || (w.length < 2)) return;
+      var set = [w];
+      SYN.forEach(function (g) { if (g.some(function (x) { return same(w, x) || same(x, w); })) set = set.concat(g); });
+      out.push(set);
+    });
+    return out;
+  }
+  // A word of the question found as typed counts 1; found only through a
+  // word that means the same counts 0.6, so the closest guide comes first.
+  // A word found in many parts of the guide ("add", "member") tells less
+  // than a rare one ("staff", "UTR"), so each word is weighted by rarity.
+  function hits(cs, ws) {
+    var n = 0;
+    cs.forEach(function (set) {
+      var wt = set.weight || 1;
+      if (ws.some(function (w) { return same(set[0], w); })) n += wt;
+      else if (ws.some(function (w) { return set.some(function (x) { return same(x, w); }); })) n += 0.6 * wt;
+    });
+    return n;
+  }
+  function weigh(cs, docs) {
+    cs.forEach(function (set) {
+      var df = docs.filter(function (ws) { return ws.some(function (w) { return same(set[0], w); }); }).length;
+      set.weight = df <= 2 ? 1 : df <= 5 ? 0.75 : 0.5;
+    });
+  }
+  function search(kind, roles, q) {
+    var g = G()[kind]; if (!g) return [];
+    var cs = concepts(q); if (!cs.length) return [];
+    var sops = sopsFor(g, roles);
+    weigh(cs, sops.map(function (sop) {
+      return words([pick(sop.title)].concat([].concat(sop.what ? [sop.what] : [], sop.steps || [], sop.check || [], sop.note || []).map(pick)).join(" "));
+    }));
+    var need = Math.max(0.3, Math.ceil(cs.length / 2) * 0.3);
+    var found = [];
+    sops.forEach(function (sop) {
+      var tw = words(pick(sop.title));
+      var titleHits = hits(cs, tw);
+      var best = null;
+      var parts = [].concat(sop.what ? [sop.what] : [], sop.steps || [], sop.check || [], sop.note || []);
+      parts.forEach(function (pair) {
+        var ww = words(pick(pair)).concat(tw);
+        var n = hits(cs, ww);
+        if (n >= need && (!best || n > best.n)) best = { n: n, pair: pair };
+      });
+      if (!best && titleHits >= need) best = { n: titleHits, pair: (sop.steps || [])[0] };
+      if (best) found.push({ sop: sop, n: best.n + titleHits * 0.8, pair: best.pair, cs: cs });
+    });
+    (g.problems || []).forEach(function (pr) {
+      var n = hits(cs, words(pick(pr[0]) + " " + pick(pr[1])));
+      if (n >= need) found.push({ problem: pr, n: n, cs: cs });
+    });
+    found.sort(function (a, b) { return b.n - a.n; });
+    // Only results close to the best one: weak matches only add noise.
+    var top = found.length ? found[0].n : 0;
+    return found.filter(function (r) { return r.n >= top * 0.5; }).slice(0, 5);
+  }
+  // The step's text, escaped, with the matching words marked.
+  function marked(pair, cs) {
+    var text = pick(pair).replace(/\*\*/g, "");
+    return text.split(/([^\p{L}\p{M}\p{N}@]+)/u).map(function (part) {
+      var w = normWord(part);
+      var hit = w && !STOPSET[w] && cs.some(function (set) { return set.some(function (x) { return same(x, w); }); });
+      return hit ? "<mark>" + esc(part) + "</mark>" : esc(part);
+    }).join("");
+  }
+  function resultsHtml(kind, roles, q) {
+    q = String(q || "").trim();
+    if (!q) return { html: "", status: "" };
+    var list = search(kind, roles, q);
+    if (!list.length) return { html: '<p class="gq-snone">' + esc(t("guide.search_none")) + "</p>", status: t("guide.search_none") };
+    var html = '<ol class="gq-sres-list">' + list.map(function (r) {
+      if (r.problem) return '<li><span class="gq-stitle">' + marked(r.problem[0], r.cs) + '</span><span class="gq-ssnip">' + marked(r.problem[1], r.cs) + "</span></li>";
+      return '<li><a href="#" class="gq-stitle" data-gq-jump="' + esc(r.sop.id) + '">' + esc(pick(r.sop.title)) + '</a>' +
+        (r.pair ? '<span class="gq-ssnip">' + marked(r.pair, r.cs) + "</span>" : "") + "</li>";
+    }).join("") + "</ol>";
+    return { html: html, status: t(list.length === 1 ? "guide.search_one" : "guide.search_n", { n: list.length }) };
+  }
+  var LENS = '<svg class="gq-lens" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  function searchHtml(kind, roles, p, q) {
+    var r = resultsHtml(kind, roles, q);
+    return '<div class="gq-search gq-noprint" role="search" data-gq-kind="' + esc(kind) + '" data-gq-roles="' + esc(JSON.stringify(roles || [])) + '">' +
+      '<label for="' + p + 'q">' + esc(t("guide.search_label")) + "</label>" +
+      '<div class="gq-sbox">' + LENS + '<input type="search" id="' + p + 'q" data-gq-q autocomplete="off" spellcheck="false" enterkeyhint="search" aria-describedby="' + p + 'shint" placeholder="' + esc(t("guide.search_ph")) + '" value="' + esc(q || "") + '"></div>' +
+      '<p class="gq-shint" id="' + p + 'shint">' + esc(t("guide.search_hint")) + "</p>" +
+      '<p class="gq-vh" role="status" data-gq-status>' + esc(r.status) + "</p>" +
+      '<div class="gq-sres" data-gq-results>' + r.html + "</div></div>";
+  }
+  function runSearch(input) {
+    var box = input.closest(".gq-search"); if (!box) return;
+    var roles = []; try { roles = JSON.parse(box.getAttribute("data-gq-roles") || "[]"); } catch (e) { roles = []; }
+    var r = resultsHtml(box.getAttribute("data-gq-kind"), roles, input.value);
+    box.querySelector("[data-gq-results]").innerHTML = r.html;
+    var st = box.querySelector("[data-gq-status]");
+    clearTimeout(runSearch.timer);
+    // Announce the count once typing pauses, not on every key.
+    runSearch.timer = setTimeout(function () { st.textContent = r.status; }, 600);
+  }
+  document.addEventListener("input", function (e) { if (e.target && e.target.matches && e.target.matches("[data-gq-q]")) runSearch(e.target); });
+  // Enter jumps to the first result.
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !e.target || !e.target.matches || !e.target.matches("[data-gq-q]")) return;
+    e.preventDefault();
+    var first = e.target.closest(".gq-search").querySelector("[data-gq-results] [data-gq-jump]");
+    if (first) first.click();
+  });
+  function currentQuery(container) { var i = container && container.querySelector("[data-gq-q]"); return i ? i.value : ""; }
+
   // opts: { roles, h (heading level for parts, default 2), prefix (id prefix), title (bool: include the title) }
   function render(kind, opts) {
     opts = opts || {};
@@ -81,6 +249,7 @@
     var sops = sopsFor(g, opts.roles);
     var out = [];
     if (opts.title) out.push("<h" + (h - 1) + ' class="gq-title">' + md(g.title) + "</h" + (h - 1) + ">");
+    if (opts.search !== false) out.push(searchHtml(kind, opts.roles, p, opts.query));
     out.push('<p class="gq-intro">' + md(g.intro) + "</p>");
     var steps = JOURNEYS[g.journey];
     if (steps) {
@@ -162,6 +331,20 @@
     ".gq-root .gq-problems dt{font-weight:600;margin-top:10px}.gq-root .gq-problems dd{margin:2px 0 0 0;color:var(--gq-fg)}" +
     ".gq-root .gq-contacts{margin-top:18px;padding-top:12px;border-top:1px solid var(--gq-border);font-size:14px;overflow-wrap:anywhere}" +
     ".gq-root strong{font-weight:600}" +
+    // grieviq-61: the search box (44 px, label always visible, AA in light and dark)
+    ".gq-root .gq-search{margin:0 0 16px}.gq-root .gq-search label{display:block;font-weight:600;margin:0 0 6px}" +
+    ".gq-root .gq-sbox{position:relative}.gq-root .gq-lens{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gq-muted);pointer-events:none}" +
+    ".gq-root input[type=search]{box-sizing:border-box;width:100%;min-height:44px;padding:8px 12px 8px 42px;font:inherit;font-size:16px;color:var(--gq-fg);background:var(--gq-bg);border:1.5px solid var(--gq-muted);border-radius:10px}" +
+    ".gq-root input[type=search]::placeholder{color:var(--gq-muted);opacity:1}" +
+    ".gq-root input[type=search]:focus-visible{outline:3px solid var(--gq-focus);outline-offset:2px}" +
+    ".gq-root .gq-shint{margin:6px 0 0;font-size:13px;color:var(--gq-muted)}" +
+    ".gq-root .gq-vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}" +
+    ".gq-root .gq-sres-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}" +
+    ".gq-root .gq-sres-list li{border:1px solid var(--gq-border);border-radius:10px;padding:10px 12px;background:var(--gq-card);margin:0}" +
+    ".gq-root .gq-stitle{display:inline-block;font-weight:600;min-height:24px;padding:2px 0}.gq-root a.gq-stitle{color:var(--gq-link);text-decoration:underline}" +
+    ".gq-root .gq-ssnip{display:block;font-size:14px;margin-top:2px;color:var(--gq-fg);overflow-wrap:anywhere}" +
+    ".gq-root mark{background:var(--gq-note-bg);color:var(--gq-note-fg);border-radius:3px;padding:0 2px}" +
+    ".gq-root .gq-snone{margin:10px 0 0;color:var(--gq-fg)}" +
     // ---- the panel ----
     ".gq-ov{position:fixed;inset:0;z-index:10000;background:rgba(10,14,20,.55);display:flex;justify-content:flex-end}" +
     ".gq-drawer{background:var(--gq-bg);width:min(640px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.3);font-family:inherit;text-align:left}" +
@@ -214,12 +397,16 @@
     s.ov.querySelector("[data-gq-print]").textContent = t("guide.print");
     var close = s.ov.querySelector("[data-gq-close]");
     close.textContent = t("guide.close");
-    s.ov.querySelector(".gq-dbody").innerHTML = render(s.kind, { roles: s.opts.roles || roleMap[s.kind], h: 3, prefix: "gqd-" });
+    s.ov.querySelector(".gq-dbody").innerHTML = render(s.kind, { roles: s.opts.roles || roleMap[s.kind], h: 3, prefix: "gqd-", query: currentQuery(s.ov) });
     paint(s.ov);
   }
   function onKey(e) {
     if (!state) return;
-    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key === "Escape") {
+      var a0 = document.activeElement;
+      if (a0 && a0.matches && a0.matches("[data-gq-q]") && a0.value) { e.preventDefault(); e.stopPropagation(); a0.value = ""; runSearch(a0); return; }
+      e.preventDefault(); e.stopPropagation(); close(); return;
+    }
     if (e.key !== "Tab") return;
     var f = focusables(state.ov.querySelector(".gq-drawer"));
     if (!f.length) return;
