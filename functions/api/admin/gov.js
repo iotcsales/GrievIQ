@@ -40,6 +40,7 @@ import { govReady, listStates, listDistricts, isOfficialEmail, GOV_LEVELS, REVIE
 import { emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import { transfersReady, aloneIn, covers, scopeOf, govMovedEmail } from "../../_shared/transfers.js";
 import { sendEmailNow } from "../../_shared/dept-auth.js";
+import { followupsReady, settingsList } from "../../_shared/followups.js";
 
 const REVIEW_DAYS_OTHER = 90;
 async function hasKind(env) { try { await env.DB.prepare("SELECT email_kind FROM gov_users LIMIT 1").first(); return true; } catch (e) { return false; } }
@@ -86,6 +87,7 @@ export async function onRequestGet({ request, env }) {
     transfersReady: await transfersReady(env),
     sharing: (sharing.results || []).map((r) => ({ tier: r.office_tier, id: r.office_id, name: r.office_name || r.office_id, at: r.changed_at, by: r.changed_by })),
     log: (log.results || []).map((r) => ({ at: r.at, email: r.email, action: r.action, scope: r.scope })),
+    followups: (await followupsReady(env)) ? { ready: true, settings: await settingsList(env) } : { ready: false },
   });
 }
 
@@ -245,6 +247,28 @@ export async function onRequestPost({ request, env }) {
     await logEvent(env, auth.email, "gov_user_transferred", email, { from: { email: row.email, level: row.level, state: row.state_id, district: row.district_id }, to: { level, state: next.state_id, district: next.district_id },
       newId: id, letterRef, letterDate, reason, reviewBy, emailChanged: !sameEmail, leftEmpty: b.leaveEmpty === true });
     return json({ ok: true, id, reviewBy, emailed: sent });
+  }
+  // grieviq-65: follow-up requests, switched on per state ('*' = national
+  // requests) only on the state's (or a ministry's) letter.
+  if (b.action === "followups") {
+    if (!(await followupsReady(env))) return json({ error: "NOT_READY", code: "NOT_SET_UP" }, 503);
+    const sid = String(b.stateId || "");
+    let name = "National";
+    if (sid !== "*") {
+      const st = await env.DB.prepare("SELECT id, name_en FROM states WHERE id = ? AND demo = 0").bind(sid).first();
+      if (!st) f.stateId = "CHOOSE"; else name = st.name_en;
+    }
+    const on = b.on === true, letterRef = clean(b.letterRef, 80);
+    if (on && !REF_RE.test(letterRef)) f.letterRef = letterRef ? "FORMAT" : "REQUIRED";
+    const reason = clean(b.reason, 300);
+    if (!on && reason.length < 10) f.reason = "REQUIRED";
+    if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
+    await env.DB.prepare(
+      `INSERT INTO gov_followup_settings (state_id, enabled, letter_ref, changed_by, changed_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(state_id) DO UPDATE SET enabled = excluded.enabled, letter_ref = COALESCE(excluded.letter_ref, letter_ref), changed_by = excluded.changed_by, changed_at = excluded.changed_at`
+    ).bind(sid, on ? 1 : 0, on ? letterRef : null, auth.email, now).run();
+    await logEvent(env, auth.email, on ? "gov_followups_on" : "gov_followups_off", sid, { state: name, letterRef: on ? letterRef : null, reason: on ? null : reason });
+    return json({ ok: true, stateId: sid, on });
   }
   return json({ error: "Unknown action." }, 400);
 }

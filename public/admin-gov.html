@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=60"></script>
-<script src="/admin-nav.js?v=r19"></script>
+<script src="/i18n.js?v=66"></script>
+<script src="/admin-nav.js?v=r20"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -496,6 +496,7 @@ function render() {
     (gone.length ? "<details><summary>" + esc(T("adm.gv_removed_h", { n: gone.length })) + "</summary>" + gone.map(userCard).join("") + "</details>" : "") + "</section>" +
     '<section class="gv-sec" aria-labelledby="gv-share-h"><h2 id="gv-share-h">' + esc(T("adm.gv_share_h", { n: d.sharing.length })) + '</h2><p class="muted">' + esc(T("adm.gv_share_p")) + "</p>" +
     (d.sharing.length ? '<ul class="gv-share">' + d.sharing.map(function (o) { return "<li><b>" + esc(o.name) + "</b> · " + esc(T("adm.gv_share_since", { date: dateText(o.at), by: o.by })) + "</li>"; }).join("") + "</ul>" : '<p class="muted">' + esc(T("adm.gv_share_none")) + "</p>") + "</section>" +
+    fuSection() +
     '<section class="gv-sec" aria-labelledby="gv-log-h"><h2 id="gv-log-h">' + esc(T("adm.gv_log_h")) + '</h2><p class="muted">' + esc(T("adm.gv_log_p")) + "</p>" +
     (d.log.length ? '<div class="table-wrap"><table class="gv-log"><thead><tr><th scope="col">' + esc(T("adm.gv_log_when")) + '</th><th scope="col">' + esc(T("adm.gv_log_who")) + '</th><th scope="col">' + esc(T("adm.gv_log_what")) + "</th></tr></thead><tbody>" +
       d.log.map(function (l) { return "<tr><td>" + esc(timeText(l.at)) + "</td><td>" + esc(l.email || "—") + "</td><td>" + esc(T("adm.gv_la_" + l.action) + (l.scope ? " · " + l.scope : "")) + "</td></tr>"; }).join("") + "</tbody></table></div>"
@@ -519,6 +520,13 @@ function wire() {
     var em = document.getElementById("gv-email");
     em.addEventListener("input", function () { var box = document.getElementById("gv-other"); if (box) box.hidden = !(GV.data.otherAllowed && looksLikeEmail(em.value) && !isOfficial(em.value)); });
   }
+  document.querySelectorAll("details[data-fu]").forEach(function (dt) {
+    var id = dt.getAttribute("data-fu");
+    dt.addEventListener("toggle", function () { if (dt.open) GV.fuOpen = id; else if (GV.fuOpen === id) GV.fuOpen = null; });
+    dt.querySelectorAll("[data-fu-go]").forEach(function (b) { b.addEventListener("click", function () { fuSwitch(id, b.getAttribute("data-fu-go") === "on", b); }); });
+  });
+  var fl = document.getElementById("gv-fu-list");
+  if (fl) fl.addEventListener("toggle", function () { if (fl.open && !GV.fuList) loadFuList(); });
   document.querySelectorAll("details[data-id]").forEach(function (dt) {
     var id = dt.getAttribute("data-id"), u = GV.data.users.find(function (x) { return x.id === id; });
     dt.addEventListener("toggle", function () { GV.open[id] = dt.open; });
@@ -542,6 +550,61 @@ function wire() {
   }
 }
 function say(text, ok) { var m = document.getElementById("gv-msg"); m.className = "st-msg " + (ok ? "success" : "error"); m.textContent = text; m.focus(); }
+// grieviq-66: follow-up requests between officials, switched on per state
+// ('*' = national requests) only on the state's or ministry's letter. Super
+// admin switches; everyone who can open this page reads. Nobody at GrievIQ
+// writes in a request.
+function fuSection() {
+  var fu = GV.data.followups;
+  if (!fu || !fu.ready) return "";
+  var set = {}; (fu.settings || []).forEach(function (x) { set[x.stateId] = x; });
+  var rows = [{ id: "*", nameEn: T("adm.fu_national"), nameHi: T("adm.fu_national") }].concat(GV.data.states || []);
+  var h = '<section class="gv-sec" aria-labelledby="gv-fu-h"><h2 id="gv-fu-h">' + esc(T("adm.fu_h")) + '</h2><p class="muted">' + esc(T("adm.fu_p")) + "</p>";
+  h += rows.map(function (r) {
+    var x = set[r.id], on = !!(x && x.on), p = "gv-fu-" + (r.id === "*" ? "nat" : String(r.id).replace(/[^a-zA-Z0-9]/g, ""));
+    var c = '<article class="sb-card gv-card' + (on ? " s-ACTIVE" : "") + '" aria-labelledby="' + p + '-h"><h3 id="' + p + '-h">' + esc(nm(r)) +
+      ' <span class="badge">' + esc(T(on ? "adm.fu_on" : "adm.fu_off")) + "</span></h3>" +
+      (x ? "<dl><dt>" + esc(T("adm.fu_letter")) + "</dt><dd>" + esc(x.letterRef || "—") + "</dd><dt>" + esc(T("adm.fu_changed")) + "</dt><dd>" + esc(T("adm.gv_by", { date: dateText(x.at), by: x.by })) + "</dd></dl>" : "");
+    if (GV.data.canManage) {
+      c += '<details data-fu="' + esc(r.id) + '"' + (GV.fuOpen === r.id ? " open" : "") + "><summary>" + esc(T(on ? "adm.fu_turn_off" : "adm.fu_turn_on")) + '</summary><div class="sb-forms">' +
+        '<div class="fld"><label for="' + p + '-v">' + esc(T(on ? "adm.fu_reason" : "adm.fu_letter_l")) + '</label><span class="hint" id="' + p + '-vh">' + esc(T(on ? "adm.fu_reason_h" : (r.id === "*" ? "adm.fu_letter_h_nat" : "adm.fu_letter_h"))) + "</span>" +
+        '<input type="text" id="' + p + '-v" maxlength="' + (on ? 300 : 80) + '" autocomplete="off" aria-describedby="' + p + '-vh"></div>' +
+        '<div class="acts"><button type="button" class="' + (on ? "danger" : "primary") + '" data-fu-go="' + (on ? "off" : "on") + '">' + esc(T(on ? "adm.fu_turn_off" : "adm.fu_turn_on")) + "</button></div></div></details>";
+    }
+    return c + '<p class="row-msg" role="status" aria-live="polite"></p></article>';
+  }).join("");
+  h += '<details id="gv-fu-list"' + (GV.fuList ? " open" : "") + "><summary>" + esc(T("adm.fu_list_h")) + '</summary><p class="muted">' + esc(T("adm.fu_list_p")) + '</p><div id="gv-fu-items">' + fuItems() + "</div></details>";
+  return h + "</section>";
+}
+function fuItems() {
+  var L = GV.fuList;
+  if (!L) return '<p class="muted">' + esc(T("adm.loading")) + "</p>";
+  if (!L.items.length) return '<p class="muted">' + esc(T("adm.fu_none")) + "</p>";
+  var who = function (x) { return nm(x) || x.name || "—"; };
+  return '<div class="table-wrap"><table class="gv-log"><thead><tr><th scope="col">' + esc(T("adm.fu_c_ref")) + '</th><th scope="col">' + esc(T("adm.fu_c_from_to")) + '</th><th scope="col">' + esc(T("adm.fu_c_figure")) + '</th><th scope="col">' + esc(T("adm.fu_c_status")) + '</th><th scope="col">' + esc(T("adm.fu_c_by")) + "</th></tr></thead><tbody>" +
+    L.items.map(function (x) {
+      return "<tr><td>" + esc(x.ref) + "</td><td>" + esc(who(x.from) + " → " + who(x.to)) + "</td><td>" + esc(T("fu.fig_" + x.figure)) + "</td><td>" +
+        esc(x.status === "CLOSED" ? T(x.closedAs === "DONE" ? "fu.st_closed_done" : "fu.st_closed_not") : T({ OPEN: "fu.st_open", ACKNOWLEDGED: "fu.st_ack", REPLIED: "fu.st_replied", OVERDUE: "fu.st_overdue" }[x.status] || "fu.st_open")) + "</td><td>" + esc(dateText(x.replyBy)) + "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+}
+async function loadFuList() {
+  try { var r = await fetch("/api/admin/followups"); var d = await r.json(); GV.fuList = r.ok ? { items: d.items || [] } : { items: [] }; }
+  catch (e) { GV.fuList = { items: [] }; }
+  var box = document.getElementById("gv-fu-items"); if (box) box.innerHTML = fuItems();
+}
+async function fuSwitch(id, on, btn) {
+  var card = btn.closest(".sb-card"), m = card.querySelector(".row-msg"), v = card.querySelector('input[type="text"]');
+  v.removeAttribute("aria-invalid"); m.className = "row-msg"; m.textContent = T("adm.saving"); btn.disabled = true;
+  try {
+    var res = await fetch("/api/admin/gov", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(on ? { action: "followups", stateId: id, on: true, letterRef: v.value } : { action: "followups", stateId: id, on: false, reason: v.value }) });
+    var d = await res.json(); btn.disabled = false;
+    if (res.status === 400 && d.fields) { m.className = "row-msg error"; m.textContent = T(d.fields.letterRef ? "adm.fu_e_letter" : d.fields.reason ? "adm.fu_e_reason" : "adm.ss_e_generic"); v.setAttribute("aria-invalid", "true"); v.focus(); return; }
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T("adm.ss_e_generic"); return; }
+    GV.fuOpen = null; await load();
+    say(T(on ? "adm.fu_on_ok" : "adm.fu_off_ok"), true);
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
+}
 async function add(ev) {
   ev.preventDefault(); readForm();
   var f = GV.form, btn = document.getElementById("gv-add");

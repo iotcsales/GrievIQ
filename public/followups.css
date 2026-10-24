@@ -1,0 +1,56 @@
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/* Follow-up requests (grieviq-66): followups-ui.js on /state, /national and /dept.
+   Colours come from each page's tokens, which theme.css gives dark versions of
+   (WCAG 2.2 AA in both). Status is always written in words, never colour alone. */
+.fu textarea, .fu input[type=date], .fu input[type=text], .fu select { width: 100%; max-width: 560px; font: inherit; font-size: 16px; padding: 10px 12px; border: 1.5px solid var(--grey-line); border-radius: 10px; background: var(--card); color: var(--ink); }
+.fu textarea { min-height: 110px; resize: vertical; }
+.fu input[type=date] { max-width: 240px; }
+.fu fieldset { border: 0; padding: 0; margin: 14px 0 0; min-width: 0; }
+.fu legend { font-weight: 700; font-size: 14.5px; margin-bottom: 6px; padding: 0; }
+.fu-notice { background: var(--gold-tint); border-left: 4px solid var(--gold); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 0 0 14px; line-height: 1.5; }
+.fu-demo { background: var(--gold-tint); color: var(--ink); border: 1px dashed var(--gold); border-radius: 10px; padding: 8px 12px; font-size: 13.5px; margin: 0 0 12px; }
+.fu-tiles { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); list-style: none; padding: 0; }
+.fu-tiles .tile .l { font-size: 13px; font-weight: 600; }
+.fu-tiles .tile.late .n { color: var(--brick); }
+.fu-tiles .tile.gold { border-left: 4px solid var(--gold); }
+.fu-acts { margin: 0 0 16px; }
+.fu-filter { margin: 4px 0 12px; } .fu-filter label { margin-top: 0; font-size: 13px; } .fu-filter select { max-width: 320px; font-size: 15px; padding: 8px 10px; }
+.fu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fu-item { background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--teal); border-radius: 12px; padding: 12px 14px; }
+.fu-item.late { border-left-color: var(--brick); }
+.fu-item.closed { border-left-color: var(--grey-line); }
+.fu-item h3 { margin: 0 0 4px; font-size: 15.5px; }
+.fu-item h3 a { color: var(--link); display: inline-block; min-height: 26px; padding: 2px 0; font-weight: 700; }
+.fu .meta { font-size: 13px; color: var(--ink-soft); margin: 0; }
+.fu-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.fu-pill { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--teal-tint); color: var(--teal-dark); }
+.fu-pill.late { background: var(--brick-dim); color: var(--brick); }
+.fu-pill.gold { background: var(--gold-tint); color: var(--gold); border: 1px solid var(--gold); }
+.fu-pill.ok { background: var(--teal-tint); color: var(--teal-dark); }
+.fu-val { margin: 4px 0 0; font-size: 14px; }
+dl.fu-facts { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; gap: 8px 14px; margin: 0 0 12px; font-size: 14.5px; }
+dl.fu-facts dt { color: var(--ink-soft); font-weight: 600; }
+dl.fu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.fu .sub { display: block; font-size: 12.5px; color: var(--ink-soft); font-weight: 400; }
+.fu-big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fu-text { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--paper); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; margin: 0; }
+ol.fu-steps { list-style: none; margin: 0; padding: 0 0 0 4px; border-left: 2px solid var(--grey-line); }
+ol.fu-steps > li { position: relative; padding: 2px 0 14px 16px; font-size: 14px; }
+ol.fu-steps > li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--teal); }
+ol.fu-steps > li.late::before { background: var(--brick); }
+ol.fu-steps .w, ol.fu-steps .by { display: block; font-size: 12.5px; color: var(--ink-soft); }
+ol.fu-steps b { display: block; }
+ol.fu-steps .t { display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--paper); border-radius: 8px; padding: 8px 10px; }
+.fu-opt { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; margin: 0 0 6px; font-size: 14.5px; font-weight: 500; cursor: pointer; background: var(--card); max-width: 560px; }
+.fu-opt:has(input:checked) { border-color: var(--teal); font-weight: 700; }
+.fu-opt input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--teal); flex: none; }
+.fu-chk { display: flex; gap: 10px; align-items: center; font-weight: 600; min-height: 44px; margin: 10px 0 0; }
+.fu-chk input { width: 20px; height: 20px; margin: 0; accent-color: var(--teal); flex: none; }
+.fu-preview { background: var(--teal-tint); color: var(--ink); border-radius: 10px; padding: 10px 12px; margin: 12px 0 0; max-width: 560px; }
+.fu-preview p { margin: 0; } .fu-preview .hint { margin-top: 4px; }
+.fu-count { margin-top: 4px; }
+.fu-card .fu-counts { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0; margin: 0; font-size: 14.5px; font-weight: 600; }
+.fu-card .row { margin-top: 12px; }
+.fu-ask-btn { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; margin-top: 4px; font-size: 13px; border-radius: 8px; }
+@media (max-width: 560px) { dl.fu-facts { grid-template-columns: 1fr; } dl.fu-facts dd { margin-bottom: 6px; } }
+@media print { .fu-acts, .fu-filter, #fu-reply, #fu-close, .fu-ask-btn { display: none !important; } }

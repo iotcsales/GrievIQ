@@ -1,7 +1,7 @@
 /*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/_shared/gov-reports.js   (grieviq-50)
 //
-// The six MIS reports of the government dashboard (approved design, 16 Oct
+// The seven MIS reports of the government dashboard (approved design, 16 Oct
 // 2026), each for the official's state or district and one month:
 //   summary      the key figures, with last month and the same month last
 //                year beside them (CPGRAMS monthly report style)
@@ -19,10 +19,15 @@
 // (counts 1-9 as "<10"; shares and averages need 10 cases) applies as on
 // the dashboard.
 
-import { govStats, demoStats, sn, MIN_N, monthBounds, lastMonths, prevMonth } from "./gov-stats.js";
+import { govStats, demoStats, demoStates, sn, MIN_N, monthBounds, lastMonths, prevMonth } from "./gov-stats.js";
 import { THEMES } from "./gov.js";
+import { out, withNames } from "./followups.js";
 
-export const REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps"];
+//   followups    (grieviq-66) follow-up requests between officials that were
+//                open in the month: who asked whom, which figure, the figure
+//                when asked and on the reply-by date, and whether the reply
+//                came in time. Never the words of a request.
+export const REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps", "followups"];
 const DAY = 86400000;
 const C = (key, label, type) => ({ key, label, type: type || "num" });
 function yearAgo(mo) { let m = mo; for (let i = 0; i < 12; i++) m = prevMonth(m); return m; }
@@ -80,6 +85,42 @@ function repsTable(rows, level) {
       C("pending", "gv.t_pending"), C("over30", "gv.col_over30"), C("movedUp", "gv.t_moved_up", "pct")],
     rows, note: "gv.rp_reps_note",
   };
+}
+
+const FU_STATUS = { OPEN: "fu.st_open", ACKNOWLEDGED: "fu.st_ack", REPLIED: "fu.st_replied", OVERDUE: "fu.st_overdue" };
+function dateBoth(d) {
+  if (!d) return "";
+  const x = new Date(String(d).slice(0, 10) + "T00:00:00+05:30"), o = { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" };
+  try { return { en: x.toLocaleDateString("en-IN", o), hi: x.toLocaleDateString("hi-IN", o) }; } catch (e) { return String(d).slice(0, 10); }
+}
+function fuRow(x) {
+  const pct = (x.snapshot && x.snapshot.unit) === "percent";
+  return { ref: x.ref, from: { en: x.from.nameEn, hi: x.from.nameHi || x.from.nameEn }, to: { en: x.to.nameEn, hi: x.to.nameHi || x.to.nameEn }, figure: { k: "fu.fig_" + x.figure },
+    then: x.snapshot ? x.snapshot.value : null, now: x.result && !x.result.missing ? x.result.value : null, _t: pct ? "pct" : "num", replyBy: dateBoth(x.replyBy),
+    status: { k: x.status === "CLOSED" ? (x.closedAs === "DONE" ? "fu.st_closed_done" : "fu.st_closed_not") : FU_STATUS[x.status] || "fu.st_open" },
+    inTime: { k: x.repliedAt ? (x.repliedAt.slice(0, 10) <= x.replyBy ? "gv.rp_fu_yes" : "gv.rp_fu_late") : x.wasOverdue || x.status === "OVERDUE" ? "gv.rp_fu_none" : "gv.rp_fu_waiting" } };
+}
+function followupsTable(rows) {
+  return {
+    id: "followups", title: "gv.rp_followups",
+    columns: [C("ref", "gv.rp_col_fu_ref", "text"), C("from", "fu.l_from", "text"), C("to", "fu.l_to", "text"), C("figure", "fu.l_figure", "text"), C("then", "fu.l_then", "mixed"),
+      C("now", "fu.l_now", "mixed"), C("replyBy", "fu.l_reply_by", "text"), C("status", "gv.rp_col_fu_status", "text"), C("inTime", "gv.rp_col_fu_in_time", "text")],
+    rows, note: "gv.rp_followups_note",
+  };
+}
+// Requests at this place (either end) that were open at some time in the month.
+async function followupRows(env, scope, month) {
+  const b = monthBounds(month), from = new Date(b.from).toISOString(), to = new Date(b.to).toISOString();
+  let where = "1 = 1", bind = [];
+  if (scope.district) { where = "(from_district_id = ? OR to_district_id = ?)"; bind = [String(scope.district.id), String(scope.district.id)]; }
+  else if (scope.state) { where = "(from_state_id = ? OR to_state_id = ?)"; bind = [String(scope.state.id), String(scope.state.id)]; }
+  let list;
+  try {
+    list = (await env.DB.prepare(`SELECT f.*, (SELECT MIN(at) FROM followup_events e WHERE e.followup_id = f.id AND e.kind = 'REPLIED') AS replied_at FROM followups f
+      WHERE ${where} AND created_at <= ? AND (closed_at IS NULL OR closed_at >= ?) ORDER BY created_at LIMIT 500`).bind(...bind, to, from).all()).results || [];
+  } catch (e) { return []; }
+  const items = await withNames(env, list.map((f) => Object.assign(out(f, null, null), { repliedAt: f.replied_at })));
+  return items.map(fuRow);
 }
 
 // A real report. scope: { state, district } rows from the database.
@@ -142,7 +183,8 @@ export async function buildReport(env, kind, scope, month, nowMs) {
         pending: sn(list.filter((f) => f.pending).length), over30: sn(list.filter((f) => f.pending && f.ageDays > 30).length), movedUp: share(rec.filter((f) => f.movedUp).length, rec.length) };
     });
     table = repsTable(rows, level);
-  } else return null;
+  } else if (kind === "followups") table = followupsTable(await followupRows(env, scope, month));
+  else return null;
   return { report: kind, month, tables: [table] };
 }
 
@@ -169,6 +211,14 @@ export function buildDemoReport(kind, scope, month, nowMs) {
     table = themesTable(months, matrix);
   } else if (kind === "reps") {
     table = repsTable(s.rows.map((r, i) => ({ name: { en: r.nameEn, hi: r.nameHi || r.nameEn }, offices: level === "district" ? 12 + i * 5 : level === "country" ? 260 + ((i * 53) % 190) : 38 + ((i * 7) % 21), received: r.received, resolved: r.resolved, pending: r.pending, over30: r.over30, movedUp: Math.round((9 + (i * 3) % 11) * 10) / 10 })), level);
+  } else if (kind === "followups") {
+    // The same two invented requests as the dashboard's demo.
+    const rows = s.rows.filter((r) => r.id && !r.unplaced), self = level === "country" ? { nameEn: "National (Union ministry)", nameHi: "राष्ट्रीय (केंद्रीय मंत्रालय)" } : (() => { const st = demoStates().find((x) => x.id === scope.state); return st ? { nameEn: st.name_en, nameHi: st.name_hi } : { nameEn: "Demo state", nameHi: null }; })();
+    const day = (n) => new Date(nowMs + 5.5 * 3600000 + n * DAY).toISOString().slice(0, 10), list = [];
+    if (rows[0]) list.push({ ref: "GIQ-FU-000002", from: self, to: { nameEn: rows[0].nameEn, nameHi: rows[0].nameHi }, figure: "OVER30", snapshot: { value: 38, unit: "count" }, result: { value: 9 }, replyBy: day(-5), repliedAt: day(-8), status: "REPLIED" });
+    const o2 = level === "country" ? rows[1] : s.depts[1];
+    if (o2) list.push({ ref: "GIQ-FU-000001", from: self, to: { nameEn: o2.nameEn, nameHi: o2.nameHi }, figure: level === "country" ? "PENDING" : "LATE_NOW", snapshot: { value: level === "country" ? 212 : 14, unit: "count" }, result: null, replyBy: day(-3), repliedAt: null, status: "OVERDUE", wasOverdue: true });
+    table = followupsTable(list.map(fuRow));
   } else return null;
   return { report: kind, month, tables: [table], demo: true };
 }

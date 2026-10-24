@@ -161,6 +161,13 @@ http.createServer(async (req, res) => {
       await n.notifyReturned(env, "http://localhost:" + port, back);
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ returned: back.map((x) => ({ id: x.g.id, from: x.from, why: x.why })) }));
     }
+    // Test only (grieviq-65): the hourly follow-up job, at a chosen time.
+    if (url.pathname === "/__test/run-followups" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "followups.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runFollowups(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);
       const out = await m.runSubscriptions(env, "http://localhost:" + port, Date.now());

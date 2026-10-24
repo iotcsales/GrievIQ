@@ -50,8 +50,9 @@ export const KIND = {
   DEPT_O_BACK: "DEPT_O_BACK",     // the field check found it not fixed / partly fixed
   DEPT_O_LATE: "DEPT_O_LATE",     // their office is past the target time on a case
   WARD_OPEN: "WARD_OPEN",         // grieviq-57: a case came back open to every member of the ward
+  DEPT_O_FU: "DEPT_O_FU",         // grieviq-65: a follow-up request for their office (new, reminder, overdue)
 };
-const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE]);
+const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE, KIND.DEPT_O_FU]);
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
 const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.WARD_OPEN, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY]);
@@ -168,6 +169,11 @@ export function noticeText(n, lang) {
     case KIND.OBSERVATION:
       return { title: hi ? "आपके कार्यालय के लिए लेखा-परीक्षा टिप्पणी" : "Audit observation for your office",
         body: hi ? "पढ़ने और उत्तर देने के लिए खोलें।" : "Open to read and respond." };
+    case KIND.DEPT_O_FU:
+      return { title: d.type === "OVERDUE" ? (hi ? "अनुवर्ती अनुरोध की उत्तर-तिथि बीत गई: " + (d.ref || "") : "Follow-up request past its reply-by date: " + (d.ref || ""))
+          : d.type === "REMIND" ? (hi ? "अनुवर्ती अनुरोध का उत्तर जल्द देय: " + (d.ref || "") : "Follow-up request due soon: " + (d.ref || ""))
+          : (hi ? "आपके कार्यालय के लिए अनुवर्ती अनुरोध: " + (d.ref || "") : "Follow-up request for your office: " + (d.ref || "")),
+        body: hi ? "पढ़ने, स्वीकार करने और उत्तर देने के लिए खोलें।" : "Open to read, acknowledge and reply." };
     case KIND.NUDGE:
       return { title: hi ? "GrievIQ से अनुस्मारक: " + n.tracking_ref : "Reminder from GrievIQ: " + n.tracking_ref,
         body: wt + (hi ? "। इस शिकायत पर कार्यवाही की आवश्यकता है।" : ". This complaint needs your attention.") };
@@ -209,6 +215,7 @@ export function noticeText(n, lang) {
 // Where a notice opens in the rep console.
 export function noticeUrl(n) {
   const d = parseData(n);
+  if (n.kind === KIND.DEPT_O_FU) return "/dept#fu=" + encodeURIComponent(d.fu || "") + "&n=" + encodeURIComponent(n.id);
   if (OFFICER_KINDS.has(n.kind)) return "/dept#case=" + encodeURIComponent(n.grievance_id || "") + "&n=" + encodeURIComponent(n.id);
   if (n.kind === KIND.ANNOUNCEMENT || n.kind === KIND.REPLY) return "/rep#msg=" + encodeURIComponent(d.aid || "") + "&n=" + encodeURIComponent(n.id);
   if (n.kind === KIND.OBSERVATION) return "/rep#audit=" + encodeURIComponent(d.obsId || "") + "&n=" + encodeURIComponent(n.id);

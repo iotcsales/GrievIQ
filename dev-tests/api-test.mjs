@@ -1460,7 +1460,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
   ok(threw && threw2, "subscription history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 36, "36 triggers (part30 and part32)");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 38, "38 triggers (part30, part32, part41)");
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
@@ -1539,7 +1539,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
   await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
   ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 36, "trigger count 36 after part31 and part32");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 38, "trigger count 38 after part31, part32 and part41");
   ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
   // tidy: the closed cases above stay (later checks don't count them)
 }
@@ -2474,6 +2474,162 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
     ok(x.status < 500, "6-ward representative: " + path + " answers without a server error", { status: x.status, body: x.body });
   }
   for (const id of ids) d6.prepare("DELETE FROM local_units WHERE id = ?").run(id);
+}
+
+// ---- grieviq-65: follow-up requests between officials ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const fdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  const addU = (id, email, level, st, dist) => fdb.prepare("INSERT INTO gov_users (id, email, name, designation, level, state_id, district_id, letter_ref, letter_date, review_by, status, added_by, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'L/1/2026', ?, ?, 'ACTIVE', 'super@test.in', ?)")
+    .run(id, email, "Official " + id, "Officer", level, st, dist, today, "2099-01-01", new Date().toISOString());
+  const LKO = fdb.prepare("SELECT district_id FROM areas WHERE id = 'lucknow'").get().district_id;
+  addU("fu-dm", "dm.fu@up.gov.in", "DISTRICT", "uttar-pradesh", LKO);
+  addU("fu-dm2", "dm2.fu@up.gov.in", "DISTRICT", "uttar-pradesh", "uttar-pradesh--kanpur-nagar");
+  addU("fu-nat", "js.fu@gov.in", "NATIONAL", null, null);
+  addU("fu-bh", "ps.fu@bihar.gov.in", "STATE", "bihar", null);
+  const signIn = async (email) => {
+    await fetch(B + "/api/gov/code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    fdb.prepare("UPDATE gov_codes SET code_hash = ? WHERE email = ? AND used_at IS NULL").run(createHash("sha256").update("gov:" + email + ":515151").digest("hex"), email);
+    const v = await fetch(B + "/api/gov/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: "515151" }) });
+    return (v.headers.get("set-cookie") || "").split(";")[0];
+  };
+  const gq = async (ck, p, b) => { const x = await fetch(B + p, { method: b ? "POST" : "GET", headers: Object.assign({ "content-type": "application/json" }, ck ? { cookie: ck } : {}), body: b ? JSON.stringify(b) : undefined }); return { status: x.status, body: await x.json() }; };
+  const ST = await signIn("ps.pg@up.gov.in"), DM = await signIn("dm.fu@up.gov.in"), DM2 = await signIn("dm2.fu@up.gov.in"), NAT = await signIn("js.fu@gov.in"), BH = await signIn("ps.fu@bihar.gov.in");
+  let r = await gq(ST, "/api/gov/followups");
+  ok(r.status === 200 && r.body.ready === true && r.body.on === false && r.body.items.length === 0, "follow-ups: off until switched on for the state", r.body);
+  r = await gq(ST, "/api/gov/followups", { action: "create", toKind: "DISTRICT", toId: LKO, figure: "OVER30", note: "Please review the cases pending over 30 days.", days: 15 });
+  ok(r.status === 403 && r.body.error === "NOT_ON", "can't send while switched off", r.body);
+  // the switch: super admin only, on the state's letter
+  r = await call(O, "POST", "/api/admin/gov", { action: "followups", stateId: "uttar-pradesh", on: true, letterRef: "UP/PG/12/2026" });
+  ok(r.status === 403, "operations admin can't switch follow-ups on", r.status);
+  r = await call(S, "POST", "/api/admin/gov", { action: "followups", stateId: "uttar-pradesh", on: true });
+  ok(r.status === 400 && r.body.fields.letterRef === "REQUIRED", "the state's letter is required", r.body);
+  r = await call(S, "POST", "/api/admin/gov", { action: "followups", stateId: "uttar-pradesh", on: true, letterRef: "UP/PG/12/2026" });
+  ok(r.status === 200 && r.body.on === true, "super admin switches follow-ups on for Uttar Pradesh");
+  ok(fdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'gov_followups_on'").get().n === 1, "switching on is in the admin log");
+  const ga = await call(A, "GET", "/api/admin/gov");
+  ok(ga.body.followups.ready && ga.body.followups.settings.some((x) => x.stateId === "uttar-pradesh" && x.on && x.letterRef === "UP/PG/12/2026"), "the auditor sees the switch and its letter");
+  // what each official may send
+  r = await gq(ST, "/api/gov/followups");
+  const jal = fdb.prepare("SELECT o.office_id, a.district_id FROM dept_officers o JOIN dept_offices d ON d.id = o.office_id JOIN areas a ON a.id = d.area_id WHERE o.email = 'ae.zone3@nic.in' AND o.status = 'ACTIVE'").get();
+  ok(r.body.on && r.body.options.down.some((x) => x.kind === "DISTRICT" && x.id === LKO) && r.body.options.down.some((x) => x.kind === "DEPT" && x.id === jal.office_id) && r.body.options.up === null, "state: may send to Lucknow district and the office on the dashboard; no national above yet", r.body.options);
+  ok(!r.body.options.down.some((x) => x.id === "uttar-pradesh--agra"), "only districts with an official on GrievIQ are offered");
+  const dmo = (await gq(DM, "/api/gov/followups")).body.options;
+  ok(dmo.up && dmo.up.kind === "STATE" && dmo.down.every((x) => x.kind === "DEPT"), "district: up to the state, down to department offices only", dmo);
+  ok((await gq(NAT, "/api/gov/followups")).body.on === false, "national requests need their own switch (a ministry's letter)");
+  // the form's preview
+  r = await gq(ST, "/api/gov/followups?preview=1&toKind=DISTRICT&toId=" + LKO + "&figure=OVER30");
+  const smallOk = (v) => v === "<10" || v === 0 || (typeof v === "number" && v >= 10);
+  ok(r.status === 200 && r.body.snapshot.figure === "OVER30" && smallOk(r.body.snapshot.value) && r.body.snapshot.ages.length === 4, "preview: the figure as it stands, small-number rule applied", r.body);
+  ok((await gq(ST, "/api/gov/followups?preview=1&toKind=DISTRICT&toId=" + LKO + "&figure=LATE_NOW")).status === 400, "a department figure can't be used for a district");
+  // what a note may hold
+  const base = { action: "create", toKind: "DISTRICT", toId: LKO, figure: "OVER30", days: 15 };
+  for (const [note, why] of [["Call me on 9876543210 about these cases please.", "NO_CONTACTS"], ["Write to dm.someone@gmail.com about these old cases.", "NO_CONTACTS"],
+    ["Please look at GRV-ABC123 first, it is very old now.", "NO_CASES"], ["See https://example.com/list for the list of old cases.", "NO_LINKS"], ["Too short", "TOO_SHORT"]]) {
+    r = await gq(ST, "/api/gov/followups", Object.assign({}, base, { note }));
+    ok(r.status === 400 && r.body.fields.note === why, "note refused: " + why, r.body);
+  }
+  ok((await gq(ST, "/api/gov/followups", Object.assign({}, base, { note: "Please review the cases pending over 30 days.", days: 10 }))).body.fields.days === "CHOOSE", "reply-by: 7, 15 or 30 days");
+  const m0 = mails().length;
+  r = await gq(ST, "/api/gov/followups", Object.assign({}, base, { note: "Please review the cases pending over 30 days and report the action taken.", letterRef: "UP/PG/88/2026", letterDate: today }));
+  ok(r.status === 200 && /^GIQ-FU-\d{6}$/.test(r.body.ref), "state sends a follow-up request to Lucknow district", r.body);
+  const fu1 = r.body.id, ref1 = r.body.ref;
+  const newMails = mails().slice(m0);
+  ok(newMails.some((m) => m.to && m.to[0] === "dm.fu@up.gov.in" && m.subject.includes(ref1)), "the district official is emailed", newMails.map((m) => m.to));
+  ok(newMails.every((m) => !/report the action taken|pending over 30/.test(m.html)), "the email carries no words of the request");
+  ok(!newMails.some((m) => m.to && m.to[0] === "dm2.fu@up.gov.in"), "officials of other districts are not told");
+  // reading and replying
+  r = await gq(DM, "/api/gov/followups");
+  ok(r.body.items.length === 1 && r.body.items[0].side === "RECIPIENT" && r.body.counts.waitingOnUs === 1, "the district sees it, waiting on them", r.body.counts);
+  ok((await gq(DM2, "/api/gov/followups")).body.items.length === 0 && (await gq(BH, "/api/gov/followups?id=" + fu1)).status === 404, "another district or state can't see it");
+  r = await gq(DM, "/api/gov/followups?id=" + fu1);
+  ok(r.status === 200 && r.body.item.events.some((e) => e.kind === "SEEN") && r.body.item.letterRef === "UP/PG/88/2026" && r.body.item.snapshot.figure === "OVER30", "opening it records that it was seen", r.body.item.events);
+  ok((await gq(ST, "/api/gov/followups", { action: "reply", id: fu1, text: "We have reviewed all cases and acted on them." })).status === 403, "the sender can't reply to their own request");
+  ok((await gq(DM, "/api/gov/followups", { action: "close", id: fu1, as: "DONE", reason: "Closing it myself" })).status === 403, "the recipient can't close it");
+  r = await gq(DM, "/api/gov/followups", { action: "acknowledge", id: fu1 });
+  ok(r.status === 200 && (await gq(ST, "/api/gov/followups?id=" + fu1)).body.item.status === "ACKNOWLEDGED", "acknowledged; the state sees it");
+  ok((await gq(DM, "/api/gov/followups", { action: "reply", id: fu1, text: "Call 9876543210 for the list of cases." })).body.fields.text === "NO_CONTACTS", "a reply can't hold a phone number either");
+  const m1 = mails().length;
+  r = await gq(DM, "/api/gov/followups", { action: "reply", id: fu1, text: "Weekly review meeting held with all offices; 30 old cases assigned to named officers.", letterRef: "DM/LKO/12/2026" });
+  ok(r.status === 200 && (await gq(ST, "/api/gov/followups?id=" + fu1)).body.item.status === "REPLIED", "the district replies with the action taken");
+  ok(mails().slice(m1).some((m) => m.to && m.to[0] === "ps.pg@up.gov.in" && m.subject.includes(ref1)), "the state official is told there is a reply");
+  // a department office
+  r = await gq(DM, "/api/gov/followups", { action: "create", toKind: "DEPT", toId: jal.office_id, figure: "LATE_NOW", note: "Please clear the cases past the target time this week.", days: 7 });
+  ok(jal.district_id === LKO ? r.status === 200 : r.status === 403, "district sends to a department office in its district", r.body);
+  const fu2 = r.body.id;
+  if (fu2) {
+    ok(fdb.prepare("SELECT COUNT(*) n FROM notifications WHERE kind = 'DEPT_O_FU' AND recipient LIKE 'dept:%'").get().n >= 1, "the office's officers get an alert");
+    const code = "468024";
+    fdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("fu65", "ae.zone3@nic.in", createHash("sha256").update("ae.zone3@nic.in:" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+    const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "ae.zone3@nic.in", code }) });
+    const OCK = (vr.headers.get("set-cookie") || "").split(";")[0];
+    fdb.prepare("DELETE FROM dept_codes WHERE id = 'fu65'").run();
+    r = await gq(OCK, "/api/dept/followups");
+    ok(r.status === 200 && r.body.items.some((x) => x.id === fu2) && !r.body.items.some((x) => x.id === fu1), "the officer sees only their office's requests", r.body.items.map((x) => x.ref));
+    r = await gq(OCK, "/api/dept/followups", { action: "reply", id: fu2, text: "Twelve late cases cleared; two need a road cutting permit." });
+    ok(r.status === 200 && (await gq(DM, "/api/gov/followups?id=" + fu2)).body.item.events.some((e) => e.kind === "REPLIED" && e.byKind === "DEPT"), "the officer replies; the district sees it");
+    ok((await gq(OCK, "/api/dept/followups", { action: "reply", id: fu1, text: "Trying to reply to another request here." })).status === 404, "an officer can't answer a request for another place");
+  }
+  // up: the district raises an issue to the state about a department office
+  r = await gq(DM, "/api/gov/followups", { action: "create", toKind: "STATE", subject: "DEPT", subjectOfficeId: jal.office_id, figure: "LATE_NOW", note: "This office has not replied on many cases for 30 days; please take it up.", days: 15 });
+  ok(r.status === 200, "district raises an issue to the state", r.body);
+  const fu3 = r.body.id;
+  ok((await gq(ST, "/api/gov/followups?id=" + fu3)).body.item.direction === "UP", "the state sees it as raised from below");
+  ok((await gq(DM, "/api/gov/followups", { action: "create", toKind: "DISTRICT", toId: "uttar-pradesh--kanpur-nagar", figure: "OVER30", note: "Sending sideways to another district is not allowed.", days: 7 })).status === 403, "a district can't send to another district");
+  ok((await gq(BH, "/api/gov/followups", { action: "create", toKind: "DISTRICT", toId: LKO, figure: "OVER30", note: "Another state trying to send a request here.", days: 7 })).status === 403, "another state can't send");
+  // the record can't be changed
+  let threw = false; try { fdb.prepare("UPDATE followup_events SET text = 'x'").run(); } catch (e) { threw = true; }
+  ok(threw, "follow-up steps can't be changed");
+  threw = false; try { fdb.prepare("DELETE FROM followup_events").run(); } catch (e) { threw = true; }
+  ok(threw, "follow-up steps can't be deleted before 3 years");
+  // the hourly job: reminder, overdue, the figure measured again
+  const fu4 = (await gq(ST, "/api/gov/followups", Object.assign({}, base, { note: "Second request: please share the plan for the oldest cases.", days: 7 }))).body.id;
+  const by4 = fdb.prepare("SELECT reply_by FROM followups WHERE id = ?").get(fu4).reply_by;
+  const at = (day) => new Date(Date.parse(day + "T03:30:00Z")).toISOString();
+  r = await (await fetch(B + "/__test/run-followups", { method: "POST", body: JSON.stringify({ now: at(new Date(Date.parse(by4 + "T00:00:00Z") - 86400000).toISOString().slice(0, 10)) }) })).json();
+  ok(r.reminded >= 1 && fdb.prepare("SELECT reminded FROM followups WHERE id = ?").get(fu4).reminded === 1, "a reminder the day before the reply-by date", r);
+  r = await (await fetch(B + "/__test/run-followups", { method: "POST", body: JSON.stringify({ now: at(new Date(Date.parse(by4 + "T00:00:00Z") + 86400000).toISOString().slice(0, 10)) }) })).json();
+  const row4 = fdb.prepare("SELECT status, was_overdue, result FROM followups WHERE id = ?").get(fu4);
+  ok(row4.status === "OVERDUE" && row4.was_overdue === 1 && r.overdue >= 1, "past the reply-by date with no reply: overdue", row4);
+  ok(row4.result && JSON.parse(row4.result).figure === "OVER30" && r.measured >= 1, "the figure is measured again", row4.result);
+  r = await (await fetch(B + "/__test/run-followups", { method: "POST", body: JSON.stringify({ now: at(new Date(Date.parse(by4 + "T00:00:00Z") + 86400000).toISOString().slice(0, 10)) }) })).json();
+  ok(r.reminded === 0 && r.overdue === 0 && r.measured === 0, "each step happens once", r);
+  r = await gq(DM, "/api/gov/followups", { action: "reply", id: fu4, text: "Late reply: plan prepared, oldest cases assigned this week." });
+  ok(r.status === 200 && fdb.prepare("SELECT status, was_overdue FROM followups WHERE id = ?").get(fu4).was_overdue === 1, "a late reply is still taken; overdue stays on record");
+  // closing
+  r = await gq(ST, "/api/gov/followups", { action: "close", id: fu1, as: "DONE", reason: "Action confirmed in the review" });
+  ok(r.status === 200 && (await gq(DM, "/api/gov/followups?id=" + fu1)).body.item.status === "CLOSED", "the state closes it as done");
+  r = await gq(ST, "/api/gov/followups", { action: "close", id: fu4, as: "NOT_RESOLVED", reason: "Figure did not fall enough", again: true, note: "Third request: share the officer-wise list of action taken.", days: 15 });
+  ok(r.status === 200 && r.body.again && r.body.again.ref && fdb.prepare("SELECT follows FROM followups WHERE id = ?").get(r.body.again.id).follows === fu4, "not resolved: a new request carrying the history", r.body);
+  ok((await gq(ST, "/api/gov/followups", { action: "close", id: fu1, as: "DONE", reason: "Closing twice should fail" })).status === 409, "a closed request can't be closed again");
+  // national
+  await call(S, "POST", "/api/admin/gov", { action: "followups", stateId: "*", on: true, letterRef: "MoPG/7/2026" });
+  ok((await gq(ST, "/api/gov/followups")).body.options.up.kind === "NATIONAL" && (await gq(NAT, "/api/gov/followups")).body.options.down.some((x) => x.id === "uttar-pradesh") , "with the ministry's letter: national down to the state, the state up to national");
+  r = await call(S, "POST", "/api/admin/gov", { action: "followups", stateId: "uttar-pradesh", on: false });
+  ok(r.status === 400 && r.body.fields.reason === "REQUIRED", "switching off needs a reason");
+  // GrievIQ staff read, never write
+  r = await call(A, "GET", "/api/admin/followups");
+  ok(r.status === 200 && r.body.items.length >= 4 && (await call(A, "GET", "/api/admin/followups?id=" + fu1)).body.item.events.length >= 5, "the auditor reads every request and its steps");
+  ok(r.body.items.every((x) => x.note === null && x.closedReason === null) && (await call(A, "GET", "/api/admin/followups?id=" + fu1)).body.item.events.every((e) => e.text === null), "GrievIQ staff never see the words of a request or reply");
+  ok(r.body.items.every((x) => x.from.nameEn && x.to.nameEn), "both ends are named");
+  // grieviq-66: the seventh MIS report
+  r = await gq(ST, "/api/gov/report?r=followups&state=uttar-pradesh");
+  const fuT = r.body.tables && r.body.tables[0];
+  ok(r.status === 200 && fuT.id === "followups" && fuT.rows.length >= 3 && fuT.rows.every((x) => /^GIQ-FU-\d{6}$/.test(x.ref) && x.figure.k && x.status.k && x.inTime.k), "the follow-ups report lists the state's requests", r.body);
+  ok(!JSON.stringify(r.body).includes("Please review"), "the report never carries the words of a request");
+  r = await gq(DM2, "/api/gov/report?r=followups&state=uttar-pradesh&district=uttar-pradesh--kanpur-nagar");
+  ok(r.status === 200 && r.body.tables[0].rows.every((x) => x.from.en === "Kanpur Nagar" || x.to.en === "Kanpur Nagar"), "a district's report has only its own requests", r.body.tables && r.body.tables[0].rows);
+  r = await gq(null, "/api/gov/report?r=followups&demo=1&state=" + encodeURIComponent((await gq(null, "/api/gov/me?demo=1&mode=state")).body.state.id));
+  ok(r.status === 200 && r.body.demo && r.body.tables[0].rows.length === 2, "the demo report shows the two invented requests", r.body);
+  ok((await call(S, "POST", "/api/admin/followups", {})).status === 405, "no way for staff to write in a request");
+  ok((await call(M, "GET", "/api/admin/followups")).status === 403, "data moderator can't read them");
+  const logged = fdb.prepare("SELECT action FROM gov_view_log WHERE action LIKE 'FU_%'").all().map((x) => x.action);
+  ok(["FU_CREATED", "FU_VIEWED", "FU_ACKNOWLEDGE", "FU_REPLY", "FU_CLOSE"].every((a) => logged.includes(a)), "every step is in the officials' log", Array.from(new Set(logged)));
 }
 
 // ---- audit trail ----

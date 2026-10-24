@@ -59,6 +59,7 @@
       // grieviq-35: department officers
       case 'DEPT_O_NEW': return { t: T('rn.k_onew_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_onew_b') };
       case 'DEPT_O_BACK': return { t: T('rn.k_oback_t', { ref: n.ref }), b: wt + ' · ' + T(d.partly ? 'rn.k_oback_partly' : 'rn.k_oback_not') };
+      case 'DEPT_O_FU': return { t: T(d.type === 'REMIND' ? 'rn.k_fu_remind_t' : d.type === 'OVERDUE' ? 'rn.k_fu_late_t' : 'rn.k_fu_new_t', { ref: d.ref || n.ref || '' }), b: T(d.type === 'REMIND' ? 'rn.k_fu_remind_b' : d.type === 'OVERDUE' ? 'rn.k_fu_late_b' : 'rn.k_fu_new_b') };
       case 'DEPT_O_LATE': return { t: T('rn.k_olate_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_olate_b', { days: d.days }) };
       default: return { t: 'GrievIQ', b: '' };
     }
@@ -248,6 +249,7 @@
     close(false);
     if (n.kind === 'ANNOUNCEMENT' || n.kind === 'REPLY') return openMessage(n.data && n.data.aid);
     if (n.kind === 'OBSERVATION') { location.hash = '#audit=' + encodeURIComponent((n.data && n.data.obsId) || ''); location.reload(); return; }
+    if (n.kind === 'DEPT_O_FU' && CFG.openFollowup) return CFG.openFollowup(n.data && n.data.fu);
     if (n.kind === 'DAILY') { if (window.GIQ_REP && window.GIQ_REP.showCases) window.GIQ_REP.showCases(); return; }
     if (n.caseId && CFG.openCase) return CFG.openCase(n.caseId);
     if (n.caseId && window.GIQ_REP && window.GIQ_REP.showCase) window.GIQ_REP.showCase(n.caseId);

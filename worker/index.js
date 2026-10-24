@@ -11,6 +11,7 @@
 //   - retries backup emails that didn't go through
 //   - closes cases whose 7-day confirmation time has run out
 //   - runs the data-retention batch (notices, anonymising, old codes)
+//   - follow-up requests between officials: reminders, overdue, results
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
@@ -22,6 +23,7 @@ import { runSubscriptions } from "../functions/_shared/subscription-run.js";
 import { runSpeed } from "../functions/_shared/speed.js";
 import { sendEmailNow } from "../functions/_shared/dept-auth.js";
 import { runGovReports } from "../functions/_shared/gov-report-run.js";
+import { runFollowups } from "../functions/_shared/followups.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -46,7 +48,11 @@ export async function runScheduled(env, nowMs) {
   // (on the 1st and on Mondays, from 8 am India time; no figures in them).
   let govReports = null;
   try { govReports = await runGovReports(env, origin, nowMs, sendEmailNow); } catch (e) { govReports = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed, govReports };
+  // grieviq-65: follow-up requests between officials: reminders, overdue,
+  // the figure measured again on the reply-by date.
+  let followups = null;
+  try { followups = await runFollowups(env, origin, nowMs); } catch (e) { followups = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups };
 }
 
 export default {

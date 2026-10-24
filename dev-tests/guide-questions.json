@@ -1,342 +1,1417 @@
 {
-  "_about": "Questions people ask in the Help search box, with the guide part (SOP id) that must come first. 'a|b' means either is right; 'P:' means one of the Common problems (its English heading). Run by ui-test.py through GIQGuide.search. Add every question a user reports as unanswered.",
-  "admin": [
-    ["how to add a representative", "addrep"],
-    ["how do I add a new councillor", "addrep"],
-    ["add mla email", "addrep"],
-    ["add gram pradhan", "addrep"],
-    ["add mp contact", "addrep"],
-    ["set mayor details", "addrep"],
-    ["representative phone number is wrong", "addrep"],
-    ["correct spelling of a councillor's name", "addrep"],
-    ["why can't citizens file complaints in a ward", "addrep|data"],
-    ["new councillor elected after election", "handover"],
-    ["representative resigned", "handover"],
-    ["administrator takes charge of a ward", "handover"],
-    ["seat is vacant", "handover"],
-    ["ward has 4 members", "seats"],
-    ["multi member ward", "seats"],
-    ["add a new city", "data"],
-    ["import wards from excel", "data"],
-    ["upload ward boundaries map", "data"],
-    ["switch on a city for citizens", "data"],
-    ["approve a change request", "data"],
-    ["data entry operator request", "data|addrep"],
-    ["citizen suggested a different councillor name", "reviews"],
-    ["what to do first in the morning", "day"],
-    ["daily routine", "day"],
-    ["case not acknowledged", "exceptions"],
-    ["remind an office about a late case", "exceptions"],
-    ["send nudge", "exceptions"],
-    ["citizen has no email how to check fix", "checks"],
-    ["call the citizen to check the work", "checks"],
-    ["low rating follow up", "feedback"],
-    ["citizen feedback about the website", "feedback"],
-    ["send a message to all offices", "messages"],
-    ["announcement to representatives", "messages"],
-    ["change the time limit of an issue type", "types"],
-    ["add a new complaint category", "types"],
-    ["suggested department for an issue type", "types"],
-    ["add a department office", "dept"],
-    ["department agreement", "dept"],
-    ["add an officer to a department", "dept"],
-    ["officer transferred", "dept"],
-    ["department performance report", "dept"],
-    ["change plan prices", "prices"],
-    ["publish prices", "prices"],
-    ["pilot request from an office", "prices"],
-    ["make a bill", "bills"],
-    ["office says it paid", "bills"],
-    ["payment not in bank statement", "bills"],
-    ["change our upi id", "bills"],
-    ["start a pilot for an office", "subs"],
-    ["extend the pilot", "subs"],
-    ["office did not pay, pause it", "subs"],
-    ["give an office free access", "subs"],
-    ["approve a public notice", "notices"],
-    ["verify authority letter", "notices"],
-    ["model code of conduct dates", "notices"],
-    ["give access to a state official", "gov"],
-    ["district collector wants dashboard", "gov"],
-    ["website is slow", "speed"],
-    ["database size", "speed"],
-    ["how many visitors", "speed"],
-    ["add a new staff member", "staff"],
-    ["employee on leave", "staff"],
-    ["staff member left the company", "staff"],
-    ["change a staff member's email", "staff"],
-    ["auditor observation", "audit"],
-    ["download audit log", "audit"],
-    ["how long do we keep complaints", "retention"],
-    ["legal hold on a case", "retention"],
-    ["when are photos deleted", "retention"],
-    ["someone copied our website", "retention"],
-    ["I can't open a page", "P:\"Your account does not have access to this page\""],
-    ["sign in code not received", "P:No sign-in code arrives"],
-    ["logged out suddenly", "P:Signed out while working"],
-    ["जनप्रतिनिधि कैसे जोड़ें", "addrep"],
-    ["पार्षद का ईमेल बदलें", "addrep|handover"],
-    ["नया स्टाफ़ जोड़ें", "staff"],
-    ["बिल कैसे बनाएँ", "bills"],
-    ["सूचना स्वीकृत करें", "notices"],
-    ["नया शहर जोड़ें", "data"],
-    ["representative kaise add kare", "addrep"],
-    ["bill kaise banaye", "bills"],
-    ["how can I put a new MLA on the system", "addrep"],
-    ["corporator email missing", "addrep"],
-    ["ward councillor phone update", "addrep"],
-    ["after by election who do I change", "handover"],
-    ["how to make seat vacant", "handover"],
-    ["how many members can a ward have", "seats"],
-    ["upload csv of villages", "data"],
-    ["new district onboarding", "data"],
-    ["how to remind representative", "exceptions"],
-    ["fix was marked but citizen has no email", "checks"],
-    ["bug reported by citizen", "feedback"],
-    ["broadcast a message", "messages"],
-    ["how to change acknowledgement days", "types"],
-    ["sign department agreement", "dept"],
-    ["remove an officer from department", "dept"],
-    ["update pricing", "prices"],
-    ["generate invoice for office", "bills"],
-    ["verify utr", "bills"],
-    ["office wants trial", "subs"],
-    ["make an office view only", "subs"],
-    ["check notice letter", "notices"],
-    ["election announced", "notices"],
-    ["give dm access", "gov"],
-    ["site performance", "speed"],
-    ["hire new employee", "staff"],
-    ["employee resigned", "staff"],
-    ["export audit trail", "audit"],
-    ["data retention period", "retention"],
-    ["नया विधायक जोड़ना है", "addrep"],
-    ["कर्मचारी को हटाएँ", "staff"],
-    ["who approves change requests", "data"],
-    ["mayor email", "addrep"],
-    ["remove an mla", "handover"],
-    ["ward boundary geojson", "data"],
-    ["add hindi name of department type", "types"],
-    ["officer left department", "dept"],
-    ["refund a payment", "bills"],
-    ["office stopped paying", "subs"],
-    ["notice has party symbol", "notices"],
-    ["state official new email", "gov"],
-    ["make someone auditor", "staff"],
-    ["photo storage", "retention"],
-    ["सीट खाली है", "handover"],
-    ["ward add karna hai", "data"]
+ "_about": "Questions people ask in the Help search box, with the guide part (SOP id) that must come first. 'a|b' means either is right; 'P:' means one of the Common problems (its English heading). Run by ui-test.py through GIQGuide.search. Add every question a user reports as unanswered.",
+ "admin": [
+  [
+   "how to add a representative",
+   "addrep"
   ],
-  "rep": [
-    ["how do I add a staff member", "team"],
-    ["add field worker", "team"],
-    ["add office manager", "team"],
-    ["onboard my team", "team"],
-    ["how will my staff sign in", "team|signin"],
-    ["remove someone from the team", "team"],
-    ["staff member on leave", "team"],
-    ["change someone's role", "team"],
-    ["confirm team every 90 days", "team"],
-    ["how to sign in", "signin"],
-    ["turn on notifications", "signin"],
-    ["iphone alerts", "signin"],
-    ["what do I do every day", "daily"],
-    ["acknowledge a complaint", "daily"],
-    ["assign a case to a field worker", "daily"],
-    ["find an old case", "daily"],
-    ["send complaint to department", "forward"],
-    ["department did not reply", "forward"],
-    ["record department reply", "forward"],
-    ["wrong department", "forward"],
-    ["department phone number missing", "forward"],
-    ["upload after photos", "fieldcheck"],
-    ["site inspection", "fieldcheck"],
-    ["work not done send back to department", "fieldcheck"],
-    ["fix report", "fieldcheck"],
-    ["close a complaint", "resolve"],
-    ["mark resolved", "resolve"],
-    ["citizen says not fixed", "resolve"],
-    ["take a case in a multi member ward", "seats"],
-    ["return case to ward", "seats"],
-    ["download monthly report", "reports"],
-    ["see citizen ratings", "reports"],
-    ["how many complaints this month", "reports"],
-    ["reply to auditor", "messages"],
-    ["message from grieviq", "messages"],
-    ["how to pay the bill", "billing"],
-    ["pay by upi", "billing"],
-    ["where to enter utr", "billing"],
-    ["what happens if we don't pay", "billing|P:\"Your office's plan is paused\""],
-    ["announce a health camp", "notices"],
-    ["put up a notice", "notices"],
-    ["share figures with state", "share"],
-    ["stop sharing with government", "share"],
-    ["I am the new councillor", "takeover"],
-    ["previous representative's team", "takeover"],
-    ["google says no access", "P:Google sign-in refused"],
-    ["not getting alerts", "P:No alerts on the phone|signin"],
-    ["can't assign field worker", "P:Can't assign a field worker"],
-    ["टीम में सदस्य जोड़ें", "team"],
-    ["बिल का भुगतान कैसे करें", "billing"],
-    ["शिकायत विभाग को भेजें", "forward"],
-    ["staff kaise add kare", "team"],
-    ["how to give login to my assistant", "team"],
-    ["my field worker left", "team"],
-    ["mark staff on holiday", "team"],
-    ["new complaint came what now", "daily"],
-    ["give complaint to my worker", "daily"],
-    ["inform department about complaint", "forward"],
-    ["department said work done", "fieldcheck|forward"],
-    ["take photos at site", "fieldcheck"],
-    ["approve fix report", "fieldcheck|resolve"],
-    ["citizen reopened", "resolve"],
-    ["export data to excel", "reports"],
-    ["see overdue cases count", "reports|daily"],
-    ["plan expired", "billing|P:\"Your office's plan is paused\""],
-    ["bank transfer details", "billing"],
-    ["notice for ward sabha", "notices"],
-    ["just won the election", "takeover"],
-    ["notifications on iphone", "signin|P:No alerts on the phone"],
-    ["अलर्ट कैसे चालू करें", "signin"],
-    ["रिपोर्ट डाउनलोड", "reports"],
-    ["field worker kaise jode", "team"],
-    ["who can see complaints in my office", "team"],
-    ["assign ward to field worker", "team|P:Can't assign a field worker"],
-    ["complaint is past time limit", "daily"],
-    ["choose department for complaint", "forward"],
-    ["no department contact number", "forward"],
-    ["gps photos", "fieldcheck"],
-    ["citizen did not confirm", "resolve"],
-    ["average rating", "reports"],
-    ["audit reply", "messages"],
-    ["upi qr", "billing"],
-    ["camp notice price", "notices"],
-    ["state dashboard sharing", "share"],
-    ["शिकायत निस्तारित करें", "resolve"],
-    ["team member kaise hataye", "team"]
+  [
+   "how do I add a new councillor",
+   "addrep"
   ],
-  "dept": [
-    ["how to sign in", "signin"],
-    ["otp", "signin|P:The code didn't arrive"],
-    ["add a new officer", "officers"],
-    ["add my colleague to the dashboard", "officers"],
-    ["onboard staff", "officers"],
-    ["officer transferred", "officers"],
-    ["officer retired", "officers"],
-    ["how to reply to a case", "reply"],
-    ["work completed upload photos", "reply"],
-    ["give a date for the work", "reply"],
-    ["cannot do this work", "reply"],
-    ["not our department", "P:The case isn't ours|reply"],
-    ["contact the citizen", "reply"],
-    ["case sent back", "sentback"],
-    ["field check failed", "sentback"],
-    ["what does past target time mean", "dashboard"],
-    ["what is the target time", "dashboard"],
-    ["our performance", "performance"],
-    ["who sees our ranking", "performance"],
-    ["pay the bill", "billing"],
-    ["complimentary plan", "billing"],
-    ["water shutdown notice", "notices"],
-    ["road closure announcement", "notices"],
-    ["my email is not accepted", "P:My email isn't accepted"],
-    ["code not received", "P:The code didn't arrive"],
-    ["अधिकारी जोड़ें", "officers"],
-    ["उत्तर कैसे दें", "reply"],
-    ["officer kaise add kare", "officers"],
-    ["how to login to department dashboard", "signin"],
-    ["new joining officer access", "officers"],
-    ["my transfer order came", "officers"],
-    ["upload completion photos", "reply"],
-    ["work will take two weeks", "reply"],
-    ["complaint belongs to another department", "P:The case isn't ours|reply"],
-    ["representative sent it back", "sentback"],
-    ["why are we ranked low", "performance"],
-    ["pay invoice", "billing"],
-    ["power cut notice", "notices"],
-    ["dashboard tiles", "dashboard"],
-    ["accept rules", "signin"],
-    ["photo size limit", "reply"],
-    ["sent back case reply", "sentback"],
-    ["state ranking", "performance"],
-    ["upi payment", "billing"],
-    ["notice letter", "notices"],
-    ["सूचना कैसे लगाएँ", "notices"]
+  [
+   "add mla email",
+   "addrep"
   ],
-  "citizen": [
-    ["how to file a complaint", "file"],
-    ["report a pothole", "file"],
-    ["garbage not collected", "file"],
-    ["can I add photos", "file"],
-    ["check my complaint status", "track"],
-    ["where is my complaint", "track"],
-    ["get updates on phone", "track"],
-    ["lost my reference number", "track"],
-    ["problem not fixed", "confirm"],
-    ["reopen my complaint", "confirm"],
-    ["confirm the work is done", "confirm"],
-    ["give rating", "rate"],
-    ["change my rating", "rate"],
-    ["who is my councillor", "ward"],
-    ["ward page", "ward"],
-    ["delete my data", "data"],
-    ["send feedback about the app", "data"],
-    ["how long is my data kept", "data"],
-    ["code didn't come", "P:The code didn't arrive"],
-    ["daily limit", "P:\"Daily limit\" message"],
-    ["my city is not listed", "P:My area can't take complaints yet"],
-    ["शिकायत कैसे दर्ज करें", "file"],
-    ["मेरी शिकायत की स्थिति", "track"],
-    ["shikayat kaise kare", "file"],
-    ["streetlight not working", "file"],
-    ["how to complain", "file"],
-    ["status of GRV number", "track"],
-    ["notifications for my complaint", "track"],
-    ["they closed it but nothing done", "confirm"],
-    ["rate my experience", "rate"],
-    ["find my ward", "ward"],
-    ["remove my phone number", "data"],
-    ["otp not received", "P:The code didn't arrive"],
-    ["शिकायत की स्थिति", "track"],
-    ["water leakage complaint", "file"],
-    ["track complaint without email", "track"],
-    ["not satisfied with work", "confirm"],
-    ["star rating", "rate"],
-    ["my councillor's name", "ward"],
-    ["privacy policy", "data"]
+  [
+   "add gram pradhan",
+   "addrep"
   ],
-  "gov": [
-    ["how to log in", "signin"],
-    ["sign out", "signin"],
-    ["what does pending mean", "read"],
-    ["change month", "read"],
-    ["see district figures", "read"],
-    ["download excel", "reports"],
-    ["mis report", "reports"],
-    ["monthly email reminder", "reports"],
-    ["cases pending over 30 days", "reports|followup"],
-    ["department with most late cases", "followup"],
-    ["can I reply to a complaint", "followup"],
-    ["give access to another officer", "access"],
-    ["I am transferred", "access"],
-    ["yearly review", "access"],
-    ["show demo in meeting", "demo"],
-    ["sample data", "demo"],
-    ["no code", "P:No code arrives"],
-    ["access refused", "P:Access refused although you had it"],
-    ["figures not loading", "P:\"The figures couldn't be loaded\""],
-    ["रिपोर्ट डाउनलोड करें", "reports"],
-    ["login problem", "signin|P:No code arrives"],
-    ["district wise data", "read"],
-    ["export pdf", "reports"],
-    ["late departments", "followup"],
-    ["add my deputy", "access"],
-    ["presentation mode", "demo"],
-    ["session expired", "signin"],
-    ["iso themes", "read"],
-    ["reports on monday", "reports"],
-    ["write to department", "followup"],
-    ["nic email", "access"],
-    ["demo data", "demo"]
+  [
+   "add mp contact",
+   "addrep"
+  ],
+  [
+   "set mayor details",
+   "addrep"
+  ],
+  [
+   "representative phone number is wrong",
+   "addrep"
+  ],
+  [
+   "correct spelling of a councillor's name",
+   "addrep"
+  ],
+  [
+   "why can't citizens file complaints in a ward",
+   "addrep|data"
+  ],
+  [
+   "new councillor elected after election",
+   "handover"
+  ],
+  [
+   "representative resigned",
+   "handover"
+  ],
+  [
+   "administrator takes charge of a ward",
+   "handover"
+  ],
+  [
+   "seat is vacant",
+   "handover"
+  ],
+  [
+   "ward has 4 members",
+   "seats"
+  ],
+  [
+   "multi member ward",
+   "seats"
+  ],
+  [
+   "add a new city",
+   "data"
+  ],
+  [
+   "import wards from excel",
+   "data"
+  ],
+  [
+   "upload ward boundaries map",
+   "data"
+  ],
+  [
+   "switch on a city for citizens",
+   "data"
+  ],
+  [
+   "approve a change request",
+   "data"
+  ],
+  [
+   "data entry operator request",
+   "data|addrep"
+  ],
+  [
+   "citizen suggested a different councillor name",
+   "reviews"
+  ],
+  [
+   "what to do first in the morning",
+   "day"
+  ],
+  [
+   "daily routine",
+   "day"
+  ],
+  [
+   "case not acknowledged",
+   "exceptions"
+  ],
+  [
+   "remind an office about a late case",
+   "exceptions"
+  ],
+  [
+   "send nudge",
+   "exceptions"
+  ],
+  [
+   "citizen has no email how to check fix",
+   "checks"
+  ],
+  [
+   "call the citizen to check the work",
+   "checks"
+  ],
+  [
+   "low rating follow up",
+   "feedback"
+  ],
+  [
+   "citizen feedback about the website",
+   "feedback"
+  ],
+  [
+   "send a message to all offices",
+   "messages"
+  ],
+  [
+   "announcement to representatives",
+   "messages"
+  ],
+  [
+   "change the time limit of an issue type",
+   "types"
+  ],
+  [
+   "add a new complaint category",
+   "types"
+  ],
+  [
+   "suggested department for an issue type",
+   "types"
+  ],
+  [
+   "add a department office",
+   "dept"
+  ],
+  [
+   "department agreement",
+   "dept"
+  ],
+  [
+   "add an officer to a department",
+   "dept"
+  ],
+  [
+   "officer transferred",
+   "dept"
+  ],
+  [
+   "department performance report",
+   "dept"
+  ],
+  [
+   "change plan prices",
+   "prices"
+  ],
+  [
+   "publish prices",
+   "prices"
+  ],
+  [
+   "pilot request from an office",
+   "prices"
+  ],
+  [
+   "make a bill",
+   "bills"
+  ],
+  [
+   "office says it paid",
+   "bills"
+  ],
+  [
+   "payment not in bank statement",
+   "bills"
+  ],
+  [
+   "change our upi id",
+   "bills"
+  ],
+  [
+   "start a pilot for an office",
+   "subs"
+  ],
+  [
+   "extend the pilot",
+   "subs"
+  ],
+  [
+   "office did not pay, pause it",
+   "subs"
+  ],
+  [
+   "give an office free access",
+   "subs"
+  ],
+  [
+   "approve a public notice",
+   "notices"
+  ],
+  [
+   "verify authority letter",
+   "notices"
+  ],
+  [
+   "model code of conduct dates",
+   "notices"
+  ],
+  [
+   "give access to a state official",
+   "gov"
+  ],
+  [
+   "district collector wants dashboard",
+   "gov"
+  ],
+  [
+   "website is slow",
+   "speed"
+  ],
+  [
+   "database size",
+   "speed"
+  ],
+  [
+   "how many visitors",
+   "speed"
+  ],
+  [
+   "add a new staff member",
+   "staff"
+  ],
+  [
+   "employee on leave",
+   "staff"
+  ],
+  [
+   "staff member left the company",
+   "staff"
+  ],
+  [
+   "change a staff member's email",
+   "staff"
+  ],
+  [
+   "auditor observation",
+   "audit"
+  ],
+  [
+   "download audit log",
+   "audit"
+  ],
+  [
+   "how long do we keep complaints",
+   "retention"
+  ],
+  [
+   "legal hold on a case",
+   "retention"
+  ],
+  [
+   "when are photos deleted",
+   "retention"
+  ],
+  [
+   "someone copied our website",
+   "retention"
+  ],
+  [
+   "I can't open a page",
+   "P:\"Your account does not have access to this page\""
+  ],
+  [
+   "sign in code not received",
+   "P:No sign-in code arrives"
+  ],
+  [
+   "logged out suddenly",
+   "P:Signed out while working"
+  ],
+  [
+   "जनप्रतिनिधि कैसे जोड़ें",
+   "addrep"
+  ],
+  [
+   "पार्षद का ईमेल बदलें",
+   "addrep|handover"
+  ],
+  [
+   "नया स्टाफ़ जोड़ें",
+   "staff"
+  ],
+  [
+   "बिल कैसे बनाएँ",
+   "bills"
+  ],
+  [
+   "सूचना स्वीकृत करें",
+   "notices"
+  ],
+  [
+   "नया शहर जोड़ें",
+   "data"
+  ],
+  [
+   "representative kaise add kare",
+   "addrep"
+  ],
+  [
+   "bill kaise banaye",
+   "bills"
+  ],
+  [
+   "how can I put a new MLA on the system",
+   "addrep"
+  ],
+  [
+   "corporator email missing",
+   "addrep"
+  ],
+  [
+   "ward councillor phone update",
+   "addrep"
+  ],
+  [
+   "after by election who do I change",
+   "handover"
+  ],
+  [
+   "how to make seat vacant",
+   "handover"
+  ],
+  [
+   "how many members can a ward have",
+   "seats"
+  ],
+  [
+   "upload csv of villages",
+   "data"
+  ],
+  [
+   "new district onboarding",
+   "data"
+  ],
+  [
+   "how to remind representative",
+   "exceptions"
+  ],
+  [
+   "fix was marked but citizen has no email",
+   "checks"
+  ],
+  [
+   "bug reported by citizen",
+   "feedback"
+  ],
+  [
+   "broadcast a message",
+   "messages"
+  ],
+  [
+   "how to change acknowledgement days",
+   "types"
+  ],
+  [
+   "sign department agreement",
+   "dept"
+  ],
+  [
+   "remove an officer from department",
+   "dept"
+  ],
+  [
+   "update pricing",
+   "prices"
+  ],
+  [
+   "generate invoice for office",
+   "bills"
+  ],
+  [
+   "verify utr",
+   "bills"
+  ],
+  [
+   "office wants trial",
+   "subs"
+  ],
+  [
+   "make an office view only",
+   "subs"
+  ],
+  [
+   "check notice letter",
+   "notices"
+  ],
+  [
+   "election announced",
+   "notices"
+  ],
+  [
+   "give dm access",
+   "gov"
+  ],
+  [
+   "site performance",
+   "speed"
+  ],
+  [
+   "hire new employee",
+   "staff"
+  ],
+  [
+   "employee resigned",
+   "staff"
+  ],
+  [
+   "export audit trail",
+   "audit"
+  ],
+  [
+   "data retention period",
+   "retention"
+  ],
+  [
+   "नया विधायक जोड़ना है",
+   "addrep"
+  ],
+  [
+   "कर्मचारी को हटाएँ",
+   "staff"
+  ],
+  [
+   "who approves change requests",
+   "data"
+  ],
+  [
+   "mayor email",
+   "addrep"
+  ],
+  [
+   "remove an mla",
+   "handover"
+  ],
+  [
+   "ward boundary geojson",
+   "data"
+  ],
+  [
+   "add hindi name of department type",
+   "types"
+  ],
+  [
+   "officer left department",
+   "dept"
+  ],
+  [
+   "refund a payment",
+   "bills"
+  ],
+  [
+   "office stopped paying",
+   "subs"
+  ],
+  [
+   "notice has party symbol",
+   "notices"
+  ],
+  [
+   "state official new email",
+   "gov"
+  ],
+  [
+   "make someone auditor",
+   "staff"
+  ],
+  [
+   "photo storage",
+   "retention"
+  ],
+  [
+   "सीट खाली है",
+   "handover"
+  ],
+  [
+   "ward add karna hai",
+   "data"
+  ],
+  [
+   "switch on follow-up requests for a state",
+   "gov"
+  ],
+  [
+   "turn off follow-ups",
+   "gov"
   ]
+ ],
+ "rep": [
+  [
+   "how do I add a staff member",
+   "team"
+  ],
+  [
+   "add field worker",
+   "team"
+  ],
+  [
+   "add office manager",
+   "team"
+  ],
+  [
+   "onboard my team",
+   "team"
+  ],
+  [
+   "how will my staff sign in",
+   "team|signin"
+  ],
+  [
+   "remove someone from the team",
+   "team"
+  ],
+  [
+   "staff member on leave",
+   "team"
+  ],
+  [
+   "change someone's role",
+   "team"
+  ],
+  [
+   "confirm team every 90 days",
+   "team"
+  ],
+  [
+   "how to sign in",
+   "signin"
+  ],
+  [
+   "turn on notifications",
+   "signin"
+  ],
+  [
+   "iphone alerts",
+   "signin"
+  ],
+  [
+   "what do I do every day",
+   "daily"
+  ],
+  [
+   "acknowledge a complaint",
+   "daily"
+  ],
+  [
+   "assign a case to a field worker",
+   "daily"
+  ],
+  [
+   "find an old case",
+   "daily"
+  ],
+  [
+   "send complaint to department",
+   "forward"
+  ],
+  [
+   "department did not reply",
+   "forward"
+  ],
+  [
+   "record department reply",
+   "forward"
+  ],
+  [
+   "wrong department",
+   "forward"
+  ],
+  [
+   "department phone number missing",
+   "forward"
+  ],
+  [
+   "upload after photos",
+   "fieldcheck"
+  ],
+  [
+   "site inspection",
+   "fieldcheck"
+  ],
+  [
+   "work not done send back to department",
+   "fieldcheck"
+  ],
+  [
+   "fix report",
+   "fieldcheck"
+  ],
+  [
+   "close a complaint",
+   "resolve"
+  ],
+  [
+   "mark resolved",
+   "resolve"
+  ],
+  [
+   "citizen says not fixed",
+   "resolve"
+  ],
+  [
+   "take a case in a multi member ward",
+   "seats"
+  ],
+  [
+   "return case to ward",
+   "seats"
+  ],
+  [
+   "download monthly report",
+   "reports"
+  ],
+  [
+   "see citizen ratings",
+   "reports"
+  ],
+  [
+   "how many complaints this month",
+   "reports"
+  ],
+  [
+   "reply to auditor",
+   "messages"
+  ],
+  [
+   "message from grieviq",
+   "messages"
+  ],
+  [
+   "how to pay the bill",
+   "billing"
+  ],
+  [
+   "pay by upi",
+   "billing"
+  ],
+  [
+   "where to enter utr",
+   "billing"
+  ],
+  [
+   "what happens if we don't pay",
+   "billing|P:\"Your office's plan is paused\""
+  ],
+  [
+   "announce a health camp",
+   "notices"
+  ],
+  [
+   "put up a notice",
+   "notices"
+  ],
+  [
+   "share figures with state",
+   "share"
+  ],
+  [
+   "stop sharing with government",
+   "share"
+  ],
+  [
+   "I am the new councillor",
+   "takeover"
+  ],
+  [
+   "previous representative's team",
+   "takeover"
+  ],
+  [
+   "google says no access",
+   "P:Google sign-in refused"
+  ],
+  [
+   "not getting alerts",
+   "P:No alerts on the phone|signin"
+  ],
+  [
+   "can't assign field worker",
+   "P:Can't assign a field worker"
+  ],
+  [
+   "टीम में सदस्य जोड़ें",
+   "team"
+  ],
+  [
+   "बिल का भुगतान कैसे करें",
+   "billing"
+  ],
+  [
+   "शिकायत विभाग को भेजें",
+   "forward"
+  ],
+  [
+   "staff kaise add kare",
+   "team"
+  ],
+  [
+   "how to give login to my assistant",
+   "team"
+  ],
+  [
+   "my field worker left",
+   "team"
+  ],
+  [
+   "mark staff on holiday",
+   "team"
+  ],
+  [
+   "new complaint came what now",
+   "daily"
+  ],
+  [
+   "give complaint to my worker",
+   "daily"
+  ],
+  [
+   "inform department about complaint",
+   "forward"
+  ],
+  [
+   "department said work done",
+   "fieldcheck|forward"
+  ],
+  [
+   "take photos at site",
+   "fieldcheck"
+  ],
+  [
+   "approve fix report",
+   "fieldcheck|resolve"
+  ],
+  [
+   "citizen reopened",
+   "resolve"
+  ],
+  [
+   "export data to excel",
+   "reports"
+  ],
+  [
+   "see overdue cases count",
+   "reports|daily"
+  ],
+  [
+   "plan expired",
+   "billing|P:\"Your office's plan is paused\""
+  ],
+  [
+   "bank transfer details",
+   "billing"
+  ],
+  [
+   "notice for ward sabha",
+   "notices"
+  ],
+  [
+   "just won the election",
+   "takeover"
+  ],
+  [
+   "notifications on iphone",
+   "signin|P:No alerts on the phone"
+  ],
+  [
+   "अलर्ट कैसे चालू करें",
+   "signin"
+  ],
+  [
+   "रिपोर्ट डाउनलोड",
+   "reports"
+  ],
+  [
+   "field worker kaise jode",
+   "team"
+  ],
+  [
+   "who can see complaints in my office",
+   "team"
+  ],
+  [
+   "assign ward to field worker",
+   "team|P:Can't assign a field worker"
+  ],
+  [
+   "complaint is past time limit",
+   "daily"
+  ],
+  [
+   "choose department for complaint",
+   "forward"
+  ],
+  [
+   "no department contact number",
+   "forward"
+  ],
+  [
+   "gps photos",
+   "fieldcheck"
+  ],
+  [
+   "citizen did not confirm",
+   "resolve"
+  ],
+  [
+   "average rating",
+   "reports"
+  ],
+  [
+   "audit reply",
+   "messages"
+  ],
+  [
+   "upi qr",
+   "billing"
+  ],
+  [
+   "camp notice price",
+   "notices"
+  ],
+  [
+   "state dashboard sharing",
+   "share"
+  ],
+  [
+   "शिकायत निस्तारित करें",
+   "resolve"
+  ],
+  [
+   "team member kaise hataye",
+   "team"
+  ]
+ ],
+ "dept": [
+  [
+   "how to sign in",
+   "signin"
+  ],
+  [
+   "otp",
+   "signin|P:The code didn't arrive"
+  ],
+  [
+   "add a new officer",
+   "officers"
+  ],
+  [
+   "add my colleague to the dashboard",
+   "officers"
+  ],
+  [
+   "onboard staff",
+   "officers"
+  ],
+  [
+   "officer transferred",
+   "officers"
+  ],
+  [
+   "officer retired",
+   "officers"
+  ],
+  [
+   "how to reply to a case",
+   "reply"
+  ],
+  [
+   "work completed upload photos",
+   "reply"
+  ],
+  [
+   "give a date for the work",
+   "reply"
+  ],
+  [
+   "cannot do this work",
+   "reply"
+  ],
+  [
+   "not our department",
+   "P:The case isn't ours|reply"
+  ],
+  [
+   "contact the citizen",
+   "reply"
+  ],
+  [
+   "case sent back",
+   "sentback"
+  ],
+  [
+   "field check failed",
+   "sentback"
+  ],
+  [
+   "what does past target time mean",
+   "dashboard"
+  ],
+  [
+   "what is the target time",
+   "dashboard"
+  ],
+  [
+   "our performance",
+   "performance"
+  ],
+  [
+   "who sees our ranking",
+   "performance"
+  ],
+  [
+   "pay the bill",
+   "billing"
+  ],
+  [
+   "complimentary plan",
+   "billing"
+  ],
+  [
+   "water shutdown notice",
+   "notices"
+  ],
+  [
+   "road closure announcement",
+   "notices"
+  ],
+  [
+   "my email is not accepted",
+   "P:My email isn't accepted"
+  ],
+  [
+   "code not received",
+   "P:The code didn't arrive"
+  ],
+  [
+   "अधिकारी जोड़ें",
+   "officers"
+  ],
+  [
+   "उत्तर कैसे दें",
+   "reply"
+  ],
+  [
+   "officer kaise add kare",
+   "officers"
+  ],
+  [
+   "how to login to department dashboard",
+   "signin"
+  ],
+  [
+   "new joining officer access",
+   "officers"
+  ],
+  [
+   "my transfer order came",
+   "officers"
+  ],
+  [
+   "upload completion photos",
+   "reply"
+  ],
+  [
+   "work will take two weeks",
+   "reply"
+  ],
+  [
+   "complaint belongs to another department",
+   "P:The case isn't ours|reply"
+  ],
+  [
+   "representative sent it back",
+   "sentback"
+  ],
+  [
+   "why are we ranked low",
+   "performance"
+  ],
+  [
+   "pay invoice",
+   "billing"
+  ],
+  [
+   "power cut notice",
+   "notices"
+  ],
+  [
+   "dashboard tiles",
+   "dashboard"
+  ],
+  [
+   "accept rules",
+   "signin"
+  ],
+  [
+   "photo size limit",
+   "reply"
+  ],
+  [
+   "sent back case reply",
+   "sentback"
+  ],
+  [
+   "state ranking",
+   "performance"
+  ],
+  [
+   "upi payment",
+   "billing"
+  ],
+  [
+   "notice letter",
+   "notices"
+  ],
+  [
+   "सूचना कैसे लगाएँ",
+   "notices"
+  ],
+  [
+   "reply to a follow-up request",
+   "fu"
+  ],
+  [
+   "collector asked about our figures",
+   "fu"
+  ],
+  [
+   "acknowledge a follow-up",
+   "fu"
+  ],
+  [
+   "follow-up reply-by date passed",
+   "fu"
+  ],
+  [
+   "अनुवर्ती अनुरोध का उत्तर दें",
+   "fu"
+  ]
+ ],
+ "citizen": [
+  [
+   "how to file a complaint",
+   "file"
+  ],
+  [
+   "report a pothole",
+   "file"
+  ],
+  [
+   "garbage not collected",
+   "file"
+  ],
+  [
+   "can I add photos",
+   "file"
+  ],
+  [
+   "check my complaint status",
+   "track"
+  ],
+  [
+   "where is my complaint",
+   "track"
+  ],
+  [
+   "get updates on phone",
+   "track"
+  ],
+  [
+   "lost my reference number",
+   "track"
+  ],
+  [
+   "problem not fixed",
+   "confirm"
+  ],
+  [
+   "reopen my complaint",
+   "confirm"
+  ],
+  [
+   "confirm the work is done",
+   "confirm"
+  ],
+  [
+   "give rating",
+   "rate"
+  ],
+  [
+   "change my rating",
+   "rate"
+  ],
+  [
+   "who is my councillor",
+   "ward"
+  ],
+  [
+   "ward page",
+   "ward"
+  ],
+  [
+   "delete my data",
+   "data"
+  ],
+  [
+   "send feedback about the app",
+   "data"
+  ],
+  [
+   "how long is my data kept",
+   "data"
+  ],
+  [
+   "code didn't come",
+   "P:The code didn't arrive"
+  ],
+  [
+   "daily limit",
+   "P:\"Daily limit\" message"
+  ],
+  [
+   "my city is not listed",
+   "P:My area can't take complaints yet"
+  ],
+  [
+   "शिकायत कैसे दर्ज करें",
+   "file"
+  ],
+  [
+   "मेरी शिकायत की स्थिति",
+   "track"
+  ],
+  [
+   "shikayat kaise kare",
+   "file"
+  ],
+  [
+   "streetlight not working",
+   "file"
+  ],
+  [
+   "how to complain",
+   "file"
+  ],
+  [
+   "status of GRV number",
+   "track"
+  ],
+  [
+   "notifications for my complaint",
+   "track"
+  ],
+  [
+   "they closed it but nothing done",
+   "confirm"
+  ],
+  [
+   "rate my experience",
+   "rate"
+  ],
+  [
+   "find my ward",
+   "ward"
+  ],
+  [
+   "remove my phone number",
+   "data"
+  ],
+  [
+   "otp not received",
+   "P:The code didn't arrive"
+  ],
+  [
+   "शिकायत की स्थिति",
+   "track"
+  ],
+  [
+   "water leakage complaint",
+   "file"
+  ],
+  [
+   "track complaint without email",
+   "track"
+  ],
+  [
+   "not satisfied with work",
+   "confirm"
+  ],
+  [
+   "star rating",
+   "rate"
+  ],
+  [
+   "my councillor's name",
+   "ward"
+  ],
+  [
+   "privacy policy",
+   "data"
+  ]
+ ],
+ "gov": [
+  [
+   "how to log in",
+   "signin"
+  ],
+  [
+   "sign out",
+   "signin"
+  ],
+  [
+   "what does pending mean",
+   "read"
+  ],
+  [
+   "change month",
+   "read"
+  ],
+  [
+   "see district figures",
+   "read"
+  ],
+  [
+   "download excel",
+   "reports"
+  ],
+  [
+   "mis report",
+   "reports"
+  ],
+  [
+   "monthly email reminder",
+   "reports"
+  ],
+  [
+   "cases pending over 30 days",
+   "reports|followup"
+  ],
+  [
+   "department with most late cases",
+   "followup"
+  ],
+  [
+   "can I reply to a complaint",
+   "followup"
+  ],
+  [
+   "give access to another officer",
+   "access"
+  ],
+  [
+   "I am transferred",
+   "access"
+  ],
+  [
+   "yearly review",
+   "access"
+  ],
+  [
+   "show demo in meeting",
+   "demo"
+  ],
+  [
+   "sample data",
+   "demo"
+  ],
+  [
+   "no code",
+   "P:No code arrives"
+  ],
+  [
+   "access refused",
+   "P:Access refused although you had it"
+  ],
+  [
+   "figures not loading",
+   "P:\"The figures couldn't be loaded\""
+  ],
+  [
+   "रिपोर्ट डाउनलोड करें",
+   "reports"
+  ],
+  [
+   "login problem",
+   "signin|P:No code arrives"
+  ],
+  [
+   "district wise data",
+   "read"
+  ],
+  [
+   "export pdf",
+   "reports"
+  ],
+  [
+   "late departments",
+   "followup"
+  ],
+  [
+   "add my deputy",
+   "access"
+  ],
+  [
+   "presentation mode",
+   "demo"
+  ],
+  [
+   "session expired",
+   "signin"
+  ],
+  [
+   "iso themes",
+   "read"
+  ],
+  [
+   "reports on monday",
+   "reports"
+  ],
+  [
+   "write to department",
+   "followup"
+  ],
+  [
+   "nic email",
+   "access"
+  ],
+  [
+   "demo data",
+   "demo"
+  ],
+  [
+   "how to ask a district for a follow-up",
+   "fusend"
+  ],
+  [
+   "send a follow-up request to a district",
+   "fusend"
+  ],
+  [
+   "ask a department office about late cases on GrievIQ",
+   "fusend|followup"
+  ],
+  [
+   "raise an issue with the national level",
+   "fusend"
+  ],
+  [
+   "how to send directive to district office",
+   "fusend"
+  ],
+  [
+   "reply to a follow-up request from the state",
+   "fureply"
+  ],
+  [
+   "acknowledge a follow-up request",
+   "fureply"
+  ],
+  [
+   "close a follow-up request",
+   "fuclose"
+  ],
+  [
+   "figure did not improve, ask again",
+   "fuclose"
+  ],
+  [
+   "seven MIS reports",
+   "reports"
+  ],
+  [
+   "follow-up requests report excel",
+   "reports"
+  ],
+  [
+   "no follow up button",
+   "P:No Follow up buttons or follow-up requests"
+  ],
+  [
+   "अनुवर्ती अनुरोध कैसे भेजें",
+   "fusend"
+  ],
+  [
+   "अनुवर्ती अनुरोध का उत्तर",
+   "fureply"
+  ],
+  [
+   "अनुवर्ती अनुरोध बंद करें",
+   "fuclose"
+  ]
+ ]
 }

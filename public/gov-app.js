@@ -19,6 +19,8 @@
   // grieviq-52: which front door: "state", "national" or "gov" (the chooser).
   var MODE = (document.querySelector('meta[name="giq-gov-mode"]') || {}).content || "gov";
   var HOME = { state: "/state", national: "/national" };
+  // grieviq-66: a follow-up request opened from an email (#fu=<id>) or the list (#fu).
+  var FU_START = (function () { var m = /#fu(?:=([^&]+))?/.exec(location.hash); return m ? { id: m[1] ? decodeURIComponent(m[1]) : null } : null; })();
   var S = { screen: "loading", email: "", emailErr: "", codeErr: "", msg: null, busy: false, me: null, data: null,
     month: params.get("month") || "", state: params.get("state") || "", district: params.get("district") || "", dept: params.get("dept") || "", sort: { key: null, dir: -1 }, q: "", loadErr: "" };
 
@@ -72,6 +74,7 @@
     else if (S.screen === "code") main.innerHTML = renderCode();
     else if (S.screen === "dash") main.innerHTML = renderDash();
     else if (S.screen === "chooser") main.innerHTML = renderChooser();
+    else if (S.screen === "fu") { if (S.fuUi) S.fuUi.refresh(); return; }
     else if (S.screen === "error") main.innerHTML = '<div class="card"><p class="msg bad" role="alert">' + esc(S.loadErr) + '</p><button type="button" id="retry">' + esc(T("gv.retry")) + "</button></div>";
     else main.innerHTML = '<p class="empty">' + esc(T("gv.loading")) + "</p>";
     wire();
@@ -157,7 +160,9 @@
     if (DEMO && MODE === "state" && !S.state) S.state = r.body.home && r.body.home.state ? r.body.home.state.id : "";
     S.me = r.body;
     if (!DEMO) { var pr = await api("/api/gov/prefs"); S.prefs = pr.ok ? pr.body : null; }
+    if (!DEMO) await loadFu();
     await loadStats(focusId, true);
+    if (FU_START && S.screen === "dash" && (DEMO || S.fu)) { var fs = FU_START; FU_START = null; openFu(fs.id ? "thread" : "list", { id: fs.id }); }
   }
   async function loadStats(focusId, noPush) {
     var q = new URLSearchParams();
@@ -223,6 +228,7 @@
       pctTile(T("gv.t_moved_up"), t.movedUp, b.movedUp) +
       pctTile(T("gv.t_dept_on_time"), t.deptOnTime, b.deptOnTime) +
       pctTile(T("gv.t_located"), t.located, b.located) + "</ul>";
+    if (fuShown() && window.GIQFU) h += GIQFU.card(fuData(), { demo: DEMO });
     h += '<div class="grid2"><section class="sec card" aria-labelledby="ages-h">' + agesHtml(t.ages) + "</section>" +
       '<section class="sec card" aria-labelledby="themes-h">' + themesHtml(d.themes) + "</section></div>";
     h += '<section class="sec" aria-labelledby="rows-h">' + rowsHtml(d.rows) + "</section>";
@@ -233,8 +239,8 @@
     h += reportsHtml();
     return h + about();
   }
-  // grieviq-50: the six MIS reports (PDF and Excel) and the report emails.
-  var REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps"];
+  // grieviq-50/66: the seven MIS reports (PDF and Excel) and the report emails.
+  var REPORTS = ["summary", "districts", "departments", "pending30", "themes", "reps", "followups"];
   function reportUrl(r, x) {
     var p = new URLSearchParams(); p.set("r", r); p.set("dash", MODE); if (DEMO) p.set("demo", "1"); if (S.state) p.set("state", S.state); if (S.district) p.set("district", S.district); if (S.data && S.data.month) p.set("month", S.data.month); if (x) p.set("x", "xlsx");
     return "/gov-report?" + p.toString();
@@ -319,8 +325,8 @@
       th("over30", T("gv.col_over30")) + th("within", T("gv.col_within")) + th("satisfied", T("gv.col_satisfied")) + "</tr></thead><tbody>" +
       list.map(function (r) {
         var name = r.unplaced ? esc(T("gv.unplaced")) + '<span class="sub">' + esc(T("gv.unplaced_sub")) + "</span>" :
-          isCountry ? '<a href="#" data-state="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") :
-          isState ? '<a href="#" data-district="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") :
+          isCountry ? '<a href="#" data-state="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") + askBtn("STATE", r.id, nm(r)) :
+          isState ? '<a href="#" data-district="' + esc(r.id) + '">' + esc(nm(r)) + "</a>" + (r.lgd ? '<span class="sub">' + esc(T("gv.lgd", { c: r.lgd })) + "</span>" : "") + askBtn("DISTRICT", r.id, nm(r)) :
           esc(r.nameEn) + '<span class="sub">' + esc(T(r.kind === "DISTRICT" ? "gv.kind_district" : "gv.kind_city")) + (r.lgd ? " · " + esc(T("gv.lgd", { c: r.lgd })) : "") + "</span>";
         return '<tr><th scope="row">' + name + "</th>" + cell(r.received) + cell(r.resolved) + cell(r.pending) + cell(r.over30) + cell(r.within, "pct") + cell(r.satisfied, "pct") + "</tr>";
       }).join("") + "</tbody></table></div>" + (q && !list.length ? '<p class="empty" role="status">' + esc(T("gv.no_match")) + "</p>" : "");
@@ -332,7 +338,7 @@
     return h + '<div class="tbl-wrap"><table class="data"><caption>' + esc(T("gv.depts_cap", { m: monthName(S.data.month) })) + '</caption><thead><tr><th scope="col">' + esc(T("gv.col_office")) + '</th><th scope="col">' + esc(T("gv.col_forwarded")) +
       '</th><th scope="col">' + esc(T("gv.col_with_now")) + '</th><th scope="col">' + esc(T("gv.col_late_now")) + '</th><th scope="col">' + esc(T("gv.col_on_time")) + '</th><th scope="col">' + esc(T("gv.col_first_reply")) + '</th><th scope="col">' + esc(T("gv.col_satisfied")) + "</th></tr></thead><tbody>" +
       list.map(function (r, i) {
-        return '<tr><th scope="row">' + esc(i + 1) + '. <a href="#" data-dept="' + esc(r.key) + '">' + esc(nm(r)) + '</a><span class="sub">' + esc(window.GIQ && GIQ.dept ? GIQ.dept(r.department) : r.department) + "</span></th>" +
+        return '<tr><th scope="row">' + esc(i + 1) + '. <a href="#" data-dept="' + esc(r.key) + '">' + esc(nm(r)) + '</a><span class="sub">' + esc(window.GIQ && GIQ.dept ? GIQ.dept(r.department) : r.department) + "</span>" + askBtn("DEPT", officeIdOf(r.key), nm(r)) + "</th>" +
           cell(r.forwarded) + cell(r.withNow) + cell(r.overdueNow) + cell(r.onTime, "pct") + cell(r.firstReplyDays, "days") + cell(r.rating, "pct") + "</tr>";
       }).join("") + "</tbody></table></div>";
   }
@@ -361,7 +367,8 @@
     }).join("") + "</ul>";
   }
   function renderDept(x) {
-    var h = '<p class="summary">' + esc(T("gv.dept_sum", { m: monthName(S.data.month), f: num(x.forwarded), w: num(x.withNow), l: num(x.overdueNow) })) + "</p>";
+    var oid = officeIdOf(S.dept), canDept = canAsk("DEPT", oid);
+    var h = (canDept ? '<div class="row" style="margin:0 0 12px"><button type="button" class="primary" data-fu-ask="DEPT:' + esc(oid) + '">' + esc(T("fu.ask_office")) + "</button></div>" : "") + '<p class="summary">' + esc(T("gv.dept_sum", { m: monthName(S.data.month), f: num(x.forwarded), w: num(x.withNow), l: num(x.overdueNow) })) + "</p>";
     h += '<ul class="tiles" aria-label="' + esc(T("gv.key_figures")) + '">' +
       tile(T("gv.col_forwarded"), num(x.forwarded)) + tile(T("gv.col_with_now"), num(x.withNow)) + tile(T("gv.col_late_now"), num(x.overdueNow)) +
       pctTile(T("gv.col_on_time"), x.onTime, x.prevOnTime) +
@@ -371,8 +378,80 @@
     h += '<section class="sec card" aria-labelledby="dtrend-h">' + trendHtml(x.trend, "dtrend-h", "gv.dtrend_h", "gv.t_forwarded", "gv.t_done", "gv.dtrend_sum") + "</section>";
     return h;
   }
+  // ---------------- follow-up requests (grieviq-66; screens in followups-ui.js) ----------------
+  async function loadFu() {
+    var r = await api("/api/gov/followups");
+    S.fu = r.ok && r.body.ready ? r.body : null;
+  }
+  function fuData() { return DEMO ? demoFu() : S.fu; }
+  function fuShown() { var d = fuData(); return !!(d && (d.on || (d.items && d.items.length))); }
+  function officeIdOf(key) { key = String(key || ""); return key.indexOf("id:") === 0 ? key.slice(3) : key.indexOf("demo-dept-") === 0 ? key : ""; }
+  function canAsk(kind, id) {
+    var d = fuData(); if (!d || !d.on || !d.options || id == null || id === "") return false;
+    return (d.options.down || []).some(function (t) { return t.kind === kind && String(t.id) === String(id); });
+  }
+  function askBtn(kind, id, name) {
+    return canAsk(kind, id) ? '<br><button type="button" class="fu-ask-btn" data-fu-ask="' + esc(kind + ":" + id) + '" aria-label="' + esc(T("fu.ask_for", { p: name })) + '">' + esc(T("fu.ask_short")) + "</button>" : "";
+  }
+  function selfName() { var me = S.me || {}; return me.district || me.state || me.country || null; }
+  function openFu(view, o) {
+    o = o || {};
+    S.screen = "fu"; setWho();
+    main.innerHTML = '<div id="fu-box"></div>';
+    S.fuUi = GIQFU.mount(document.getElementById("fu-box"), {
+      api: "/api/gov/followups", side: "gov", view: view, id: o.id || null, preset: o.preset || null, up: !!o.up, data: fuData(), demo: DEMO, selfName: selfName(),
+      preview: demoPreview,
+      onChange: function (d) { S.fu = d; },
+      onBack: function () { S.screen = "dash"; S.fuUi = null; history.replaceState(null, "", url()); show(); var c = document.getElementById("fu-card-h"); if (c) { c.setAttribute("tabindex", "-1"); c.focus(); } else { var h = document.getElementById("h1"); if (h) h.focus(); } },
+    });
+    window.scrollTo(0, 0);
+  }
+  // The demo: two invented requests (one replied, one past its date). Nothing is sent.
+  function demoFu() {
+    var d = S.data, me = S.me; if (!d || !me) return null;
+    var lvl = me.user.level, rows = (d.rows || []).filter(function (r) { return r.id && !r.unplaced; });
+    var down = rows.map(function (r) { return { kind: lvl === "NATIONAL" ? "STATE" : "DISTRICT", id: r.id, nameEn: r.nameEn, nameHi: r.nameHi }; });
+    var offices = lvl === "NATIONAL" ? [] : (d.depts || []).map(function (x) { return { kind: "DEPT", id: officeIdOf(x.key), nameEn: x.nameEn, nameHi: x.nameHi }; }).filter(function (x) { return x.id; });
+    var self = lvl === "NATIONAL" ? { nameEn: "National (Union ministry)", nameHi: "राष्ट्रीय (केंद्रीय मंत्रालय)" } : (d.place && d.place.state) || me.state || {};
+    var day = function (n) { return new Date(Date.now() + 5.5 * 3600000 + n * 86400000).toISOString().slice(0, 10); };
+    var at = function (n, h) { return day(n) + "T" + (h || "05:30") + ":00.000Z"; };
+    var fromX = { level: lvl, nameEn: self.nameEn, nameHi: self.nameHi };
+    var items = [];
+    var who = T("fu.demo_who_" + (lvl === "NATIONAL" ? "nat" : "state")), whoTo = T("fu.demo_who_" + (lvl === "NATIONAL" ? "state" : "dist"));
+    if (rows[0]) items.push({ id: "demo-fu-2", ref: "GIQ-FU-000002", direction: "DOWN", side: "SENDER", from: fromX,
+      to: { kind: lvl === "NATIONAL" ? "STATE" : "DISTRICT", nameEn: rows[0].nameEn, nameHi: rows[0].nameHi }, figure: "OVER30",
+      snapshot: { value: 38, unit: "count", subject: { nameEn: rows[0].nameEn, nameHi: rows[0].nameHi } }, snapshotAt: at(-20), result: { value: 9, unit: "count" }, measuredAt: at(-5, "01:00"),
+      note: T("fu.demo_note1"), letterRef: "D.O. No. 123/Demo", letterDate: day(-21), replyBy: day(-5), status: "REPLIED", wasOverdue: false,
+      events: [{ at: at(-20), kind: "CREATED", by: who, byPlace: nm(self), text: T("fu.demo_note1"), letterRef: "D.O. No. 123/Demo" },
+        { at: at(-19, "04:10"), kind: "SEEN", by: whoTo, byPlace: nm(rows[0]) }, { at: at(-19, "04:12"), kind: "ACKNOWLEDGED", by: whoTo, byPlace: nm(rows[0]) },
+        { at: at(-8, "09:40"), kind: "REPLIED", by: whoTo, byPlace: nm(rows[0]), text: T("fu.demo_reply1") }, { at: at(-5, "01:00"), kind: "MEASURED", data: { value: 9, before: 38 } }] });
+    var o2 = offices[0] || (rows[1] ? { kind: lvl === "NATIONAL" ? "STATE" : "DISTRICT", nameEn: rows[1].nameEn, nameHi: rows[1].nameHi } : null);
+    if (o2) items.push({ id: "demo-fu-1", ref: "GIQ-FU-000001", direction: "DOWN", side: "SENDER", from: fromX,
+      to: { kind: o2.kind, nameEn: o2.nameEn, nameHi: o2.nameHi }, figure: o2.kind === "DEPT" ? "LATE_NOW" : "PENDING",
+      snapshot: { value: o2.kind === "DEPT" ? 14 : 212, unit: "count", subject: { nameEn: o2.nameEn, nameHi: o2.nameHi } }, snapshotAt: at(-18), result: null, measuredAt: null,
+      note: T("fu.demo_note2"), letterRef: null, letterDate: null, replyBy: day(-3), status: "OVERDUE", wasOverdue: true,
+      events: [{ at: at(-18), kind: "CREATED", by: who, byPlace: nm(self), text: T("fu.demo_note2") }, { at: at(-17, "06:00"), kind: "SEEN", by: T("fu.demo_who_office"), byPlace: nm(o2) },
+        { at: at(-5, "00:30"), kind: "REMINDED" }, { at: at(-2, "00:30"), kind: "OVERDUE" }] });
+    return { ready: true, on: true, demo: true, items: items, counts: { open: 0, overdue: o2 ? 1 : 0, replied: rows[0] ? 1 : 0, waitingOnUs: 0, total: items.length },
+      options: { on: true, down: down.concat(offices), offices: offices, up: lvl === "NATIONAL" ? null : { kind: "NATIONAL", nameEn: "National (Union ministry)", nameHi: "राष्ट्रीय (केंद्रीय मंत्रालय)" } } };
+  }
+  function demoPreview(b) {
+    var d = S.data; if (!d) return null;
+    var row = null, kind = b.toKind, figure = b.figure;
+    if (b.subject === "DEPT" || kind === "DEPT") {
+      var id = b.subject === "DEPT" ? b.subjectOfficeId : b.toId, x = (d.depts || []).filter(function (r) { return officeIdOf(r.key) === String(id); })[0];
+      if (!x) return null;
+      var v = { LATE_NOW: [x.overdueNow, "count"], WITH_NOW: [x.withNow, "count"], ON_TIME: [x.onTime, "percent"], FIXED_FIRST: [null, "percent"] }[figure] || [null, "count"];
+      return { value: v[0], unit: v[1], subject: { nameEn: x.nameEn, nameHi: x.nameHi } };
+    }
+    if (b.subject === "SELF" || kind === "NATIONAL" || (kind === "STATE" && S.me.user.level !== "NATIONAL")) { row = d.tiles; row = { received: row.received, pending: row.pending, over30: row.over30, within: row.within, nameEn: selfName() && selfName().nameEn, nameHi: selfName() && selfName().nameHi }; }
+    else row = (d.rows || []).filter(function (r) { return String(r.id) === String(b.toId); })[0];
+    if (!row) return null;
+    var m = { OVER30: [row.over30, "count"], PENDING: [row.pending, "count"], WITHIN: [row.within, "percent"], RECEIVED: [row.received, "count"] }[figure] || [null, "count"];
+    return { value: m[0], unit: m[1], subject: { nameEn: row.nameEn, nameHi: row.nameHi } };
+  }
   function about() {
-    var items = ["received", "resolved", "pending", "ages", "within", "avg", "reopened", "satisfied", "moved", "dept", "located", "small", "reps", "lgd"];
+    var items = ["received", "resolved", "pending", "ages", "within", "avg", "reopened", "satisfied", "moved", "dept", "located", "small", "reps", "lgd"].concat(fuShown() ? ["fu"] : []);
     return '<details class="about" id="about"><summary>' + esc(T("gv.about_h")) + "</summary><dl>" +
       items.map(function (k) { return "<dt>" + esc(T("gv.ab_" + k + "_t")) + "</dt><dd>" + esc(T("gv.ab_" + k)) + "</dd>"; }).join("") + "</dl></details>";
   }
@@ -399,6 +478,9 @@
       });
     });
     ["mail-monthly", "mail-weekly"].forEach(function (id) { var c = document.getElementById(id); if (c) c.addEventListener("change", savePrefs); });
+    var fl = document.getElementById("fu-open-list"); if (fl) fl.addEventListener("click", function () { openFu("list"); });
+    var fn = document.getElementById("fu-open-new"); if (fn) fn.addEventListener("click", function () { openFu("form"); });
+    main.querySelectorAll("[data-fu-ask]").forEach(function (b) { b.addEventListener("click", function () { var v = b.getAttribute("data-fu-ask"), i = v.indexOf(":"); openFu("form", { preset: { kind: v.slice(0, i), id: v.slice(i + 1) } }); }); });
     var tr = document.getElementById("to-reports"); if (tr) tr.addEventListener("click", function (e) { e.preventDefault(); var r = document.getElementById("reports"); r.scrollIntoView(); r.focus({ preventScroll: true }); });
     var rq = document.getElementById("rows-q");
     if (rq) rq.addEventListener("input", function () {
