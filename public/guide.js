@@ -78,34 +78,42 @@
   // leave -> staff leave, ...). It runs in the browser on the guide text only:
   // nothing typed is sent anywhere or stored.
   var STOP = ("a an the to of in on for and or is are am be do does did i my me we our you your it its this that these those how what when where which who why can could should would will shall may please there here with from by at as about into get give make want need tell show find someone somebody anyone going go new old just now also any some all one " +
+    "kaise kaisa kese kya kab kahan kaun kyon kyu mera meri mere hum hamara aap apna apni ka ki ke ko se me mein par hai hain tha thi kare karen karein karna karu kar aur ya bhi to ye yeh wo woh ek liye sath chahiye sakta sakte hota hoti " +
     "कैसे क्या कब कहाँ कौन क्यों मैं मेरा मेरी मेरे हम हमारा आप आपका आपकी आपके का की के को से में पर है हैं था थी थे हो होता होती करें करना करूँ करते कर और या भी तो यह वह ये वे एक लिए साथ बारे चाहिए सकता सकती सकते").split(" ");
   var STOPSET = {}; STOP.forEach(function (w) { STOPSET[w] = 1; });
   // Words that mean the same thing to the reader, in either language.
   var SYN = [
-    "pay payment paid bill bills invoice upi utr bank money fee fees refund भुगतान बिल पैसा राशि",
+    "pay payment paid bill bills invoice upi utr bank money fee fees refund bhugtan भुगतान बिल पैसा राशि",
     "price prices plan plans cost charge charges rate pricing subscription शुल्क मूल्य योजना कीमत सदस्यता",
-    "sign signin login log logout code otp password access साइन लॉगिन कोड पासवर्ड पहुँच",
+    "sign signin login log logout code otp password reset access साइन लॉगिन कोड पासवर्ड पहुँच",
     "staff employee employees user users member members person people team colleague स्टाफ़ कर्मचारी टीम सदस्य व्यक्ति",
     "leave holiday absent absence vacation cover अवकाश छुट्टी",
     "remove delete left leaving quit resign resigned हटाएँ हटाना छोड़",
     "transfer transferred move posting स्थानांतरण",
-    "complaint complaints case cases grievance issue problem शिकायत शिकायतें मामला मामले समस्या",
+    "complaint complaints case cases grievance issue problem shikayat shikayaten samasya शिकायत शिकायतें मामला मामले समस्या",
     "department departments dept office offices officer officers विभाग कार्यालय अधिकारी",
-    "forward forwarded refer send sent अग्रेषित भेजें भेजना",
+    "forward forwarded refer send sent inform intimate अग्रेषित भेजें भेजना",
     "photo photos picture pictures image images pic फ़ोटो तस्वीर",
     "notice notices announcement advertisement advert सूचना सूचनाएँ",
     "election elections mcc vote votes poll चुनाव आचार संहिता",
     "ward wards area areas city district village वार्ड क्षेत्र शहर ज़िला गाँव",
-    "rating ratings feedback review stars satisfaction रेटिंग फ़ीडबैक",
+    "rating ratings rate rated feedback review stars satisfaction रेटिंग फ़ीडबैक",
     "reopen reopened again दोबारा",
     "track tracking status progress स्थिति ट्रैक",
     "alert alerts notification notifications notify bell push घंटी अपडेट",
     "report reports pdf excel download export csv print रिपोर्ट डाउनलोड प्रिंट",
     "privacy personal data erase consent गोपनीयता डेटा सहमति",
-    "late overdue delay delayed pending slow देर लंबित",
-    "representative representatives corporator councillor mla mp mayor पार्षद जनप्रतिनिधि विधायक सांसद",
+    "late overdue delay delayed pending slow stuck nudge remind reminder exception escalated unresponsive responding देर लंबित अटका अनुस्मारक",
+    "limit limits deadline deadlines timeline समय-सीमा अवधि",
+    "suspend pause paused stop block disable deactivate रोकें रोक",
+    "copy copies copied clone नक़ल प्रति",
+    "representative representatives corporator councillor councilor pradhan sarpanch mla mp mayor पार्षद जनप्रतिनिधि विधायक सांसद प्रधान महापौर",
+    "change update edit modify correct badle badlein बदलें बदलना सुधारें",
+    "pilot trial पायलट",
+    "location gps geotag map pin स्थान लोकेशन नक़्शा",
+    "add adding create insert enter register put onboard jode jodna jodein जोड़ें जोड़ना जोड़ जोड़े",
     "government state official officials ministry सरकार सरकारी राज्य मंत्रालय",
-    "check verify confirm confirmed जाँच पुष्टि",
+    "check verify confirm confirmed approve approval जाँच पुष्टि स्वीकृत",
     "resolve resolved fix fixed done solve solved निस्तारित समाधान ठीक",
     "email mail ईमेल",
     "phone mobile number call फ़ोन मोबाइल नंबर",
@@ -113,7 +121,8 @@
   function normWord(w) {
     w = String(w || "").toLowerCase().replace(/़/g, "").replace(/ँ/g, "ं");
     if (/^[a-z]+$/.test(w)) {
-      if (w.length > 5 && /ing$/.test(w)) w = w.slice(0, -3);
+      if (w.length > 4 && /ies$/.test(w)) w = w.slice(0, -3) + "y";
+      else if (w.length > 5 && /ing$/.test(w)) w = w.slice(0, -3);
       else if (w.length > 4 && /ed$/.test(w)) w = w.slice(0, -2);
       else if (w.length > 4 && /es$/.test(w)) w = w.slice(0, -2);
       else if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) w = w.slice(0, -1);
@@ -125,7 +134,7 @@
   }
   function same(a, b) {   // b is a word of the guide
     if (a === b) return true;
-    return a.length >= 4 && b.length >= 4 && (b.indexOf(a) === 0 || a.indexOf(b) === 0);
+    return a.length >= 5 && b.length >= 5 && (b.indexOf(a) === 0 || a.indexOf(b) === 0);
   }
   // Each word of the question becomes a "concept": the word and its synonyms.
   function concepts(q) {
@@ -157,31 +166,59 @@
       set.weight = df <= 2 ? 1 : df <= 5 ? 0.75 : 0.5;
     });
   }
+  // Search reads both languages, so a question typed in English finds the
+  // answer while Help is in Hindi, and the other way round.
+  function both(pair) { return pair ? (pair[0] || "") + " " + (pair[1] || "") : ""; }
+  function askOf(pair) {
+    return pair ? (pair[0] + ";" + (pair[1] || "")).split(";").map(function (x) { return x.trim(); }).filter(Boolean) : [];
+  }
   function search(kind, roles, q) {
     var g = G()[kind]; if (!g) return [];
     var cs = concepts(q); if (!cs.length) return [];
+    var qs = words(q).join(" ");
+    var qk = " " + words(q).filter(function (w) { return !STOPSET[w]; }).join(" ") + " ";
+    // A typical question ("ask"): its words, plus a bonus when it holds every
+    // word asked, and more when it holds the question word for word.
+    function askScore(phrase, extra) {
+      var pw = words(phrase), n = hits(cs, pw.concat(extra));
+      if (n > 0 && cs.every(function (set) { return pw.some(function (w) { return set.some(function (x) { return same(x, w); }); }); })) n += 0.4;
+      if (qs.indexOf(" ") > 0 && (" " + pw.join(" ") + " ").indexOf(" " + qs + " ") >= 0) return n + 1;
+      var pk = " " + pw.filter(function (w) { return !STOPSET[w]; }).join(" ") + " ";
+      if (pk === qk) n += 1;
+      else if (qk.split(" ").length > 3 && pk.length > 3 && (pk.indexOf(qk) >= 0 || qk.indexOf(pk) >= 0)) n += 0.6;
+      return n;
+    }
     var sops = sopsFor(g, roles);
     weigh(cs, sops.map(function (sop) {
-      return words([pick(sop.title)].concat([].concat(sop.what ? [sop.what] : [], sop.steps || [], sop.check || [], sop.note || []).map(pick)).join(" "));
+      return words([both(sop.title)].concat([].concat(sop.what ? [sop.what] : [], sop.steps || [], sop.check || [], sop.note || []).map(both)).join(" ") + " " + askOf(sop.ask).join(" "));
     }));
     var need = Math.max(0.3, Math.ceil(cs.length / 2) * 0.3);
     var found = [];
     sops.forEach(function (sop) {
-      var tw = words(pick(sop.title));
+      var tw = words(both(sop.title));
       var titleHits = hits(cs, tw);
-      var best = null;
+      var best = null, near = null;   // near: the step closest to the question, even if weak
       var parts = [].concat(sop.what ? [sop.what] : [], sop.steps || [], sop.check || [], sop.note || []);
       parts.forEach(function (pair) {
-        var ww = words(pick(pair)).concat(tw);
+        var ww = words(both(pair)).concat(tw);
         var n = hits(cs, ww);
+        if (n > 0 && (!near || n > near.n)) near = { n: n, pair: pair };
         if (n >= need && (!best || n > best.n)) best = { n: n, pair: pair };
+      });
+      // The typical questions this part answers ("how do I add a field worker",
+      // "staff kaise add kare"), in both languages, so a question finds it
+      // whichever language the person types in.
+      askOf(sop.ask).forEach(function (phrase) {
+        var n = askScore(phrase, tw);
+        if (n >= need && (!best || n > best.n)) best = { n: n, pair: near ? near.pair : (sop.steps || [])[0] };
       });
       if (!best && titleHits >= need) best = { n: titleHits, pair: (sop.steps || [])[0] };
       if (best) found.push({ sop: sop, n: best.n + titleHits * 0.8, pair: best.pair, cs: cs });
     });
     (g.problems || []).forEach(function (pr) {
-      var n = hits(cs, words(pick(pr[0]) + " " + pick(pr[1])));
-      if (n >= need) found.push({ problem: pr, n: n, cs: cs });
+      var n = Math.max.apply(null, [hits(cs, words(both(pr[0]) + " " + both(pr[1])))].concat(askOf(pr[2]).map(function (ph) { return askScore(ph, words(both(pr[0]))); })));
+      // Scored like a guide part: its heading counts a little extra.
+      if (n >= need) found.push({ problem: pr, n: n + hits(cs, words(both(pr[0]))) * 0.2, cs: cs });
     });
     found.sort(function (a, b) { return b.n - a.n; });
     // Only results close to the best one: weak matches only add noise.
@@ -204,7 +241,8 @@
     if (!list.length) return { html: '<p class="gq-snone">' + esc(t("guide.search_none")) + "</p>", status: t("guide.search_none") };
     var html = '<ol class="gq-sres-list">' + list.map(function (r) {
       if (r.problem) return '<li><span class="gq-stitle">' + marked(r.problem[0], r.cs) + '</span><span class="gq-ssnip">' + marked(r.problem[1], r.cs) + "</span></li>";
-      return '<li><a href="#" class="gq-stitle" data-gq-jump="' + esc(r.sop.id) + '">' + esc(pick(r.sop.title)) + '</a>' +
+      var si = (r.sop.steps || []).indexOf(r.pair);
+      return '<li><a href="#" class="gq-stitle" data-gq-jump="' + esc(r.sop.id) + '"' + (si >= 0 ? ' data-gq-step="' + si + '"' : "") + ">" + esc(pick(r.sop.title)) + '</a>' +
         (r.pair ? '<span class="gq-ssnip">' + marked(r.pair, r.cs) + "</span>" : "") + "</li>";
     }).join("") + "</ol>";
     return { html: html, status: t(list.length === 1 ? "guide.search_one" : "guide.search_n", { n: list.length }) };
@@ -276,7 +314,7 @@
       out.push('<section class="gq-sop" id="' + p + esc(s.id) + '" tabindex="-1" aria-labelledby="' + p + esc(s.id) + '-h">' +
         "<" + h2 + ' id="' + p + esc(s.id) + '-h"><span class="gq-sn">' + (i + 1) + ".</span> " + md(s.title) + "</" + h2 + ">" +
         what + who + "<" + h3 + ">" + esc(t("guide.steps")) + "</" + h3 + '><ol class="gq-steps">' +
-        s.steps.map(function (st) { return "<li>" + md(st) + "</li>"; }).join("") + "</ol>" + check + note + "</section>");
+        s.steps.map(function (st, i) { return '<li data-gq-i="' + i + '">' + md(st) + "</li>"; }).join("") + "</ol>" + check + note + "</section>");
     });
     if (g.problems && g.problems.length) {
       out.push('<section class="gq-problems" aria-labelledby="' + p + 'prob"><' + h2 + ' id="' + p + 'prob">' + esc(t("guide.problems")) + "</" + h2 + "><dl>" +
@@ -326,7 +364,8 @@
     ".gq-root nav.gq-toc a,.gq-root nav.gq-toc a:hover{display:inline-block;padding:4px 0;min-height:24px;color:var(--gq-link);text-decoration:underline;background:none;border:0;border-radius:0;font-size:inherit;font-weight:400}" +
     ".gq-root .gq-sop{border-top:1px solid var(--gq-border);padding-top:6px;margin-top:14px;scroll-margin-top:12px}" +
     ".gq-root .gq-sn{color:var(--gq-muted)}.gq-root .gq-who{margin:0 0 8px;color:var(--gq-fg)}.gq-root .gq-who strong{font-weight:600}" +
-    ".gq-root ol.gq-steps{padding-left:22px;margin:0 0 10px}.gq-root ol.gq-steps li{padding-left:2px}" +
+    ".gq-root ol.gq-steps{padding-left:22px;margin:0 0 10px}.gq-root ol.gq-steps li{padding-left:2px;border-radius:4px;transition:background-color .3s}" +
+    ".gq-root ol.gq-steps li.gq-hit{background:var(--gq-note-bg);color:var(--gq-note-fg);outline:2px solid var(--gq-focus);outline-offset:2px}" +
     ".gq-root .gq-note{background:var(--gq-note-bg);color:var(--gq-note-fg);border-radius:8px;padding:9px 12px;margin:6px 0 10px;font-size:14px}" +
     ".gq-root .gq-problems dt{font-weight:600;margin-top:10px}.gq-root .gq-problems dd{margin:2px 0 0 0;color:var(--gq-fg)}" +
     ".gq-root .gq-contacts{margin-top:18px;padding-top:12px;border-top:1px solid var(--gq-border);font-size:14px;overflow-wrap:anywhere}" +
@@ -383,11 +422,20 @@
     return Array.prototype.filter.call(el.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"]),input,select,textarea'),
       function (x) { return x.offsetParent !== null || x === document.activeElement; });
   }
-  function jumpTo(id, container, prefix) {
+  // Opens a part of the guide; from a search result, also shows the step that
+  // answers the question, marked for a few seconds.
+  function jumpTo(id, container, prefix, step) {
     var sec = container.querySelector('[id="' + prefix + String(id).replace(/[^\w-]/g, "") + '"]');
     if (!sec) return false;
+    var li = step != null && step !== "" ? sec.querySelector('li[data-gq-i="' + String(step).replace(/\D/g, "") + '"]') : null;
     sec.scrollIntoView({ block: "start" });
     sec.focus({ preventScroll: true });
+    if (li) {
+      li.scrollIntoView({ block: "center" });
+      Array.prototype.forEach.call(container.querySelectorAll(".gq-hit"), function (x) { x.classList.remove("gq-hit"); });
+      li.classList.add("gq-hit");
+      setTimeout(function () { li.classList.remove("gq-hit"); }, 4000);
+    }
     return true;
   }
   function fill() {
@@ -441,7 +489,7 @@
       if (e.target.closest("[data-gq-close]")) { close(); return; }
       if (e.target.closest("[data-gq-print]")) { printGuide(); return; }
       var j = e.target.closest("[data-gq-jump]");
-      if (j) { e.preventDefault(); jumpTo(j.getAttribute("data-gq-jump"), ov, "gqd-"); }
+      if (j) { e.preventDefault(); jumpTo(j.getAttribute("data-gq-jump"), ov, "gqd-", j.getAttribute("data-gq-step")); }
     });
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("giq:lang", onLang);
@@ -484,6 +532,10 @@
     render: render, open: open, close: close, print: printGuide, addCss: addCss, paint: paint,
     setRoles: function (kind, roles) { roleMap[kind] = roles || null; },
     isOpen: function () { return !!state; },
+    jump: jumpTo,
+    // What the search box would list for a question (ids; "P:" + English heading
+    // for a common problem). Used by the tests' question bank.
+    find: function (kind, roles, q) { return search(kind, roles, q).map(function (r) { return r.sop ? r.sop.id : "P:" + r.problem[0][0]; }); },
     journeys: JOURNEYS,
   };
 })();

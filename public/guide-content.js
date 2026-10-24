@@ -27,6 +27,7 @@
       ],
       sops: [
         { id: "file", title: ["File a complaint", "शिकायत दर्ज करें"],
+          ask: ["how to file or register a complaint; report a problem; complain about water, garbage, potholes, roads, drains, sewer, street lights, stray animals; lodge a grievance; add photos; first time; streetlight or light not working; something is not working in my area", "शिकायत कैसे दर्ज करें; समस्या बताएँ; पानी, कूड़ा, गड्ढा, सड़क, नाली, सीवर, स्ट्रीट लाइट की शिकायत; फ़ोटो जोड़ें"],
           what: ["Sending a civic problem (water, garbage, roads, street lights and more) to your ward's or village's elected representative.", "नागरिक समस्या (पानी, कूड़ा, सड़क, स्ट्रीट लाइट आदि) अपने वार्ड या गाँव के जनप्रतिनिधि तक भेजना।"],
           steps: [
             ["Open **grieviq.in** and tap **Use my current location**, or search an address, landmark or PIN code.", "**grieviq.in** खोलें और **मेरी वर्तमान लोकेशन का उपयोग करें** दबाएँ, या पता, लैंडमार्क या पिन कोड खोजें।"],
@@ -44,6 +45,7 @@
             ["Similar complaints shown nearby? File yours anyway if it is a different spot.", "आसपास मिलती-जुलती शिकायतें दिखें, तब भी अलग स्थान हो तो अपनी दर्ज करें।"],
           ] },
         { id: "track", title: ["Track your complaint and get phone updates", "शिकायत की स्थिति देखें और फ़ोन पर अपडेट पाएँ"],
+          ask: ["where is my complaint; check status of my complaint; follow my case; what happened to my complaint; who has my complaint; reference number; updates on my phone; get notified", "मेरी शिकायत कहाँ है; शिकायत की स्थिति देखें; मामला ट्रैक करें; संदर्भ संख्या; फ़ोन पर अपडेट"],
           what: ["Seeing who has your complaint, its time limits and what has been done.", "शिकायत किसके पास है, समय-सीमाएँ और क्या काम हुआ, यह देखना।"],
           steps: [
             ["Open **grieviq.in/status** (**Track my reports** on the home page) and enter the email you gave.", "**grieviq.in/status** (मुख्य पृष्ठ पर **मेरी शिकायतें देखें**) खोलें और शिकायत में दिया ईमेल लिखें।"],
@@ -54,6 +56,7 @@
           ],
           note: [["No email given? Keep your reference number and quote it to your representative's office or to support@grieviq.in. If a level misses its time limit, the complaint moves up by itself.", "ईमेल नहीं दिया? संदर्भ संख्या रखें और जनप्रतिनिधि कार्यालय या support@grieviq.in को बताएँ। कोई स्तर समय-सीमा चूके तो शिकायत अपने-आप ऊपर जाती है।"]] },
         { id: "confirm", title: ["Confirm the fix, or reopen", "समाधान की पुष्टि करें या शिकायत दोबारा खोलें"],
+          ask: ["problem not fixed; work not done; is it fixed; confirm the work; reopen my complaint; problem came back; complaint closed without work; not satisfied with the work", "समस्या ठीक नहीं हुई; काम नहीं हुआ; पुष्टि करें; शिकायत दोबारा खोलें; समस्या फिर से"],
           what: ["Telling GrievIQ whether the work was really done.", "GrievIQ को बताना कि काम सच में हुआ या नहीं।"],
           steps: [
             ["When the office marks it fixed, you get an email. Open your report and find **Has this been fixed?** Look at the photos of what was done.", "कार्यालय द्वारा ठीक चिह्नित करने पर ईमेल आएगा। शिकायत खोलें और **क्या समस्या का समाधान हो गया है?** देखें। किए गए काम की फ़ोटो देखें।"],
@@ -63,6 +66,7 @@
           ],
           note: [["No email given? GrievIQ staff may call you to check the fix, and can reopen it for you if you ask.", "ईमेल नहीं दिया? GrievIQ स्टाफ़ समाधान जाँचने के लिए फ़ोन कर सकता है, और आपके कहने पर शिकायत दोबारा खोल सकता है।"]] },
         { id: "rate", title: ["Rate the service", "सेवा को रेटिंग दें"],
+          ask: ["give a rating; rate the office; how did they do; stars; change my rating; review the service", "रेटिंग दें; सेवा को रेट करें; रेटिंग बदलें"],
           what: ["Telling the office and department how well your complaint was handled.", "कार्यालय और विभाग को बताना कि शिकायत कितनी अच्छी तरह संभाली गई।"],
           steps: [
             ["After the case closes, open it and answer **How did we do?**: one question about the representative's office, an optional one about the department, and an optional comment (up to 500 characters).", "शिकायत बंद होने पर उसे खोलें और **आपका अनुभव कैसा रहा?** का उत्तर दें: एक प्रश्न जनप्रतिनिधि कार्यालय पर, एक वैकल्पिक विभाग पर, और वैकल्पिक टिप्पणी (500 अक्षर तक)।"],
@@ -70,6 +74,7 @@
           ],
           note: [["Ratings are never shown publicly; an office's average appears only from 5 ratings. Don't write phone numbers in the comment.", "रेटिंग कभी सार्वजनिक नहीं होती; कार्यालय का औसत 5 रेटिंग से ही दिखता है। टिप्पणी में फ़ोन नंबर न लिखें।"]] },
         { id: "ward", title: ["Your ward page and paid notices", "आपका वार्ड पृष्ठ और सशुल्क सूचनाएँ"],
+          ask: ["who is my councillor; who is my representative; my ward page; who handles complaints in my area; paid notices in my ward; share ward link", "मेरा पार्षद कौन है; मेरा जनप्रतिनिधि कौन है; मेरे वार्ड का पृष्ठ; वार्ड की सूचनाएँ"],
           what: ["Seeing who handles complaints in your ward, how it is doing, and notices for your area. No sign-in needed.", "आपके वार्ड में शिकायतें कौन सँभालता है, स्थिति कैसी है, और आपके क्षेत्र की सूचनाएँ देखना। साइन इन की ज़रूरत नहीं।"],
           steps: [
             ["Find your ward on **grieviq.in**, or open your ward's own link (for example grieviq.in/<city>/<ward>).", "**grieviq.in** पर अपना वार्ड खोजें, या वार्ड का अपना लिंक खोलें (जैसे grieviq.in/<शहर>/<वार्ड>)।"],
@@ -79,6 +84,7 @@
           ],
           note: [["Paid notices are checked by GrievIQ first and carry no party names, symbols or requests for votes. They pause during an election code, except departments' service and safety notices.", "सशुल्क सूचनाएँ पहले GrievIQ जाँचता है; इनमें दल का नाम, चिह्न या वोट की अपील नहीं होती। आचार संहिता के दौरान ये रुकती हैं, विभागों की सेवा और सुरक्षा सूचनाओं को छोड़कर।"]] },
         { id: "data", title: ["Feedback and your personal data", "फ़ीडबैक और आपका व्यक्तिगत डेटा"],
+          ask: ["delete my data; erase my details; privacy; how long is my data kept; feedback about the website or app; suggestion for GrievIQ; withdraw consent; forget reports on this phone; remove my phone number or email", "मेरा डेटा मिटाएँ; गोपनीयता; डेटा कितने समय रखा जाता है; वेबसाइट के बारे में सुझाव; सहमति वापस लें"],
           steps: [
             ["**Feedback about GrievIQ itself** (not a civic problem): open **Feedback** on the home page and tap **Send feedback**. It is kept for one year.", "**GrievIQ के बारे में फ़ीडबैक** (नागरिक समस्या नहीं): मुख्य पृष्ठ पर **फ़ीडबैक** खोलें और **सुझाव / फ़ीडबैक भेजें** दबाएँ। यह एक वर्ष रखा जाता है।"],
             ["Reference numbers you filed are saved only on this device. On a shared phone, tap **Forget reports on this device**.", "आपकी संदर्भ संख्याएँ केवल इसी डिवाइस पर सहेजी जाती हैं। साझा फ़ोन पर **इस डिवाइस से शिकायतें हटाएँ** दबाएँ।"],
@@ -87,11 +93,11 @@
           ] },
       ],
       problems: [
-        [["The code didn't arrive", "कोड नहीं आया"], ["Check spam, wait a minute, tap **Send a new code**.", "स्पैम देखें, एक मिनट रुकें, **नया कोड भेजें** दबाएँ।"]],
+        [["The code didn't arrive", "कोड नहीं आया"], ["Check spam, wait a minute, tap **Send a new code**.", "स्पैम देखें, एक मिनट रुकें, **नया कोड भेजें** दबाएँ।"], ["code not received; otp not coming; no email", "कोड नहीं आया"], ["code not received; otp not coming; no email", "कोड नहीं आया"], ["code not received; otp not coming; no email", "कोड नहीं आया"], ["code not received; otp not coming; no email", "कोड नहीं आया"], ["code not received; otp not coming; no email", "कोड नहीं आया"]],
         [["\"Daily limit\" message", "\"दैनिक सीमा\" संदेश"], ["Up to 5 complaints a day per mobile number. Try again tomorrow; if urgent, call your representative's office.", "एक मोबाइल नंबर से दिन में 5 शिकायतें। कल प्रयास करें; ज़रूरी हो तो जनप्रतिनिधि कार्यालय को फ़ोन करें।"]],
         [["\"Notifications are blocked\"", "\"सूचनाएँ अवरुद्ध हैं\""], ["Allow notifications for grieviq.in in the browser's site settings; private windows can't receive them.", "ब्राउज़र की साइट सेटिंग में grieviq.in के लिए सूचनाओं की अनुमति दें; निजी विंडो में सूचनाएँ नहीं आतीं।"]],
         [["\"The 30 days to reopen this case have passed\"", "\"दोबारा खोलने के 30 दिन बीत गए\""], ["File a new complaint.", "नई शिकायत दर्ज करें।"]],
-        [["My area can't take complaints yet", "मेरा क्षेत्र अभी उपलब्ध नहीं"], ["Tap \"I want GrievIQ in my city\" on the home page.", "मुख्य पृष्ठ पर \"मेरे शहर में GrievIQ चाहिए\" दबाएँ।"]],
+        [["My area can't take complaints yet", "मेरा क्षेत्र अभी उपलब्ध नहीं"], ["Tap \"I want GrievIQ in my city\" on the home page.", "मुख्य पृष्ठ पर \"मेरे शहर में GrievIQ चाहिए\" दबाएँ।"], ["my city is not listed; my area is missing; grieviq not available in my city", "मेरा शहर नहीं है"], ["my city is not listed; my area is missing; grieviq not available in my city", "मेरा शहर नहीं है"], ["my city is not listed; my area is missing; grieviq not available in my city", "मेरा शहर नहीं है"], ["my city is not listed; my area is missing; grieviq not available in my city", "मेरा शहर नहीं है"], ["my city is not listed; my area is missing; grieviq not available in my city", "मेरा शहर नहीं है"]],
       ],
       contacts: ["Help: **support@grieviq.in** · Your personal data: the Grievance Officer, **grievance@grieviq.in** · Emergencies: **112**", "सहायता: **support@grieviq.in** · व्यक्तिगत डेटा: शिकायत अधिकारी, **grievance@grieviq.in** · आपात स्थिति: **112**"],
     },
@@ -107,6 +113,7 @@
       ],
       sops: [
         { id: "signin", roles: REP_ALL, title: ["Sign in, alerts and help", "साइन इन, सूचनाएँ और सहायता"],
+          ask: ["how to sign in or log in; first time login; turn on notifications or alerts; bell; iphone alerts; add to home screen; daily summary at 9 am", "साइन इन कैसे करें; लॉगिन; सूचनाएँ चालू करें; घंटी; आईफ़ोन पर अलर्ट"],
           who: ["Everyone in the office, once per phone.", "कार्यालय के सभी, हर फ़ोन पर एक बार।"],
           steps: [
             ["Open **grieviq.in/rep** and sign in with the Google account GrievIQ has on record for you. The first time, a welcome card shows the first steps: tap **Get started**.", "**grieviq.in/rep** खोलें और GrievIQ में दर्ज अपने Google खाते से साइन इन करें। पहली बार स्वागत कार्ड शुरुआती चरण दिखाता है: **शुरू करें** दबाएँ।"],
@@ -115,6 +122,7 @@
             ["Alerts come for each new complaint, each case that moves up to you, each assignment and each fix report to approve; at 9 am a summary of the day's cases.", "हर नई शिकायत, आप तक ऊपर आई हर शिकायत, हर आवंटन और स्वीकृति हेतु हर समाधान रिपोर्ट पर सूचना आती है; सुबह 9 बजे दिन की शिकायतों का सारांश।"],
           ] },
         { id: "daily", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Handle every new complaint (daily)", "हर नई शिकायत संभालें (रोज़)"],
+          ask: ["what to do every day; new complaints; acknowledge a complaint; assign a case to a field worker; give work to staff; find an old case by number; red cases; daily routine", "रोज़ क्या करें; नई शिकायत; पावती दें; फ़ील्ड कर्मी को सौंपें; पुराना मामला खोजें"],
           who: ["Representative or office manager, every morning and evening.", "जनप्रतिनिधि या कार्यालय प्रबंधक, हर सुबह और शाम।"],
           steps: [
             ["Open the **Cases** tab. Cases past their time limit are marked in red; handle those first.", "**शिकायतें** टैब खोलें। समय-सीमा पार वाली शिकायतें लाल में हैं; पहले उन्हें देखें।"],
@@ -125,6 +133,7 @@
           ],
           check: [["No new case is left unacknowledged.", "कोई नई शिकायत बिना पावती के नहीं।"], ["Every open case has a field worker or a department.", "हर खुली शिकायत किसी फ़ील्ड कर्मी या विभाग को सौंपी गई।"], ["A case marked disputed or reopened is a new priority: check it on site.", "विवादित या दोबारा खुली शिकायत नई प्राथमिकता है: मौके पर जाँचें।"]] },
         { id: "seats", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], needs: "MULTI_SEAT", title: ["Wards with several members: take or return a case", "कई सदस्यों वाले वार्ड: शिकायत लें या लौटाएँ"],
+          ask: ["take a case; open to every member; multi member ward; several members; return case to the ward; another member took it", "मामला लें; कई सदस्यों वाला वार्ड; वार्ड को लौटाएँ"],
           what: ["Only for wards that elect more than one member (seats A, B, C…). Each member's office is separate; each complaint has one office handling it.", "केवल उन वार्डों के लिए जहाँ एक से अधिक सदस्य चुने जाते हैं (सीट A, B, C…)। हर सदस्य का कार्यालय अलग है; हर शिकायत को एक ही कार्यालय सँभालता है।"],
           who: ["Representative or office manager of a member's office.", "सदस्य के कार्यालय के जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
@@ -136,6 +145,7 @@
           check: [["No complaint open to every member waits past its acknowledgement time: if nobody takes it, it moves up to the next level as usual.", "सभी सदस्यों के लिए खुली कोई शिकायत पावती समय से अधिक प्रतीक्षा न करे: कोई न ले तो वह सामान्य रूप से अगले स्तर पर चली जाती है।"]],
           note: [["If your office's plan is paused or your seat becomes vacant, your open complaints go back to the ward so another member can take them. Your **Overview** counts only your office's complaints; the whole ward's figures show separately.", "यदि आपके कार्यालय की योजना रुक जाए या आपकी सीट रिक्त हो, तो आपकी खुली शिकायतें वार्ड को लौट जाती हैं ताकि कोई अन्य सदस्य उन्हें ले सके। आपका **सारांश** केवल आपके कार्यालय की शिकायतें गिनता है; पूरे वार्ड के आँकड़े अलग दिखते हैं।"]] },
         { id: "forward", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Forward to a department and record its replies", "विभाग को अग्रेषित करें और उसके उत्तर दर्ज करें"],
+          ask: ["send complaint to a department; forward to the right department; department did not reply; record the department's reply; wrong department; department contact missing; department is late; inform or tell the department about a complaint", "विभाग को शिकायत भेजें; विभाग ने उत्तर नहीं दिया; विभाग का उत्तर दर्ज करें; गलत विभाग"],
           who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
             ["See **Who handles this**: the suggested department and its official contacts in your ward.", "**यह कौन देखता है** देखें: सुझाया गया विभाग और आपके वार्ड में उसके आधिकारिक संपर्क।"],
@@ -146,6 +156,7 @@
           ],
           note: [["No contact on file for that department? Tap **Tell GrievIQ** so staff can add it.", "उस विभाग का संपर्क नहीं है? **GrievIQ को बताएँ** दबाएँ।"]] },
         { id: "fieldcheck", roles: ["REPRESENTATIVE", "OFFICE_MANAGER", "FIELD_WORKER"], title: ["Field check and fix report", "मौके पर जाँच और समाधान रिपोर्ट"],
+          ask: ["field visit; site inspection; check the work on the spot; upload after photos; fix report; work not done send back to the department; partly fixed; gps or location of photos", "मौके पर जाँच; स्थल निरीक्षण; बाद की फ़ोटो; समाधान रिपोर्ट; विभाग को वापस भेजें"],
           who: ["Field worker (or the office manager when there is none).", "फ़ील्ड कर्मी (न हो तो कार्यालय प्रबंधक)।"],
           steps: [
             ["Go to the spot and open the case on your phone.", "मौके पर जाएँ और फ़ोन पर शिकायत खोलें।"],
@@ -156,6 +167,7 @@
           ],
           check: [["Photos show the same spot as the complaint, after the work. GrievIQ checks each photo's distance, date and earlier use, and shows warnings.", "फ़ोटो उसी स्थान की हैं और काम के बाद की हैं। GrievIQ हर फ़ोटो की दूरी, तारीख़ और पहले उपयोग की जाँच करके चेतावनी दिखाता है।"]] },
         { id: "resolve", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Resolve, and what happens after", "निस्तारित करें, और उसके बाद"],
+          ask: ["close a complaint; mark as resolved; complaint done; finish a case; citizen says it is not fixed; what happens after resolving; citizen did not confirm", "शिकायत बंद करें; निस्तारित करें; नागरिक ने कहा ठीक नहीं हुआ"],
           who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
             ["Check the photos and the field check, then tap **Approve and mark resolved** (or **Mark resolved**).", "फ़ोटो और मौके की जाँच देखें, फिर **स्वीकृत करें और निस्तारित करें** (या **निस्तारित चिह्नित करें**) दबाएँ।"],
@@ -164,6 +176,7 @@
           ],
           note: [["**Never** mark a case resolved before the work is done on the ground.", "धरातल पर काम हुए बिना शिकायत **कभी** निस्तारित न करें।"]] },
         { id: "team", roles: ["REPRESENTATIVE"], title: ["Manage the team", "टीम प्रबंधन"],
+          ask: ["add a staff member; add team member; onboard my staff; add field worker; add office manager; add office assistant; how will my staff sign in; give access to my staff; remove someone; staff on leave; change role; job profile; wards covered; confirm team; my staff or field worker left; someone left the office; who can see complaints in my office; access for my team", "स्टाफ़ जोड़ें; टीम सदस्य जोड़ें; फ़ील्ड कर्मी जोड़ें; कार्यालय प्रबंधक जोड़ें; किसी को हटाएँ; अवकाश; भूमिका बदलें"],
           who: ["Representative.", "जनप्रतिनिधि।"],
           steps: [
             ["Open **Team** and fill **Add a person** (an office manager, field worker or office assistant): name, the email of their Google account and their role. Tap **Add to team**; GrievIQ emails them how to sign in.", "**टीम** खोलें और **व्यक्ति जोड़ें** भरें (कार्यालय प्रबंधक, फ़ील्ड कर्मी या कार्यालय सहायक): नाम, उनके Google खाते का ईमेल और भूमिका। **टीम में जोड़ें** दबाएँ; GrievIQ उन्हें साइन इन का तरीका ईमेल करता है।"],
@@ -172,6 +185,7 @@
             ["When **Time to check your team** appears (every 90 days), check each person and tap **Confirm team is still correct**.", "जब **अपनी टीम जाँचने का समय** दिखे (हर 90 दिन), हर व्यक्ति जाँचें और **पुष्टि करें कि टीम अब भी सही है** दबाएँ।"],
           ] },
         { id: "reports", roles: ["REPRESENTATIVE", "OFFICE_MANAGER", "OFFICE_ASSISTANT"], title: ["Overview, reports and ratings", "सारांश, रिपोर्ट और रेटिंग"],
+          ask: ["monthly report; download report pdf csv; overview charts; how many complaints this month; pending by age; department performance on my cases; citizen ratings of my office; export to excel; overdue count", "मासिक रिपोर्ट; रिपोर्ट डाउनलोड; इस महीने कितनी शिकायतें; नागरिक रेटिंग"],
           who: ["Representative, office manager and office assistant; weekly and at month end.", "जनप्रतिनिधि, कार्यालय प्रबंधक और कार्यालय सहायक; साप्ताहिक और माह के अंत में।"],
           steps: [
             ["Open **Overview**, choose the **Period** and tap **Show**: received, resolved, pending by age and overdue, by ward or issue type.", "**सारांश** खोलें, **अवधि** चुनें और **दिखाएँ** दबाएँ: प्राप्त, निस्तारित, आयु अनुसार लंबित और समय-सीमा पार, वार्ड या शिकायत प्रकार अनुसार।"],
@@ -179,6 +193,7 @@
             ["Open **Report** for the performance report: **Download PDF**, **Print report** or **Download CSV**.", "प्रदर्शन रिपोर्ट के लिए **रिपोर्ट** खोलें: **PDF सहेजें**, **रिपोर्ट प्रिंट करें** या **CSV डाउनलोड करें**।"],
           ] },
         { id: "messages", roles: ["REPRESENTATIVE", "OFFICE_MANAGER", "OFFICE_ASSISTANT"], title: ["Messages from GrievIQ and audit observations", "GrievIQ के संदेश और ऑडिट अवलोकन"],
+          ask: ["message from GrievIQ; reply to GrievIQ; audit observation; reply to the auditor", "GrievIQ का संदेश; ऑडिटर को उत्तर; ऑडिट टिप्पणी"],
           who: ["Representative or office manager (office assistants can read only).", "जनप्रतिनिधि या कार्यालय प्रबंधक (कार्यालय सहायक केवल पढ़ सकते हैं)।"],
           steps: [
             ["Tap the bell and open **Message from GrievIQ**. Write in **Reply to GrievIQ** and tap **Send reply**.", "घंटी दबाकर **GrievIQ से संदेश** खोलें। **GrievIQ को उत्तर दें** में लिखें और **उत्तर भेजें** दबाएँ।"],
@@ -186,6 +201,7 @@
             ["When the action is done, report it done; the auditor checks it and closes it.", "कार्रवाई पूरी होने पर पूरा होने की सूचना दें; ऑडिटर जाँचकर बंद करता है।"],
           ] },
         { id: "billing", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Pay a bill", "बिल का भुगतान"],
+          ask: ["pay the bill; how to pay; payment by upi or bank transfer; enter utr; what happens if we don't pay; plan ended; view only; invoice", "बिल का भुगतान; कैसे भुगतान करें; यूपीआई; यूटीआर; भुगतान न करने पर क्या"],
           who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
             ["Watch the plan note at the top of the console. Open **Billing**: each bill shows the plan, the period, GST and the **total to pay**.", "कंसोल के ऊपर योजना की सूचना देखें। **बिलिंग** खोलें: हर बिल में योजना, अवधि, GST और **कुल देय राशि** दिखती है।"],
@@ -195,6 +211,7 @@
             ["If a bill isn't paid, everything keeps working for **7 days** after the plan ends. After that the console is **view only** until it is paid: complaints still reach you and move up on time, and you can still pay, read messages and reply to the auditor.", "बिल न चुकाने पर योजना समाप्ति के बाद **7 दिन** तक सब चलता रहता है। उसके बाद भुगतान होने तक कंसोल **केवल देखने** के लिए रहता है: शिकायतें आपको मिलती रहती हैं और समय पर ऊपर जाती हैं, और आप भुगतान कर सकते हैं, संदेश पढ़ सकते हैं और ऑडिटर को उत्तर दे सकते हैं।"],
           ] },
         { id: "notices", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Put up a public notice", "सार्वजनिक सूचना लगाएँ"],
+          ask: ["put up a public notice; announce a camp, health camp, ward sabha or help desk; scheme enrolment notice; authority letter; notice price; advertise in my ward", "सार्वजनिक सूचना लगाएँ; शिविर की घोषणा; वार्ड सभा; प्राधिकार पत्र"],
           who: ["Representative or office manager.", "जनप्रतिनिधि या कार्यालय प्रबंधक।"],
           steps: [
             ["Open **Notices** and fill in **Ask for a notice**: the kind of notice, a title and message in English, Hindi or both, and the date, time and place if there is an event.", "**सूचनाएँ** खोलें और **सूचना का अनुरोध करें** भरें: सूचना का प्रकार, अंग्रेज़ी, हिन्दी या दोनों में शीर्षक और संदेश, और कार्यक्रम हो तो तारीख़, समय और स्थान।"],
@@ -206,6 +223,7 @@
           check: [["At most 2 of your office's notices are live at a time. You can withdraw a notice until you report its payment.", "आपके कार्यालय की अधिकतम 2 सूचनाएँ एक साथ चल सकती हैं। भुगतान की सूचना देने तक आप सूचना वापस ले सकते हैं।"]],
           note: [["During an election code, representatives' notices are paused and the days are added back at the end.", "चुनाव आचार संहिता के दौरान जनप्रतिनिधियों की सूचनाएँ रुकती हैं और वे दिन अंत में जोड़ दिए जाते हैं।"]] },
         { id: "share", roles: ["REPRESENTATIVE", "OFFICE_MANAGER"], title: ["Share figures with the state government (optional)", "राज्य सरकार के साथ आँकड़े साझा करें (वैकल्पिक)"],
+          ask: ["share figures with the state government; let the state see my office; stop sharing", "राज्य सरकार के साथ आँकड़े साझा करें; साझा करना बंद करें"],
           who: ["The representative (office managers see the setting, read only).", "जनप्रतिनिधि (कार्यालय प्रबंधक सेटिंग केवल देख सकते हैं)।"],
           steps: [
             ["By default the state's dashboard shows your area only inside district totals: never named or ranked.", "डिफ़ॉल्ट रूप से राज्य के डैशबोर्ड पर आपका क्षेत्र केवल ज़िले के कुल योग में दिखता है: कभी नाम या रैंक के साथ नहीं।"],
@@ -213,6 +231,7 @@
             ["Tap **Stop sharing** at any time.", "कभी भी **साझा करना बंद करें** दबाएँ।"],
           ] },
         { id: "takeover", roles: ["REPRESENTATIVE"], title: ["When you take over an office", "जब आप कार्यालय संभालें"],
+          ask: ["I am the newly elected representative; new councillor; taking over the office; previous representative's team; handover summary; continue the plan; won the election; newly elected", "नव-निर्वाचित जनप्रतिनिधि; कार्यालय संभालें; पिछली टीम; हस्तांतरण सारांश"],
           who: ["A newly elected representative, or an administrator.", "नव-निर्वाचित जनप्रतिनिधि, या प्रशासक।"],
           steps: [
             ["Sign in with the Google account for the email GrievIQ has on record for you. The **handover summary** at the top shows the office's open complaints, those past their time limit, those waiting on a department, and the team to confirm. Tap **Print this summary** if useful.", "GrievIQ में दर्ज ईमेल वाले Google खाते से साइन इन करें। ऊपर **हस्तांतरण सारांश** में कार्यालय की खुली शिकायतें, समय-सीमा पार शिकायतें, विभाग के पास लंबित शिकायतें, और पुष्टि हेतु टीम दिखती है। ज़रूरत हो तो **यह सारांश प्रिंट करें** दबाएँ।"],
@@ -222,8 +241,8 @@
           ] },
       ],
       problems: [
-        [["Google sign-in refused", "Google साइन-इन अस्वीकार"], ["Use the exact Google account GrievIQ has on record; the representative adds team members, and a representative writes to support@grieviq.in.", "GrievIQ में दर्ज वही Google खाता उपयोग करें; टीम सदस्यों को जनप्रतिनिधि जोड़ते हैं, और जनप्रतिनिधि support@grieviq.in को लिखें।"]],
-        [["No alerts on the phone", "फ़ोन पर सूचना नहीं"], ["Don't use Private/Incognito; tap the bell and allow notifications; on iPhone, add GrievIQ to the Home Screen first.", "Private/Incognito न उपयोग करें; घंटी दबाकर अनुमति दें; iPhone पर पहले होम स्क्रीन पर जोड़ें।"]],
+        [["Google sign-in refused", "Google साइन-इन अस्वीकार"], ["Use the exact Google account GrievIQ has on record; the representative adds team members, and a representative writes to support@grieviq.in.", "GrievIQ में दर्ज वही Google खाता उपयोग करें; टीम सदस्यों को जनप्रतिनिधि जोड़ते हैं, और जनप्रतिनिधि support@grieviq.in को लिखें।"], ["google says no access; cannot log in; account not recognised", "गूगल साइन इन नहीं हो रहा"], ["google says no access; cannot log in; account not recognised", "गूगल साइन इन नहीं हो रहा"], ["google says no access; cannot log in; account not recognised", "गूगल साइन इन नहीं हो रहा"], ["google says no access; cannot log in; account not recognised", "गूगल साइन इन नहीं हो रहा"], ["google says no access; cannot log in; account not recognised", "गूगल साइन इन नहीं हो रहा"]],
+        [["No alerts on the phone", "फ़ोन पर सूचना नहीं"], ["Don't use Private/Incognito; tap the bell and allow notifications; on iPhone, add GrievIQ to the Home Screen first.", "Private/Incognito न उपयोग करें; घंटी दबाकर अनुमति दें; iPhone पर पहले होम स्क्रीन पर जोड़ें।"], ["not getting alerts; notifications not coming", "अलर्ट नहीं आ रहे"], ["not getting alerts; notifications not coming", "अलर्ट नहीं आ रहे"], ["not getting alerts; notifications not coming", "अलर्ट नहीं आ रहे"], ["not getting alerts; notifications not coming", "अलर्ट नहीं आ रहे"], ["not getting alerts; notifications not coming", "अलर्ट नहीं आ रहे"]],
         [["Can't assign a field worker", "फ़ील्ड कर्मी नहीं सौंप पा रहे"], ["Set their wards in their job profile, or check they are not on leave.", "उनके कार्य विवरण में वार्ड जोड़ें, या जाँचें कि वे अवकाश पर न हों।"]],
         [["\"Your office's plan is paused\"", "\"आपके कार्यालय की योजना रुकी है\""], ["You can view only until the bill is paid; complaints still move up on time.", "बिल भुगतान तक आप केवल देख सकते हैं; शिकायतें समय पर ऊपर जाती रहती हैं।"]],
       ],
@@ -242,6 +261,7 @@
       ],
       sops: [
         { id: "signin", title: ["Sign in", "साइन इन करें"],
+          ask: ["how to sign in; login; otp code; first time; rules for officers; notifications", "साइन इन कैसे करें; लॉगिन; कोड; अधिकारियों के नियम"],
           who: ["Each officer named in the office's agreement.", "कार्यालय के समझौते में नामित हर अधिकारी।"],
           steps: [
             ["Open **grieviq.in/dept** and type your official email.", "**grieviq.in/dept** खोलें और अपना आधिकारिक ईमेल लिखें।"],
@@ -250,6 +270,7 @@
           ],
           note: [["You are signed out after 60 minutes without activity. Always sign out on shared computers.", "60 मिनट निष्क्रियता पर आप साइन आउट हो जाते हैं। साझा कंप्यूटर पर हमेशा साइन आउट करें।"]] },
         { id: "dashboard", title: ["Read your dashboard", "अपना डैशबोर्ड पढ़ें"],
+          ask: ["what do the tiles mean; new no reply yet; past the target time; what is the target time; how many days to reply; closed cases", "डैशबोर्ड समझें; लक्ष्य समय क्या है; लक्ष्य समय पार"],
           who: ["Every officer, every working day.", "हर अधिकारी, हर कार्य-दिवस।"],
           steps: [
             ["**New, no reply yet**: reply to each one. **With your office**: keep to the date you gave. **Past the target time**: reply first.", "**नए, अभी उत्तर नहीं**: हर एक पर उत्तर दें। **आपके कार्यालय के पास**: दी गई तिथि का पालन करें। **समय-सीमा से पीछे**: पहले उत्तर दें।"],
@@ -258,6 +279,7 @@
           ],
           check: [["By the end of the day, nothing is left under **New, no reply yet**. The target time is usually 7 days (up to 21 for some types) and starts again when a case is sent back.", "दिन के अंत में **नए, अभी उत्तर नहीं** में कोई मामला न रहे। लक्ष्य अवधि सामान्यतः 7 दिन (कुछ प्रकारों में 21 तक) है और वापस भेजे जाने पर फिर शुरू होती है।"]] },
         { id: "reply", title: ["Reply on a forwarded case", "भेजी गई शिकायत पर उत्तर दें"],
+          ask: ["reply to a case; give the position; work done upload photos; give a date for the work; work started; cannot do this work; not our office's work; contact the citizen; add a note; work will take time; expected date of the work", "मामले का उत्तर दें; काम पूरा फ़ोटो; तारीख़ दें; काम नहीं हो सकता; हमारे कार्यालय का काम नहीं"],
           who: ["The officer responsible for the work.", "काम का जिम्मेदार अधिकारी।"],
           steps: [
             ["Open the case from the list or the alert: read the problem, see the map and the citizen's photos.", "सूची या सूचना से शिकायत खोलें: समस्या पढ़ें, नक्शा और नागरिक की फ़ोटो देखें।"],
@@ -272,6 +294,7 @@
             ["Not your work? Said **This isn't our office's work** at once.", "आपका काम नहीं? तुरंत **यह हमारे कार्यालय का काम नहीं है** चुना।"],
           ] },
         { id: "sentback", title: ["A case sent back after the check on site", "मौके की जाँच के बाद वापस भेजा गया मामला"],
+          ask: ["case sent back; field check failed; not fixed after check; redo the work", "मामला वापस भेजा गया; जाँच में ठीक नहीं"],
           who: ["The officer responsible for the work.", "काम का जिम्मेदार अधिकारी।"],
           steps: [
             ["Open the case from the alert or from **Sent back after the check**. Read what the check found and look at its photos.", "सूचना से या **जाँच के बाद वापस भेजे गए** से मामला खोलें। जाँच में क्या मिला पढ़ें और उसकी फ़ोटो देखें।"],
@@ -279,6 +302,7 @@
           ],
           note: [["The target time starts again when a case is sent back. Being sent back often lowers your office's \"fixed at the first check\" figure.", "वापस भेजे जाने पर लक्ष्य अवधि फिर शुरू होती है। बार-बार वापस भेजे जाने से आपके कार्यालय का \"पहली जाँच में ठीक\" आँकड़ा घटता है।"]] },
         { id: "officers", title: ["Officers joining, leaving or transferred", "अधिकारी का जुड़ना, जाना या स्थानांतरण"],
+          ask: ["add a new officer; add my colleague; onboard staff; give access to another officer; new officer joined; officer transferred; officer retired or leaving; remove an officer; successor; annexure a", "नया अधिकारी जोड़ें; सहकर्मी जोड़ें; अधिकारी का स्थानांतरण; अधिकारी सेवानिवृत्त; अधिकारी हटाएँ"],
           who: ["Head of the office.", "कार्यालय प्रमुख।"],
           steps: [
             ["Officers who may sign in are named in your office's signed agreement (Annexure A), each with an official email.", "साइन इन करने वाले अधिकारी कार्यालय के हस्ताक्षरित समझौते (अनुलग्नक A) में आधिकारिक ईमेल सहित नामित होते हैं।"],
@@ -287,6 +311,7 @@
             ["If the officer leaving is the office's only one, name the successor in the same message. Otherwise the office shows **No officer to reply**.", "जाने वाला अधिकारी कार्यालय का अकेला अधिकारी हो, तो उसी संदेश में उत्तराधिकारी का नाम दें। वरना कार्यालय पर **उत्तर देने वाला कोई अधिकारी नहीं** दिखता है।"],
           ] },
         { id: "performance", title: ["Your office's performance, and who sees it", "आपके कार्यालय का प्रदर्शन, और उसे कौन देखता है"],
+          ask: ["our performance; who sees our ranking; state dashboard ranking; ratings of our office; first reply time", "हमारा प्रदर्शन; रैंकिंग कौन देखता है; रेटिंग"],
           who: ["Every officer, monthly and before review meetings.", "हर अधिकारी, हर महीने और समीक्षा बैठकों से पहले।"],
           steps: [
             ["Open **Your office's performance**: cases received, first-reply time, work done within the target time, fixed at the first check, and citizens' ratings (an average from 5 ratings).", "**आपके कार्यालय का प्रदर्शन** खोलें: प्राप्त मामले, पहले उत्तर का समय, लक्ष्य अवधि में पूरा काम, पहली जाँच में ठीक, और नागरिकों की रेटिंग (औसत 5 रेटिंग से)।"],
@@ -295,6 +320,7 @@
           ],
           check: [["**Past the target time** stays at zero, and replies are honest, so cases aren't sent back.", "**समय-सीमा से पीछे** शून्य पर रहे, और उत्तर सच्चे हों, ताकि मामले वापस न भेजे जाएँ।"]] },
         { id: "billing", title: ["Pay a bill", "बिल का भुगतान"],
+          ask: ["pay the bill; upi; utr; complimentary plan; view only; invoice", "बिल का भुगतान; यूपीआई; यूटीआर; निःशुल्क योजना"],
           who: ["The officer who handles the office's payments.", "कार्यालय के भुगतान देखने वाले अधिकारी।"],
           steps: [
             ["On the dashboard, tap **Open billing**. Each bill shows the plan, the period, GST and the **total to pay**.", "डैशबोर्ड पर **बिलिंग खोलें** दबाएँ। हर बिल में योजना, अवधि, GST और **कुल देय राशि** दिखती है।"],
@@ -305,6 +331,7 @@
           ],
           note: [["Some department offices are on a complimentary plan agreed in writing with GrievIQ; they get no bills.", "कुछ विभागीय कार्यालय GrievIQ के साथ लिखित रूप में तय निःशुल्क योजना पर हैं; उन्हें बिल नहीं आते।"]] },
         { id: "notices", title: ["Put up a public notice", "सार्वजनिक सूचना लगाएँ"],
+          ask: ["water or power shutdown notice; road closure announcement; camp notice; safety advice; sanction letter; tell citizens before a shutdown", "पानी या बिजली बंद की सूचना; सड़क बंद; स्वीकृति पत्र"],
           who: ["Any officer of the office.", "कार्यालय का कोई भी अधिकारी।"],
           steps: [
             ["On the dashboard, tap **Open public notices** and fill in **Ask for a notice**: for example a water or power shutdown, a road closure, a camp or safety advice.", "डैशबोर्ड पर **सार्वजनिक सूचनाएँ खोलें** दबाएँ और **सूचना का अनुरोध करें** भरें: जैसे पानी या बिजली बंद, सड़क बंद, शिविर या सुरक्षा सलाह।"],
@@ -315,9 +342,9 @@
           note: [["Notices about service interruptions and public safety continue during an election code. No links, party names or praise of anyone.", "सेवा में रुकावट और जन सुरक्षा की सूचनाएँ चुनाव आचार संहिता के दौरान भी जारी रहती हैं। कोई लिंक, दल का नाम या किसी की प्रशंसा नहीं।"]] },
       ],
       problems: [
-        [["The code didn't arrive", "कोड नहीं आया"], ["Check spam; wait a minute and ask again. After 3 codes in 15 minutes, wait 15 minutes.", "स्पैम देखें; एक मिनट बाद फिर माँगें। 15 मिनट में 3 कोड के बाद 15 मिनट रुकें।"]],
-        [["My email isn't accepted", "मेरा ईमेल स्वीकार नहीं"], ["Only officers named by your office can sign in. Ask your head of office to email support@grieviq.in.", "केवल कार्यालय द्वारा नामित अधिकारी साइन इन कर सकते हैं। कार्यालय प्रमुख support@grieviq.in को लिखें।"]],
-        [["The case isn't ours", "शिकायत हमारी नहीं"], ["Reply **This isn't our office's work**; the representative's office forwards it elsewhere.", "**यह हमारे कार्यालय का काम नहीं है** उत्तर दें; जनप्रतिनिधि कार्यालय इसे कहीं और भेजेगा।"]],
+        [["The code didn't arrive", "कोड नहीं आया"], ["Check spam; wait a minute and ask again. After 3 codes in 15 minutes, wait 15 minutes.", "स्पैम देखें; एक मिनट बाद फिर माँगें। 15 मिनट में 3 कोड के बाद 15 मिनट रुकें।"], ["code not received; otp not coming", "कोड नहीं आया"], ["code not received; otp not coming", "कोड नहीं आया"], ["code not received; otp not coming", "कोड नहीं आया"], ["code not received; otp not coming", "कोड नहीं आया"], ["code not received; otp not coming", "कोड नहीं आया"]],
+        [["My email isn't accepted", "मेरा ईमेल स्वीकार नहीं"], ["Only officers named by your office can sign in. Ask your head of office to email support@grieviq.in.", "केवल कार्यालय द्वारा नामित अधिकारी साइन इन कर सकते हैं। कार्यालय प्रमुख support@grieviq.in को लिखें।"], ["email not accepted; email not allowed", "ईमेल स्वीकार नहीं"], ["email not accepted; email not allowed", "ईमेल स्वीकार नहीं"], ["email not accepted; email not allowed", "ईमेल स्वीकार नहीं"], ["email not accepted; email not allowed", "ईमेल स्वीकार नहीं"], ["email not accepted; email not allowed", "ईमेल स्वीकार नहीं"]],
+        [["The case isn't ours", "शिकायत हमारी नहीं"], ["Reply **This isn't our office's work**; the representative's office forwards it elsewhere.", "**यह हमारे कार्यालय का काम नहीं है** उत्तर दें; जनप्रतिनिधि कार्यालय इसे कहीं और भेजेगा।"], ["belongs to another department; not our work", "दूसरे विभाग का काम"], ["belongs to another department; not our work", "दूसरे विभाग का काम"], ["belongs to another department; not our work", "दूसरे विभाग का काम"]],
       ],
       contacts: ["Officer changes and help: **support@grieviq.in** · Security: **security@grieviq.in** (within 24 hours)", "अधिकारी बदलाव और सहायता: **support@grieviq.in** · सुरक्षा: **security@grieviq.in** (24 घंटे के भीतर)"],
     },
@@ -332,6 +359,7 @@
       ],
       sops: [
         { id: "signin", title: ["Sign in and sign out", "साइन इन और साइन आउट"],
+          ask: ["how to sign in or log in; sign out; code; which address state or national; session expired; signed out automatically", "साइन इन; साइन आउट; कोड"],
           who: ["Every official with access, on their government's letter.", "अपनी सरकार के पत्र पर पहुँच वाला हर अधिकारी।"],
           steps: [
             ["Open **grieviq.in/state** (state and district officials) or **grieviq.in/national** (Union ministries). Not sure? Open **grieviq.in/gov** and choose.", "**grieviq.in/state** (राज्य और ज़िला अधिकारी) या **grieviq.in/national** (केंद्रीय मंत्रालय) खोलें। निश्चित नहीं? **grieviq.in/gov** खोलकर चुनें।"],
@@ -341,6 +369,7 @@
           ],
           note: [["You are signed out after 1 hour without activity, or 8 hours after signing in. After 5 wrong tries, or 3 codes in 15 minutes, wait 15 minutes.", "1 घंटे की निष्क्रियता पर, या साइन इन के 8 घंटे बाद, आप साइन आउट हो जाते हैं। 5 गलत प्रयासों, या 15 मिनट में 3 कोड के बाद, 15 मिनट रुकें।"]] },
         { id: "read", title: ["Read the dashboard", "डैशबोर्ड पढ़ें"],
+          ask: ["how to read the dashboard; what does pending mean; change the month; key figures; see a district or city; places table; departments list; what a figure means; district wise or city wise figures", "डैशबोर्ड कैसे पढ़ें; लंबित का अर्थ; महीना बदलें; ज़िले के आँकड़े"],
           who: ["Every official, at least weekly and before a review meeting.", "हर अधिकारी, कम से कम साप्ताहिक और समीक्षा बैठक से पहले।"],
           steps: [
             ["Choose the **Month** at the top (the last 12 months). \"Pending\" figures are always as of today.", "ऊपर **महीना** चुनें (पिछले 12 महीने)। \"लंबित\" आँकड़े हमेशा आज की स्थिति के हैं।"],
@@ -352,6 +381,7 @@
           ],
           check: [["Quote every figure with its month and place, and read \"fewer than 10\" as \"too few to show\", never as zero.", "हर आँकड़ा उसके महीने और स्थान के साथ बताएँ, और \"10 से कम\" को \"दिखाने के लिए बहुत कम\" समझें, कभी शून्य नहीं।"]] },
         { id: "reports", title: ["The six MIS reports", "छह MIS रिपोर्ट"],
+          ask: ["download excel or pdf; mis reports; monthly email reminder; print a report; cases pending over 30 days report", "एक्सेल या पीडीएफ़ डाउनलोड; एमआईएस रिपोर्ट; मासिक ईमेल"],
           who: ["Every official, monthly or before a review.", "हर अधिकारी, मासिक या समीक्षा से पहले।"],
           steps: [
             ["Tap **Reports (PDF and Excel)**. The six reports are: the key figures; place by place; department by department; cases pending over 30 days; issue types over 12 months; and representatives' offices as area totals.", "**रिपोर्ट (PDF और Excel)** दबाएँ। छह रिपोर्ट हैं: मुख्य आँकड़े; स्थानवार; विभागवार; 30 दिन से अधिक लंबित मामले; 12 महीनों में शिकायत प्रकार; और जनप्रतिनिधि कार्यालय क्षेत्र के कुल योग के रूप में।"],
@@ -360,6 +390,7 @@
           ],
           check: [["The report header shows your place and the month you meant. A report marked DEMO DATA is never filed or sent as real.", "रिपोर्ट के शीर्ष पर आपका स्थान और सही महीना है। DEMO DATA वाली रिपोर्ट कभी असली के रूप में दर्ज या भेजी नहीं जाती।"]] },
         { id: "followup", title: ["Follow up with department offices", "विभागीय कार्यालयों के साथ अनुवर्ती कार्रवाई"],
+          ask: ["follow up with late departments; department with most late cases; review meeting; can I reply to a complaint; ask about a citizen; write to a department or raise it officially", "देर वाले विभागों से फ़ॉलो-अप; समीक्षा बैठक"],
           who: ["Officials who supervise department offices; weekly and before each monthly review.", "विभागीय कार्यालयों की निगरानी करने वाले अधिकारी; साप्ताहिक और हर मासिक समीक्षा से पहले।"],
           steps: [
             ["Open **Government departments** and sort by **Late now**, or open the report of cases pending over 30 days.", "**सरकारी विभाग** खोलकर **अभी देर** से क्रम लगाएँ, या 30 दिन से अधिक लंबित मामलों की रिपोर्ट खोलें।"],
@@ -368,6 +399,7 @@
           ],
           note: [["You can't reply to cases from the government dashboards; department offices reply on their own dashboard. Never ask about a named citizen.", "सरकारी डैशबोर्ड से मामलों पर उत्तर नहीं दिया जा सकता; विभागीय कार्यालय अपने डैशबोर्ड पर उत्तर देते हैं। किसी नामित नागरिक के बारे में कभी न पूछें।"]] },
         { id: "access", title: ["Access, yearly review, transfer and leaving", "पहुँच, वार्षिक समीक्षा, स्थानांतरण और जाना"],
+          ask: ["give access to another officer; new official; I am transferred; yearly review; leaving government; new email; add my deputy or colleague; give access to my team", "दूसरे अधिकारी को पहुँच; स्थानांतरण; वार्षिक समीक्षा"],
           who: ["The official, and the department that writes to GrievIQ.", "अधिकारी, और GrievIQ को लिखने वाला विभाग।"],
           steps: [
             ["Your state government (or Union ministry) writes to GrievIQ naming you: name, designation, official email (gov.in or nic.in), and the level. GrievIQ records the letter and sets up access.", "आपकी राज्य सरकार (या केंद्रीय मंत्रालय) GrievIQ को आपका नाम, पदनाम, आधिकारिक ईमेल (gov.in या nic.in) और स्तर लिखती है। GrievIQ पत्र दर्ज करके पहुँच देता है।"],
@@ -375,6 +407,7 @@
             ["Transferred, or a new post email? Your department sends a new letter; GrievIQ moves your access and your email choices. Leaving government work? Your department tells support@grieviq.in the same day.", "स्थानांतरण, या नया पद ईमेल? आपका विभाग नया पत्र भेजता है; GrievIQ आपकी पहुँच और ईमेल विकल्प स्थानांतरित करता है। सरकारी कार्य छोड़ रहे हैं? आपका विभाग उसी दिन support@grieviq.in को बताए।"],
           ] },
         { id: "demo", title: ["Show the demo in a presentation", "प्रस्तुति में डेमो दिखाएँ"],
+          ask: ["show a demo in a meeting or presentation; sample data; demo mode; leave the demo", "बैठक में डेमो दिखाएँ; नमूना डेटा"],
           who: ["Any official, or GrievIQ staff; no sign-in needed.", "कोई भी अधिकारी, या GrievIQ स्टाफ़; साइन इन की ज़रूरत नहीं।"],
           steps: [
             ["Open **grieviq.in/gov** and tap **See the demo**, or tap **See a demo with sample data** on a sign-in page.", "**grieviq.in/gov** खोलकर **डेमो देखें** दबाएँ, या साइन-इन पृष्ठ पर **नमूना आँकड़ों के साथ डेमो देखें** दबाएँ।"],
@@ -384,7 +417,7 @@
           check: [["Say aloud that the figures are invented, and never paste demo figures into a real file or return.", "बताएँ कि आँकड़े काल्पनिक हैं, और डेमो आँकड़े कभी असली फ़ाइल या रिटर्न में न डालें।"]] },
       ],
       problems: [
-        [["No code arrives", "कोड नहीं आया"], ["Check spam. If your email isn't on record, ask your department to write to GrievIQ naming you and your email.", "स्पैम देखें। आपका ईमेल दर्ज न हो तो अपने विभाग से कहें कि GrievIQ को आपके नाम और ईमेल के साथ लिखे।"]],
+        [["No code arrives", "कोड नहीं आया"], ["Check spam. If your email isn't on record, ask your department to write to GrievIQ naming you and your email.", "स्पैम देखें। आपका ईमेल दर्ज न हो तो अपने विभाग से कहें कि GrievIQ को आपके नाम और ईमेल के साथ लिखे।"], ["no code; code not received; otp", "कोड नहीं आया"], ["no code; code not received; otp", "कोड नहीं आया"], ["no code; code not received; otp", "कोड नहीं आया"], ["no code; code not received; otp", "कोड नहीं आया"], ["no code; code not received; otp", "कोड नहीं आया"]],
         [["Access refused although you had it", "पहले पहुँच थी, अब अस्वीकार"], ["Your yearly review may be overdue, or access was removed: ask your department to confirm your access in writing.", "आपकी वार्षिक समीक्षा बाकी हो सकती है, या पहुँच हटा दी गई: अपने विभाग से लिखित पुष्टि भेजने को कहें।"]],
         [["\"The figures couldn't be loaded\"", "\"आँकड़े लोड नहीं हो सके\""], ["Tap **Try again**; if it persists, write to support@grieviq.in with the time.", "**फिर से प्रयास करें** दबाएँ; फिर भी हो तो समय के साथ support@grieviq.in पर लिखें।"]],
       ],
@@ -403,6 +436,7 @@
       ],
       sops: [
         { id: "day", roles: ["super_admin", "operations_admin", "data_moderator"], title: ["Start of day", "दिन की शुरुआत"],
+          ask: ["what to do first in the morning; start of the day; daily routine; dashboard tiles; daily work order", "सुबह सबसे पहले क्या करें; दिन की शुरुआत; रोज़ का काम"],
           who: ["Operations admin every working day; data moderator for Checks and Reviews.", "संचालन एडमिन हर कार्य-दिवस; डेटा मॉडरेटर जाँच और समीक्षा के लिए।"],
           steps: [
             ["Open the **Dashboard**. Note cases past their time limits, open exceptions, fixes waiting for a check, and new feedback and low ratings.", "**डैशबोर्ड** खोलें। समय-सीमा पार शिकायतें, खुले अपवाद, जाँच की प्रतीक्षा में समाधान, और नया फ़ीडबैक व कम रेटिंग देखें।"],
@@ -410,6 +444,7 @@
             ["Opening the Dashboard also runs the small automatic jobs (photo clean-up, retention notices). Sign out when you finish.", "डैशबोर्ड खुलने पर छोटे स्वचालित काम (फ़ोटो सफ़ाई, संग्रहण सूचनाएँ) भी चलते हैं। काम पूरा होने पर साइन आउट करें।"],
           ] },
         { id: "exceptions", roles: DAILY, title: ["Exceptions and nudges", "अपवाद और अनुस्मारक"],
+          ask: ["case not acknowledged; late or overdue case; remind an office; send a nudge; escalated or disputed cases; office not responding", "पावती नहीं दी; देर वाला मामला; कार्यालय को याद दिलाएँ"],
           who: ["Operations or super admin; the auditor can look.", "संचालन या सुपर एडमिन; ऑडिटर देख सकता है।"],
           steps: [
             ["Open **Exceptions**: open cases not acknowledged in time, escalated, disputed or awaiting legal review, oldest first.", "**अपवाद** खोलें: समय पर पावती न हुई, ऊपर भेजी गई, विवादित या कानूनी समीक्षा की प्रतीक्षा वाली खुली शिकायतें, सबसे पुरानी पहले।"],
@@ -417,6 +452,7 @@
           ],
           check: [["Never change a case yourself, and don't nudge the same case twice in a day.", "शिकायत स्वयं कभी न बदलें, और एक दिन में एक शिकायत को दो बार याद न दिलाएँ।"]] },
         { id: "checks", roles: ["super_admin", "operations_admin", "data_moderator"], title: ["Check a fix for a citizen with no email", "बिना ईमेल वाले नागरिक का समाधान जाँचें"],
+          ask: ["citizen has no email; check a fix by photos; call the citizen to check the work; show number to call; not verified", "नागरिक का ईमेल नहीं; फ़ोटो से समाधान जाँचें; नागरिक को फ़ोन करें"],
           who: ["Data moderator, operations admin or super admin.", "डेटा मॉडरेटर, संचालन या सुपर एडमिन।"],
           steps: [
             ["Open **Checks** and compare the citizen's photos with the after-work photos and the location; read every warning. A fix closes as \"not verified\" 7 days after it was marked resolved if nobody checks.", "**जाँच** खोलें और नागरिक की फ़ोटो को काम के बाद की फ़ोटो और स्थान से मिलाएँ; हर चेतावनी पढ़ें। कोई जाँच न करे तो निस्तारित होने के 7 दिन बाद समाधान \"सत्यापित नहीं\" के रूप में बंद होता है।"],
@@ -425,6 +461,7 @@
           ],
           check: [["Nobody checks a case in a ward where they are a representative, or a case they marked resolved.", "कोई उस वार्ड का मामला नहीं जाँचता जहाँ वे जनप्रतिनिधि हैं, या जो मामला उन्होंने निस्तारित किया।"]] },
         { id: "reviews", roles: ["super_admin", "operations_admin", "data_moderator"], title: ["Reviews: representative details suggested by citizens", "समीक्षा: नागरिकों के सुझाए जनप्रतिनिधि विवरण"],
+          ask: ["citizens suggested a different representative name or phone; approve a citizen suggestion; reviews page", "नागरिकों का सुझाया नाम; सुझाव स्वीकृत करें"],
           who: ["Data moderator, operations admin or super admin.", "डेटा मॉडरेटर, संचालन या सुपर एडमिन।"],
           steps: [
             ["Open **Reviews**. Compare **On file now** with **Citizens suggest**; suggestions from several citizens come first.", "**समीक्षा** खोलें। **अभी दर्ज** को **नागरिकों का सुझाव** से मिलाएँ; कई नागरिकों के सुझाव पहले आते हैं।"],
@@ -432,6 +469,7 @@
             ["Tap **Approve…**, correct **Name to save**, fill **Phone to save (optional)** only with a verified number, and tap **Approve and save**. Approving updates that role in every ward of the place shown. Can't verify? **Reject**.", "**अनुमोदित करें…** दबाएँ, **सहेजा जाने वाला नाम** सुधारें, **सहेजा जाने वाला फ़ोन (वैकल्पिक)** केवल सत्यापित नंबर से भरें, और **अनुमोदित करें और सहेजें** दबाएँ। अनुमोदन दिखाए गए स्थान के हर वार्ड में वह पद बदलता है। सत्यापित न हो सके? **अस्वीकार करें**।"],
           ] },
         { id: "feedback", roles: DAILY, title: ["Feedback and low ratings", "फ़ीडबैक और कम रेटिंग"],
+          ask: ["citizen feedback about the website; bug report; low rating follow up; ratings waiting", "वेबसाइट पर फ़ीडबैक; कम रेटिंग पर फ़ॉलो-अप"],
           who: ["Operations or super admin; the auditor reads.", "संचालन या सुपर एडमिन; ऑडिटर पढ़ता है।"],
           steps: [
             ["In **Feedback**, set each item **In progress**, then **Done**, with an **Internal note** (staff only). A bug goes to the developer without the citizen's details.", "**फ़ीडबैक** में हर आइटम को **जारी**, फिर **पूरा** करें, **आंतरिक नोट** (केवल स्टाफ़) के साथ। गड़बड़ी नागरिक के विवरण के बिना डेवलपर को जाती है।"],
@@ -439,6 +477,7 @@
           ],
           check: [["Never ask a citizen to change a rating, and never tell an office which citizen gave it.", "नागरिक से रेटिंग बदलने को कभी न कहें, और कार्यालय को कभी न बताएँ कि रेटिंग किसने दी।"]] },
         { id: "messages", roles: DAILY, title: ["Messages to representatives' offices", "जनप्रतिनिधि कार्यालयों को संदेश"],
+          ask: ["send a message to offices; announcement to representatives; message all wards; replies from offices; email limit", "कार्यालयों को संदेश भेजें; जनप्रतिनिधियों को घोषणा"],
           who: ["Operations or super admin; the auditor reads.", "संचालन या सुपर एडमिन; ऑडिटर पढ़ता है।"],
           steps: [
             ["Open **Messages** → **New message**: a **Title** and the **Message** (up to 2,000 characters), no citizen's details.", "**संदेश** → **नया संदेश** खोलें: **शीर्षक** और **संदेश** (2,000 अक्षर तक), नागरिक का कोई विवरण नहीं।"],
@@ -447,6 +486,7 @@
           ],
           check: [["The same message goes to every party's offices in an area; never a message for one party.", "किसी क्षेत्र में हर दल के कार्यालयों को एक जैसा संदेश; किसी एक दल के लिए कभी नहीं।"]] },
         { id: "data", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Areas, wards, imports and change requests", "क्षेत्र, वार्ड, आयात और परिवर्तन अनुरोध"],
+          ask: ["add a new city or district; add a ward or village; import wards from excel or csv; upload ward boundaries map; switch on a city for citizens; approve or reject a change request; data entry operator request; ward boundary geojson file", "नया शहर या ज़िला जोड़ें; वार्ड जोड़ें; वार्ड आयात; सीमा नक़्शा; परिवर्तन अनुरोध स्वीकृत"],
           who: ["Data entry operator requests; operations or super admin approve and run imports.", "डेटा एंट्री ऑपरेटर अनुरोध करता है; संचालन या सुपर एडमिन स्वीकृत करते और आयात चलाते हैं।"],
           steps: [
             ["**Data entry operator:** in **Jurisdiction**, tap **Request change** (or **+ Request new ward/village**), fill **Reason for the change (required)** and the official **Source**, and tap **Send request**. Follow it under **My requests**.", "**डेटा एंट्री ऑपरेटर:** **क्षेत्राधिकार** में **परिवर्तन का अनुरोध** (या **+ नए वार्ड/गाँव का अनुरोध**) दबाएँ, **परिवर्तन का कारण (आवश्यक)** और आधिकारिक **स्रोत** भरें, और **अनुरोध भेजें** दबाएँ। **मेरे अनुरोध** में देखें।"],
@@ -454,7 +494,22 @@
             ["A new city or district: **Add a city or district** in **Areas**, add wards by hand or with **Import jurisdiction data** (**Check the file**, then **Import now**), add maps with **Import ward boundaries**, then **Switch on for citizens**.", "नया शहर या ज़िला: **क्षेत्र** में **शहर या ज़िला जोड़ें**, वार्ड हाथ से या **क्षेत्राधिकार डेटा का आयात** (**फ़ाइल जाँचें**, फिर **अब आयात करें**) से जोड़ें, **वार्ड सीमाओं का आयात** से नक़्शे जोड़ें, फिर **नागरिकों के लिए चालू करें**।"],
           ],
           check: [["Official sources only; a newspaper or party website is not a source.", "केवल आधिकारिक स्रोत; अख़बार या दल की वेबसाइट स्रोत नहीं।"]] },
+        { id: "addrep", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Add a representative, or correct their contact details", "जनप्रतिनिधि जोड़ें, या उनका संपर्क विवरण सुधारें"],
+          ask: ["add a representative; add councillor, corporator, gram pradhan, sarpanch, mayor, mla or mp; set or correct the representative's email or phone; representative phone or email is wrong; spelling of the representative's name is wrong; why can't citizens file complaints in a ward; representative cannot sign in; representative email missing; no email for a ward; update a councillor's phone", "जनप्रतिनिधि जोड़ें; पार्षद, प्रधान, महापौर, विधायक या सांसद जोड़ें; ईमेल या फ़ोन सुधारें; नाम की वर्तनी"],
+          who: ["Super or operations admin saves it; a data entry operator sends it as a request.", "सुपर या संचालन एडमिन सहेजते हैं; डेटा एंट्री ऑपरेटर इसे अनुरोध के रूप में भेजता है।"],
+          what: ["Putting a ward councillor, gram pradhan, mayor, MLA or MP on GrievIQ: their name, official phone and the email of the Google account they will sign in with. Until a ward or village has an email, citizens can't file complaints there.", "किसी पार्षद, ग्राम प्रधान, महापौर, विधायक या सांसद को GrievIQ पर जोड़ना: उनका नाम, आधिकारिक फ़ोन और उस Google खाते का ईमेल जिससे वे साइन इन करेंगे। जब तक किसी वार्ड या गाँव का ईमेल नहीं होता, नागरिक वहाँ शिकायत दर्ज नहीं कर सकते।"],
+          steps: [
+            ["Take the details from an official source: the election result, the state election commission or the municipal body's website, or an RTI reply.", "विवरण आधिकारिक स्रोत से लें: चुनाव परिणाम, राज्य निर्वाचन आयोग या नगर निकाय की वेबसाइट, या RTI उत्तर।"],
+            ["Open **Jurisdiction** and search for the ward, village, MLA or MP (the search also finds representatives' names).", "**क्षेत्राधिकार** खोलें और वार्ड, गाँव, विधायक या सांसद खोजें (खोज जनप्रतिनिधियों के नाम भी ढूँढती है)।"],
+            ["Tap **Edit** beside it (for a mayor, **Edit mayor**). Fill **Name**, **Phone** and **Email**, then tap **Save**. If GrievIQ asks **Did you mean …?** about the email, choose the right one.", "उसके पास **संपादित करें** दबाएँ (महापौर के लिए **महापौर संपादित करें**)। **नाम**, **फ़ोन** और **ईमेल** भरें, फिर **सहेजें** दबाएँ। यदि GrievIQ ईमेल के बारे में **क्या आपका मतलब … था?** पूछे, तो सही ईमेल चुनें।"],
+            ["**Data entry operator:** tap **Request change** (for a mayor, **Request change (mayor)**), fill the details, **Reason for the change (required)** and **Source (optional)**, then **Send request**. An admin approves it under **Change requests**.", "**डेटा एंट्री ऑपरेटर:** **परिवर्तन का अनुरोध** (महापौर के लिए **परिवर्तन का अनुरोध (महापौर)**) दबाएँ, विवरण, **परिवर्तन का कारण (आवश्यक)** और **स्रोत (वैकल्पिक)** भरें, फिर **अनुरोध भेजें**। एडमिन इसे **परिवर्तन अनुरोध** में स्वीकृत करता है।"],
+            ["A ward or village not on the list yet: tap **+ Add ward/village** under its MLA and fill the representative's details in the same form.", "जो वार्ड या गाँव सूची में नहीं है: उसके विधायक के नीचे **+ वार्ड/गाँव जोड़ें** दबाएँ और उसी फ़ॉर्म में जनप्रतिनिधि का विवरण भरें।"],
+            ["Tell the representative to open grieviq.in/rep and sign in with Google using that email. Their office opens with the area's complaints, and they add their team under **Team**.", "जनप्रतिनिधि को बताएँ कि grieviq.in/rep खोलें और उसी ईमेल वाले Google खाते से साइन इन करें। उनका कार्यालय क्षेत्र की शिकायतों के साथ खुलता है, और वे **टीम** में अपनी टीम जोड़ते हैं।"],
+          ],
+          check: [["Only the elected (or officially appointed) person, never a candidate, a former member or a party office-bearer. Official sources only.", "केवल निर्वाचित (या आधिकारिक रूप से नियुक्त) व्यक्ति, कभी प्रत्याशी, पूर्व सदस्य या दल का पदाधिकारी नहीं। केवल आधिकारिक स्रोत।"]],
+          note: [["A different person now holds the seat (after an election, a by-election or an administrator taking charge)? Don't edit the email: use **Change of representative**, so the old access ends and the office's record is handed over. Several members in one ward: see **Wards with more than one elected member**.", "सीट पर अब कोई दूसरा व्यक्ति है (चुनाव, उपचुनाव या प्रशासक के कार्यभार के बाद)? ईमेल न बदलें: **जनप्रतिनिधि परिवर्तन** का उपयोग करें, ताकि पुरानी पहुँच समाप्त हो और कार्यालय का रिकॉर्ड सौंपा जाए। एक वार्ड में कई सदस्य: **एक से अधिक निर्वाचित सदस्यों वाले वार्ड** देखें।"]] },
         { id: "seats", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Wards with more than one elected member", "एक से अधिक निर्वाचित सदस्यों वाले वार्ड"],
+          ask: ["ward with several or multiple members; 2, 3 or 4 members in a ward; seats a b c; members button", "कई सदस्यों वाला वार्ड; एक वार्ड में कई पार्षद; सीटें"],
           who: ["Super or operations admin sets the number of members; a data entry operator can request members' contact changes.", "सदस्यों की संख्या सुपर या संचालन एडमिन तय करता है; डेटा एंट्री ऑपरेटर सदस्यों के संपर्क विवरण में बदलाव का अनुरोध कर सकता है।"],
           steps: [
             ["Use the **official ward notification** (for example the state election commission's ward list) for the number of members and their seat letters.", "सदस्यों की संख्या और सीट के अक्षरों के लिए **आधिकारिक वार्ड अधिसूचना** (जैसे राज्य निर्वाचन आयोग की वार्ड सूची) उपयोग करें।"],
@@ -465,6 +520,7 @@
           check: [["Only elected members are added, never former members, candidates or party office-bearers.", "केवल निर्वाचित सदस्य जोड़े जाएँ, कभी पूर्व सदस्य, प्रत्याशी या दल के पदाधिकारी नहीं।"]],
           note: [["A seat in use can't be removed. When a member's term ends, use **Change of representative** to make the seat vacant: its open complaints go back to the ward.", "उपयोग में चल रही सीट हटाई नहीं जा सकती। जब किसी सदस्य का कार्यकाल समाप्त हो, तो सीट रिक्त करने के लिए **जनप्रतिनिधि परिवर्तन** उपयोग करें: उसकी खुली शिकायतें वार्ड को लौट जाती हैं।"]] },
         { id: "handover", roles: ["super_admin", "operations_admin", "data_entry_operator"], title: ["Change of representative", "जनप्रतिनिधि परिवर्तन"],
+          ask: ["new representative after an election or by-election; councillor changed; representative resigned or died; administrator takes charge; seat vacant; replace a representative; old representative still has access", "चुनाव के बाद नया जनप्रतिनिधि; जनप्रतिनिधि बदलें; इस्तीफ़ा; प्रशासक; सीट रिक्त; सीट खाली है"],
           who: ["A data entry operator asks; a super or operations admin approves or applies.", "डेटा एंट्री ऑपरेटर अनुरोध करता है; सुपर या संचालन एडमिन स्वीकृत या लागू करता है।"],
           steps: [
             ["Do this **only on official evidence**: the election result, the government order appointing an administrator, or the accepted resignation. Have its number or link ready.", "यह **केवल आधिकारिक प्रमाण पर** करें: चुनाव परिणाम, प्रशासक नियुक्ति का सरकारी आदेश, या स्वीकृत त्यागपत्र। उसकी संख्या या लिंक तैयार रखें।"],
@@ -475,13 +531,15 @@
           ],
           note: [["To correct a spelling or phone number for the **same** person, use **Jurisdiction** instead.", "**उसी** व्यक्ति की वर्तनी या फ़ोन नंबर सुधारने के लिए **क्षेत्राधिकार** उपयोग करें।"]] },
         { id: "types", roles: ["super_admin", "operations_admin"], title: ["Issue types and department types", "शिकायत के प्रकार और विभाग के प्रकार"],
+          ask: ["add a complaint category or issue type; change the time limit; acknowledge within; respond within; suggested department; department types; iso 37120 theme", "शिकायत का नया प्रकार; समय-सीमा बदलें; सुझाया विभाग; विभाग प्रकार"],
           who: ["Operations or super admin; the data moderator and auditor can look.", "संचालन या सुपर एडमिन; डेटा मॉडरेटर और ऑडिटर देख सकते हैं।"],
           steps: [
-            ["**Issue types** shows each type's **Acknowledge within** and **Respond within (per level)** for reference (they change only in a release), and its **Suggested department**, which you can change: it only decides which department the representative sees first.", "**शिकायत के प्रकार** में हर प्रकार की **पावती की समय-सीमा** और **कार्रवाई की समय-सीमा (प्रति स्तर)** जानकारी के लिए है (ये केवल रिलीज़ से बदलती हैं), और **सुझाया गया विभाग**, जिसे आप बदल सकते हैं: यह केवल तय करता है कि जनप्रतिनिधि कौन-सा विभाग पहले देखे।"],
+            ["**Issue types** shows each type's time limits, **Acknowledge within** and **Respond within (per level)**, for reference (they change only in a release), and its **Suggested department**, which you can change: it only decides which department the representative sees first.", "**शिकायत के प्रकार** में हर प्रकार की **पावती की समय-सीमा** और **कार्रवाई की समय-सीमा (प्रति स्तर)** जानकारी के लिए है (ये केवल रिलीज़ से बदलती हैं), और **सुझाया गया विभाग**, जिसे आप बदल सकते हैं: यह केवल तय करता है कि जनप्रतिनिधि कौन-सा विभाग पहले देखे।"],
             ["Give every type a **Theme (ISO 37120)** so government dashboards compare like with like.", "हर प्रकार को **विषय (ISO 37120)** दें, ताकि सरकारी डैशबोर्ड एक जैसी चीज़ों की तुलना करें।"],
             ["Department types are on the **Departments** page: add one with English and Hindi names; to retire one, first move every office and issue type that uses it, then give a reason.", "विभाग के प्रकार **विभाग** पृष्ठ पर हैं: अंग्रेज़ी और हिन्दी नाम के साथ जोड़ें; हटाने से पहले उसे उपयोग करने वाले हर कार्यालय और शिकायत प्रकार को बदलें, फिर कारण दें।"],
           ] },
         { id: "dept", roles: ["super_admin", "operations_admin"], title: ["Department offices: agreement, officers and performance", "विभागीय कार्यालय: समझौता, अधिकारी और प्रदर्शन"],
+          ask: ["add a department office; department agreement; annexure a; add an officer to a department; officer transferred or leaving; department performance", "विभागीय कार्यालय जोड़ें; विभाग समझौता; अधिकारी जोड़ें; अधिकारी स्थानांतरण"],
           who: ["Operations or super admin.", "संचालन या सुपर एडमिन।"],
           steps: [
             ["In **Departments**, open the office and tap **Download agreement to sign**. Print two copies; after both sides sign, record the agreement and **Upload the signed copy**.", "**विभाग** में कार्यालय खोलें और **हस्ताक्षर हेतु समझौता डाउनलोड करें** दबाएँ। दो प्रतियाँ प्रिंट करें; दोनों पक्षों के हस्ताक्षर के बाद समझौता दर्ज करें और **हस्ताक्षरित प्रति अपलोड करें**।"],
@@ -490,6 +548,7 @@
             ["**Department performance** shows reply times, work done on time, fixes passing the field check and ratings; a share or median shows only from 5 cases.", "**विभागों का प्रदर्शन** उत्तर समय, समय पर काम, मौके की जाँच में ठीक काम और रेटिंग दिखाता है; हिस्सा या माध्यिका 5 मामलों से ही दिखती है।"],
           ] },
         { id: "prices", roles: ["super_admin", "operations_admin"], title: ["Prices and pilot requests", "शुल्क और पायलट अनुरोध"],
+          ask: ["change plan prices; publish prices; preview the for offices page; pilot requests from offices; claims gem india storage audit", "शुल्क बदलें; शुल्क प्रकाशित करें; पायलट अनुरोध"],
           who: ["Super admin for prices; operations admin for pilot requests.", "शुल्क के लिए सुपर एडमिन; पायलट अनुरोध के लिए संचालन एडमिन।"],
           steps: [
             ["In **Prices & site details**, make changes, tap **Save draft**, check **Preview the public page**, then **Publish** with a note. **History** brings back any earlier version.", "**शुल्क और साइट विवरण** में बदलाव करें, **मसौदा सहेजें**, **सार्वजनिक पृष्ठ का पूर्वावलोकन** देखें, फिर टिप्पणी के साथ **प्रकाशित करें**। **इतिहास** से पुराना संस्करण वापस आता है।"],
@@ -497,6 +556,7 @@
             ["In **Pilot requests**, call each office within the promised time and mark it contacted or **Closed** with a note.", "**पायलट अनुरोध** में वादे के समय में फ़ोन करें और टिप्पणी के साथ संपर्क किया या **बंद** चिह्नित करें।"],
           ] },
         { id: "bills", roles: ["super_admin", "operations_admin", "auditor"], title: ["Bills and payments", "बिल और भुगतान"],
+          ask: ["make a bill; raise an invoice; office says it paid; confirm a payment; payment not in the bank statement; change our upi id or bank account; bills waiting to send", "बिल बनाएँ; भुगतान की पुष्टि; बैंक स्टेटमेंट; यूपीआई आईडी बदलें"],
           who: ["Super or operations admin; the auditor can look.", "सुपर या संचालन एडमिन; ऑडिटर देख सकता है।"],
           steps: [
             ["**Payment details** (super admin, in Prices & site details): the company's UPI ID and bank account. New or changed details go live **24 hours** after publishing; every super admin is emailed and can cancel. Hiding details works at once.", "**भुगतान विवरण** (सुपर एडमिन, शुल्क और साइट विवरण में): कंपनी की UPI आईडी और बैंक खाता। नया या बदला विवरण प्रकाशन के **24 घंटे** बाद लागू होता है; हर सुपर एडमिन को ईमेल जाता है और वह रद्द कर सकता है। छिपाना तुरंत लागू होता है।"],
@@ -505,14 +565,16 @@
             ["Bills the system makes before a plan ends show as **Waiting to send**. Check each one, then **Check and send to the office**; the office can't see it until you do.", "योजना समाप्ति से पहले सिस्टम द्वारा बने बिल **भेजना बाक़ी** दिखते हैं। हर एक जाँचें, फिर **जाँचें और कार्यालय को भेजें**; तब तक कार्यालय उसे नहीं देख सकता।"],
           ] },
         { id: "subs", roles: ["super_admin", "operations_admin", "auditor"], title: ["Office subscriptions", "कार्यालय सदस्यता"],
+          ask: ["start a pilot for an office; extend the pilot; office did not pay; pause an office; give free or complimentary access; end access; paid up date; grace period; office wants a trial", "पायलट शुरू करें; पायलट बढ़ाएँ; कार्यालय को रोकें; निःशुल्क पहुँच"],
           who: ["Super admin makes changes; operations admin and the auditor can look.", "बदलाव सुपर एडमिन करता है; संचालन एडमिन और ऑडिटर देख सकते हैं।"],
           steps: [
             ["Open **Subscriptions**. **Needs attention** lists offices due soon, in grace, paused, or with a pilot ending in under 14 days.", "**सदस्यता** खोलें। **ध्यान देने योग्य** में जल्द देय, छूट-अवधि वाले, रुके हुए, या 14 दिन से कम में पायलट समाप्त होने वाले कार्यालय दिखते हैं।"],
-            ["For a new office: open **Change or see history**, write a reason, set the **pilot dates** and the **plan for automatic bills**.", "नए कार्यालय के लिए: **बदलें या इतिहास देखें** खोलें, कारण लिखें, **पायलट तिथियाँ** और **स्वचालित बिलों की योजना** तय करें।"],
+            ["For a new office, or to start or extend a pilot: open **Change or see history**, write a reason, set the **pilot dates** and the **plan for automatic bills**.", "नए कार्यालय के लिए, या पायलट शुरू करने या बढ़ाने के लिए: **बदलें या इतिहास देखें** खोलें, कारण लिखें, **पायलट तिथियाँ** और **स्वचालित बिलों की योजना** तय करें।"],
             ["A confirmed payment moves the paid-up date on by itself. Extend only for an exception agreed in writing.", "पुष्ट भुगतान से भुगतान तिथि अपने-आप आगे बढ़ती है। बढ़ाना केवल लिखित रूप से तय अपवाद के लिए।"],
             ["Complimentary is for department offices only and needs a written reason. Pause makes an office view only; **End access** stops sign-in. Citizens are never affected.", "निःशुल्क (मानार्थ) केवल विभागीय कार्यालयों के लिए है और लिखित कारण चाहिए। रोकना कार्यालय को केवल देखने वाला बनाता है; **पहुँच समाप्त करें** साइन इन रोकता है। नागरिकों पर कभी असर नहीं पड़ता।"],
           ] },
         { id: "notices", roles: ["super_admin", "operations_admin", "auditor"], title: ["Public notices and election-code days", "सार्वजनिक सूचनाएँ और आचार संहिता के दिन"],
+          ask: ["approve or turn back a public notice; verify an authority letter; election code or model code of conduct dates; pause notices", "सूचना स्वीकृत करें; प्राधिकार पत्र जाँचें; आचार संहिता की तिथियाँ"],
           who: ["Super or operations admin decide; the auditor can look.", "निर्णय सुपर या संचालन एडमिन करते हैं; ऑडिटर देख सकते हैं।"],
           steps: [
             ["Open **Public notices**. Under **Waiting for approval**, read each notice in both languages. Words to check points to party names or vote words, but read it all.", "**सार्वजनिक सूचनाएँ** खोलें। **स्वीकृति की प्रतीक्षा** में हर सूचना दोनों भाषाओं में पढ़ें। जाँचने योग्य शब्द दल के नाम या वोट वाले शब्द दिखाता है, फिर भी पूरा पढ़ें।"],
@@ -521,6 +583,7 @@
             ["The day an election is announced, record the **election code** period for the state (or one city). Representatives' notices pause; departments' service and safety notices continue.", "चुनाव की घोषणा के दिन ही राज्य (या एक शहर) के लिए **आचार संहिता** अवधि दर्ज करें। जनप्रतिनिधियों की सूचनाएँ रुकती हैं; विभागों की सेवा और सुरक्षा सूचनाएँ जारी रहती हैं।"],
           ] },
         { id: "gov", roles: ["super_admin", "operations_admin", "auditor"], title: ["Government access", "सरकारी पहुँच"],
+          ask: ["give dashboard access to a state, district or ministry official; district collector or dm wants the dashboard; government letter; yearly review of officials", "राज्य या ज़िला अधिकारी को पहुँच; ज़िलाधिकारी को डैशबोर्ड"],
           who: ["Super admin gives and removes access; operations admin and the auditor can look.", "पहुँच सुपर एडमिन देता और हटाता है; संचालन एडमिन और ऑडिटर देख सकते हैं।"],
           steps: [
             ["First make sure each city has its district (**Choose its district** in **Areas**) and every issue type has a theme.", "पहले सुनिश्चित करें कि हर शहर का ज़िला है (**क्षेत्र** में **इसका ज़िला चुनें**) और हर शिकायत प्रकार का विषय है।"],
@@ -530,6 +593,7 @@
           ],
           note: [["Never share a representative's office figures yourself: only the office can choose to, in its Team tab.", "जनप्रतिनिधि के कार्यालय के आँकड़े कभी ख़ुद साझा न करें: यह केवल कार्यालय अपने टीम टैब में चुन सकता है।"]] },
         { id: "speed", roles: ["super_admin", "operations_admin"], title: ["Speed and visitors", "गति और विज़िटर"],
+          ask: ["website or app is slow; speed; database size; how many visitors; site or website performance", "वेबसाइट धीमी है; गति; विज़िटर"],
           who: ["Super or operations admin, once a week.", "सुपर या संचालन एडमिन, सप्ताह में एक बार।"],
           steps: [
             ["Open **Speed**. Fast means 95 of every 100 requests were answered within 0.5 seconds. Getting slower or slow: note which part and since when, and tell the developer.", "**गति** खोलें। तेज़ का अर्थ है हर 100 में से 95 अनुरोधों का उत्तर 0.5 सेकंड में मिला। धीमा हो रहा है या धीमा: कौन-सा हिस्सा और कब से, लिखकर डेवलपर को बताएँ।"],
@@ -537,6 +601,7 @@
           ],
           check: [["Never run the load test against the live site.", "लोड टेस्ट लाइव साइट पर कभी न चलाएँ।"]] },
         { id: "staff", roles: ["super_admin", "auditor"], title: ["Staff accounts: add a staff member, leave, email and leaving", "स्टाफ़ खाते: स्टाफ़ सदस्य जोड़ना, अवकाश, ईमेल और जाना"],
+          ask: ["add a new staff member or employee; onboard staff; staff on leave; staff member left; change a staff member's email; staff roles; who can see what; give someone a role such as auditor or data moderator; make someone an auditor", "नया स्टाफ़ जोड़ें; कर्मचारी अवकाश; कर्मचारी ने छोड़ा; स्टाफ़ का ईमेल बदलें"],
           who: ["Super admin; the auditor can look.", "सुपर एडमिन; ऑडिटर देख सकता है।"],
           steps: [
             ["**Joining:** create their own @grieviq.in address in Email Routing, add it to the Cloudflare Access staff policy, then add them on **Staff & roles** with name, employee ID, mobile and role. Test sign-in in a private window.", "**जुड़ना:** Email Routing में उनका अपना @grieviq.in पता बनाएँ, Cloudflare Access स्टाफ़ नीति में जोड़ें, फिर **कर्मचारी और भूमिकाएँ** में नाम, कर्मचारी आईडी, मोबाइल और भूमिका के साथ जोड़ें। निजी विंडो में साइन-इन जाँचें।"],
@@ -545,6 +610,7 @@
             ["**Leaving:** tap **Mark as left** the same day, remove the address from the Access policy, and disable its Email Routing rule. Every 90 days, confirm each person still needs their role.", "**जाना:** उसी दिन **छोड़कर गया दर्ज करें** दबाएँ, पता Access नीति से हटाएँ, और उसका Email Routing नियम बंद करें। हर 90 दिन पुष्टि करें कि हर व्यक्ति को अपनी भूमिका की अब भी ज़रूरत है।"],
           ] },
         { id: "audit", roles: ["super_admin", "auditor"], title: ["Audit and the audit log", "ऑडिट और ऑडिट लॉग"],
+          ask: ["auditor observation; download the audit log; who changed what; accept a risk", "ऑडिट टिप्पणी; ऑडिट लॉग डाउनलोड"],
           who: ["Auditor and super admin; any staff member replies to the observations they own.", "ऑडिटर और सुपर एडमिन; हर स्टाफ़ सदस्य अपने अवलोकनों का उत्तर देता है।"],
           steps: [
             ["**Auditor:** in **Audit**, tap **New observation**. It stays a draft until you issue it. Close it only after checking the action was really carried out.", "**ऑडिटर:** **लेखा परीक्षा** में **नया अवलोकन** दबाएँ। जारी करने तक यह मसौदा रहता है। कार्रवाई सच में हुई, यह जाँचने के बाद ही बंद करें।"],
@@ -552,6 +618,7 @@
             ["**Download CSV** gives the observations register; the **Audit log** tab filters by dates, person, action or case number and downloads too. Every download is recorded.", "**CSV डाउनलोड करें** से अवलोकन रजिस्टर मिलता है; **ऑडिट लॉग** टैब तारीख़, व्यक्ति, कार्य या शिकायत संख्या से छाँटकर डाउनलोड भी करता है। हर डाउनलोड दर्ज होता है।"],
           ] },
         { id: "retention", roles: ["super_admin", "auditor"], title: ["Data retention, photos and copies", "डेटा संग्रहण, फ़ोटो और प्रतियाँ"],
+          ask: ["how long do we keep complaints; delete old data; legal hold; when are photos deleted; someone copied our website; copies of grieviq", "शिकायतें कितने समय रखते हैं; फ़ोटो कब हटती हैं; वेबसाइट की नक़ल"],
           who: ["Super admin; the auditor reads the register.", "सुपर एडमिन; ऑडिटर रजिस्टर पढ़ता है।"],
           steps: [
             ["Complaints are kept 3 years from filing or 1 year after closing, whichever is later; then the citizen's details are removed (citizens with an email are told 7 days before). Review **Data retention** each month.", "शिकायतें दर्ज से 3 वर्ष या बंद होने के 1 वर्ष बाद तक, जो बाद में हो, रखी जाती हैं; फिर नागरिक का विवरण हटता है (ईमेल वाले नागरिकों को 7 दिन पहले बताया जाता है)। हर महीने **डेटा संग्रहण** देखें।"],
@@ -560,9 +627,9 @@
           ] },
       ],
       problems: [
-        [["\"Your account does not have access to this page\"", "\"इस पृष्ठ की अनुमति नहीं\""], ["Your role doesn't include it; ask the super admin if your duties need it.", "आपकी भूमिका में शामिल नहीं; ज़रूरत हो तो सुपर एडमिन से पूछें।"]],
-        [["No sign-in code arrives", "साइन-इन कोड नहीं आया"], ["Your address isn't in the Access policy, or forwarding is broken: check Spam and ask a super admin.", "आपका पता Access नीति में नहीं, या फ़ॉरवर्डिंग टूटी है: Spam देखें और सुपर एडमिन से पूछें।"]],
-        [["Signed out while working", "काम के दौरान साइन आउट"], ["Idle sessions end for safety; sign in again.", "सुरक्षा हेतु निष्क्रिय सत्र समाप्त होते हैं; फिर साइन इन करें।"]],
+        [["\"Your account does not have access to this page\"", "\"इस पृष्ठ की अनुमति नहीं\""], ["Your role doesn't include it; ask the super admin if your duties need it.", "आपकी भूमिका में शामिल नहीं; ज़रूरत हो तो सुपर एडमिन से पूछें।"], ["cannot open a page; access denied; page not allowed", "पृष्ठ नहीं खुलता"], ["cannot open a page; access denied; page not allowed", "पृष्ठ नहीं खुलता"], ["cannot open a page; access denied; page not allowed", "पृष्ठ नहीं खुलता"], ["cannot open a page; access denied; page not allowed", "पृष्ठ नहीं खुलता"], ["cannot open a page; access denied; page not allowed", "पृष्ठ नहीं खुलता"]],
+        [["No sign-in code arrives", "साइन-इन कोड नहीं आया"], ["Your address isn't in the Access policy, or forwarding is broken: check Spam and ask a super admin.", "आपका पता Access नीति में नहीं, या फ़ॉरवर्डिंग टूटी है: Spam देखें और सुपर एडमिन से पूछें।"], ["sign in code not received; otp not coming; cannot sign in", "साइन इन कोड नहीं आया"], ["sign in code not received; otp not coming; cannot sign in", "साइन इन कोड नहीं आया"], ["sign in code not received; otp not coming; cannot sign in", "साइन इन कोड नहीं आया"], ["sign in code not received; otp not coming; cannot sign in", "साइन इन कोड नहीं आया"], ["sign in code not received; otp not coming; cannot sign in", "साइन इन कोड नहीं आया"]],
+        [["Signed out while working", "काम के दौरान साइन आउट"], ["Idle sessions end for safety; sign in again.", "सुरक्षा हेतु निष्क्रिय सत्र समाप्त होते हैं; फिर साइन इन करें।"], ["logged out suddenly; session ended", "अचानक साइन आउट"], ["logged out suddenly; session ended", "अचानक साइन आउट"], ["logged out suddenly; session ended", "अचानक साइन आउट"], ["logged out suddenly; session ended", "अचानक साइन आउट"], ["logged out suddenly; session ended", "अचानक साइन आउट"]],
       ],
       contacts: ["Support: **support@grieviq.in** · Personal data requests: **grievance@grieviq.in** · Security: **security@grieviq.in**", "सहायता: **support@grieviq.in** · व्यक्तिगत डेटा अनुरोध: **grievance@grieviq.in** · सुरक्षा: **security@grieviq.in**"],
     },

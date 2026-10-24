@@ -1191,8 +1191,11 @@ with sync_playwright() as pw:
                     ok(("Turn off on this device" if lang == "en" else "इस डिवाइस पर बंद करें") in p.inner_text("#rn-panel"), "alerts on for this device " + tag)
                     before = len(open(WORK + "/push.log").read().strip().split("\n"))
                     p.click("#rn-test"); p.wait_for_function("document.getElementById('rn-pstat') && document.getElementById('rn-pstat').textContent.length > 12")
-                    after = open(WORK + "/push.log").read().strip().split("\n")
-                    ok(len(after) > before and "ui-test-device" in after[-1], "test alert went to the device " + tag)
+                    for _w in range(50):   # the status text can show before the push is written
+                        after = open(WORK + "/push.log").read().strip().split("\n")
+                        if len(after) > before: break
+                        p.wait_for_timeout(100)
+                    ok(len(after) > before and "ui-test-device" in after[-1], "test alert went to the device " + tag, after[-1:])
                     reg = p.evaluate("navigator.serviceWorker.getRegistration('/dept').then(r => r ? r.scope : null)")
                     ok(reg and reg.endswith("/dept"), "alerts belong to the department dashboard " + tag, reg)
                     n0 = int(p.inner_text(".rn-badge"))
@@ -1463,10 +1466,10 @@ with sync_playwright() as pw:
                 ok(resp.status == 200, "for offices page opens " + tag)
                 txt = p.inner_text("main"); allt = p.evaluate("() => { const c = document.body.cloneNode(true); c.querySelectorAll('script,style').forEach(x => x.remove()); return c.textContent; }")
                 if lang == "en":
-                    ok("tracked to resolution" in p.inner_text("h1") and "Gram Pradhan office" in txt and "₹999" in txt and "₹1,179 including GST" in txt and "₹42,000" in txt and "Request a free 90-day pilot" in txt, "headline, Pradhan price with GST, department price " + tag, txt[:300])
+                    ok("tracked to resolution" in p.inner_text("h1") and "Gram Pradhan office" in txt and "₹999" in txt and "₹1,179 including GST" in txt and "₹42,000" in txt and "Request a free pilot" in txt and "90-day" not in txt, "headline, Pradhan price with GST, department price " + tag, txt[:300])
                     ok("Amit Singh" in txt and "Sector-150, Noida" in txt and "within 2 working days" in txt and "support@grieviq.in" in txt, "Grievance Officer, address, callback, contact " + tag)
                 else:
-                    ok("प्रमाण सहित" in p.inner_text("h1") and "ग्राम प्रधान कार्यालय" in txt and "GST सहित ₹1,179" in txt and "90 दिन का निःशुल्क पायलट माँगें" in txt and not re.findall(r"lp\.\w+", allt), "Hindi page, no missing text " + tag, txt[:300])
+                    ok("प्रमाण सहित" in p.inner_text("h1") and "ग्राम प्रधान कार्यालय" in txt and "GST सहित ₹1,179" in txt and "निःशुल्क पायलट माँगें" in txt and "90 दिन का निःशुल्क" not in txt and not re.findall(r"lp\.\w+", allt), "Hindi page, no missing text " + tag, txt[:300])
                 ok("GeM" not in allt and "data centres in India" not in allt and "भारत स्थित डेटा" not in allt and "security audit by" not in allt, "claims held back " + tag)
                 ok(p.locator(".price-table tbody tr").count() == 6, "six plans listed " + tag)
                 ok(no_hscroll(p), "for offices: no sideways scroll " + tag)
@@ -1754,7 +1757,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 20), ("deo@test.in", ["gqd-data", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 21), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -1892,6 +1895,42 @@ with sync_playwright() as pw:
     ok(p.input_value("#gqd-q") == "payment not matching bank statement" and len(_first_hit(p)) >= 1 and _first_hit(p)[0] == "बिल और भुगतान", "language switch keeps the question; titles in Hindi", _first_hit(p))
     p.fill("#gqd-q", "कर्मचारी अवकाश"); p.wait_for_timeout(100)
     ok(_first_hit(p)[:1] and _first_hit(p)[0].startswith("स्टाफ़ खाते"), "Hindi question finds staff leave", _first_hit(p))
+    # grieviq-62: the owner's question "how to add a representative" (it found nothing useful before)
+    p.fill("#gqd-q", "जनप्रतिनिधि कैसे जोड़ें"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] and _first_hit(p)[0].startswith("जनप्रतिनिधि जोड़ें"), "Hindi: add a representative", _first_hit(p))
+    p.evaluate("GIQ.setLang ? GIQ.setLang('en') : document.querySelector('[data-lang-toggle]').click()"); p.wait_for_timeout(300)
+    for q62 in ("how to add a representative", "add a councillor", "add mla", "add pradhan"):
+        p.fill("#gqd-q", q62); p.wait_for_timeout(100)
+        ok(_first_hit(p)[:1] and _first_hit(p)[0].startswith("Add a representative"), "'%s' finds Add a representative first" % q62, _first_hit(p))
+    p.fill("#gqd-q", "complaint stuck"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Exceptions and nudges"], "'complaint stuck' finds Exceptions and nudges", _first_hit(p))
+    p.fill("#gqd-q", "change time limit"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["Issue types and department types"], "'change time limit' finds Issue types", _first_hit(p))
+    p.fill("#gqd-q", "no code received"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] == ["No sign-in code arrives"], "'no code received' finds the sign-in problem", _first_hit(p))
+    # grieviq-63: a result opens the step that answers the question, marked
+    p.fill("#gqd-q", "data entry operator request"); p.wait_for_timeout(100)
+    p.click("[data-gq-results] a.gq-stitle >> nth=0"); p.wait_for_timeout(200)
+    ok(p.locator("#gqd-data li.gq-hit").count() == 1 and "Data entry operator" in p.inner_text("#gqd-data li.gq-hit"), "the result opens and marks the step that answers it")
+    bad = p.evaluate(DLG_CONTRAST); ok(not bad, "marked step contrast AA", bad[:6])
+    p.fill("#gqd-q", "staff kaise add kare"); p.wait_for_timeout(100)
+    ok(_first_hit(p)[:1] and _first_hit(p)[0].startswith("Staff accounts"), "Hinglish question works", _first_hit(p))
+    p.fill("#gqd-q", "backup"); p.wait_for_timeout(100)
+    ok("Nothing matched" in p.inner_text("[data-gq-results]"), "a question the guide doesn't cover says so instead of guessing", _first_hit(p))
+    # grieviq-63: the question bank. Every question people ask (dev-tests/guide-questions.json)
+    # must bring the right part of the guide first, in the real browser code.
+    QB = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "guide-questions.json"), encoding="utf-8"))
+    QROLES = {"admin": ["super_admin"], "rep": ["REPRESENTATIVE", "MULTI_SEAT"]}
+    for qlang in ("en", "hi"):
+        p.evaluate("GIQ.setLang ? GIQ.setLang('%s') : 0" % qlang); p.wait_for_timeout(200)
+        misses = []
+        for kind in ("admin", "rep", "dept", "citizen", "gov"):
+            got = p.evaluate("(a) => a.qs.map(q => (GIQGuide.find(a.kind, a.roles, q[0])[0] || 'NOTHING'))", {"kind": kind, "roles": QROLES.get(kind), "qs": QB[kind]})
+            for (q, want), g in zip(QB[kind], got):
+                if g not in want.split("|"): misses.append("%s: %s -> %s (want %s)" % (kind, q, g, want))
+        nq = sum(len(QB[k]) for k in ("admin", "rep", "dept", "citizen", "gov"))
+        ok(not misses, "question bank (%d questions, Help in %s): right guide part first for every one" % (nq, qlang), misses[:10])
+    p.evaluate("GIQ.setLang ? GIQ.setLang('en') : 0"); p.wait_for_timeout(200)
     ok(not errs, "no script errors (Hindi search)", errs); ctx.close()
     # Citizen guide page, rep, dept and gov panels
     ctx = br.new_context(viewport={"width": 375, "height": 900}); p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
