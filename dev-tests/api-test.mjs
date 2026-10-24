@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // API tests for Departments stage 1.  node api-test.mjs  (server on 8788, fresh DB)
 // Run through dev-tests/setup.sh (it starts the server with a fresh database).
 const B = "http://localhost:8788";
@@ -1154,8 +1154,8 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
   const ss = (who, b) => call(who, "POST", "/api/admin/site-settings", b);
   const liveData = async () => (await call(S, "GET", "/api/admin/site-settings")).body.live.data;
-  const UPI = { id: "pm1", kind: "UPI", upiId: "iotc@hdfcbank", payeeName: "IOTC Indus Overseas Tech Corp", shown: true };
-  const BANK = { id: "pm2", kind: "BANK", accountName: "IOTC (Indus Overseas Tech. Corp.)", bankName: "HDFC Bank", branch: "Sector 18, Noida", accountNumber: "50200012345678", ifsc: "HDFC0001234", accountType: "CURRENT", shown: true };
+  const UPI = { id: "pm1", kind: "UPI", upiId: "iotc@hdfcbank", payeeName: "INDUS OVERSEAS TRADING CORPORATION", shown: true };
+  const BANK = { id: "pm2", kind: "BANK", accountName: "IOTC (Indus Overseas Trading Corporation)", bankName: "HDFC Bank", branch: "Sector 18, Noida", accountNumber: "50200012345678", ifsc: "HDFC0001234", accountType: "CURRENT", shown: true };
   const withPay = async (methods) => { const d = await liveData(); d.payments = { methods }; return d; };
   const pubPay = async (methods, note) => { const a = await ss(S, { action: "save_draft", data: await withPay(methods) }); const b = await ss(S, { action: "publish", note: note || "pay test" }); return { a, b }; };
   const officeView = async () => (await call("r1@x.in", "GET", "/api/billing")).body.pay.methods;

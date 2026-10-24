@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/dept/photo?id=<case id>   multipart: photo (+ optional thumb, dhash)
 // A "work done" photo from a department officer, stored privately with the
 // same checks as the representative's photos (_shared/resolution-upload.js).

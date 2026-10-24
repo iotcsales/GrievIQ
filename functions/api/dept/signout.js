@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // POST /api/dept/signout   Ends this browser's department session.
 import { endSession, clearCookie, logDept } from "../../_shared/dept-auth.js";
 

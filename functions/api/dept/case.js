@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/dept/case?id=<case id>   One case for a department officer.
 // Every case opened is recorded (dept_access_log, action CASE_VIEWED).
 import { getVerifiedOfficer, logDept } from "../../_shared/dept-auth.js";

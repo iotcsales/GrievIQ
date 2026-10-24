@@ -1,4 +1,4 @@
--- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part24-citizen-ratings.sql   (grieviq-30, October 2026)
 --
 -- Citizen ratings: after a case is closed, the citizen can say how satisfied

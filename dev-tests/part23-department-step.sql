@@ -1,4 +1,4 @@
--- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part23-department-step.sql  (grieviq-29: Departments stage 3, the department step)
 --
 -- What happens with the department on each case, step by step, as recorded

@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // Local test server for GrievIQ: serves public/ and runs functions/ (Cloudflare
 // Pages Functions style) against a SQLite database that behaves like D1.
 // Sign-in: Cloudflare Access is replaced by a header/cookie "test-email".

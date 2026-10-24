@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // public/guide-content.js (grieviq-40; rewritten in grieviq-59 to match the
 // SOP manuals of 19 Oct 2026: citizens CIT-01..07, representative offices
 // REP-01..13, department officers DEP-01..08, government officials

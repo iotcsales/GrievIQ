@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/gov/me -> the signed-in official and where they start. grieviq-49, grieviq-51.
 // ?demo=1 -> the demo country (no sign-in; invented figures, labelled so).
 import { getVerifiedGovUser } from "../../_shared/gov-auth.js";

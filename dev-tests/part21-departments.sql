@@ -1,4 +1,4 @@
--- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part21-departments.sql  (grieviq-24, Departments stage 1: the directory)
 --
 -- The department directory: for each area (city or district), the offices

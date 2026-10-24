@@ -1,6 +1,6 @@
 GrievIQ - Proprietary Software Licence
 
-Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.), Plot no. SC 01/B8, Sector-150,
+Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation), Plot no. SC 01/B8, Sector-150,
 Noida, Uttar Pradesh 201310, India. All rights reserved.
 
 This software, including its source code, design, text (English and Hindi), database

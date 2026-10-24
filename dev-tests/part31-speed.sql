@@ -1,4 +1,4 @@
--- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part31-speed.sql   (grieviq-47, October 2026)
 --
 -- Speed monitor. About 1 in 20 requests to GrievIQ's servers records how

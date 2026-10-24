@@ -1,4 +1,4 @@
--- Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 -- part30-subscriptions.sql   (grieviq-46, October 2026)
 --
 -- Office subscriptions (approved 12 Oct 2026): each office's pilot dates,

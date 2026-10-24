@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/gov/report?r=<summary|districts|departments|pending30|themes|reps>&month=YYYY-MM&state=<id>&district=<id>
 //   -> one MIS report as tables (grieviq-50; _shared/gov-reports.js). The
 //   page prints it to PDF and builds the Excel file from it. Same access

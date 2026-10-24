@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/admin/copies   (grieviq-45, view_copies: super admin and auditor)
 // Web addresses where a copy of GrievIQ has been seen running, newest first.
 import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";

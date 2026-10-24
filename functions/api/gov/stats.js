@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET /api/gov/stats?month=YYYY-MM&state=<id>&district=<id>&dept=<key>   (grieviq-49, grieviq-51)
 // The government dashboard's figures (_shared/gov-stats.js) for the part of
 // the country the official may open (_shared/gov-scope.js): a national

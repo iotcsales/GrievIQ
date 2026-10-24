@@ -1,4 +1,4 @@
-/*! Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
+/*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // GET  /api/gov/prefs -> { ready, monthly, weekly }
 // POST /api/gov/prefs { monthly?: bool, weekly?: bool }   (grieviq-50)
 // The official's choice of report emails (off unless they turn it on). The

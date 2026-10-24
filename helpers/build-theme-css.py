@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 IOTC (Indus Overseas Tech. Corp.). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
+# Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt.
 # Builds public/theme.css from the dark-mode rules below.
 # Each rule is written twice: once for "Dark" chosen on the switch
 # (:root[data-theme="dark"]) and once for "Same as my phone" when the phone is
