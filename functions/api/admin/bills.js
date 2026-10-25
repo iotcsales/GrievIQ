@@ -12,6 +12,8 @@
 //   cancel  { id, reason }
 //   confirm { paymentId }            the payment matched the bank statement -> bill paid
 //   return  { paymentId, reason }    it didn't -> bill due again, office told why
+//   online-check    { id }                 grieviq-67: ask Razorpay now about this bill's online payments
+//   online-refunded { onlineId, note }     an online payment that wasn't needed has been refunded
 // Every action goes to bill_events (cannot be changed) and the admin log.
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
@@ -19,6 +21,7 @@ import { liveVersion, istToday } from "../../_shared/site-settings.js";
 import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, tierTable, hasDraftColumns, planBillFilter } from "../../_shared/billing.js";
 import { applyPayment } from "../../_shared/subscriptions.js";
 import { noticePaid, noticeBillCancelled } from "../../_shared/notices.js";
+import { rzpConfig, onlineReady, onlineFor, onlineOut, syncOrder } from "../../_shared/razorpay.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -29,6 +32,20 @@ async function adminLog(env, actor, action, target, detail) {
 }
 function billablePlans(s) {
   return s.plans.filter((p) => !p.retired && p.billing !== "QUOTE").map((p) => ({ id: p.id, nameEn: p.nameEn, nameHi: p.nameHi, billing: p.billing }));
+}
+
+// grieviq-67: is "Pay online" working, and online payments that need staff.
+async function onlineStatus(env) {
+  const c = rzpConfig(env);
+  const out = { on: c.on, mode: c.mode, webhook: c.webhook, tables: await onlineReady(env), lastWebhook: null, refund: [] };
+  if (!out.tables) return out;
+  const w = await env.DB.prepare("SELECT received_at FROM payment_webhook_events ORDER BY received_at DESC LIMIT 1").first();
+  out.lastWebhook = w ? w.received_at : null;
+  const { results } = await env.DB.prepare("SELECT o.*, b.ref, b.office_name FROM bill_online_payments o JOIN bills b ON b.id = o.bill_id WHERE o.status = 'EXTRA' ORDER BY o.settled_at DESC LIMIT 50").all();
+  out.refund = (results || []).map((r) => Object.assign(onlineOut(r, true), { billRef: r.ref, officeName: r.office_name }));
+  const t = await env.DB.prepare("SELECT COUNT(*) AS n FROM bill_online_payments WHERE status = 'CREATED'").first();
+  out.waiting = t ? t.n : 0;
+  return out;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -81,10 +98,12 @@ export async function onRequestGet({ request, env }) {
   const { results: cr } = await env.DB.prepare("SELECT status, COUNT(*) AS n FROM bills GROUP BY status").all();
   for (const r of cr || []) counts[r.status] = r.n;
   if (drafts) { const w = await env.DB.prepare("SELECT COUNT(*) AS n FROM bills WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL").first(); counts.WAITING = w ? w.n : 0; }
+  const online = await onlineFor(env, bills.map((b) => b.id));
   return json({
     ready: true, canManage, today, gstRate: live.data.gst.rate, settingsVersion: live.version,
     plans: billablePlans(live.data), counts,
-    bills: bills.map((b) => billOut(b, pays)),
+    online: await onlineStatus(env),
+    bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o, true)) })),
   });
 }
 
@@ -203,6 +222,35 @@ export async function onRequestPost({ request, env }) {
     await adminLog(env, auth.email, "bill_payment_returned", bill.ref, { reason });
     await emailOffice(env, origin, bill, "RETURNED", reason);
     return json({ ok: true, status: "DUE" });
+  }
+
+  // grieviq-67: ask Razorpay now about a bill's online payments (the hourly
+  // job does this anyway; this is for an office on the phone saying "I paid").
+  if (b.action === "online-check") {
+    if (!(await onlineReady(env))) return json({ error: "NOT_READY" }, 409);
+    const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(String(b.id || "")).first();
+    if (!bill) return json({ error: "NOT_FOUND" }, 404);
+    const { results } = await env.DB.prepare("SELECT * FROM bill_online_payments WHERE bill_id = ? AND status = 'CREATED' ORDER BY started_at DESC LIMIT 10").bind(bill.id).all();
+    const states = [];
+    for (const row of results || []) { try { states.push((await syncOrder(env, origin, row, "STAFF")).state); } catch (e) { states.push("WAITING"); } }
+    await adminLog(env, auth.email, "bill_online_checked", bill.ref, { orders: states.length, states });
+    const after = await env.DB.prepare("SELECT status FROM bills WHERE id = ?").bind(bill.id).first();
+    return json({ ok: true, orders: states.length, states, status: after.status });
+  }
+
+  if (b.action === "online-refunded") {
+    if (!(await onlineReady(env))) return json({ error: "NOT_READY" }, 409);
+    const o = await env.DB.prepare("SELECT * FROM bill_online_payments WHERE id = ?").bind(String(b.onlineId || "")).first();
+    if (!o) return json({ error: "NOT_FOUND" }, 404);
+    if (o.status !== "EXTRA") return json({ error: "ALREADY_CHECKED" }, 409);
+    const note = clean(b.note, 300);
+    if (note.length < 5 || note.length > 300) return json({ error: "CHECK_FIELDS", fields: { reason: note.length > 300 ? "LENGTH" : "REQUIRED" } }, 400);
+    const r = await env.DB.prepare("UPDATE bill_online_payments SET status = 'REFUNDED', staff_by = ?, staff_at = ?, staff_note = ? WHERE id = ? AND status = 'EXTRA'").bind(auth.email, now, note, o.id).run();
+    if (!r.meta || r.meta.changes !== 1) return json({ error: "ALREADY_CHECKED" }, 409);
+    const bill = await env.DB.prepare("SELECT ref FROM bills WHERE id = ?").bind(o.bill_id).first();
+    await logBill(env, o.bill_id, auth.email, "ONLINE_REFUNDED", { payment: o.payment_id, note });
+    await adminLog(env, auth.email, "bill_online_refunded", bill ? bill.ref : o.bill_id, { payment: o.payment_id });
+    return json({ ok: true });
   }
 
   return json({ error: "Unknown action." }, 400);

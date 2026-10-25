@@ -7,6 +7,11 @@
 // reference, the UPI ID and the bank account) and "I have paid".
 //   GIQBilling.mount(element, { api: "/api/billing" | "/api/dept/billing", h: 2 })
 // Needs i18n.js, /vendor/qrcode/qrcode.js and pay.js.
+// grieviq-67: "Pay online" first when GrievIQ's Razorpay account is set up:
+// Razorpay's own payment window (UPI, card, net banking, wallet), opened
+// with an order the server made for exactly the bill total; the server
+// checks the payment with Razorpay before the bill shows "Paid". UPI QR,
+// bank transfer and "I have paid" stay below it.
 //
 // Safety (payment-diversion fraud): every screen says to pay only to the
 // details shown here, and to check the account name. The details come from
@@ -76,6 +81,13 @@
     ".gb .gb-msg{font-weight:600;border-left:4px solid var(--gb-ok);padding-left:10px}.gb .gb-msg.gb-bad{border-left-color:var(--gb-bad)}" +
     ".gb .gb-past{font-size:14px;color:var(--gb-fg);border-left:3px solid var(--gb-border);padding-left:10px;margin:8px 0}" +
     ".gb .gb-copied{font-size:13px;margin-left:6px}" +
+    ".gb .gb-online{background:var(--gb-soft);border:2px solid var(--gb-accent);border-radius:12px;padding:12px 16px;margin:10px 0 14px}" +
+    ".gb .gb-online ul{margin:4px 0 10px;padding-left:20px;font-size:14px}" +
+    ".gb .gb-check{display:flex;align-items:flex-start;gap:10px;min-height:44px;margin:6px 0 10px;font-size:14.5px}.gb .gb-check input{width:24px;height:24px;margin:1px 0 0;flex:none}" +
+    ".gb .gb-check.gb-inv{outline:2px solid var(--gb-bad);outline-offset:4px;border-radius:4px}" +
+    ".gb .gb-test{display:inline-block;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px;background:var(--gb-warn-bg);color:var(--gb-warn-fg);border:1px solid currentColor;margin:0 0 8px}" +
+    ".gb .gb-or{font-size:15px;margin:16px 0 8px;color:var(--gb-fg)}" +
+    ".gb .gb-btn.gb-big{font-size:16px;min-height:48px;padding:10px 20px}" +
     "@media (max-width:560px){.gb dl.gb-dl{grid-template-columns:1fr}.gb dl.gb-dl dt{margin-top:6px}.gb .gb-qr{width:180px}}" +
     "@media print{.gb .gb-form,.gb .gb-copy{display:none}}";
   function addCss() { if (document.getElementById("gb-css")) return; var st = document.createElement("style"); st.id = "gb-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -83,7 +95,7 @@
   function mount(el, opts) {
     addCss();
     opts = opts || {};
-    var st = { data: null, err: null, forms: {}, msg: null };
+    var st = { data: null, err: null, forms: {}, msg: null, online: {} };
     var h = opts.h || 2, H = "h" + h, H2 = "h" + (h + 1), H3 = "h" + (h + 2);
     el.classList.add("gb");
     el.classList.toggle("gb-dark", isDark(el));
@@ -111,6 +123,98 @@
           "<dt>" + esc(T("bill.acct_type")) + "</dt><dd>" + esc(T(m.accountType === "SAVINGS" ? "bill.savings" : "bill.current")) + "</dd></dl>" +
           '<p class="gb-hint">' + esc(T("bill.bank_help")) + "</p></div>";
       }).join("") + "</div>";
+    }
+    // ---- grieviq-67: Pay online (Razorpay) ----
+    function onlineOn() { return !!(st.data && st.data.pay && st.data.pay.online && st.data.pay.online.on); }
+    function onlineBox(b) {
+      var o = st.online[b.id] || (st.online[b.id] = { own: false });
+      var p = "gbo-" + b.id;
+      return '<section class="gb-online" aria-labelledby="' + p + '-h"><' + H3 + ' id="' + p + '-h">' + esc(T("bill.on_h")) + "</" + H3 + ">" +
+        (st.data.pay.online.test ? '<p class="gb-test">' + esc(T("bill.on_test")) + "</p>" : "") +
+        "<p>" + esc(T("bill.on_p")) + "</p>" +
+        "<ul><li>" + esc(T("bill.on_li1")) + "</li><li>" + esc(T("bill.on_li2")) + "</li><li>" + esc(T("bill.on_li3")) + "</li></ul>" +
+        '<div class="gb-check' + (o.need ? " gb-inv" : "") + '"><input type="checkbox" id="' + p + '-own" data-own="' + esc(b.id) + '"' + (o.own ? " checked" : "") + (o.need ? ' aria-invalid="true" aria-describedby="' + p + '-own-e"' : "") + '>' +
+        '<label for="' + p + '-own">' + esc(T("bill.on_own")) + "</label></div>" +
+        (o.need ? '<span class="gb-err" id="' + p + '-own-e">' + esc(T("bill.on_own_e")) + "</span>" : "") +
+        '<button type="button" class="gb-btn gb-primary gb-big" id="' + p + '-go" data-online="' + esc(b.id) + '"' + (o.busy ? " disabled" : "") + ">" +
+        esc(o.busy ? T(o.busy) : T("bill.on_btn", { amount: rupees(b.total) })) + "</button>" +
+        (o.msg ? '<p class="gb-msg' + (o.bad ? " gb-bad" : "") + '" id="' + p + '-msg" tabindex="-1" role="' + (o.bad ? "alert" : "status") + '">' + esc(o.msg) + "</p>" : "") +
+        "</section>";
+    }
+    var rzpLoading = null;
+    function loadCheckout() {
+      if (window.Razorpay) return Promise.resolve();
+      if (rzpLoading) return rzpLoading;
+      rzpLoading = new Promise(function (ok, bad) {
+        var sc = document.createElement("script");
+        sc.src = "https://checkout.razorpay.com/v1/checkout.js"; sc.async = true;
+        sc.onload = function () { if (window.Razorpay) ok(); else { rzpLoading = null; bad(new Error("no Razorpay")); } };
+        sc.onerror = function () { rzpLoading = null; sc.remove(); bad(new Error("load")); };
+        document.head.appendChild(sc);
+      });
+      return rzpLoading;
+    }
+    function post(body) {
+      return fetch(opts.api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { return { res: res, d: d }; }); });
+    }
+    function onlineMsg(id, key, bad, vars) {
+      var o = st.online[id]; o.busy = null; o.msg = T(key, vars); o.bad = !!bad;
+      render("gbo-" + id + "-msg");
+    }
+    async function payOnline(id) {
+      var o = st.online[id];
+      o.msg = null; o.failed = false; o.need = !o.own;
+      if (o.need) { render("gbo-" + id + "-own"); return; }
+      o.busy = "bill.on_opening"; render();
+      var r;
+      try { r = await post({ action: "online", billId: id, ownFunds: true }); } catch (e) { onlineMsg(id, "bill.on_e_net", true); return; }
+      if (!r.res.ok) {
+        var k = r.d.error === "ALREADY_PAID" || r.d.error === "ALREADY_REPORTED" ? "bill.e_already" : r.d.error === "TOO_MANY" ? "bill.on_e_many" : r.d.error === "ONLINE_OFF" ? "bill.on_e_off" : "bill.on_e_start";
+        onlineMsg(id, k, true); return;
+      }
+      var d = r.d;
+      try { await loadCheckout(); } catch (e) { onlineMsg(id, "bill.on_e_window", true); return; }
+      var settled = false;
+      var rz;
+      try {
+        rz = new window.Razorpay({
+          key: d.keyId, amount: d.amount, currency: d.currency, order_id: d.orderId,
+          name: d.name, description: d.description,
+          prefill: d.email ? { email: d.email } : {},
+          notes: { bill_ref: d.ref },
+          theme: { color: "#1f4a8a" },
+          modal: { escape: true, confirm_close: true, ondismiss: function () {
+            if (settled) return;
+            var oo = st.online[id];
+            if (oo.failed) { oo.busy = null; oo.bad = true; render("gbo-" + id + "-msg"); } else onlineMsg(id, "bill.on_closed", false);
+          } },
+          handler: function (resp) { settled = true; done(id, resp); }
+        });
+        rz.on("payment.failed", function (resp) {
+          var why = resp && resp.error && resp.error.description ? String(resp.error.description).slice(0, 160) : "";
+          var oo = st.online[id]; oo.failed = true; oo.msg = T("bill.on_failed", { why: why }); oo.bad = true;
+        });
+        rz.open();
+      } catch (e) { onlineMsg(id, "bill.on_e_window", true); }
+    }
+    async function done(id, resp) {
+      var o = st.online[id];
+      o.busy = "bill.on_checking"; o.msg = null; render();
+      var r;
+      try { r = await post({ action: "online-done", billId: id, orderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature }); }
+      catch (e) { onlineMsg(id, "bill.on_waiting", false); return; }
+      var res = r.d.result;
+      if (!r.res.ok) { onlineMsg(id, "bill.on_e_check", true); return; }
+      if (res === "PAID") { delete st.online[id]; st.msg = T("bill.on_paid"); await load(); render("gb-msg"); return; }
+      if (res === "TEST_PAID") { onlineMsg(id, "bill.on_test_paid", false); return; }
+      if (res === "EXTRA") { delete st.online[id]; st.msg = T("bill.on_extra"); await load(); render("gb-msg"); return; }
+      onlineMsg(id, "bill.on_waiting", false);
+    }
+    function onlineLines(b) {
+      return (b.online || []).filter(function (x) { return x.status === "EXTRA" || x.status === "REFUNDED"; }).map(function (x) {
+        return '<p class="gb-past">' + esc(T(x.status === "EXTRA" ? "bill.on_l_extra" : "bill.on_l_refunded", { amount: rupees(x.amount), ref: x.paymentId || "" })) + "</p>";
+      }).join("");
     }
     function copyBtn(text, what) {
       return '<button type="button" class="gb-copy" data-copy="' + esc(text) + '" data-what="' + esc(what) + '" aria-label="' + esc(T("bill.copy_a", { what: what })) + '">' + esc(T("bill.copy")) + "</button>";
@@ -155,16 +259,18 @@
       out += returned.map(function (p) { return '<p class="gb-past">' + esc(T("bill.returned", { utr: p.utr, reason: p.reason || "" })) + "</p>"; }).join("");
       if (b.status === "DUE") {
         out += '<div class="gb-how"><' + H3 + ">" + esc(T("bill.how_h")) + "</" + H3 + ">" +
+          (onlineOn() ? onlineBox(b) + '<p class="gb-or"><b>' + esc(T("bill.on_or")) + "</b></p>" : "") +
           '<p class="gb-ref">' + T("bill.ref_line", { ref: "<b>" + esc(b.ref) + "</b>" }) + "</p>" + ways(b) + form(b) + "</div>";
       } else if (b.status === "REPORTED") {
         var p = b.payments.filter(function (x) { return x.status === "REPORTED"; })[0];
         out += '<p class="gb-msg">' + esc(T("bill.reported", { amount: rupees(p ? p.amount : b.total), date: dateText(p ? p.paidOn : ""), utr: p ? p.utr : "", cb: hi() ? st.data.pay.company.callbackHi : st.data.pay.company.callbackEn })) + "</p>";
       } else if (b.status === "PAID") {
-        out += '<p class="gb-msg">' + esc(T("bill.paid", { date: dateText(b.paidAt) })) + "</p>";
+        var on = (b.online || []).filter(function (x) { return x.status === "PAID"; })[0];
+        out += '<p class="gb-msg">' + esc(on ? T("bill.on_l_paid", { date: dateText(b.paidAt), how: T("bill.on_m_" + (["upi", "card", "netbanking", "wallet", "emi", "paylater"].indexOf(on.method) >= 0 ? on.method : "other")), ref: on.paymentId }) : T("bill.paid", { date: dateText(b.paidAt) })) + "</p>";
       } else if (b.status === "CANCELLED") {
         out += '<p class="gb-past">' + esc(T("bill.cancelled", { reason: b.cancelReason || "" })) + "</p>";
       }
-      return out + "</article>";
+      return out + onlineLines(b) + "</article>";
     }
     function render(focusId) {
       el.classList.toggle("gb-dark", isDark(el));
@@ -189,6 +295,12 @@
           var done = function () { out.textContent = T("bill.copied", { what: what }); };
           try { navigator.clipboard.writeText(text).then(done, function () { out.textContent = T("bill.copy_fail"); }); } catch (e) { out.textContent = T("bill.copy_fail"); }
         });
+      });
+      el.querySelectorAll("[data-own]").forEach(function (c) {
+        c.addEventListener("change", function () { var o = st.online[c.getAttribute("data-own")]; o.own = c.checked; if (c.checked && o.need) { o.need = false; render(c.id); } });
+      });
+      el.querySelectorAll("[data-online]").forEach(function (b) {
+        b.addEventListener("click", function () { payOnline(b.getAttribute("data-online")); });
       });
       el.querySelectorAll("form.gb-form").forEach(function (fm) {
         var id = fm.getAttribute("data-bill"), f = st.forms[id], p = "gbf-" + id + "-";

@@ -471,7 +471,7 @@
   ],
   [
    "refund a payment",
-   "bills"
+   "bills|onlinepay"
   ],
   [
    "office stopped paying",
@@ -508,6 +508,30 @@
   [
    "turn off follow-ups",
    "gov"
+  ],
+  [
+   "switch on online payment",
+   "onlinepay"
+  ],
+  [
+   "add razorpay keys",
+   "onlinepay"
+  ],
+  [
+   "bill still unpaid after an online payment",
+   "onlinepay"
+  ],
+  [
+   "refund an online payment",
+   "onlinepay"
+  ],
+  [
+   "razorpay test mode",
+   "onlinepay"
+  ],
+  [
+   "webhook not received",
+   "onlinepay"
   ]
  ],
  "rep": [
@@ -854,6 +878,22 @@
   [
    "team member kaise hataye",
    "team"
+  ],
+  [
+   "pay the bill online",
+   "billing"
+  ],
+  [
+   "pay by card",
+   "billing"
+  ],
+  [
+   "money deducted but bill not paid",
+   "billing"
+  ],
+  [
+   "razorpay payment failed",
+   "billing"
   ]
  ],
  "dept": [
@@ -1060,6 +1100,14 @@
   [
    "अनुवर्ती अनुरोध का उत्तर दें",
    "fu"
+  ],
+  [
+   "pay the bill online",
+   "billing"
+  ],
+  [
+   "pay by net banking",
+   "billing"
   ]
  ],
  "citizen": [

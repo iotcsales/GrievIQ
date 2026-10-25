@@ -53,6 +53,50 @@ const PRIVATE_PHOTOS = {
   delete: async (ks) => { for (const k of [].concat(ks)) r2.delete(k); },
 };
 const env = { DB, ACCESS_TEAM_DOMAIN: "test", ACCESS_AUD: "test", RESEND_API_KEY: "test-key", PRIVATE_PHOTOS, PHOTO_LINK_SECRET: "test-secret-0123456789abcdef" };
+// grieviq-67: a stand-in for Razorpay (never the real one; these "keys" are
+// made up and only work here). Starts with LIVE-style keys so a payment
+// finishes a bill; /__test/rzp-mode switches to TEST keys or none.
+const RZP_KEYS = { LIVE: "rzp_live_GIQDEV0001", TEST: "rzp_test_GIQDEV0001" };
+env.RZP_KEY_ID = RZP_KEYS.LIVE; env.RZP_KEY_SECRET = "dev_only_rzp_secret_0001"; env.RZP_WEBHOOK_SECRET = "dev_only_rzp_webhook_0001";
+const rzpState = { orders: new Map(), payments: new Map(), down: false, n: 0, calls: [] };
+function rzpId(prefix) { rzpState.n++; return prefix + "_DEV" + String(rzpState.n).padStart(10, "0"); }
+async function rzpHmac(secret, msg) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return Buffer.from(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg))).toString("hex");
+}
+function fakeRazorpay(u, opts) {
+  const j = (b, st) => new Response(JSON.stringify(b), { status: st || 200, headers: { "content-type": "application/json" } });
+  const method = (opts && opts.method) || "GET";
+  const path = u.replace("https://api.razorpay.com/v1", "");
+  rzpState.calls.push(method + " " + path);
+  if (rzpState.down) return j({ error: { code: "SERVER_ERROR" } }, 503);
+  const want = "Basic " + Buffer.from(env.RZP_KEY_ID + ":" + env.RZP_KEY_SECRET).toString("base64");
+  const h = (opts && opts.headers) || {};
+  if ((h.Authorization || h.authorization) !== want) return j({ error: { code: "BAD_REQUEST_ERROR", description: "Authentication failed" } }, 401);
+  const body = opts && opts.body ? JSON.parse(String(opts.body)) : {};
+  let m;
+  if (method === "POST" && path === "/orders") {
+    if (!Number.isInteger(body.amount) || body.amount < 100 || body.currency !== "INR") return j({ error: { code: "BAD_REQUEST_ERROR" } }, 400);
+    const o = { id: rzpId("order"), entity: "order", amount: body.amount, amount_paid: 0, currency: "INR", receipt: body.receipt, notes: body.notes || {}, status: "created", key: env.RZP_KEY_ID };
+    rzpState.orders.set(o.id, o); return j(o);
+  }
+  if (method === "GET" && (m = /^\/orders\/([^/]+)\/payments$/.exec(path))) {
+    const o = rzpState.orders.get(m[1]);
+    if (!o || o.key !== env.RZP_KEY_ID) return j({ error: { code: "BAD_REQUEST_ERROR", description: "The id provided does not exist" } }, 400);
+    const items = [...rzpState.payments.values()].filter((p) => p.order_id === o.id).reverse();
+    return j({ entity: "collection", count: items.length, items });
+  }
+  if ((m = /^\/payments\/([^/]+)(\/capture)?$/.exec(path))) {
+    const p = rzpState.payments.get(m[1]);
+    if (!p) return j({ error: { code: "BAD_REQUEST_ERROR" } }, 400);
+    if (method === "POST" && m[2]) {
+      if (p.status !== "authorized" || body.amount !== p.amount) return j({ error: { code: "BAD_REQUEST_ERROR" } }, 400);
+      p.status = "captured"; p.captured = true; const o = rzpState.orders.get(p.order_id); if (o) { o.status = "paid"; o.amount_paid = p.amount; }
+    }
+    return j(p);
+  }
+  return j({ error: { code: "NOT_FOUND" } }, 404);
+}
 // Emails "sent" in tests are written here (one JSON per line).
 const MAIL_LOG = path.join(path.dirname(dbFile), "mail.log");
 fs.writeFileSync(MAIL_LOG, "");
@@ -88,6 +132,7 @@ globalThis.fetch = async (url, opts) => {
     fs.appendFileSync(PUSH_LOG, JSON.stringify({ endpoint: u, auth: String(h.Authorization || h.authorization || "").slice(0, 12), bytes: opts && opts.body ? opts.body.byteLength || opts.body.length || 0 : 0 }) + "\n");
     return new Response("", { status: u.includes("gone") ? 410 : 201 });
   }
+  if (u.startsWith("https://api.razorpay.com/")) return fakeRazorpay(u, opts);
   return realFetch(url, opts);
 };
 
@@ -167,6 +212,35 @@ http.createServer(async (req, res) => {
       const b = JSON.parse(body ? body.toString() : "{}");
       const out = await m.runFollowups(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
+    // Test only (grieviq-67): the stand-in Razorpay.
+    //   rzp-mode {mode: LIVE|TEST|OFF}; rzp-down {down}; rzp-pay {orderId, status, amount?, method?}
+    //   -> {paymentId, signature}; rzp-sign {body} -> webhook signature; rzp-state; run-online-payments {now}
+    if (url.pathname.startsWith("/__test/rzp-") || url.pathname === "/__test/run-online-payments") {
+      const b = req.method === "POST" ? JSON.parse(body ? body.toString() : "{}") : {};
+      const send = (o) => { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(o)); };
+      if (url.pathname === "/__test/rzp-mode") {
+        if (b.mode === "OFF") { delete env.RZP_KEY_ID; } else env.RZP_KEY_ID = RZP_KEYS[b.mode === "TEST" ? "TEST" : "LIVE"];
+        if (b.webhook === false) delete env.RZP_WEBHOOK_SECRET; else if (b.webhook === true) env.RZP_WEBHOOK_SECRET = "dev_only_rzp_webhook_0001";
+        return send({ ok: true, keyId: env.RZP_KEY_ID || null });
+      }
+      if (url.pathname === "/__test/rzp-down") { rzpState.down = !!b.down; return send({ ok: true }); }
+      if (url.pathname === "/__test/rzp-state") return send({ orders: [...rzpState.orders.values()], payments: [...rzpState.payments.values()], calls: rzpState.calls.slice(-50) });
+      if (url.pathname === "/__test/rzp-sign") return send({ signature: await rzpHmac(env.RZP_WEBHOOK_SECRET || "none", String(b.body || "")) });
+      if (url.pathname === "/__test/rzp-pay") {
+        const o = rzpState.orders.get(String(b.orderId || ""));
+        if (!o) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ error: "no order" })); }
+        const status = ["captured", "authorized", "failed"].includes(b.status) ? b.status : "captured";
+        const p = { id: rzpId("pay"), entity: "payment", amount: b.amount || o.amount, currency: b.currency || "INR", status, order_id: o.id, method: b.method || "upi", captured: status === "captured",
+          error_description: status === "failed" ? "Payment was declined by the bank (test)" : null, created_at: Math.floor(Date.now() / 1000) };
+        rzpState.payments.set(p.id, p);
+        if (status === "captured") { o.status = "paid"; o.amount_paid = p.amount; }
+        return send({ paymentId: p.id, orderId: o.id, signature: await rzpHmac(env.RZP_KEY_SECRET, o.id + "|" + p.id) });
+      }
+      if (url.pathname === "/__test/run-online-payments") {
+        const m = await import(pathToFileURL(path.join(build, "_shared", "razorpay.js")).href);
+        return send(await m.runOnlinePayments(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now()));
+      }
     }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);

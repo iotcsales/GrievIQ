@@ -48,7 +48,26 @@ export const CSP_MAPS = [
 // Kept for anything that imported the old name.
 export const CSP = CSP_STRICT;
 const MAP_PAGES = /^\/(index(\.html)?|submit(\.html)?|rep(\.html)?|admin-visitors(\.html)?)?$/;
-export function cspFor(pathname) { return MAP_PAGES.test(pathname || "/") ? CSP_MAPS : CSP_STRICT; }
+// grieviq-67: the two pages with Billing (representative console, department
+// dashboard) may also load Razorpay's payment window: its script from
+// checkout.razorpay.com and its frame from api.razorpay.com. Card, UPI and
+// bank details are typed inside Razorpay's frame, never into GrievIQ's page.
+const PAY_PAGES = /^\/(rep|dept)(\.html)?$/;
+const RZP = { "script-src": "https://checkout.razorpay.com", "frame-src": "https://api.razorpay.com https://checkout.razorpay.com", "connect-src": "https://api.razorpay.com https://lumberjack.razorpay.com", "img-src": "https://*.razorpay.com" };
+export function withPay(csp) {
+  return csp.split("; ").map((d) => {
+    const name = d.split(" ")[0];
+    if (!RZP[name]) return d;
+    return name === "frame-src" && d === "frame-src 'none'" ? "frame-src " + RZP[name] : d + " " + RZP[name];
+  }).join("; ");
+}
+export const CSP_PAY_STRICT = withPay(CSP_STRICT);
+export const CSP_PAY_MAPS = withPay(CSP_MAPS);
+export function cspFor(pathname) {
+  const p = pathname || "/";
+  const maps = MAP_PAGES.test(p), pay = PAY_PAGES.test(p);
+  return maps ? (pay ? CSP_PAY_MAPS : CSP_MAPS) : (pay ? CSP_PAY_STRICT : CSP_STRICT);
+}
 
 export const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -72,6 +91,9 @@ export function withSecurityHeaders(res, pathname) {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
     if (!headers.has(k)) headers.set(k, v);
   }
+  // Razorpay opens bank and card checks (3-D Secure, net banking) in a new
+  // window that must be able to report back: allowed on the Billing pages only.
+  if (PAY_PAGES.test(pathname || "/") && headers.get("Cross-Origin-Opener-Policy") === "same-origin") headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 

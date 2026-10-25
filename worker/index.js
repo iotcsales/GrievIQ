@@ -12,6 +12,7 @@
 //   - closes cases whose 7-day confirmation time has run out
 //   - runs the data-retention batch (notices, anonymising, old codes)
 //   - follow-up requests between officials: reminders, overdue, results
+//   - online bill payments still waiting are checked with Razorpay
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
@@ -24,6 +25,7 @@ import { runSpeed } from "../functions/_shared/speed.js";
 import { sendEmailNow } from "../functions/_shared/dept-auth.js";
 import { runGovReports } from "../functions/_shared/gov-report-run.js";
 import { runFollowups } from "../functions/_shared/followups.js";
+import { runOnlinePayments } from "../functions/_shared/razorpay.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -52,7 +54,12 @@ export async function runScheduled(env, nowMs) {
   // the figure measured again on the reply-by date.
   let followups = null;
   try { followups = await runFollowups(env, origin, nowMs); } catch (e) { followups = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed, govReports, followups };
+  // grieviq-67: online bill payments still waiting are checked with Razorpay
+  // (in case its message didn't arrive). Needs the RZP_KEY_ID and
+  // RZP_KEY_SECRET secrets on this Worker too; without them it does nothing.
+  let onlinePay = null;
+  try { onlinePay = await runOnlinePayments(env, origin, nowMs); } catch (e) { onlinePay = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay };
 }
 
 export default {

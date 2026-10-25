@@ -7,10 +7,15 @@
 // with GrievIQ's payment details, and "I have paid".
 // GET  -> { offices, bills, pay: { methods, company } }
 // POST { billId, method: UPI|BANK, utr, amount, paidOn }
+// grieviq-67, "Pay online" (Razorpay):
+// POST { action: "online", billId, ownFunds: true }         -> what the payment window needs
+// POST { action: "online-done", billId, orderId, paymentId, signature }
+//        -> checked with Razorpay: { result: PAID | TEST_PAID | EXTRA | WAITING }
 
 import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { ROLE } from "../_shared/team.js";
 import { billingReady, billOut, paymentsFor, payInfo, reportPayment, officeBillFilter } from "../_shared/billing.js";
+import { onlineInfo, onlineFor, onlineOut, startOnline, checkoutDone } from "../_shared/razorpay.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 function billingOffices(auth) {
@@ -33,7 +38,9 @@ export async function onRequestGet({ request, env }) {
   if (!(await billingReady(env))) return json({ ready: false, offices, bills: [], pay: await payInfo(env) });
   const bills = await billsFor(env, offices);
   const pays = await paymentsFor(env, bills.map((b) => b.id));
-  return json({ ready: true, offices, bills: bills.map((b) => billOut(b, pays)), pay: await payInfo(env) });
+  const online = await onlineFor(env, bills.map((b) => b.id));
+  const pay = Object.assign(await payInfo(env), { online: await onlineInfo(env) });
+  return json({ ready: true, offices, bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o)) })), pay });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -47,6 +54,9 @@ export async function onRequestPost({ request, env }) {
   const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ? AND office_type = 'REP'" + (await officeBillFilter(env))).bind(String(b.billId || "")).first();
   // Only this person's own offices' bills.
   if (!bill || !offices.some((o) => o.tier === bill.office_tier && o.id === bill.office_id)) return json({ error: "NOT_FOUND" }, 404);
-  const r = await reportPayment(env, new URL(request.url).origin, bill, b, auth.email);
+  const origin = new URL(request.url).origin;
+  const r = b.action === "online" ? await startOnline(env, bill, auth.email, b)
+    : b.action === "online-done" ? await checkoutDone(env, origin, bill, b)
+    : await reportPayment(env, origin, bill, b, auth.email);
   return json(r.body, r.status);
 }

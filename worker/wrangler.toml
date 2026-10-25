@@ -3,6 +3,7 @@
 #   1. Put your database id below (from: npx wrangler d1 list).
 #   2. From this folder: npx wrangler deploy
 #   3. Add the secrets: RESEND_API_KEY, OTP_FROM_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+#      (grieviq-67, online payments: RZP_KEY_ID, RZP_KEY_SECRET)
 name = "grieviq-scheduler"
 main = "index.js"
 compatibility_date = "2026-09-01"

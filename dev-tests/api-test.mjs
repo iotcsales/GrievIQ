@@ -2632,6 +2632,229 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(["FU_CREATED", "FU_VIEWED", "FU_ACKNOWLEDGE", "FU_REPLY", "FU_CLOSE"].every((a) => logged.includes(a)), "every step is in the officials' log", Array.from(new Set(logged)));
 }
 
+// ---- grieviq-67: Pay online (Razorpay) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const T = async (p, b) => (await fetch(B + "/__test/" + p, { method: "POST", body: JSON.stringify(b || {}) })).json();
+  const R = "r1@x.in";
+  let n = 0;
+  const newBill = async () => {
+    n++;
+    const r = await call(S, "POST", "/api/admin/bills", { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-hazratganj", planId: "councillor", period: "MONTH", from: "2027-02-" + String(n).padStart(2, "0") });
+    if (r.status !== 200) console.log("bill not made", r.body);
+    return r.body;
+  };
+  const rep = (b, who) => call(who || R, "POST", "/api/billing", b);
+  const billRow = (id) => sdb.prepare("SELECT * FROM bills WHERE id = ?").get(id);
+  const onRow = (orderId) => sdb.prepare("SELECT * FROM bill_online_payments WHERE order_id = ?").get(orderId);
+  const ev = (id) => sdb.prepare("SELECT action FROM bill_events WHERE bill_id = ? ORDER BY at").all(id).map((x) => x.action);
+  // These payments move offices' paid-up dates; put them back at the end so the browser tests that follow see what they expect.
+  const subsBefore = sdb.prepare("SELECT office_type, office_tier, office_id, paid_through FROM office_subscriptions").all();
+
+  // offered to the office, not by itself
+  let g = await call(R, "GET", "/api/billing");
+  ok(g.status === 200 && g.body.pay.online.on === true && g.body.pay.online.test === false, "offices are told online payment is on (live)", g.body.pay && g.body.pay.online);
+  const b1 = await newBill();
+  r = await rep({ action: "online", billId: b1.id });
+  ok(r.status === 400 && r.body.fields.ownFunds === "REQUIRED", "own-funds declaration needed (no party or campaign payments)", r.body);
+  ok((await rep({ action: "online", billId: b1.id, ownFunds: true }, "r2@x.in")).status === 404, "another office can't pay this bill online");
+  r = await rep({ action: "online", billId: b1.id, ownFunds: true, amount: 1 });
+  ok(r.status === 200 && r.body.keyId === "rzp_live_GIQDEV0001" && r.body.amount === b1.total * 100 && r.body.currency === "INR" && /^order_/.test(r.body.orderId) && r.body.ref === b1.ref, "an order for exactly the bill total, in paise (the browser's amount is ignored)", r.body);
+  ok(!JSON.stringify(r.body).includes("dev_only_rzp_secret"), "the key secret never leaves the server");
+  const o1 = r.body.orderId;
+  const st = await (await fetch(B + "/__test/rzp-state")).json();
+  ok(st.orders.find((o) => o.id === o1).receipt === b1.ref, "the bill reference is the order's receipt");
+  r = await rep({ action: "online", billId: b1.id, ownFunds: true });
+  ok(r.body.orderId === o1, "trying again uses the same order (Razorpay then refuses a second payment of it)");
+  ok(ev(b1.id).filter((x) => x === "ONLINE_STARTED").length === 1, "started once in the bill's history");
+  // the payment window says paid: signature, then Razorpay's own record
+  let p = await T("rzp-pay", { orderId: o1, status: "captured", method: "upi" });
+  r = await rep({ action: "online-done", billId: b1.id, orderId: o1, paymentId: p.paymentId, signature: "0".repeat(64) });
+  ok(r.status === 400 && r.body.error === "BAD_PAYMENT" && billRow(b1.id).status === "DUE", "a wrong signature is refused; the bill stays to pay", r.body);
+  let before = mails().length;
+  r = await rep({ action: "online-done", billId: b1.id, orderId: o1, paymentId: p.paymentId, signature: p.signature });
+  ok(r.status === 200 && r.body.result === "PAID", "paid and checked", r.body);
+  let row = billRow(b1.id);
+  ok(row.status === "PAID" && row.paid_checked_by === "razorpay" && row.paid_at, "the bill is paid", row);
+  ok(ev(b1.id).includes("PAID_ONLINE"), "in the bill's history (can't be changed)");
+  ok(onRow(o1).status === "PAID" && onRow(o1).payment_id === p.paymentId && onRow(o1).method === "upi" && onRow(o1).settled_via === "CHECKOUT", "the online payment is recorded", onRow(o1));
+  ok(mails().slice(before).some((x) => x.to[0] === "r1@x.in" && /payment received/.test(x.subject)), "office emailed: payment received");
+  const sub = sdb.prepare("SELECT paid_through FROM office_subscriptions WHERE office_type = 'REP' AND office_tier = 'LOCAL' AND office_id = 'lu-hazratganj'").get();
+  ok(!sub || sub.paid_through >= row.period_to, "the office is paid up to the end of the bill's period", sub);
+  before = mails().length;
+  r = await rep({ action: "online-done", billId: b1.id, orderId: o1, paymentId: p.paymentId, signature: p.signature });
+  ok(r.status === 200 && r.body.result === "PAID" && mails().length === before, "told twice: done once, no second email");
+  ok((await rep({ action: "online", billId: b1.id, ownFunds: true })).body.error === "ALREADY_PAID", "a paid bill can't be paid online again");
+  g = await call(R, "GET", "/api/billing");
+  let gb = g.body.bills.find((b) => b.id === b1.id);
+  ok(gb.online.length === 1 && gb.online[0].status === "PAID" && gb.online[0].method === "upi" && gb.online[0].paymentId === p.paymentId && gb.online[0].orderId === undefined && gb.online[0].startedBy === undefined, "the office sees how it was paid (no staff details)", gb.online);
+
+  // the webhook: signature checked, Razorpay asked again, each message once
+  const b2 = await newBill();
+  const o2 = (await rep({ action: "online", billId: b2.id, ownFunds: true })).body.orderId;
+  p = await T("rzp-pay", { orderId: o2, status: "authorized", method: "card" });
+  const hook = async (bodyObj, id, sig) => {
+    const raw = JSON.stringify(bodyObj);
+    const s = sig || (await T("rzp-sign", { body: raw })).signature;
+    const x = await fetch(B + "/api/webhooks/razorpay", { method: "POST", headers: { "content-type": "application/json", "x-razorpay-signature": s, "x-razorpay-event-id": id }, body: raw });
+    return { status: x.status, body: await x.json() };
+  };
+  const msg = { entity: "event", event: "payment.authorized", payload: { payment: { entity: { id: p.paymentId, order_id: o2, amount: b2.total * 100, currency: "INR", status: "authorized" } } } };
+  r = await hook(msg, "evt_DEV0000001", "f".repeat(64));
+  ok(r.status === 401 && billRow(b2.id).status === "DUE", "a message with a wrong signature is refused");
+  r = await hook(Object.assign({}, msg, { payload: { payment: { entity: Object.assign({}, msg.payload.payment.entity, { amount: 1 }) } } }), "evt_DEV0000002");
+  ok(r.status === 200, "a signed message is taken", r.body);
+  row = billRow(b2.id);
+  ok(row.status === "PAID" && onRow(o2).settled_via === "WEBHOOK" && onRow(o2).method === "card", "the message's own amount isn't trusted: Razorpay is asked, the payment captured, the bill paid", onRow(o2));
+  ok((await (await fetch(B + "/__test/rzp-state")).json()).payments.find((x) => x.id === p.paymentId).status === "captured", "an authorised payment is captured");
+  r = await hook(msg, "evt_DEV0000002");
+  ok(r.status === 200 && r.body.duplicate === true, "the same message twice: handled once");
+  ok(sdb.prepare("SELECT result FROM payment_webhook_events WHERE id = 'evt_DEV0000002'").get().result === "PAID", "messages are remembered (ids only)");
+  r = await hook({ event: "payment.captured", payload: { payment: { entity: { id: "pay_DEVunknown01", order_id: "order_DEVunknown01" } } } }, "evt_DEV0000003");
+  ok(r.status === 200 && sdb.prepare("SELECT result FROM payment_webhook_events WHERE id = 'evt_DEV0000003'").get().result === "UNKNOWN_ORDER", "a message about someone else's order changes nothing");
+  await T("rzp-mode", { mode: "LIVE", webhook: false });
+  ok((await hook(msg, "evt_DEV0000004", "a".repeat(64))).status === 503, "no webhook secret: messages refused");
+  await T("rzp-mode", { mode: "LIVE", webhook: true });
+
+  // the hourly check, when neither the window nor the message arrived
+  const b3 = await newBill();
+  const o3 = (await rep({ action: "online", billId: b3.id, ownFunds: true })).body.orderId;
+  await T("rzp-pay", { orderId: o3, status: "captured", method: "netbanking" });
+  r = await T("run-online-payments");
+  ok(r.checked === 0 && billRow(b3.id).status === "DUE", "an order younger than 10 minutes is left to the window and the message", r);
+  sdb.prepare("UPDATE bill_online_payments SET started_at = ? WHERE order_id = ?").run(new Date(Date.now() - 20 * 60000).toISOString(), o3);
+  r = await T("run-online-payments");
+  ok(r.paid === 1 && billRow(b3.id).status === "PAID" && onRow(o3).settled_via === "HOURLY", "the hourly check finds the payment and pays the bill", r);
+
+  // a failed payment; staff ask Razorpay; Razorpay unreachable
+  const b4 = await newBill();
+  const o4 = (await rep({ action: "online", billId: b4.id, ownFunds: true })).body.orderId;
+  await T("rzp-pay", { orderId: o4, status: "failed" });
+  ok((await call(A, "POST", "/api/admin/bills", { action: "online-check", id: b4.id })).status === 403, "the auditor can't run checks");
+  r = await call(O, "POST", "/api/admin/bills", { action: "online-check", id: b4.id });
+  ok(r.status === 200 && r.body.states[0] === "FAILED" && r.body.status === "DUE" && /declined/.test(onRow(o4).last_fail), "staff check: failed payment noted, bill still to pay", r.body);
+  await T("rzp-down", { down: true });
+  r = await call(O, "POST", "/api/admin/bills", { action: "online-check", id: b4.id });
+  ok(r.status === 200 && r.body.states[0] === "WAITING" && onRow(o4).status === "CREATED", "Razorpay unreachable: nothing changes, tried again later", r.body);
+  const b5 = await newBill();
+  r = await rep({ action: "online", billId: b5.id, ownFunds: true });
+  ok(r.status === 502 && r.body.error === "GATEWAY", "Razorpay unreachable: the office is told to try again or pay by UPI/bank", r.body);
+  await T("rzp-down", { down: false });
+
+  // a different amount: not paid, refunded by staff
+  p = await T("rzp-pay", { orderId: o4, status: "captured", amount: 100 });
+  before = mails().length;
+  r = await rep({ action: "online-done", billId: b4.id, orderId: o4, paymentId: p.paymentId, signature: p.signature });
+  ok(r.body.result === "EXTRA" && billRow(b4.id).status === "DUE" && onRow(o4).status === "EXTRA" && onRow(o4).last_fail === "AMOUNT:100", "a payment of a different amount doesn't pay the bill; it's set aside to refund", r.body);
+  ok(mails().slice(before).some((x) => x.to[0] === "support@grieviq.in" && /refund/.test(x.subject)), "staff asked to refund it");
+  g = await call(A, "GET", "/api/admin/bills");
+  ok(g.body.online.on && g.body.online.mode === "LIVE" && g.body.online.webhook && g.body.online.lastWebhook && g.body.online.refund.some((x) => x.paymentId === p.paymentId && x.billRef === b4.ref && x.amount === 1 && x.why === "AMOUNT"), "Bills page: online payments on, last message, the payment to refund", g.body.online);
+  const extra = onRow(o4).id;
+  ok((await call(A, "POST", "/api/admin/bills", { action: "online-refunded", onlineId: extra, note: "Refunded rfnd_X" })).status === 403, "the auditor can't mark a refund");
+  r = await call(S, "POST", "/api/admin/bills", { action: "online-refunded", onlineId: extra, note: "x" });
+  ok(r.status === 400 && r.body.fields.reason === "REQUIRED", "marking a refund needs a note");
+  r = await call(S, "POST", "/api/admin/bills", { action: "online-refunded", onlineId: extra, note: "Refunded in Razorpay, rfnd_DEV01" });
+  ok(r.status === 200 && onRow(o4).status === "REFUNDED" && onRow(o4).staff_by === S && ev(b4.id).includes("ONLINE_REFUNDED"), "marked refunded, on record");
+  ok((await call(S, "POST", "/api/admin/bills", { action: "online-refunded", onlineId: extra, note: "Refunded again?" })).body.error === "ALREADY_CHECKED", "can't be marked twice");
+  gb = (await call(R, "GET", "/api/billing")).body.bills.find((b) => b.id === b4.id);
+  ok(gb.online.some((x) => x.status === "REFUNDED") && gb.status === "DUE", "the office sees the refund; the bill is still to pay");
+
+  // the bill cancelled while the office was paying: money set aside to refund
+  const o5 = (await rep({ action: "online", billId: b5.id, ownFunds: true })).body.orderId;
+  await call(S, "POST", "/api/admin/bills", { action: "cancel", id: b5.id, reason: "Office closed before paying" });
+  ok((await rep({ action: "online", billId: b5.id, ownFunds: true })).body.error === "CANCELLED", "a cancelled bill can't be paid online");
+  p = await T("rzp-pay", { orderId: o5, status: "captured" });
+  r = await rep({ action: "online-done", billId: b5.id, orderId: o5, paymentId: p.paymentId, signature: p.signature });
+  ok(r.body.result === "EXTRA" && billRow(b5.id).status === "CANCELLED" && onRow(o5).last_fail === "CLOSED", "paid after the bill was cancelled: to refund, the bill stays cancelled", r.body);
+
+  // "I have paid" recorded, then paid online too
+  const b6 = await newBill();
+  const o6 = (await rep({ action: "online", billId: b6.id, ownFunds: true })).body.orderId;
+  ok((await rep({ billId: b6.id, method: "UPI", utr: "OLP123456789", amount: b6.total, paidOn: today })).status === 200, "office also records a UPI payment");
+  ok((await rep({ action: "online", billId: b6.id, ownFunds: true })).body.error === "ALREADY_REPORTED", "while a payment is being checked, online isn't offered");
+  p = await T("rzp-pay", { orderId: o6, status: "captured" });
+  before = mails().length;
+  r = await rep({ action: "online-done", billId: b6.id, orderId: o6, paymentId: p.paymentId, signature: p.signature });
+  const bp = sdb.prepare("SELECT status, reason FROM bill_payments WHERE bill_id = ?").get(b6.id);
+  ok(r.body.result === "PAID" && billRow(b6.id).status === "PAID" && bp.status === "RETURNED" && /Paid online instead/.test(bp.reason), "paid online anyway: bill paid, the UPI record closed with a note", bp);
+  ok(mails().slice(before).some((x) => x.to[0] === "support@grieviq.in" && /paid online after a UPI\/bank payment/.test(x.subject)), "staff told to look for a second payment");
+
+  // TEST keys: everything works, no bill is paid
+  await T("rzp-mode", { mode: "TEST" });
+  g = await call(R, "GET", "/api/billing");
+  ok(g.body.pay.online.on && g.body.pay.online.test === true, "offices are told it's test mode");
+  const b7 = await newBill();
+  r = await rep({ action: "online", billId: b7.id, ownFunds: true });
+  ok(r.body.keyId === "rzp_test_GIQDEV0001" && r.body.test === true, "test keys used", r.body);
+  const o7 = r.body.orderId;
+  p = await T("rzp-pay", { orderId: o7, status: "captured" });
+  r = await rep({ action: "online-done", billId: b7.id, orderId: o7, paymentId: p.paymentId, signature: p.signature });
+  ok(r.body.result === "TEST_PAID" && billRow(b7.id).status === "DUE" && onRow(o7).mode === "TEST", "a test payment never pays a bill", r.body);
+  // a test order still open when the keys become live is closed
+  const o7b = (await rep({ action: "online", billId: b7.id, ownFunds: true })).body.orderId;
+  ok(o7b !== o7, "a new test order after the test payment");
+  await T("rzp-mode", { mode: "LIVE" });
+  sdb.prepare("UPDATE bill_online_payments SET started_at = ? WHERE order_id = ?").run(new Date(Date.now() - 20 * 60000).toISOString(), o7b);
+  r = await T("run-online-payments");
+  ok(onRow(o7b).status === "EXPIRED", "a test order is closed once the keys are live", onRow(o7b));
+  r = await rep({ action: "online", billId: b7.id, ownFunds: true });
+  ok(r.status === 200 && r.body.keyId.startsWith("rzp_live_") && r.body.orderId !== o7b, "live keys: a new live order");
+  // 3 days without payment: closed
+  sdb.prepare("UPDATE bill_online_payments SET started_at = ? WHERE order_id = ?").run(new Date(Date.now() - 4 * 86400000).toISOString(), r.body.orderId);
+  await T("run-online-payments");
+  ok(onRow(r.body.orderId).status === "EXPIRED", "an order unpaid for 3 days is closed");
+  // a limit per bill per day
+  for (let i = 0; i < 10; i++) sdb.prepare("INSERT INTO bill_online_payments (id, bill_id, mode, order_id, amount_paise, status, started_by, started_at) VALUES (?, ?, 'LIVE', ?, ?, 'EXPIRED', ?, ?)").run("lim" + i, b7.id, "order_DEVLIMIT" + i, 100, R, new Date().toISOString());
+  ok((await rep({ action: "online", billId: b7.id, ownFunds: true })).status === 429, "at most 10 tries per bill per day");
+
+  // keys removed: off, and UPI/bank still work
+  await T("rzp-mode", { mode: "OFF" });
+  g = await call(R, "GET", "/api/billing");
+  ok(g.body.pay.online.on === false && g.body.pay.methods.length >= 1, "no keys: online payment off; UPI and bank still shown");
+  ok((await rep({ action: "online", billId: b7.id, ownFunds: true })).body.error === "ONLINE_OFF", "no keys: can't start");
+  ok((await call(A, "GET", "/api/admin/bills")).body.online.on === false, "Bills page shows it's off");
+  await T("rzp-mode", { mode: "LIVE" });
+
+  // department office
+  const code = "975367";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api67", "ae.zone3@nic.in", createHash("sha256").update("ae.zone3@nic.in:" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date(Date.now() + 5000).toISOString());
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "ae.zone3@nic.in", code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api67'").run();
+  const jalId = sdb.prepare("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").get().office_id;
+  r = await call(S, "POST", "/api/admin/bills", { action: "create", officeType: "DEPT", officeId: jalId, planId: "dept_office", period: "YEAR", from: "2027-03-01" });
+  const b8 = r.body;
+  const dpost = async (body) => { const x = await fetch(B + "/api/dept/billing", { method: body ? "POST" : "GET", headers: { cookie: CK, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, body: await x.json() }; };
+  g = await dpost();
+  ok(g.status === 200 && g.body.pay.online.on === true, "department dashboard: online payment offered", g.body.pay);
+  ok((await dpost({ action: "online", billId: b1.id, ownFunds: true })).status === 404, "an officer can't pay a representative's bill");
+  r = await dpost({ action: "online", billId: b8.id, ownFunds: true });
+  ok(r.status === 200 && r.body.amount === b8.total * 100, "department office: an order for its bill", r.body);
+  p = await T("rzp-pay", { orderId: r.body.orderId, status: "captured", method: "netbanking" });
+  r = await dpost({ action: "online-done", billId: b8.id, orderId: r.body.orderId, paymentId: p.paymentId, signature: p.signature });
+  ok(r.body.result === "PAID" && billRow(b8.id).status === "PAID", "department bill paid online", r.body);
+  // admin log
+  const acts = sdb.prepare("SELECT action, actor_email FROM admin_events WHERE action LIKE 'bill_online%' OR action = 'bill_paid_online'").all();
+  ok(acts.some((x) => x.action === "bill_paid_online" && x.actor_email === "razorpay") && acts.some((x) => x.action === "bill_online_refunded") && acts.some((x) => x.action === "bill_online_checked"), "every online step is in the admin log", acts);
+  // tidy up for the browser tests: no bills left to pay, paid-up dates as they were
+  for (const b of [b4, b7]) await call(S, "POST", "/api/admin/bills", { action: "cancel", id: b.id, reason: "Online payment tests finished" });
+  const had = new Set(subsBefore.map((x) => x.office_type + "|" + x.office_tier + "|" + x.office_id));
+  for (const x of sdb.prepare("SELECT office_type, office_tier, office_id FROM office_subscriptions").all()) if (!had.has(x.office_type + "|" + x.office_tier + "|" + x.office_id)) sdb.prepare("DELETE FROM office_subscriptions WHERE office_type = ? AND office_tier = ? AND office_id = ?").run(x.office_type, x.office_tier, x.office_id);
+  for (const x of subsBefore) sdb.prepare("UPDATE office_subscriptions SET paid_through = ? WHERE office_type = ? AND office_tier = ? AND office_id = ?").run(x.paid_through, x.office_type, x.office_tier, x.office_id);
+  // headers on the billing pages
+  const rp = await import(new URL("../functions/_middleware.js", import.meta.url).href);
+  {
+    ok(rp.cspFor("/rep").includes("https://checkout.razorpay.com") && rp.cspFor("/dept.html").includes("frame-src https://api.razorpay.com") && !rp.cspFor("/").includes("razorpay") && !rp.cspFor("/admin-bills.html").includes("razorpay"), "Razorpay allowed on the two Billing pages only");
+    const h = rp.withSecurityHeaders(new Response("x"), "/rep").headers;
+    ok(h.get("Cross-Origin-Opener-Policy") === "same-origin-allow-popups" && rp.withSecurityHeaders(new Response("x"), "/").headers.get("Cross-Origin-Opener-Policy") === "same-origin", "bank-check windows can report back on Billing pages only");
+  }
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

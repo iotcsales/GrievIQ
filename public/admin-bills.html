@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=66"></script>
+<script src="/i18n.js?v=67"></script>
 <script src="/admin-nav.js?v=r20"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
@@ -245,6 +245,12 @@
   .bl-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
   .bl-card dt { color: var(--admin-muted); } .bl-card dd { margin: 0; overflow-wrap: anywhere; }
   .bl-pay { border-top: 1px solid var(--admin-border); margin-top: 10px; padding-top: 10px; }
+  /* grieviq-67: online payments section */
+  #bl-online p { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
+  #bl-online h3 { font-size: 15px; margin: 14px 0 6px; }
+  #bl-online dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  #bl-online dd { margin: 0; overflow-wrap: anywhere; }
+  @media (max-width: 640px) { #bl-online dl { grid-template-columns: 1fr; } #bl-online dt { margin-top: 6px; } }
   .bl-pay h4 { margin: 0 0 6px; font-size: 14px; }
   .warnline { border-left: 3px solid #c98a00; padding-left: 8px; font-size: 13px; }
   .overdue { font-weight: 700; }
@@ -268,9 +274,10 @@
 
 <main class="ss-main">
   <h1><span data-i18n="adm.nav_bills">Bills</span> <span class="readonly-tag" id="readonly-tag" hidden data-i18n="adm.it_view_only">View only</span></h1>
-  <p class="subtitle" data-i18n="adm.bl_sub">Bills for representative and department offices, and the payments they record. Offices pay by UPI or bank transfer to the details in Prices &amp; site details.</p>
+  <p class="subtitle" data-i18n="adm.bl_sub">Bills for representative and department offices, and the payments they record. Offices pay online (Razorpay, when it is switched on) or by UPI or bank transfer to the details in Prices &amp; site details.</p>
   <div class="note" data-i18n-html="adm.bl_note">The amount comes from the <b>published prices</b> on the day the bill is made, so every party pays the same; it can't be typed in. Before you confirm a payment, <b>find it in the bank statement</b> (reference, amount and date).</div>
   <div id="bl-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
+  <div id="bl-online"></div>
   <div id="bl-new"></div>
   <h2 class="sec-h" id="bl-list-h" data-i18n="adm.bl_list_h">Bills</h2>
   <div class="pr-filter" role="group" aria-labelledby="bl-filter-l" id="bl-filter"></div>
@@ -385,6 +392,54 @@ async function make() {
 }
 function setMsg(bad, text) { var m = document.getElementById("bl-msg"); m.className = "st-msg " + (bad ? "error" : "success"); m.textContent = text; m.focus(); }
 
+// grieviq-67: online payments (Razorpay): is it on, and payments to refund.
+var ONLINE_METHODS = ["upi", "card", "netbanking", "wallet", "emi", "paylater"];
+function methodText(m) { return T("bill.on_m_" + (ONLINE_METHODS.indexOf(m) >= 0 ? m : "other")); }
+function renderOnline() {
+  var box = document.getElementById("bl-online");
+  var o = B.data && B.data.ready && B.data.online;
+  if (!o) { box.innerHTML = ""; return; }
+  var h = '<section class="bl-new" aria-labelledby="bl-on-h"><h2 id="bl-on-h">' + esc(T("adm.bl_on_h")) + "</h2>";
+  if (!o.tables) h += "<p>" + esc(T("adm.bl_on_nodb")) + "</p>";
+  else if (!o.on) h += "<p>" + esc(T("adm.bl_on_off")) + "</p>";
+  else {
+    h += '<p' + (o.mode === "TEST" ? ' class="warnline"' : "") + ">" + esc(T(o.mode === "LIVE" ? "adm.bl_on_live" : "adm.bl_on_test")) + "</p>" +
+      "<p>" + esc(o.webhook ? (o.lastWebhook ? T("adm.bl_on_hook_ok", { when: timeText(o.lastWebhook) }) : T("adm.bl_on_hook_never")) : T("adm.bl_on_hook_no")) + "</p>" +
+      (o.waiting ? "<p>" + esc(T("adm.bl_on_waiting", { n: o.waiting })) + "</p>" : "");
+  }
+  if (o.tables) {
+    h += '<h3 id="bl-on-rf">' + esc(T("adm.bl_on_refund_h")) + " (" + o.refund.length + ")</h3>";
+    if (!o.refund.length) h += '<p class="muted">' + esc(T("adm.bl_on_refund_none")) + "</p>";
+    else {
+      h += "<p>" + esc(T("adm.bl_on_refund_p")) + "</p>" + o.refund.map(function (x) {
+        return '<div class="bl-pay"><dl><dt>' + esc(T("adm.bl_on_bill")) + "</dt><dd>" + esc(x.billRef) + " · " + esc(x.officeName) + "</dd>" +
+          "<dt>" + esc(T("adm.bl_on_ref")) + '</dt><dd><span lang="en">' + esc(x.paymentId) + "</span></dd>" +
+          "<dt>" + esc(T("adm.bl_pay_amount")) + "</dt><dd>" + esc(rupees(x.amount)) + "</dd>" +
+          "<dt>" + esc(T("adm.bl_on_why")) + "</dt><dd>" + esc(T("adm.bl_on_why_" + (x.why === "AMOUNT" ? "AMOUNT" : "CLOSED"))) + "</dd></dl>" +
+          (B.data.canManage ? '<div class="bl-row"><div class="fld"><label for="rf-' + esc(x.id) + '">' + esc(T("adm.bl_on_note_l")) + '</label><input type="text" id="rf-' + esc(x.id) + '" maxlength="300" autocomplete="off"></div>' +
+            '<button type="button" class="primary" data-refunded="' + esc(x.id) + '">' + esc(T("adm.bl_on_refunded_btn")) + "</button></div>" : "") +
+          '<p class="row-msg" role="status" aria-live="polite"></p></div>';
+      }).join("");
+    }
+  }
+  box.innerHTML = h + "</section>";
+  box.querySelectorAll("[data-refunded]").forEach(function (btn) { btn.addEventListener("click", function () {
+    var id = btn.getAttribute("data-refunded"), inp = document.getElementById("rf-" + id);
+    act({ action: "online-refunded", onlineId: id, note: inp.value }, btn, "adm.bl_on_done_refunded", inp); }); });
+}
+function onlineHtml(b) {
+  return (b.online || []).map(function (x) {
+    return '<div class="bl-pay"><h4>' + esc(T("adm.bl_on_pay_h", { st: T("adm.bl_on_st_" + x.status) })) + "</h4><dl>" +
+      "<dt>" + esc(T("adm.bl_on_ref")) + '</dt><dd><span lang="en">' + esc(x.paymentId || "") + "</span></dd>" +
+      "<dt>" + esc(T("adm.bl_pay_amount")) + "</dt><dd>" + esc(rupees(x.amount)) + "</dd>" +
+      (x.method ? "<dt>" + esc(T("adm.bl_on_method")) + "</dt><dd>" + esc(methodText(x.method)) + "</dd>" : "") +
+      "<dt>" + esc(T("adm.bl_on_started")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(x.startedAt), who: x.startedBy })) + "</dd>" +
+      (x.via ? "<dt>" + esc(T("adm.bl_on_via")) + "</dt><dd>" + esc(T("adm.bl_on_via_" + x.via)) + " · " + esc(timeText(x.settledAt)) + "</dd>" : "") +
+      (x.status === "EXTRA" || x.status === "REFUNDED" ? "<dt>" + esc(T("adm.bl_on_why")) + "</dt><dd>" + esc(T("adm.bl_on_why_" + (x.why === "AMOUNT" ? "AMOUNT" : "CLOSED"))) + "</dd>" : "") +
+      (x.staffAt ? "<dt>" + esc(T("adm.bl_on_staff")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(x.staffAt), who: x.staffBy })) + " · " + esc(x.staffNote) + "</dd>" : "") +
+      "</dl></div>";
+  }).join("");
+}
 function renderList() {
   var app = document.getElementById("bl-app");
   if (B.err) { app.innerHTML = '<p class="muted">' + esc(B.err()) + "</p>"; return; }
@@ -425,6 +480,10 @@ function renderList() {
       }
       return x + "</div>";
     }).join("");
+    h += onlineHtml(b);
+    if ((b.status === "DUE" || b.status === "REPORTED") && B.data.canManage && B.data.online && B.data.online.on && B.data.online.tables) {
+      h += '<div class="acts"><button type="button" data-oncheck="' + esc(b.id) + '">' + esc(T("adm.bl_on_check")) + "</button></div>";
+    }
     if ((b.status === "DUE" || b.status === "REPORTED") && B.data.canManage) {
       h += '<div class="bl-row"><div class="fld"><label for="cr-' + esc(b.id) + '">' + esc(T("adm.bl_cancel_reason")) + '</label><input type="text" id="cr-' + esc(b.id) + '" maxlength="300" autocomplete="off"></div>' +
         '<button type="button" class="danger" data-cancel="' + esc(b.id) + '" data-ref="' + esc(b.ref) + '">' + esc(T("adm.bl_cancel")) + "</button></div>";
@@ -440,13 +499,25 @@ function renderList() {
   app.querySelectorAll("[data-send]").forEach(function (btn) { btn.addEventListener("click", function () {
     if (!confirm(T("adm.bl_send_q", { ref: btn.getAttribute("data-ref") }))) return;
     act({ action: "send", id: btn.getAttribute("data-send") }, btn, "adm.bl_done_send"); }); });
+  app.querySelectorAll("[data-oncheck]").forEach(function (btn) { btn.addEventListener("click", function () { onCheck(btn); }); });
   app.querySelectorAll("[data-cancel]").forEach(function (btn) { btn.addEventListener("click", function () {
     var id = btn.getAttribute("data-cancel"), inp = document.getElementById("cr-" + id);
     if (inp.value.trim().length >= 5 && !confirm(T("adm.bl_cancel_q", { ref: btn.getAttribute("data-ref") }))) return;
     act({ action: "cancel", id: id, reason: inp.value }, btn, "adm.bl_done_cancel", inp); }); });
 }
-async function act(body, btn, okKey, reasonInput) {
+async function onCheck(btn) {
   var card = btn.closest(".bl-card"), m = card.querySelector(".row-msg");
+  btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
+  try {
+    var res = await fetch("/api/admin/bills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "online-check", id: btn.getAttribute("data-oncheck") }) });
+    var d = await res.json(); btn.disabled = false;
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T("adm.ss_e_generic"); return; }
+    var text = T("adm.bl_on_checked", { n: d.orders, st: T("adm.bl_st_" + d.status) });
+    await load(); setMsg(false, text);
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
+}
+async function act(body, btn, okKey, reasonInput) {
+  var card = btn.closest(".bl-card") || btn.closest(".bl-pay"), m = card.querySelector(".row-msg");
   if (reasonInput) { reasonInput.removeAttribute("aria-invalid"); }
   btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
   try {
@@ -463,7 +534,7 @@ async function load() {
   try {
     var res = await fetch("/api/admin/bills"); var d = await res.json();
     if (!res.ok) { B.err = function () { return d.error === "NOT_ADMIN" || d.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load"); }; renderNew(); renderList(); return; }
-    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderNew(); renderList();
+    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderOnline(); renderNew(); renderList();
   } catch (e) { B.err = function () { return T("adm.ss_e_load"); }; renderList(); }
 }
 function applyTheme(theme) { document.documentElement.classList.toggle("light-theme", theme === "light"); document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light"); }
@@ -474,7 +545,7 @@ document.getElementById("theme-toggle").addEventListener("click", function () {
   var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
 });
-document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderNew(); renderList(); } });
+document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderOnline(); renderNew(); renderList(); } });
 load();
 </script>
 </body>
