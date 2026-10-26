@@ -96,7 +96,7 @@
     .bp-doc { border: 0; padding: 0; }
   }
 </style>
-<script src="/i18n.js?v=70"></script>
+<script src="/i18n.js?v=71"></script>
 <script src="/site.js?v=69" defer></script>
 </head>
 <body>
@@ -127,22 +127,22 @@
     if (!qt || !site) return;
     var c = site.company || {}, x = qt;
     document.title = T("qt.page_title_ref", { ref: x.ref });
-    var stKey = "qt.st_" + x.status;
+    var stKey = "qt.st_" + (x.kind === "CUSTOM" && x.status === "ACCEPTED" ? "ORDERED" : x.status);
     box.innerHTML = '<article class="bp-doc" aria-labelledby="bp-h">' +
       '<div class="bp-top"><div class="bp-brand">' + MARK + '<span>Griev<span class="iq">IQ</span></span></div>' +
-      '<div class="bp-kind"><h1 id="bp-h">' + esc(T("qt.h")) + " " + esc(x.ref) + '</h1><div class="sub">' + esc(T("qt.sub")) + "</div></div></div>" +
+      '<div class="bp-kind"><h1 id="bp-h">' + esc(T("qt.h")) + " " + esc(x.ref) + '</h1><div class="sub">' + esc(T(x.kind === "CUSTOM" ? "qt.sub_gov" : "qt.sub")) + "</div></div></div>" +
       '<div class="bp-two"><div><h2>' + esc(T("bp.from")) + "</h2><p><b>" + esc(c.legalName) + "</b><br>" + esc(c.address || "") +
         (site.gst && site.gst.gstin ? "<br>" + esc(T("bp.gstin")) + " " + esc(site.gst.gstin) : "") + (c.supportEmail ? "<br>" + esc(c.supportEmail) : "") + "</p></div>" +
       "<div><h2>" + esc(T("qt.to")) + "</h2><p>" + (x.addressee ? esc(x.addressee) + "<br>" : "") + "<b>" + esc(x.officeName) + "</b></p></div></div>" +
       '<div class="bp-two"><div><h2>' + esc(T("bp.dates")) + "</h2><p>" + esc(T("qt.date")) + " " + esc(dateText(x.madeAt)) + "<br>" + esc(T("qt.valid")) + " " + esc(dateText(x.validUntil)) + "</p></div>" +
       "<div><h2>" + esc(T("bp.status")) + '</h2><p><span class="bp-status">' + esc(T(stKey)) + "</span></p></div></div>" +
       '<table class="bp-t"><caption class="bp-note" style="text-align:left;caption-side:top">' + esc(T("bp.cap")) + '</caption><thead><tr><th scope="col">' + esc(T("bp.desc")) + '</th><th scope="col" class="num">' + esc(T("bp.amount")) + "</th></tr></thead><tbody>" +
-        "<tr><td>" + esc(x.planName) + " · " + esc(T(x.period === "YEAR" ? "bp.year" : "bp.month")) + '<br><span class="bp-note">' + esc(T("qt.service")) + '</span></td><td class="num">' + esc(rupees(x.amount)) + "</td></tr>" +
+        "<tr><td>" + esc(x.planName) + " · " + esc(T(x.period === "YEAR" ? "bp.year" : "bp.month")) + (x.basis ? '<br><span class="bp-note"><b>' + esc(T("qt.scope")) + "</b> " + esc(x.basis) + "</span>" : "") + '<br><span class="bp-note">' + esc(T(x.kind === "CUSTOM" ? "qt.service_gov" : "qt.service")) + '</span></td><td class="num">' + esc(rupees(x.amount)) + "</td></tr>" +
         "<tr><td>" + esc(T("bp.gst", { r: x.gstRate })) + '</td><td class="num">' + esc(rupees(x.gst)) + "</td></tr>" +
         '<tr class="total"><td>' + esc(T("bp.total")) + '</td><td class="num">' + esc(rupees(x.total)) + "</td></tr></tbody></table>" +
       (x.note ? '<p class="bp-note"><b>' + esc(T("qt.note")) + "</b> " + esc(x.note) + "</p>" : "") +
-      '<p class="bp-note"><b>' + esc(T("qt.terms_h")) + "</b> " + esc(T("qt.terms")) + "</p>" +
-      '<p class="bp-note">' + esc(T("bp.same")) + "</p>" +
+      '<p class="bp-note"><b>' + esc(T("qt.terms_h")) + "</b> " + esc(T(x.kind === "CUSTOM" ? "qt.terms_gov" : "qt.terms")) + "</p>" +
+      '<p class="bp-note">' + esc(T(x.kind === "CUSTOM" ? "qt.same_gov" : "bp.same")) + "</p>" +
       '<p class="bp-note">' + esc(T("bp.policies")) + "</p></article>";
   }
   function fail(k) { err = k; render(); }

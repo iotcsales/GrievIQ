@@ -2979,6 +2979,41 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await call(S, "POST", "/api/admin/bills", { action: "cancel", id: bill.id, reason: "Quotation tests finished" });
 }
 
+// ---- grieviq-71: quotations priced on request ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const qa = (who, b) => call(who, b ? "POST" : "GET", "/api/admin/quotations", b);
+  let g = await qa(S);
+  ok(g.body.canCustom === true && g.body.customOffers.some((o) => o.id === "STATE") && g.body.customOffers.some((o) => o.id === "NATIONAL") && g.body.customOffers.some((o) => o.id === "plan:dept_city" && /lakh/.test(o.rangeEn)), "the super admin can quote State, National, District and price-on-request plans", g.body.customOffers);
+  ok((await qa(O)).body.canCustom === false, "operations admin can't price on request");
+  const base = { action: "create", custom: true, offer: "STATE", officeName: "Department of Administrative Reforms, Uttar Pradesh", addressee: "The Principal Secretary", amount: "5,50,000", basis: "75 districts of Uttar Pradesh", reason: "Mid-size state rate agreed in the strategy: Rs 5.5 lakh for 75 districts" };
+  ok((await qa(O, base)).status === 403, "only the super admin can type a price");
+  r = await qa(S, Object.assign({}, base, { amount: "500", basis: "UP", reason: "short" }));
+  ok(r.status === 400 && r.body.fields.amount === "RANGE" && r.body.fields.basis === "REQUIRED" && r.body.fields.reason === "REQUIRED", "price in range, scope and reason needed", r.body);
+  ok((await qa(S, Object.assign({}, base, { offer: "MOON" }))).body.fields.plan === "REQUIRED", "only the listed offers");
+  r = await qa(S, base);
+  ok(r.status === 200 && r.body.total === 649000, "a State dashboard quotation: ₹5.5 lakh + 18% GST", r.body);
+  const qs = r.body;
+  const row = sdb.prepare("SELECT * FROM quotations WHERE id = ?").get(qs.id);
+  ok(row.kind === "CUSTOM" && row.period === "YEAR" && row.plan_id === "custom:STATE" && row.basis === base.basis && row.custom_reason === base.reason && row.amount === 550000 && row.gst === 99000, "stored as priced on request, for a year, with scope and reason", row);
+  const pub = await (await fetch(B + "/api/quote?ref=" + row.ref + "&k=" + row.view_key)).json();
+  ok(pub.quotation.kind === "CUSTOM" && pub.quotation.basis === base.basis && !("customReason" in pub.quotation) && !JSON.stringify(pub).includes("strategy"), "the buyer sees the scope, never the reason", pub);
+  g = await qa(A);
+  ok(g.body.quotations.find((x) => x.id === qs.id).customReason === base.reason, "the auditor sees the reason");
+  r = await qa(S, { action: "accept", id: qs.id });
+  ok(r.status === 400 && r.body.fields.orderRef === "REQUIRED", "recording the order needs its number");
+  const billsBefore = sdb.prepare("SELECT COUNT(*) n FROM bills").get().n;
+  r = await qa(O, { action: "accept", id: qs.id, orderRef: "AR/UP/2026/45" });
+  ok(r.status === 200 && r.body.recorded && sdb.prepare("SELECT COUNT(*) n FROM bills").get().n === billsBefore, "the order is recorded; no GrievIQ bill is made", r.body);
+  ok(sdb.prepare("SELECT status, order_ref FROM quotations WHERE id = ?").get(qs.id).order_ref === "AR/UP/2026/45", "the order number is kept");
+  ok((await qa(O, { action: "accept", id: qs.id, orderRef: "again" })).body.error === "NOT_OPEN", "recorded once");
+  r = await qa(S, Object.assign({}, base, { offer: "plan:dept_city", officeName: "Lucknow Nagar Nigam (all zones)", amount: 300000, basis: "8 zone offices", reason: "Lower end of the published range for 8 offices" }));
+  ok(r.status === 200 && r.body.total === 354000, "a price-on-request plan quoted", r.body);
+  const acts = sdb.prepare("SELECT action, detail FROM admin_events WHERE action IN ('quotation_made_on_request','quotation_order_recorded')").all();
+  ok(acts.filter((a) => a.action === "quotation_made_on_request").length === 2 && acts.some((a) => a.action === "quotation_order_recorded") && acts.every((a) => a.action !== "quotation_made_on_request" || JSON.parse(a.detail).reason), "the price, scope and reason are in the admin log");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

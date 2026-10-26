@@ -6,6 +6,24 @@
 // without signing in; it shows nothing but the quotation itself.
 
 export const QUOTE_DAYS = { min: 7, max: 90, def: 30 };
+// grieviq-71: what can be quoted on request (super admin types the price).
+export const CUSTOM_OFFERS = [
+  { id: "STATE", nameEn: "State dashboard (State Government)", nameHi: "राज्य डैशबोर्ड (राज्य सरकार)" },
+  { id: "NATIONAL", nameEn: "National dashboard (Government of India ministry)", nameHi: "राष्ट्रीय डैशबोर्ड (भारत सरकार मंत्रालय)" },
+  { id: "DISTRICT", nameEn: "District dashboard (District administration)", nameHi: "ज़िला डैशबोर्ड (ज़िला प्रशासन)" },
+];
+export const CUSTOM_LIMITS = { min: 1000, max: 100000000 };
+let customCols = null;
+export async function customReady(env) {
+  if (customCols === true) return true;
+  try { await env.DB.prepare("SELECT kind, basis, custom_reason FROM quotations LIMIT 1").all(); customCols = true; return true; } catch (e) { return false; }
+}
+// The fixed offers plus every plan published as "price on request".
+export function customOffers(settings) {
+  const quotePlans = (settings.plans || []).filter((p) => p.billing === "QUOTE" && !p.retired)
+    .map((p) => ({ id: "plan:" + p.id, nameEn: p.nameEn, nameHi: p.nameHi, rangeEn: p.quoteEn || "", rangeHi: p.quoteHi || "" }));
+  return CUSTOM_OFFERS.concat(quotePlans);
+}
 
 let ready = null;
 export async function quotesReady(env) {
@@ -34,9 +52,11 @@ export function quoteOut(q, today, staff) {
     id: q.id, ref: q.ref, officeName: q.office_name, addressee: q.addressee || null, planId: q.plan_id, planName: q.plan_name, period: q.period,
     amount: q.amount, gstRate: q.gst_rate, gst: q.gst, total: q.total, validUntil: q.valid_until, madeAt: q.made_at,
     status: expired ? "EXPIRED" : q.status, note: q.note || null,
+    kind: q.kind || "PLAN", basis: q.basis || null,
   };
   if (staff) Object.assign(x, { email: q.email || null, madeBy: q.made_by, emailedTo: q.emailed_to || null, emailedAt: q.emailed_at || null,
     orderRef: q.order_ref || null, billId: q.bill_id || null, acceptedBy: q.accepted_by || null, acceptedAt: q.accepted_at || null,
-    withdrawnBy: q.withdrawn_by || null, withdrawnAt: q.withdrawn_at || null, withdrawReason: q.withdraw_reason || null, viewKey: q.view_key });
+    withdrawnBy: q.withdrawn_by || null, withdrawnAt: q.withdrawn_at || null, withdrawReason: q.withdraw_reason || null, viewKey: q.view_key,
+    customReason: q.custom_reason || null });
   return x;
 }

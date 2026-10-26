@@ -3,18 +3,24 @@
 // GET  (view_bills: super, operations, auditor) -> quotations, newest first
 // POST (manage_bills: super, operations), { action, ... }:
 //   create   { officeName, addressee?, email?, planId, period, validDays?, note? }
+//            grieviq-71, super admin only: { custom: true, offer, amount, basis, reason, ... }
+//            priced on request (State / National / District dashboard or a
+//            "price on request" plan): yearly price typed in, scope shown on
+//            the quotation, reason kept for the auditor
 //   email    { id, email? }        the quotation and its private link, to the office
 //   withdraw { id, reason }
 //   accept   { id, officeType, officeTier?, officeId, from, orderRef, dueDays? }
 //            the office's order arrived: a bill at the quoted price
+//            (a quotation priced on request: { id, orderRef } records the
+//            order; it is invoiced outside GrievIQ's bills)
 // Every action goes to the admin log (admin_events cannot be changed).
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
-import { liveVersion, istToday } from "../../_shared/site-settings.js";
+import { liveVersion, istToday, withGst } from "../../_shared/site-settings.js";
 import { quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, emailOffice, planBillFilter, billingReady } from "../../_shared/billing.js";
 import { sendEmailNow } from "../../_shared/dept-auth.js";
 import { validateContact } from "../../_shared/contact-validation.js";
-import { quotesReady, nextQuoteRef, newViewKey, quoteOut, QUOTE_DAYS } from "../../_shared/quotes.js";
+import { quotesReady, nextQuoteRef, newViewKey, quoteOut, QUOTE_DAYS, customReady, customOffers, CUSTOM_LIMITS } from "../../_shared/quotes.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -36,7 +42,11 @@ export async function onRequestGet({ request, env }) {
   if (!(await quotesReady(env))) return json({ ready: false, quotations: [] });
   const today = istToday();
   const { results } = await env.DB.prepare("SELECT * FROM quotations ORDER BY made_at DESC LIMIT 200").all();
-  return json({ ready: true, canManage: allows(auth, "manage_bills"), today, days: QUOTE_DAYS, quotations: (results || []).map((q) => quoteOut(q, today, true)) });
+  const live = await liveVersion(env);
+  const custom = await customReady(env);
+  return json({ ready: true, canManage: allows(auth, "manage_bills"), canCustom: custom && auth.role === "super_admin", today, days: QUOTE_DAYS,
+    gstRate: Number(live.data.gst.rate), customOffers: custom ? customOffers(live.data) : [], customLimits: CUSTOM_LIMITS,
+    quotations: (results || []).map((q) => quoteOut(q, today, true)) });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -57,12 +67,31 @@ export async function onRequestPost({ request, env }) {
     let email = null;
     if (String(b.email || "").trim()) { email = cleanEmail(b.email); if (!email) f.email = "FORMAT"; }
     const live = await liveVersion(env);
-    const plan = live.data.plans.find((p) => p.id === String(b.planId || ""));
-    const period = b.period === "YEAR" ? "YEAR" : b.period === "MONTH" ? "MONTH" : null;
-    if (!plan) f.plan = "REQUIRED";
-    if (!period) f.period = "REQUIRED";
-    const q = plan && period ? quote(live.data, plan, period, today) : null;
-    if (plan && period && !q) f.period = "NO_PRICE";
+    let plan, period, q, custom = null;
+    if (b.custom) {
+      // grieviq-71: priced on request, super admin only.
+      if (auth.role !== "super_admin") return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!(await customReady(env))) return json({ error: "NOT_READY" }, 409);
+      const offer = customOffers(live.data).find((o) => o.id === String(b.offer || ""));
+      if (!offer) f.plan = "REQUIRED";
+      const amount = Number(String(b.amount == null ? "" : b.amount).replace(/[,₹\s]/g, ""));
+      if (b.amount === "" || b.amount == null) f.amount = "REQUIRED";
+      else if (!Number.isInteger(amount) || amount < CUSTOM_LIMITS.min || amount > CUSTOM_LIMITS.max) f.amount = "RANGE";
+      const basis = clean(b.basis, 160), reason = clean(b.reason, 300);
+      if (basis.length < 5) f.basis = "REQUIRED"; else if (basis.length > 160) f.basis = "LENGTH";
+      if (reason.length < 10) f.reason = "REQUIRED"; else if (reason.length > 300) f.reason = "LENGTH";
+      if (offer) plan = { id: "custom:" + offer.id, nameEn: offer.nameEn };
+      period = "YEAR";
+      if (!f.amount) { const rate = Number(live.data.gst.rate); const total = withGst(amount, rate); q = { amount, gstRate: rate, gst: total - amount, total, offerId: null }; }
+      custom = { basis, reason };
+    } else {
+      plan = live.data.plans.find((p) => p.id === String(b.planId || ""));
+      period = b.period === "YEAR" ? "YEAR" : b.period === "MONTH" ? "MONTH" : null;
+      if (!plan) f.plan = "REQUIRED";
+      if (!period) f.period = "REQUIRED";
+      q = plan && period ? quote(live.data, plan, period, today) : null;
+      if (plan && period && !q) f.period = "NO_PRICE";
+    }
     const days = b.validDays === "" || b.validDays == null ? QUOTE_DAYS.def : Number(b.validDays);
     if (!Number.isInteger(days) || days < QUOTE_DAYS.min || days > QUOTE_DAYS.max) f.validDays = "RANGE";
     const note = clean(b.note, 300);
@@ -81,7 +110,8 @@ export async function onRequestPost({ request, env }) {
       } catch (e) { if (!/UNIQUE/i.test(String(e && e.message))) throw e; }
     }
     if (!ref) return json({ error: "CONFLICT" }, 409);
-    await adminLog(env, auth.email, "quotation_made", ref, { office: officeName, plan: plan.id, period, total: q.total, validUntil: addDays(today, days) });
+    if (custom) await env.DB.prepare("UPDATE quotations SET kind = 'CUSTOM', basis = ?, custom_reason = ? WHERE id = ?").bind(custom.basis, custom.reason, id).run();
+    await adminLog(env, auth.email, custom ? "quotation_made_on_request" : "quotation_made", ref, Object.assign({ office: officeName, plan: plan.id, period, total: q.total, validUntil: addDays(today, days) }, custom ? { basis: custom.basis, reason: custom.reason } : {}));
     return json({ ok: true, id, ref, total: q.total, validUntil: addDays(today, days) });
   }
 
@@ -95,7 +125,7 @@ export async function onRequestPost({ request, env }) {
     if (!to) return json({ error: "CHECK_FIELDS", fields: { email: String(b.email || "").trim() ? "FORMAT" : "REQUIRED" } }, 400);
     const s = (await liveVersion(env)).data;
     const link = origin + "/quote?ref=" + encodeURIComponent(row.ref) + "&k=" + row.view_key;
-    const en = `<p>Dear ${escH(row.addressee || row.office_name)},</p><p>Please find GrievIQ's quotation <b>${escH(row.ref)}</b> for <b>${escH(row.office_name)}</b>: ${escH(row.plan_name)}, ${row.period === "YEAR" ? "one year" : "one month"}. Amount ${inr(row.amount)} + GST ${inr(row.gst)} = <b>${inr(row.total)}</b>. Valid until ${dmy(row.valid_until)}.</p>` +
+    const en = `<p>Dear ${escH(row.addressee || row.office_name)},</p><p>Please find GrievIQ's quotation <b>${escH(row.ref)}</b> for <b>${escH(row.office_name)}</b>: ${escH(row.plan_name)}, ${row.period === "YEAR" ? "one year" : "one month"}. Amount ${inr(row.amount)} + GST ${inr(row.gst)} = <b>${inr(row.total)}</b>. Valid until ${dmy(row.valid_until)}.</p>` + (row.basis ? `<p>Scope: ${escH(row.basis)}</p>` : "") +
       `<p>Open, print or save it as a PDF: <a href="${escH(link)}">${escH(link)}</a></p><p>Every office pays the same published price. Payments by a political party or an election campaign are not accepted. After your order, GrievIQ sends a bill; pay only through the details shown when you sign in to GrievIQ.</p><p>${escH(s.company.legalName)} · ${escH(s.company.supportEmail)}</p>`;
     const hi = `<p>GrievIQ का कोटेशन <b>${escH(row.ref)}</b> (<b>${escH(row.office_name)}</b>): कुल <b>${inr(row.total)}</b> (GST सहित), ${dmy(row.valid_until)} तक मान्य। खोलें, प्रिंट करें या PDF सहेजें: <a href="${escH(link)}">${escH(link)}</a></p>`;
     const sent = await sendEmailNow(env, to, `GrievIQ quotation ${row.ref}: ${inr(row.total)} · कोटेशन`, en + "<hr>" + hi);
@@ -112,6 +142,18 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("UPDATE quotations SET status = 'WITHDRAWN', withdrawn_by = ?, withdrawn_at = ?, withdraw_reason = ? WHERE id = ? AND status = 'OPEN'").bind(auth.email, now, reason, row.id).run();
     await adminLog(env, auth.email, "quotation_withdrawn", row.ref, { reason });
     return json({ ok: true });
+  }
+
+  if (b.action === "accept" && row.kind === "CUSTOM") {
+    // grieviq-71: the order is recorded; it is invoiced outside GrievIQ's bills.
+    if (row.status !== "OPEN") return json({ error: "NOT_OPEN" }, 409);
+    if (expired) return json({ error: "EXPIRED" }, 409);
+    const orderRef = clean(b.orderRef, 80);
+    if (orderRef.length < 2 || orderRef.length > 80) return json({ error: "CHECK_FIELDS", fields: { orderRef: orderRef.length > 80 ? "LENGTH" : "REQUIRED" } }, 400);
+    const r = await env.DB.prepare("UPDATE quotations SET status = 'ACCEPTED', accepted_by = ?, accepted_at = ?, order_ref = ? WHERE id = ? AND status = 'OPEN'").bind(auth.email, now, orderRef, row.id).run();
+    if (!r.meta || r.meta.changes !== 1) return json({ error: "NOT_OPEN" }, 409);
+    await adminLog(env, auth.email, "quotation_order_recorded", row.ref, { orderRef, total: row.total });
+    return json({ ok: true, recorded: true, total: row.total });
   }
 
   if (b.action === "accept") {
