@@ -2855,6 +2855,62 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   }
 }
 
+// ---- grieviq-68: review access for the payment provider's reviewers ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const RV = "grieviq.review@gmail.com", RV2 = "grieviq.review2@gmail.com";
+  const rv = (who, b) => call(who, b ? "POST" : "GET", "/api/admin/review-office", b);
+  r = await rv(A);
+  ok(r.status === 200 && r.body.ready && r.body.on === false && r.body.canManage === false, "auditor sees review access is off", r.body);
+  ok((await rv(O, { action: "on", email: RV })).status === 403, "only the super admin can switch it on");
+  ok((await rv(M)).status === 403, "data moderator can't see it");
+  r = await rv(S, { action: "on" });
+  ok(r.status === 400 && r.body.fields.email === "REQUIRED", "the Google account is needed");
+  r = await rv(S, { action: "on", email: "not-an-email" });
+  ok(r.status === 400 && r.body.fields.email === "FORMAT", "a real email address", r.body);
+  for (const used of ["r1@x.in", "ae.zone3@nic.in", S, "om@x.in"]) {
+    r = await rv(S, { action: "on", email: used });
+    ok(r.status === 400 && r.body.fields.email === "IN_USE", "a real office, team, officer or staff account can't be the reviewers' (" + used + ")", r.body);
+  }
+  ok((await call(RV, "GET", "/api/billing")).status !== 200, "before: the reviewers' account can't sign in");
+  r = await rv(S, { action: "on", email: "Grieviq.Review@Gmail.com" });
+  ok(r.status === 200 && r.body.email === RV && r.body.bill && /^GIQ-PAY-/.test(r.body.bill.ref), "switched on, with a sample bill", r.body);
+  const sample = r.body.bill;
+  const area = sdb.prepare("SELECT live, review FROM areas WHERE id = 'grieviq-review'").get();
+  ok(area.live === 0 && area.review === 1, "the demo area is marked review and isn't live", area);
+  r = await call(S, "POST", "/api/admin/areas", { action: "set_live", id: "grieviq-review", live: true });
+  ok(r.status === 400 && r.body.code === "REVIEW_AREA" && sdb.prepare("SELECT live FROM areas WHERE id = 'grieviq-review'").get().live === 0, "the demo area can never be switched on for citizens", r.body);
+  const io = await call("", "GET", "/api/intake-options");
+  ok(!JSON.stringify(io.body).includes("grieviq-review"), "citizens never see the demo area");
+  // the reviewer
+  let g = await call(RV, "GET", "/api/billing");
+  ok(g.status === 200 && g.body.bills.length === 1 && g.body.bills[0].ref === sample.ref && g.body.bills[0].status === "DUE" && g.body.pay.online.on, "the reviewer signs in and sees the sample bill with Pay online", g.body);
+  g = await call(RV, "GET", "/api/grievances");
+  ok(g.status === 200 && JSON.stringify(g.body).indexOf("GRV-") < 0, "the reviewer's console has no complaints", g.status);
+  r = await call(RV, "POST", "/api/billing", { action: "online", billId: sample.id, ownFunds: true });
+  ok(r.status === 200 && r.body.amount === sample.total * 100, "the reviewer can open the payment window for the sample bill", r.body);
+  ok((await call(RV, "GET", "/api/admin/bills")).status === 403, "the reviewer has no staff access");
+  // switching on again doesn't make a second bill
+  r = await rv(S, { action: "on", email: RV });
+  ok(r.status === 200 && r.body.bill.ref === sample.ref && sdb.prepare("SELECT COUNT(*) n FROM bills WHERE office_id = 'grieviq-review-office' AND status = 'DUE'").get().n === 1, "switching on again keeps the one sample bill", r.body);
+  // a different account
+  r = await rv(S, { action: "on", email: RV2 });
+  ok(r.status === 200 && (await call(RV, "GET", "/api/billing")).status !== 200 && (await call(RV2, "GET", "/api/billing")).status === 200, "a new account replaces the old one at once");
+  r = await rv(A);
+  ok(r.body.on && r.body.email === RV2 && r.body.bills.some((b) => b.ref === sample.ref), "the Bills page shows who has access and the sample bill", r.body);
+  // off
+  r = await rv(S, { action: "off" });
+  ok(r.status === 200 && r.body.cancelled === 1 && (await call(RV2, "GET", "/api/billing")).status !== 200, "switched off: no sign-in, sample bill cancelled", r.body);
+  ok(sdb.prepare("SELECT status FROM bills WHERE id = ?").get(sample.id).status === "CANCELLED", "the sample bill is cancelled");
+  ok((await rv(S, { action: "off" })).body.error === "ALREADY_OFF", "already off");
+  const acts = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'review_office_%'").all().map((x) => x.action);
+  ok(acts.filter((a) => a === "review_office_on").length >= 3 && acts.includes("review_office_off"), "every switch is in the admin log", acts);
+  // government views leave the demo area out
+  const gs = await import(new URL("../functions/_shared/gov-stats.js", import.meta.url).href);
+  ok(typeof gs.govStats === "function", "government statistics load with the review rule");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

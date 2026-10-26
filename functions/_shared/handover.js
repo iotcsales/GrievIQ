@@ -62,14 +62,14 @@ export async function readSeat(env, type, id) {
     name: row.name || null, phone: row.phone || null, email: row.email ? low(row.email) : null, status: seatStatus(row.seat_status) };
 }
 
-// Every seat of every kind, for the admin page.
+// Every seat of every kind, for the admin page (grieviq-68: not the review office's demo seats).
 export async function listSeats(env) {
   const out = {};
   const q = {
-    ward: "SELECT lu.id, lu.name AS place, lu.unit_type, lu.rep_name AS name, lu.rep_email AS email, lu.seat_status, ar.name AS area FROM local_units lu LEFT JOIN areas ar ON ar.id = lu.area_id ORDER BY ar.name, lu.name",
+    ward: "SELECT lu.id, lu.name AS place, lu.unit_type, lu.rep_name AS name, lu.rep_email AS email, lu.seat_status, ar.name AS area FROM local_units lu LEFT JOIN areas ar ON ar.id = lu.area_id WHERE lu.id <> 'grieviq-review-office' ORDER BY ar.name, lu.name",
     mayor: "SELECT id, name AS place, mayor_name AS name, mayor_email AS email, seat_status FROM municipal_bodies WHERE has_mayor = 1 ORDER BY name",
-    mla: "SELECT id, name AS place, mla_name AS name, mla_email AS email, seat_status FROM mla_constituencies ORDER BY name",
-    mp: "SELECT id, name AS place, mp_name AS name, mp_email AS email, seat_status FROM mp_constituencies ORDER BY name",
+    mla: "SELECT id, name AS place, mla_name AS name, mla_email AS email, seat_status FROM mla_constituencies WHERE id <> 'mla_constituencie-grieviq-review' ORDER BY name",
+    mp: "SELECT id, name AS place, mp_name AS name, mp_email AS email, seat_status FROM mp_constituencies WHERE id <> 'mp_constituencie-grieviq-review' ORDER BY name",
   };
   for (const t of SEAT_TYPES) {
     let rows = [];

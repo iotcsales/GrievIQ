@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=67"></script>
+<script src="/i18n.js?v=68"></script>
 <script src="/admin-nav.js?v=r20"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
@@ -246,7 +246,11 @@
   .bl-card dt { color: var(--admin-muted); } .bl-card dd { margin: 0; overflow-wrap: anywhere; }
   .bl-pay { border-top: 1px solid var(--admin-border); margin-top: 10px; padding-top: 10px; }
   /* grieviq-67: online payments section */
-  #bl-online p { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
+  #bl-online p, #bl-review p { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
+  #bl-review h3 { font-size: 15px; margin: 14px 0 6px; }
+  #bl-review dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  #bl-review dd { margin: 0; overflow-wrap: anywhere; }
+  @media (max-width: 640px) { #bl-review dl { grid-template-columns: 1fr; } #bl-review dt { margin-top: 6px; } }
   #bl-online h3 { font-size: 15px; margin: 14px 0 6px; }
   #bl-online dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
   #bl-online dd { margin: 0; overflow-wrap: anywhere; }
@@ -278,6 +282,7 @@
   <div class="note" data-i18n-html="adm.bl_note">The amount comes from the <b>published prices</b> on the day the bill is made, so every party pays the same; it can't be typed in. Before you confirm a payment, <b>find it in the bank statement</b> (reference, amount and date).</div>
   <div id="bl-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
   <div id="bl-online"></div>
+  <div id="bl-review"></div>
   <div id="bl-new"></div>
   <h2 class="sec-h" id="bl-list-h" data-i18n="adm.bl_list_h">Bills</h2>
   <div class="pr-filter" role="group" aria-labelledby="bl-filter-l" id="bl-filter"></div>
@@ -427,6 +432,58 @@ function renderOnline() {
     var id = btn.getAttribute("data-refunded"), inp = document.getElementById("rf-" + id);
     act({ action: "online-refunded", onlineId: id, note: inp.value }, btn, "adm.bl_on_done_refunded", inp); }); });
 }
+// grieviq-68: review access for the payment provider's reviewers.
+var RV = { data: null, email: "", field: null };
+function renderReview() {
+  var box = document.getElementById("bl-review");
+  var d = RV.data;
+  if (!d || !d.ready || !B.data || !B.data.ready) { box.innerHTML = ""; return; }
+  var bill = (d.bills || []).filter(function (b) { return b.status === "DUE" || b.status === "REPORTED"; })[0];
+  var h = '<section class="bl-new" aria-labelledby="bl-rv-h" id="bl-rv"><h2 id="bl-rv-h">' + esc(T("adm.rv_h")) + "</h2>" +
+    "<p>" + esc(T("adm.rv_p")) + "</p>";
+  if (d.on) {
+    h += '<p class="warnline"><b>' + esc(T("adm.rv_on", { email: d.email })) + "</b></p>" +
+      "<dl><dt>" + esc(T("adm.rv_office")) + "</dt><dd>" + esc(d.officeName) + "</dd>" +
+      "<dt>" + esc(T("adm.rv_bill")) + "</dt><dd>" + (bill ? esc(bill.ref) + " · " + esc(rupees(bill.total)) + " · " + esc(T("adm.bl_st_" + bill.status)) : esc(T("adm.rv_no_bill"))) + "</dd></dl>" +
+      "<h3>" + esc(T("adm.rv_give_h")) + "</h3><dl>" +
+      "<dt>" + esc(T("adm.rv_give_site")) + '</dt><dd><span lang="en">https://grieviq.in</span></dd>' +
+      "<dt>" + esc(T("adm.rv_give_user")) + '</dt><dd><span lang="en">' + esc(d.email) + "</span></dd>" +
+      "<dt>" + esc(T("adm.rv_give_pass")) + "</dt><dd>" + esc(T("adm.rv_give_pass_v")) + "</dd>" +
+      "<dt>" + esc(T("adm.rv_give_how")) + "</dt><dd>" + esc(T("adm.rv_give_how_v")) + "</dd></dl>";
+  } else h += "<p><b>" + esc(T("adm.rv_off")) + "</b></p>";
+  if (d.canManage) {
+    var err = RV.field ? T("adm.rv_e_" + RV.field) : "";
+    h += '<div class="bl-row"><div class="fld"><label for="rv-email">' + esc(T(d.on ? "adm.rv_email_change" : "adm.rv_email")) + '</label>' +
+      '<span class="muted" id="rv-email-h" style="display:block;font-size:13px">' + esc(T("adm.rv_email_h")) + "</span>" +
+      '<input type="email" id="rv-email" maxlength="120" autocomplete="off" spellcheck="false" value="' + esc(RV.email) + '" aria-describedby="rv-email-h' + (err ? " rv-email-e" : "") + '"' + (err ? ' aria-invalid="true"' : "") + ">" +
+      (err ? '<span class="ferr" id="rv-email-e">' + esc(err) + "</span>" : "") + "</div>" +
+      '<button type="button" class="primary" id="rv-on">' + esc(T(d.on ? "adm.rv_btn_change" : "adm.rv_btn_on")) + "</button></div>" +
+      (d.on ? '<div class="acts"><button type="button" class="danger" id="rv-off">' + esc(T("adm.rv_btn_off")) + "</button></div>" : "");
+  }
+  box.innerHTML = h + '<p class="row-msg" id="rv-msg" role="status" aria-live="polite" tabindex="-1"></p></section>';
+  var inp = document.getElementById("rv-email");
+  if (inp) inp.addEventListener("input", function () { RV.email = inp.value; });
+  var on = document.getElementById("rv-on"); if (on) on.addEventListener("click", function () { rvAct({ action: "on", email: RV.email }, on); });
+  var off = document.getElementById("rv-off"); if (off) off.addEventListener("click", function () { if (confirm(T("adm.rv_off_q"))) rvAct({ action: "off" }, off); });
+}
+async function loadReview() {
+  try { var r = await fetch("/api/admin/review-office"); RV.data = r.ok ? await r.json() : null; } catch (e) { RV.data = null; }
+  renderReview();
+}
+async function rvAct(body, btn) {
+  RV.field = null; btn.disabled = true;
+  var m = document.getElementById("rv-msg"); m.className = "row-msg"; m.textContent = T("adm.saving");
+  try {
+    var res = await fetch("/api/admin/review-office", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    var d = await res.json(); btn.disabled = false;
+    if (res.status === 400 && d.fields && d.fields.email) { RV.field = d.fields.email; renderReview(); document.getElementById("rv-email").focus(); return; }
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T("adm.ss_e_generic"); return; }
+    RV.email = "";
+    await load(); await loadReview();
+    var mm = document.getElementById("rv-msg"); mm.className = "row-msg success";
+    mm.textContent = body.action === "off" ? T("adm.rv_done_off") : T("adm.rv_done_on", { email: d.email, ref: d.bill && d.bill.ref ? d.bill.ref : "—" }); mm.focus();
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
+}
 function onlineHtml(b) {
   return (b.online || []).map(function (x) {
     return '<div class="bl-pay"><h4>' + esc(T("adm.bl_on_pay_h", { st: T("adm.bl_on_st_" + x.status) })) + "</h4><dl>" +
@@ -534,7 +591,7 @@ async function load() {
   try {
     var res = await fetch("/api/admin/bills"); var d = await res.json();
     if (!res.ok) { B.err = function () { return d.error === "NOT_ADMIN" || d.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load"); }; renderNew(); renderList(); return; }
-    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderOnline(); renderNew(); renderList();
+    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderOnline(); renderReview(); renderNew(); renderList();
   } catch (e) { B.err = function () { return T("adm.ss_e_load"); }; renderList(); }
 }
 function applyTheme(theme) { document.documentElement.classList.toggle("light-theme", theme === "light"); document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light"); }
@@ -545,8 +602,8 @@ document.getElementById("theme-toggle").addEventListener("click", function () {
   var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
 });
-document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderOnline(); renderNew(); renderList(); } });
-load();
+document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderOnline(); renderReview(); renderNew(); renderList(); } });
+load(); loadReview();
 </script>
 </body>
 </html>

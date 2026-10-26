@@ -36,6 +36,7 @@
 // rule is applied here, on the server, so small numbers never reach a
 // browser.
 
+import { reviewReady } from "./review-office.js";
 import { loadAssignments, measures as deptMeasures, officeKey as deptOfficeKey, monthlyDept } from "./dept-performance.js";
 import { THEMES } from "./gov.js";
 
@@ -117,6 +118,8 @@ export async function govStats(env, scope, month, nowMs, opts) {
   if (st) { where.push("a.state = ?"); binds.push(st.name_en); }
   if (dist) { where.push("a.district_id = ?"); binds.push(dist.id); }
   if (!where.length) where.push("1 = 1");
+  // grieviq-68: the review office's demo area is never in a government view.
+  if (await reviewReady(env)) where.push("COALESCE(a.review, 0) = 0");
   const [casesRes, catRes, areaRes, distRes] = await env.DB.batch([
     env.DB.prepare(
       `SELECT g.id, g.status, g.created_at, g.resolved_at, g.current_tier, g.reopen_count, g.pin_lat, g.category_id, g.local_unit_id,

@@ -532,6 +532,14 @@
   [
    "webhook not received",
    "onlinepay"
+  ],
+  [
+   "razorpay wants a test login",
+   "onlinepay"
+  ],
+  [
+   "give razorpay reviewers access",
+   "onlinepay"
   ]
  ],
  "rep": [

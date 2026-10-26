@@ -18,6 +18,7 @@
 // importers). Every change is logged to admin_events with before/after.
 
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
+import { REVIEW } from "../../_shared/review-office.js";
 import { validateContact, emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import { checkNewUnit, insertUnit, CONTACT_TABLES, contactDef } from "../../_shared/jurisdiction-writes.js";
 import { seatsReady, LETTERS, MAX_SEATS, seatId } from "../../_shared/seats.js";
@@ -44,10 +45,11 @@ export async function onRequestGet({ request, env }) {
 
   const seats = await seatsReady(env);
   const [mps, mlas, municipalBodies, localUnits] = await Promise.all([
-    env.DB.prepare("SELECT id, mp_name, mp_phone, mp_email FROM mp_constituencies ORDER BY mp_name").all(),
-    env.DB.prepare("SELECT id, name, mla_name, mla_phone, mla_email, mp_constituency_id FROM mla_constituencies ORDER BY mla_name").all(),
+    // grieviq-68: the review office's demo records are managed from Bills, not here.
+    env.DB.prepare("SELECT id, mp_name, mp_phone, mp_email FROM mp_constituencies WHERE id <> ? ORDER BY mp_name").bind(REVIEW.mpId).all(),
+    env.DB.prepare("SELECT id, name, mla_name, mla_phone, mla_email, mp_constituency_id FROM mla_constituencies WHERE id <> ? ORDER BY mla_name").bind(REVIEW.mlaId).all(),
     env.DB.prepare("SELECT id, name, has_mayor, mayor_name, mayor_phone, mayor_email FROM municipal_bodies ORDER BY name").all(),
-    env.DB.prepare(`SELECT id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email${seats ? ", seat_count, seat_status" : ""} FROM local_units ORDER BY name`).all(),
+    env.DB.prepare(`SELECT id, name, unit_type, mla_constituency_id, municipal_body_id, rep_name, rep_phone, rep_email${seats ? ", seat_count, seat_status" : ""} FROM local_units WHERE id <> ? ORDER BY name`).bind(REVIEW.unitId).all(),
   ]);
   // grieviq-57: seats B-F of wards with several members.
   let wardSeats = [];

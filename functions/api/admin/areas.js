@@ -27,6 +27,7 @@
 import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
 import { validateContact, emailDomainCanReceive } from "../../_shared/contact-validation.js";
 import { listAreas, getArea, areaSlug, STATES, RESERVED_SLUGS, areasReady } from "../../_shared/areas.js";
+import { REVIEW } from "../../_shared/review-office.js";
 import { insertUnitSql, insertUnitBinds } from "../../_shared/jurisdiction-writes.js";
 import { govReady, listStates, listDistricts, LGD_RE, slug as govSlug } from "../../_shared/gov.js";
 
@@ -80,8 +81,8 @@ export async function onRequestGet({ request, env }) {
   const area = areas.find((a) => a.id === id);
   if (!area) return json({ error: "Area not found.", code: "NOT_FOUND" }, 404);
   const [mps, mlas, mbs, units] = await Promise.all([
-    env.DB.prepare("SELECT id, name, mp_name FROM mp_constituencies ORDER BY name").all(),
-    env.DB.prepare("SELECT id, name, mla_name, mp_constituency_id FROM mla_constituencies ORDER BY name").all(),
+    env.DB.prepare("SELECT id, name, mp_name FROM mp_constituencies WHERE id <> ? ORDER BY name").bind(REVIEW.mpId).all(),
+    env.DB.prepare("SELECT id, name, mla_name, mp_constituency_id FROM mla_constituencies WHERE id <> ? ORDER BY name").bind(REVIEW.mlaId).all(),
     env.DB.prepare("SELECT id, name, has_mayor, area_id FROM municipal_bodies ORDER BY name").all(),
     env.DB.prepare(
       `SELECT lu.id, lu.name, lu.unit_type, lu.block, lu.rep_name, (COALESCE(TRIM(lu.rep_email), '') <> '') AS has_email,
@@ -208,6 +209,8 @@ async function setLive(env, auth, body) {
   const area = await getArea(env, body.id);
   if (!area) return json({ error: "Area not found." }, 404);
   const live = body.live === true;
+  // grieviq-68: the review office's demo area can never be shown to citizens.
+  if (live && area.id === REVIEW.areaId) return json({ error: "This is the demo area for the payment provider's review. It can't be switched on for citizens.", code: "REVIEW_AREA" }, 400);
   const reason = text(body.reason, 300);
   if (!live && (!reason || reason.length < 10)) return json({ error: "Please give a reason (at least 10 characters).", fields: { reason: "LENGTH" } }, 400);
   if (live) {
