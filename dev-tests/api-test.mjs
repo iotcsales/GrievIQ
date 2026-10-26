@@ -2911,6 +2911,74 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(typeof gs.govStats === "function", "government statistics load with the review rule");
 }
 
+// ---- grieviq-70: quotations ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const qa = (who, b) => call(who, b ? "POST" : "GET", "/api/admin/quotations", b);
+  r = await qa(A);
+  ok(r.status === 200 && r.body.ready && r.body.canManage === false && Array.isArray(r.body.quotations), "the auditor reads quotations", r.body);
+  ok((await qa(A, { action: "create", officeName: "X", planId: "dept_office", period: "YEAR" })).status === 403, "the auditor can't make one");
+  ok((await qa(M)).status === 403, "data moderator can't see quotations");
+  r = await qa(O, { action: "create" });
+  ok(r.status === 400 && r.body.fields.officeName === "REQUIRED" && r.body.fields.plan === "REQUIRED" && r.body.fields.period === "REQUIRED", "office, plan and period needed", r.body);
+  r = await qa(O, { action: "create", officeName: "Jal Kal Vibhag, Zone 4", planId: "dept_office", period: "MONTH", validDays: 5, email: "not-mail" });
+  ok(r.status === 400 && r.body.fields.period === "NO_PRICE" && r.body.fields.validDays === "RANGE" && r.body.fields.email === "FORMAT", "a yearly plan can't be quoted by the month; 7-90 days; real email", r.body);
+  r = await qa(O, { action: "create", officeName: "Jal Kal Vibhag, Zone 4", addressee: "The Executive Engineer", planId: "dept_office", period: "YEAR", amount: 1 });
+  ok(r.status === 200 && /^GIQ-QT-\d{6}$/.test(r.body.ref) && r.body.total === 49560, "a quotation from the published price (the amount can't be sent)", r.body);
+  const q1 = r.body;
+  const row1 = sdb.prepare("SELECT * FROM quotations WHERE id = ?").get(q1.id);
+  ok(row1.valid_until === r.body.validUntil && row1.status === "OPEN" && /^[0-9a-f]{48}$/.test(row1.view_key), "valid 30 days by default, with a private link key");
+  // the private link
+  const pub = async (ref, k) => { const x = await fetch(B + "/api/quote?ref=" + encodeURIComponent(ref) + "&k=" + encodeURIComponent(k)); return { status: x.status, body: await x.json() }; };
+  r = await pub(q1.ref, row1.view_key);
+  ok(r.status === 200 && r.body.quotation.ref === q1.ref && r.body.quotation.total === 49560 && r.body.quotation.addressee === "The Executive Engineer" && r.body.quotation.status === "OPEN", "the office opens it from its link", r.body);
+  ok(!("viewKey" in r.body.quotation) && !("madeBy" in r.body.quotation) && !("email" in r.body.quotation), "the link shows only the quotation (no staff details)");
+  ok((await pub(q1.ref, "0".repeat(48))).status === 404 && (await pub(q1.ref, "x")).status === 404 && (await pub("GIQ-QT-999999", row1.view_key)).status === 404, "a wrong key or reference: not found");
+  // email
+  r = await qa(O, { action: "email", id: q1.id });
+  ok(r.status === 400 && r.body.fields.email === "REQUIRED", "emailing needs an address");
+  let before = mails().length;
+  r = await qa(O, { action: "email", id: q1.id, email: "EE.Zone4@nic.in" });
+  const m = mails().slice(before);
+  ok(r.status === 200 && m.some((x) => x.to[0] === "ee.zone4@nic.in" && x.subject.includes(q1.ref) && x.html.includes("/quote?ref=" + q1.ref + "&amp;k=" + row1.view_key) && /political party/.test(x.html)), "emailed with the private link and the neutrality line", m.map((x) => x.subject));
+  ok(sdb.prepare("SELECT emailed_to FROM quotations WHERE id = ?").get(q1.id).emailed_to === "ee.zone4@nic.in", "who it was sent to is kept");
+  // prices change later: the bill keeps the quoted price
+  sdb.prepare("UPDATE quotations SET amount = 40000, gst = 7200, total = 47200 WHERE id = ?").run(q1.id);
+  const jalId = sdb.prepare("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in' AND status = 'ACTIVE'").get().office_id;
+  r = await qa(O, { action: "accept", id: q1.id });
+  ok(r.status === 400 && r.body.fields.office === "REQUIRED" && r.body.fields.orderRef === "REQUIRED", "accepting needs the office and the order number", r.body);
+  before = mails().length;
+  r = await qa(O, { action: "accept", id: q1.id, officeType: "DEPT", officeId: jalId, from: "2027-08-01", orderRef: "JKV/WO/2026/118" });
+  ok(r.status === 200 && /^GIQ-PAY-/.test(r.body.billRef) && r.body.total === 47200, "order received: a bill at the quoted price", r.body);
+  const bill = sdb.prepare("SELECT * FROM bills WHERE id = ?").get(r.body.billId);
+  ok(bill.total === 47200 && bill.amount === 40000 && bill.status === "DUE" && bill.office_id === jalId && bill.note.includes(q1.ref) && bill.note.includes("JKV/WO/2026/118"), "the bill names the quotation and the order", bill);
+  ok(mails().slice(before).some((x) => x.to[0] === "ae.zone3@nic.in" && x.subject.includes(r.body.billRef)), "the office is emailed the bill");
+  const qrow = sdb.prepare("SELECT status, bill_id, order_ref FROM quotations WHERE id = ?").get(q1.id);
+  ok(qrow.status === "ACCEPTED" && qrow.bill_id === r.body.billId && qrow.order_ref === "JKV/WO/2026/118", "the quotation is marked accepted, with its bill");
+  ok((await qa(O, { action: "accept", id: q1.id, officeType: "DEPT", officeId: jalId, from: "2027-09-01", orderRef: "again" })).body.error === "NOT_OPEN", "one quotation, one bill");
+  ok((await pub(q1.ref, row1.view_key)).body.quotation.status === "ACCEPTED", "the link shows it was accepted");
+  // withdraw and expiry
+  r = await qa(S, { action: "create", officeName: "Nagar Nigam Zone 2", planId: "councillor", period: "MONTH", validDays: 7 });
+  const q2 = r.body;
+  ok(r.status === 200 && q2.total === 2359, "a monthly quotation", r.body);
+  ok((await qa(S, { action: "withdraw", id: q2.id, reason: "no" })).status === 400, "withdrawing needs a reason");
+  ok((await qa(S, { action: "withdraw", id: q2.id, reason: "Office asked for a yearly price instead" })).status === 200 && (await qa(S, { action: "email", id: q2.id, email: "x@nic.in" })).status === 409, "withdrawn: can't be emailed");
+  r = await qa(S, { action: "create", officeName: "Old request", planId: "councillor", period: "YEAR" });
+  const q3 = r.body;
+  sdb.prepare("UPDATE quotations SET valid_until = '2026-01-01' WHERE id = ?").run(q3.id);
+  r = await qa(A);
+  ok(r.body.quotations.find((x) => x.id === q3.id).status === "EXPIRED", "past its date: expired");
+  ok((await qa(S, { action: "accept", id: q3.id, officeType: "DEPT", officeId: jalId, from: "2027-10-01", orderRef: "late" })).body.error === "EXPIRED", "an expired quotation can't become a bill");
+  const acts = sdb.prepare("SELECT action FROM admin_events WHERE action LIKE 'quotation_%'").all().map((x) => x.action);
+  ok(["quotation_made", "quotation_emailed", "quotation_accepted", "quotation_withdrawn"].every((a) => acts.includes(a)), "every step is in the admin log", acts);
+  // tidy up for the browser tests
+  await call(S, "POST", "/api/admin/bills", { action: "cancel", id: bill.id, reason: "Quotation tests finished" });
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

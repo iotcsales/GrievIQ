@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=69"></script>
+<script src="/i18n.js?v=70"></script>
 <script src="/admin-nav.js?v=r20"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
@@ -247,7 +247,12 @@
   .bl-pay { border-top: 1px solid var(--admin-border); margin-top: 10px; padding-top: 10px; }
   /* grieviq-67: online payments section */
   #bl-online p, #bl-review p { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
-  #bl-review h3 { font-size: 15px; margin: 14px 0 6px; }
+  #bl-review h3, #bl-quotes h3 { font-size: 15px; margin: 14px 0 6px; }
+  #bl-quotes > section > p { font-size: 14px; margin: 0 0 8px; line-height: 1.5; }
+  #bl-quotes dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
+  #bl-quotes dd { margin: 0; overflow-wrap: anywhere; }
+  #bl-quotes .qt-accept p { font-size: 14px; }
+  @media (max-width: 640px) { #bl-quotes dl { grid-template-columns: 1fr; } #bl-quotes dt { margin-top: 6px; } }
   #bl-review dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; font-size: 14px; }
   #bl-review dd { margin: 0; overflow-wrap: anywhere; }
   @media (max-width: 640px) { #bl-review dl { grid-template-columns: 1fr; } #bl-review dt { margin-top: 6px; } }
@@ -283,6 +288,7 @@
   <div id="bl-msg" class="st-msg" role="status" aria-live="polite" tabindex="-1"></div>
   <div id="bl-online"></div>
   <div id="bl-review"></div>
+  <div id="bl-quotes"></div>
   <div id="bl-new"></div>
   <h2 class="sec-h" id="bl-list-h" data-i18n="adm.bl_list_h">Bills</h2>
   <div class="pr-filter" role="group" aria-labelledby="bl-filter-l" id="bl-filter"></div>
@@ -484,6 +490,158 @@ async function rvAct(body, btn) {
     mm.textContent = body.action === "off" ? T("adm.rv_done_off") : T("adm.rv_done_on", { email: d.email, ref: d.bill && d.bill.ref ? d.bill.ref : "—" }); mm.focus();
   } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
 }
+// grieviq-70: quotations. Made from the published prices; printable from a
+// private link; emailed to the office; an order turns it into a bill at the
+// quoted price.
+var QT = { data: null, f: { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "" }, fields: {}, quote: null, acc: {}, show: false };
+function qErr(k, id) { var c = QT.fields[k]; return c ? '<span class="ferr" id="qe-' + (id || k) + '">' + esc(T("adm.qt_e_" + k + "_" + c)) + "</span>" : ""; }
+function qInv(k) { return QT.fields[k] ? ' aria-invalid="true" aria-describedby="qe-' + k + '"' : ""; }
+function renderQuotes() {
+  var box = document.getElementById("bl-quotes");
+  var d = QT.data;
+  if (!d || !d.ready || !B.data || !B.data.ready) { box.innerHTML = ""; return; }
+  var f = QT.f, plans = B.data.plans || [];
+  var plan = plans.find(function (p) { return p.id === f.plan; });
+  var h = '<section class="bl-new" aria-labelledby="bl-qt-h" id="bl-qt"><h2 id="bl-qt-h">' + esc(T("adm.qt_h")) + "</h2><p>" + esc(T("adm.qt_p")) + "</p>";
+  if (d.canManage) {
+    h += '<details id="qt-new"' + (QT.show ? " open" : "") + '><summary style="cursor:pointer;font-weight:600;min-height:32px">' + esc(T("adm.qt_new_h")) + "</summary>" +
+      '<div class="bl-row"><div class="fld"><label for="qt-office">' + esc(T("adm.qt_office")) + '</label><input type="text" id="qt-office" maxlength="160" autocomplete="off" value="' + esc(f.officeName) + '"' + qInv("officeName") + ">" + qErr("officeName") + "</div></div>" +
+      '<div class="bl-row"><div class="fld"><label for="qt-to">' + esc(T("adm.qt_to")) + '</label><input type="text" id="qt-to" maxlength="160" autocomplete="off" value="' + esc(f.addressee) + '"' + qInv("addressee") + ">" + qErr("addressee") + "</div>" +
+      '<div class="fld"><label for="qt-email">' + esc(T("adm.qt_email")) + '</label><input type="email" id="qt-email" maxlength="120" autocomplete="off" spellcheck="false" value="' + esc(f.email) + '"' + qInv("email") + ">" + qErr("email") + "</div></div>" +
+      '<div class="bl-row"><div class="fld"><label for="qt-plan">' + esc(T("adm.bl_plan")) + '</label><select id="qt-plan"' + qInv("plan") + '><option value="">' + esc(T("adm.bl_plan_pick")) + "</option>" +
+      plans.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === f.plan ? " selected" : "") + ">" + esc(hi() ? p.nameHi : p.nameEn) + "</option>"; }).join("") + "</select>" + qErr("plan") + "</div>" +
+      '<div class="fld short"><label for="qt-days">' + esc(T("adm.qt_days")) + '</label><input type="number" id="qt-days" min="' + d.days.min + '" max="' + d.days.max + '" step="1" inputmode="numeric" value="' + esc(f.days) + '"' + qInv("validDays") + ">" + qErr("validDays") + "</div></div>" +
+      '<fieldset class="rad"><legend>' + esc(T("adm.qt_for")) + "</legend>" +
+      [["MONTH", "adm.bl_month"], ["YEAR", "adm.bl_year"]].map(function (o) { var off = plan && plan.billing === "YEARLY" && o[0] === "MONTH"; return '<span class="ropt"><input type="radio" name="qt-period" id="qt-p-' + o[0] + '" value="' + o[0] + '"' + (f.period === o[0] ? " checked" : "") + (off ? " disabled" : "") + '><label for="qt-p-' + o[0] + '">' + esc(T(o[1])) + "</label></span>"; }).join("") + qErr("period") + "</fieldset>" +
+      '<div class="bl-row"><div class="fld"><label for="qt-note">' + esc(T("adm.qt_note")) + '</label><input type="text" id="qt-note" maxlength="300" autocomplete="off" value="' + esc(f.note) + '"></div></div>' +
+      '<p class="bl-quote" id="qt-quote" role="status" aria-live="polite">' + esc(QT.quote ? T("adm.bl_quote", { a: rupees(QT.quote.amount), r: QT.quote.gstRate, g: rupees(QT.quote.gst), t: rupees(QT.quote.total) }) : T("adm.bl_quote_wait")) + "</p>" +
+      '<div class="acts"><button type="button" class="primary" id="qt-make">' + esc(T("adm.qt_make")) + "</button></div></details>";
+  }
+  h += '<h3 id="qt-list-h">' + esc(T("adm.qt_list_h", { n: d.quotations.length })) + "</h3>";
+  h += d.quotations.length ? d.quotations.map(quoteCard).join("") : '<p class="muted">' + esc(T("adm.qt_none")) + "</p>";
+  box.innerHTML = h + '<p class="row-msg" id="qt-msg" role="status" aria-live="polite" tabindex="-1"></p></section>';
+  wireQuotes();
+}
+function quoteCard(x) {
+  var link = "/quote?ref=" + encodeURIComponent(x.ref) + "&k=" + x.viewKey;
+  var open = x.status === "OPEN" && QT.data.canManage, a = QT.acc[x.id];
+  var h = '<div class="bl-pay qt-card" data-qt="' + esc(x.id) + '"><h4>' + esc(x.ref) + " · " + esc(x.officeName) + ' <span class="badge">' + esc(T("adm.qt_st_" + x.status)) + "</span></h4><dl>" +
+    "<dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + esc(x.planName) + " · " + esc(T(x.period === "YEAR" ? "adm.bl_year" : "adm.bl_month")) + "</dd>" +
+    "<dt>" + esc(T("adm.bl_amount")) + "</dt><dd>" + esc(T("adm.bl_quote", { a: rupees(x.amount), r: x.gstRate, g: rupees(x.gst), t: rupees(x.total) })) + "</dd>" +
+    "<dt>" + esc(T("adm.qt_valid")) + "</dt><dd>" + esc(dateText(x.validUntil)) + "</dd>" +
+    "<dt>" + esc(T("adm.qt_made")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(x.madeAt), who: x.madeBy })) + "</dd>" +
+    (x.emailedTo ? "<dt>" + esc(T("adm.qt_emailed")) + "</dt><dd>" + esc(x.emailedTo) + " · " + esc(timeText(x.emailedAt)) + "</dd>" : "") +
+    (x.status === "ACCEPTED" ? "<dt>" + esc(T("adm.qt_order")) + "</dt><dd>" + esc(x.orderRef) + " · " + esc(T("adm.pr_by", { when: timeText(x.acceptedAt), who: x.acceptedBy })) + "</dd>" : "") +
+    (x.status === "WITHDRAWN" ? "<dt>" + esc(T("adm.qt_withdrawn")) + "</dt><dd>" + esc(x.withdrawReason) + " · " + esc(timeText(x.withdrawnAt)) + "</dd>" : "") +
+    "</dl>" +
+    '<p style="margin:4px 0 8px;font-size:14px"><a style="color:var(--admin-accent)" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(T("adm.qt_open", { ref: x.ref })) + "</a></p>";
+  if (open) {
+    h += '<div class="bl-row"><div class="fld"><label for="qe-' + esc(x.id) + '">' + esc(T("adm.qt_email_to")) + '</label><input type="email" id="qe-' + esc(x.id) + '" maxlength="120" autocomplete="off" spellcheck="false" value="' + esc(x.email || "") + '"></div>' +
+      '<button type="button" data-qt-email="' + esc(x.id) + '">' + esc(T("adm.qt_email_btn")) + "</button></div>" +
+      '<div class="acts"><button type="button" class="primary" data-qt-accept="' + esc(x.id) + '" aria-expanded="' + (a ? "true" : "false") + '">' + esc(T("adm.qt_accept_btn")) + "</button></div>";
+    if (a) h += acceptForm(x, a);
+    h += '<div class="bl-row"><div class="fld"><label for="qw-' + esc(x.id) + '">' + esc(T("adm.qt_withdraw_reason")) + '</label><input type="text" id="qw-' + esc(x.id) + '" maxlength="300" autocomplete="off"></div>' +
+      '<button type="button" class="danger" data-qt-withdraw="' + esc(x.id) + '">' + esc(T("adm.qt_withdraw_btn")) + "</button></div>";
+  }
+  return h + '<p class="row-msg" role="status" aria-live="polite"></p></div>';
+}
+function acceptForm(x, a) {
+  var p = "qa-" + x.id + "-", e = a.fields || {};
+  var er = function (k) { return e[k] ? '<span class="ferr" id="' + p + k + '-e">' + esc(T("adm.qt_e_" + k + "_" + e[k])) + "</span>" : ""; };
+  var iv = function (k) { return e[k] ? ' aria-invalid="true" aria-describedby="' + p + k + '-e"' : ""; };
+  var h = '<div class="qt-accept" style="border-left:3px solid var(--admin-accent);padding-left:12px;margin:8px 0"><p>' + esc(T("adm.qt_accept_p", { t: rupees(x.total) })) + "</p>" +
+    '<fieldset class="rad"><legend>' + esc(T("adm.bl_type")) + "</legend>" +
+    [["REP", "adm.bl_type_rep"], ["DEPT", "adm.bl_type_dept"]].map(function (o) { return '<span class="ropt"><input type="radio" name="' + p + 'type" id="' + p + "t-" + o[0] + '" value="' + o[0] + '"' + (a.type === o[0] ? " checked" : "") + '><label for="' + p + "t-" + o[0] + '">' + esc(T(o[1])) + "</label></span>"; }).join("") + "</fieldset>" +
+    '<div class="bl-row"><div class="fld"><label for="' + p + 'q">' + esc(T("adm.bl_find")) + '</label><input type="search" id="' + p + 'q" maxlength="60" autocomplete="off" value="' + esc(a.q || "") + '"' + iv("office") + "></div>" +
+    '<button type="button" data-qa-find="' + esc(x.id) + '">' + esc(T("adm.bl_find_btn")) + "</button></div>" + er("office");
+  if (a.found) {
+    h += a.found.length ? '<fieldset class="rad"><legend>' + esc(T("adm.bl_pick")) + '</legend><ul class="bl-found">' + a.found.map(function (o, i) {
+      var chk = a.office && a.office.id === o.id && a.office.type === o.type && (a.office.tier || "") === (o.tier || "");
+      return '<li><span class="ropt"><input type="radio" name="' + p + 'office" id="' + p + "o-" + i + '" value="' + i + '"' + (chk ? " checked" : "") + (o.canSee ? "" : " disabled") + '><label for="' + p + "o-" + i + '">' + esc(o.name) + " · " + esc(T("adm.bl_lbl_" + o.label.replace(/\s+/g, "_"))) + "</label></span></li>";
+    }).join("") + "</ul></fieldset>" : '<p class="muted" role="status">' + esc(T("adm.bl_none_found")) + "</p>";
+  }
+  return h + '<div class="bl-row"><div class="fld"><label for="' + p + 'order">' + esc(T("adm.qt_order_ref")) + '</label><input type="text" id="' + p + 'order" maxlength="80" autocomplete="off" value="' + esc(a.orderRef || "") + '"' + iv("orderRef") + ">" + er("orderRef") + "</div>" +
+    '<div class="fld short"><label for="' + p + 'from">' + esc(T("adm.bl_from")) + '</label><input type="date" id="' + p + 'from" value="' + esc(a.from || B.data.today) + '"' + iv("from") + ">" + er("from") + "</div></div>" +
+    '<div class="acts"><button type="button" class="primary" data-qa-make="' + esc(x.id) + '">' + esc(T("adm.qt_make_bill")) + "</button></div></div>";
+}
+function wireQuotes() {
+  var f = QT.f, box = document.getElementById("bl-quotes");
+  var det = document.getElementById("qt-new"); if (det) det.addEventListener("toggle", function () { QT.show = det.open; });
+  [["qt-office", "officeName"], ["qt-to", "addressee"], ["qt-email", "email"], ["qt-days", "days"], ["qt-note", "note"]].forEach(function (x) { var el = document.getElementById(x[0]); if (el) el.addEventListener("input", function () { f[x[1]] = el.value; }); });
+  var pl = document.getElementById("qt-plan");
+  if (pl) pl.addEventListener("change", function () { f.plan = pl.value; var p = (B.data.plans || []).find(function (y) { return y.id === f.plan; }); if (p && p.billing === "YEARLY") f.period = "YEAR"; qQuote(); renderQuotes(); document.getElementById("qt-plan").focus(); });
+  box.querySelectorAll('input[name="qt-period"]').forEach(function (r) { r.addEventListener("change", function () { f.period = r.value; qQuote(); }); });
+  var mk = document.getElementById("qt-make"); if (mk) mk.addEventListener("click", function () { qMake(mk); });
+  box.querySelectorAll("[data-qt-email]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-email"); qAct({ action: "email", id: id, email: document.getElementById("qe-" + id).value }, btn, "adm.qt_done_email"); }); });
+  box.querySelectorAll("[data-qt-withdraw]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-withdraw"); qAct({ action: "withdraw", id: id, reason: document.getElementById("qw-" + id).value }, btn, "adm.qt_done_withdraw"); }); });
+  box.querySelectorAll("[data-qt-accept]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-accept"); if (QT.acc[id]) delete QT.acc[id]; else QT.acc[id] = { type: "DEPT", q: "", from: B.data.today }; renderQuotes(); var t = document.querySelector('[data-qt-accept="' + id + '"]'); if (t) t.focus(); }); });
+  Object.keys(QT.acc).forEach(function (id) {
+    var a = QT.acc[id], p = "qa-" + id + "-";
+    document.querySelectorAll('input[name="' + p + 'type"]').forEach(function (r) { r.addEventListener("change", function () { a.type = r.value; a.found = null; a.office = null; renderQuotes(); document.getElementById(p + "t-" + r.value).focus(); }); });
+    var q = document.getElementById(p + "q"); if (q) { q.addEventListener("input", function () { a.q = q.value; }); q.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); qFind(id); } }); }
+    var o = document.getElementById(p + "order"); if (o) o.addEventListener("input", function () { a.orderRef = o.value; });
+    var fr = document.getElementById(p + "from"); if (fr) fr.addEventListener("change", function () { a.from = fr.value; });
+    document.querySelectorAll('input[name="' + p + 'office"]').forEach(function (r) { r.addEventListener("change", function () { a.office = a.found[+r.value]; }); });
+  });
+  box.querySelectorAll("[data-qa-find]").forEach(function (btn) { btn.addEventListener("click", function () { qFind(btn.getAttribute("data-qa-find")); }); });
+  box.querySelectorAll("[data-qa-make]").forEach(function (btn) { btn.addEventListener("click", function () { qAccept(btn.getAttribute("data-qa-make"), btn); }); });
+}
+async function qQuote() {
+  QT.quote = null; var f = QT.f, el0 = document.getElementById("qt-quote");
+  if (!f.plan) { if (el0) el0.textContent = T("adm.bl_quote_wait"); return; }
+  try {
+    var res = await fetch("/api/admin/bills?quote=1&plan=" + encodeURIComponent(f.plan) + "&period=" + f.period); var d = await res.json();
+    QT.quote = res.ok ? d.quote : null;
+    var el = document.getElementById("qt-quote"); if (el) el.textContent = QT.quote ? T("adm.bl_quote", { a: rupees(QT.quote.amount), r: QT.quote.gstRate, g: rupees(QT.quote.gst), t: rupees(QT.quote.total) }) : T("adm.bl_e_NO_PRICE");
+  } catch (e) {}
+}
+async function qFind(id) {
+  var a = QT.acc[id], p = "qa-" + id + "-";
+  try {
+    var res = await fetch("/api/admin/bills?offices=" + a.type + "&q=" + encodeURIComponent(a.q || "")); var d = await res.json();
+    a.found = d.offices || []; a.office = null; renderQuotes();
+    var first = document.querySelector('input[name="' + p + 'office"]:not([disabled])'); if (first) first.focus(); else document.getElementById(p + "q").focus();
+  } catch (e) { setMsg(true, T("adm.ss_e_net")); }
+}
+async function qMake(btn) {
+  var f = QT.f; QT.fields = {}; btn.disabled = true;
+  try {
+    var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", officeName: f.officeName, addressee: f.addressee, email: f.email, planId: f.plan, period: f.period, validDays: f.days, note: f.note }) });
+    var d = await res.json(); btn.disabled = false;
+    if (res.status === 400 && d.fields) { QT.fields = d.fields; renderQuotes(); var k = Object.keys(d.fields)[0]; var map = { officeName: "qt-office", addressee: "qt-to", email: "qt-email", plan: "qt-plan", validDays: "qt-days", period: "qt-p-YEAR" }; var t = document.getElementById(map[k]); if (t) t.focus(); return; }
+    if (!res.ok) { setMsg(true, T("adm.ss_e_generic")); return; }
+    QT.f = { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "" }; QT.quote = null; QT.show = false;
+    await loadQuotes(); setMsg(false, T("adm.qt_done_make", { ref: d.ref, t: rupees(d.total) }));
+  } catch (e) { btn.disabled = false; setMsg(true, T("adm.ss_e_net")); }
+}
+async function qAct(body, btn, okKey) {
+  var card = btn.closest(".qt-card"), m = card.querySelector(".row-msg");
+  btn.disabled = true; m.className = "row-msg"; m.textContent = T("adm.saving");
+  try {
+    var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    var d = await res.json(); btn.disabled = false;
+    if (!res.ok) { m.className = "row-msg error"; m.textContent = T(d.fields && d.fields.reason ? "adm.bl_e_reason" : d.fields && d.fields.email ? "adm.qt_e_email_" + d.fields.email : d.error === "EXPIRED" ? "adm.qt_e_expired" : d.error === "EMAIL_FAILED" ? "adm.qt_e_send" : "adm.ss_e_generic"); return; }
+    await loadQuotes(); setMsg(false, T(okKey, { to: d.to || "" }));
+  } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }
+}
+async function qAccept(id, btn) {
+  var a = QT.acc[id], p = "qa-" + id + "-";
+  a.fields = {};
+  if (!a.office) { a.fields.office = "REQUIRED"; renderQuotes(); document.getElementById(p + "q").focus(); return; }
+  btn.disabled = true;
+  try {
+    var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "accept", id: id, officeType: a.office.type, officeTier: a.office.tier, officeId: a.office.id, from: a.from || B.data.today, orderRef: a.orderRef || "" }) });
+    var d = await res.json(); btn.disabled = false;
+    if (res.status === 400 && d.fields) { a.fields = d.fields; renderQuotes(); var k = Object.keys(d.fields)[0]; var t = document.getElementById(p + (k === "office" ? "q" : k === "orderRef" ? "order" : "from")); if (t) t.focus(); return; }
+    if (!res.ok) { var m = btn.closest(".qt-card").querySelector(".row-msg"); m.className = "row-msg error"; m.textContent = T(d.error === "EXPIRED" ? "adm.qt_e_expired" : "adm.ss_e_generic"); return; }
+    delete QT.acc[id];
+    await load(); await loadQuotes(); setMsg(false, T("adm.qt_done_accept", { bill: d.billRef, t: rupees(d.total) }));
+  } catch (e) { btn.disabled = false; setMsg(true, T("adm.ss_e_net")); }
+}
+async function loadQuotes() {
+  try { var r = await fetch("/api/admin/quotations"); QT.data = r.ok ? await r.json() : null; } catch (e) { QT.data = null; }
+  renderQuotes();
+}
 function onlineHtml(b) {
   return (b.online || []).map(function (x) {
     return '<div class="bl-pay"><h4>' + esc(T("adm.bl_on_pay_h", { st: T("adm.bl_on_st_" + x.status) })) + "</h4><dl>" +
@@ -592,7 +750,7 @@ async function load() {
   try {
     var res = await fetch("/api/admin/bills"); var d = await res.json();
     if (!res.ok) { B.err = function () { return d.error === "NOT_ADMIN" || d.error === "INSUFFICIENT_ROLE" ? T("adm.no_access") : T("adm.ss_e_load"); }; renderNew(); renderList(); return; }
-    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderOnline(); renderReview(); renderNew(); renderList();
+    B.err = null; B.data = d; if (!B.f.from) B.f.from = d.today; renderOnline(); renderReview(); renderQuotes(); renderNew(); renderList();
   } catch (e) { B.err = function () { return T("adm.ss_e_load"); }; renderList(); }
 }
 function applyTheme(theme) { document.documentElement.classList.toggle("light-theme", theme === "light"); document.getElementById("theme-toggle").textContent = theme === "light" ? T("adm.theme_dark") : T("adm.theme_light"); }
@@ -603,8 +761,8 @@ document.getElementById("theme-toggle").addEventListener("click", function () {
   var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
   applyTheme(next);
 });
-document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderOnline(); renderReview(); renderNew(); renderList(); } });
-load(); loadReview();
+document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (B.data) { renderOnline(); renderReview(); renderQuotes(); renderNew(); renderList(); } });
+load(); loadReview(); loadQuotes();
 </script>
 </body>
 </html>

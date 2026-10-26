@@ -96,7 +96,7 @@
     .bp-doc { border: 0; padding: 0; }
   }
 </style>
-<script src="/i18n.js?v=69"></script>
+<script src="/i18n.js?v=70"></script>
 <script src="/site.js?v=69" defer></script>
 </head>
 <body>
@@ -134,7 +134,7 @@
     document.title = T("bp.page_title_ref", { ref: b.ref });
     box.innerHTML = '<article class="bp-doc" aria-labelledby="bp-h">' +
       '<div class="bp-top"><div class="bp-brand">' + MARK + '<span>Griev<span class="iq">IQ</span></span></div>' +
-      '<div class="bp-kind"><h1 id="bp-h">' + esc(T("bp.h")) + " " + esc(b.ref) + '</h1><div class="sub">' + esc(T("bp.not_tax")) + "</div></div></div>" +
+      '<div class="bp-kind"><h1 id="bp-h">' + esc(T(b.status === "PAID" ? "bp.h_paid" : "bp.h")) + " " + esc(b.ref) + '</h1><div class="sub">' + esc(T(b.status === "PAID" ? "bp.paid_sub" : "bp.not_tax")) + "</div></div></div>" +
       '<div class="bp-two"><div><h2>' + esc(T("bp.from")) + "</h2><p><b>" + esc(c.legalName) + "</b><br>" + esc(c.address || "") +
         (site.gst && site.gst.gstin ? "<br>" + esc(T("bp.gstin")) + " " + esc(site.gst.gstin) : "") + (c.supportEmail ? "<br>" + esc(c.supportEmail) : "") + "</p></div>" +
       "<div><h2>" + esc(T("bp.to")) + "</h2><p><b>" + esc(b.officeName) + "</b><br>" + esc(T(b.officeType === "DEPT" ? "bp.to_dept" : "bp.to_rep")) + "</p></div></div>" +

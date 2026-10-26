@@ -540,6 +540,18 @@
   [
    "give razorpay reviewers access",
    "onlinepay"
+  ],
+  [
+   "send a quotation to a department",
+   "bills"
+  ],
+  [
+   "department sent a work order",
+   "bills"
+  ],
+  [
+   "make a quotation",
+   "bills"
   ]
  ],
  "rep": [
