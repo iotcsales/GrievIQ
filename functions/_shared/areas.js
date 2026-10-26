@@ -29,6 +29,7 @@ export const RESERVED_SLUGS = new Set([
   "policies", "sitemap", "signed-out", "index", "cdn-cgi", "well-known", "assets", "static", "images", "img",
   "favicon", "icon", "manifest", "site", "i18n", "auth", "login", "logout", "www", "grieviq",
   "dept", "gov", "state", "national", "gov-report", "for-offices", "guide",   // grieviq-52
+  "refunds", "delivery", "bill",   // grieviq-69
 ]);
 
 export function areaSlug(name) {

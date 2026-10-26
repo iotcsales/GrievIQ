@@ -29,6 +29,8 @@
     ["/terms", "common.terms", "Terms"],
     ["/accessibility", "common.accessibility", "Accessibility"],
     ["/policies", "common.policies", "Website policies"],
+    ["/refunds", "common.refunds", "Refunds and cancellation"],   // grieviq-69
+    ["/delivery", "common.delivery", "Service delivery"],
     ["/sitemap", "common.sitemap", "Sitemap"],
     ["/time-limits", "common.time_limits", "Time limits"],
     ["/for-offices", "common.for_offices", "For offices"],

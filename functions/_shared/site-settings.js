@@ -59,7 +59,7 @@ export const DEFAULTS = {
     callbackEn: "within 2 working days",
     callbackHi: "2 कार्य-दिवसों के भीतर",
   },
-  policies: { refundEn: "", refundHi: "", payEn: "UPI AutoPay, card or bank transfer", payHi: "UPI AutoPay, कार्ड या बैंक ट्रांसफ़र" },
+  policies: { refundEn: "", refundHi: "", payEn: "UPI or bank transfer (NEFT, RTGS or IMPS)", payHi: "UPI या बैंक ट्रांसफ़र (NEFT, RTGS या IMPS)" },
   claims: { gem: false, india: false, audited: false, auditedOn: "", auditedBy: "" },
   // grieviq-41: where offices pay (UPI ID and bank accounts). Never public:
   // shown only to signed-in representatives, office managers and department

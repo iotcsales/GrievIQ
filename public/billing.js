@@ -68,7 +68,7 @@
     ".gb .gb-copy,.gb .gb-btn{font:inherit;font-size:14px;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid var(--gb-border);background:var(--gb-card);color:var(--gb-fg);cursor:pointer}" +
     ".gb .gb-copy{min-height:36px;padding:4px 12px;font-size:13px;margin-left:6px}" +
     ".gb .gb-btn.gb-primary{background:var(--gb-accent);border-color:var(--gb-accent);color:var(--gb-on);font-weight:600}" +
-    ".gb .gb-applink{display:inline-flex;align-items:center;min-height:44px;font-weight:600}" +
+    ".gb .gb-applink,.gb .gb-printlink{display:inline-flex;align-items:center;min-height:44px;font-weight:600}" +
     ".gb .gb-ref{background:var(--gb-card);border:1px dashed var(--gb-border);border-radius:8px;padding:8px 12px;margin:10px 0;font-size:14.5px}" +
     ".gb form.gb-form{margin-top:6px}.gb .gb-fld{margin:0 0 12px}.gb .gb-fld label,.gb fieldset legend{display:block;font-weight:600;font-size:14px;margin:0 0 4px}" +
     ".gb .gb-hint{display:block;font-size:13px;color:var(--gb-muted);margin:0 0 4px}" +
@@ -81,6 +81,7 @@
     ".gb .gb-msg{font-weight:600;border-left:4px solid var(--gb-ok);padding-left:10px}.gb .gb-msg.gb-bad{border-left-color:var(--gb-bad)}" +
     ".gb .gb-past{font-size:14px;color:var(--gb-fg);border-left:3px solid var(--gb-border);padding-left:10px;margin:8px 0}" +
     ".gb .gb-copied{font-size:13px;margin-left:6px}" +
+    ".gb .gb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}" +
     ".gb .gb-online{background:var(--gb-soft);border:2px solid var(--gb-accent);border-radius:12px;padding:12px 16px;margin:10px 0 14px}" +
     ".gb .gb-online ul{margin:4px 0 10px;padding-left:20px;font-size:14px}" +
     ".gb .gb-check{display:flex;align-items:flex-start;gap:10px;min-height:44px;margin:6px 0 10px;font-size:14.5px}.gb .gb-check input{width:24px;height:24px;margin:1px 0 0;flex:none}" +
@@ -253,7 +254,9 @@
         "<dt>" + esc(T("bill.amount")) + "</dt><dd>" + esc(rupees(b.amount)) + " + " + esc(T("bill.gst", { r: b.gstRate })) + " " + esc(rupees(b.gst)) + "</dd>" +
         "<dt>" + esc(T("bill.total")) + '</dt><dd class="gb-total">' + esc(rupees(b.total)) + "</dd>" +
         (b.status === "DUE" || b.status === "REPORTED" ? "<dt>" + esc(T("bill.due")) + "</dt><dd>" + (late ? "<b>" : "") + esc(dateText(b.dueOn)) + (late ? " — " + esc(T("bill.late")) + "</b>" : "") + "</dd>" : "") +
-        "</dl>";
+        "</dl>" +
+        // grieviq-69: the bill as a document to print or keep as a PDF.
+        '<p><a class="gb-printlink" href="/bill?id=' + encodeURIComponent(b.id) + "&src=" + (/\/dept\//.test(opts.api) ? "dept" : "rep") + '" target="_blank" rel="noopener">' + esc(T("bill.print")) + '<span class="gb-sr"> ' + esc(T("bill.print_sr", { ref: b.ref })) + "</span></a></p>";
       // A payment that couldn't be matched matters only while the bill is still to pay.
       var returned = b.status === "DUE" ? b.payments.filter(function (p) { return p.status === "RETURNED"; }) : [];
       out += returned.map(function (p) { return '<p class="gb-past">' + esc(T("bill.returned", { utr: p.utr, reason: p.reason || "" })) + "</p>"; }).join("");
