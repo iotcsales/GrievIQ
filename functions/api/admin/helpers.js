@@ -32,7 +32,7 @@ import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { istToday } from "../../_shared/site-settings.js";
 import {
   helpersReady, idSecretOk, logHelper, adminLog, stateOf, paymentOut, maskMobile, unitInfo, nextHelperRef, monthEnd, addMonths, addDays,
-  emailHelper, refundThroughRazorpay, LIMITS, KYC_MONTHS, electionPause,
+  emailHelper, refundThroughRazorpay, LIMITS, KYC_MONTHS, electionPause, deleteFiles,
 } from "../../_shared/helpers.js";
 import { receiptOut } from "../helper.js";
 import { filingsReady, confirmFiling, closeFiling, addStrike, maskEmail } from "../../_shared/helper-filing.js";
@@ -52,6 +52,7 @@ function staffRow(h, canSeeMobile, today, extra) {
     actionBy: h.action_by, actionAt: h.action_at, actionReason: h.action_reason,
     appeal: h.appeal_at ? { text: h.appeal_text, at: h.appeal_at, by: h.appeal_by, decidedAt: h.appeal_decided_at, result: h.appeal_result, note: h.appeal_note } : null,
     inGrace: st.inGrace, kycOverdue: st.kycOverdue, strikes: h.strikes || 0,
+    card: { photo: !!h.card_key, status: h.card_status || null, by: h.card_by || null, at: h.card_at || null },
   }, extra || {});
 }
 
@@ -65,9 +66,10 @@ export async function onRequestGet({ request, env }) {
   const file = url.searchParams.get("file");
   if (file) {
     if (!canFiles) return json({ error: "INSUFFICIENT_ROLE" }, 403);
-    const kind = url.searchParams.get("kind") === "selfie" ? "selfie" : "id";
-    const h = await env.DB.prepare("SELECT id, ref, id_key, selfie_key FROM helpers WHERE id = ?").bind(String(file).slice(0, 60)).first();
-    const key = h && (kind === "selfie" ? h.selfie_key : h.id_key);
+    const kq = url.searchParams.get("kind");
+    const kind = kq === "selfie" ? "selfie" : kq === "card" ? "card" : "id";
+    const h = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(String(file).slice(0, 60)).first();
+    const key = h && (kind === "selfie" ? h.selfie_key : kind === "card" ? h.card_key : h.id_key);
     if (!key || !env.PRIVATE_PHOTOS) return json({ error: "NOT_FOUND" }, 404);
     const obj = await env.PRIVATE_PHOTOS.get(key);
     if (!obj) return json({ error: "NOT_FOUND" }, 404);
@@ -258,6 +260,8 @@ export async function onRequestPost({ request, env }) {
       if (b.selfieMatch !== true) f.selfieMatch = "REQUIRED";
       if (b.videoDone !== true) f.videoDone = "REQUIRED";
       if (h.id_type === "AADHAAR" && b.aadhaarMasked !== true) f.aadhaarMasked = "REQUIRED";
+      // grieviq-74: the card photo shows the same face as the video call.
+      if (h.card_key && h.card_status !== "OK" && b.cardMatch !== true) f.cardMatch = "REQUIRED";
       const vo = String(b.videoOn || "");
       if (!DATE_RE.test(vo)) f.videoOn = "REQUIRED"; else if (vo > today) f.videoOn = "FUTURE"; else if (vo < addDays(today, -60)) f.videoOn = "OLD";
       const note = clean(b.note, LIMITS.note);
@@ -278,7 +282,7 @@ export async function onRequestPost({ request, env }) {
       if (String(checker || "").toLowerCase() === me) return json({ error: "SAME_PERSON" }, 409);
       if (rc) {
         const due = addMonths(h.kyc_due && h.kyc_due > today ? h.kyc_due : today, KYC_MONTHS);
-        const r = await env.DB.prepare("UPDATE helpers SET recheck = NULL, kyc_due = ?, files_decided_at = ?, updated_at = ? WHERE id = ? AND recheck = 'CHECKED'").bind(due, now, now, h.id).run();
+        const r = await env.DB.prepare("UPDATE helpers SET recheck = NULL, kyc_due = ?, files_decided_at = ?, updated_at = ?, card_status = CASE WHEN card_key IS NOT NULL THEN 'OK' ELSE card_status END, card_at = CASE WHEN card_key IS NOT NULL AND card_status = 'PENDING' THEN ? ELSE card_at END, card_by = CASE WHEN card_key IS NOT NULL AND card_status = 'PENDING' THEN ? ELSE card_by END WHERE id = ? AND recheck = 'CHECKED'").bind(due, now, now, now, me, h.id).run();
         if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
         await done("RECHECK_APPROVED", { kycDue: due });
         await emailHelper(env, origin, h, "GrievIQ: your yearly ID check is done", [`Thank you. Your ID has been checked again. The next check is due by ${due}.`]);
@@ -299,6 +303,7 @@ export async function onRequestPost({ request, env }) {
       }
       if (!ref) return json({ error: "TRY_AGAIN" }, 409);
       await env.DB.prepare("UPDATE helper_payments SET period_from = ?, period_to = ? WHERE id = ?").bind(today, to, p.id).run();
+      if (h.card_key) await env.DB.prepare("UPDATE helpers SET card_status = 'OK', card_at = ?, card_by = ? WHERE id = ?").bind(now, me, h.id).run();
       await logHelper(env, h.id, me, "APPROVED", { ref, paidUntil: to, checkedBy: h.checked_by });
       await adminLog(env, me, "helper_approved", ref, { checkedBy: h.checked_by });
       await emailHelper(env, origin, h, "GrievIQ: you are now a Community helper — " + ref,
@@ -326,6 +331,27 @@ export async function onRequestPost({ request, env }) {
         forged ? ["Your application could not be accepted because the documents sent could not be accepted. The fee is not refunded in this case (see the Terms). If you think this is a mistake, write to GrievIQ support."]
           : [`Your application was not approved. Reason: ${rs.r.replace(/[<>&"']/g, "")}`, refund ? "Your fee will be refunded in full to the account you paid from, usually within 5–7 working days." : "", "You may apply again once the reason is put right."].filter(Boolean));
       return json({ ok: true, refund });
+    }
+    // grieviq-74: a card photo sent after approval: does it match the person?
+    case "card-ok":
+    case "card-refuse": {
+      if (!need("check_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!["ACTIVE", "LAPSED", "SUSPENDED"].includes(h.status) || h.card_status !== "PENDING" || !h.card_key) return json({ error: "STATE" }, 409);
+      if (b.action === "card-ok") {
+        if (b.matches !== true) return json({ error: "CHECK_FIELDS", fields: { matches: "REQUIRED" } }, 400);
+        const r = await env.DB.prepare("UPDATE helpers SET card_status = 'OK', card_at = ?, card_by = ?, updated_at = ? WHERE id = ? AND card_status = 'PENDING' AND card_key = ?").bind(now, me, now, h.id, h.card_key).run();
+        if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
+        await done("CARD_PHOTO_OK", {});
+        return json({ ok: true });
+      }
+      const rs = reasonOf();
+      if (rs.err) return json({ error: "CHECK_FIELDS", fields: { reason: rs.err } }, 400);
+      const r = await env.DB.prepare("UPDATE helpers SET card_key = NULL, card_status = NULL, updated_at = ? WHERE id = ? AND card_status = 'PENDING' AND card_key = ?").bind(now, h.id, h.card_key).run();
+      if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
+      await deleteFiles(env, [h.card_key]);
+      await done("CARD_PHOTO_REFUSED", {});
+      await emailHelper(env, origin, h, "GrievIQ: please send another card photo", [`Your card photo couldn't be used. Reason: ${rs.r.replace(/[<>&"']/g, "")}`, "Please send a new photo of your face only (no ID card in it) on your Community helper page."]);
+      return json({ ok: true });
     }
     case "suspend":
     case "remove": {

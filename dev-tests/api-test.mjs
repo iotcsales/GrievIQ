@@ -3039,7 +3039,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
     return { status: r.status, body: await r.json() };
   };
   const good = (o) => Object.assign({ action: "apply", name: "Ravi Kumar", mobile: "+91 98765 43210", unitId: "lu-hazratganj", about: "I run a shop near the market.", idType: "EPIC", idNumber: "abc 1234567", conduct: "1" }, o || {});
-  const both = (t) => ({ id_photo: jpeg("id-" + t), selfie: jpeg("selfie-" + t) });
+  const both = (t) => ({ id_photo: jpeg("id-" + t), selfie: jpeg("selfie-" + t), card_photo: jpeg("card-" + t) });
   const payNow = async (who) => {
     const r = await H(who, { action: "pay", ownFunds: true });
     if (r.status !== 200) return { r };
@@ -3144,8 +3144,8 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   // maker-checker
   r = await adm(M, { action: "check", id: h1.id, idClear: true });
   ok(r.status === 400 && r.body.fields.selfieMatch && r.body.fields.videoDone && r.body.fields.videoOn, "the checklist must be complete", r.body);
-  ok((await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(2) })).body.fields.videoOn === "FUTURE", "the video call date can't be in the future");
-  r = await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0), note: "Video call fine" });
+  ok((await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(2) })).body.fields.videoOn === "FUTURE", "the video call date can't be in the future");
+  r = await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(0), note: "Video call fine" });
   ok(r.status === 200 && row(A1).status === "CHECKED" && row(A1).checked_by === M, "checked by the data moderator", r.body);
   ok((await adm(M, { action: "approve", id: h1.id })).status === 403, "a data moderator can't approve");
   ok((await adm(A, { action: "approve", id: h1.id })).status === 403, "the auditor can't approve");
@@ -3271,7 +3271,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   r = await form(A5, good({ name: "Asha Verma", idType: "DL", idNumber: "UP14 20110012345", mobile: "9555512345" }), both("e"));
   pn = await payNow(A5);
   let h5 = row(A5);
-  await adm(M, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) });
+  await adm(M, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(0) });
   ok((await adm(M, { action: "approve", id: h5.id })).status === 403, "maker can't approve");
   await adm(O, { action: "check", id: h5.id });
   r = await adm(O, { action: "approve", id: h5.id });
@@ -3283,7 +3283,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(hr.rechecks === 1 && (await T("run-helpers", {})).rechecks === 0, "told once", hr);
   r = await form(A5, { action: "recheck", idType: "DL", idNumber: "UP1420110012345" }, both("e2"));
   ok(r.status === 200 && row(A5).recheck === "WAITING" && r.body.helper.recheck === "WAITING", "new ID photo and selfie sent", r.body);
-  ok((await adm(O, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) })).status === 200, "checked");
+  ok((await adm(O, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(0) })).status === 200, "checked");
   ok((await adm(O, { action: "approve", id: h5.id })).body.error === "SAME_PERSON", "the checker can't approve the re-check");
   r = await adm(S, { action: "approve", id: h5.id });
   ok(r.status === 200 && row(A5).kyc_due === addMonths(day(10), 12) && row(A5).recheck === null, "next check in 12 months", row(A5).kyc_due);
@@ -3329,13 +3329,13 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   async function makeHelper(email, idn, mobile) {
     const fd = new FormData();
     for (const [k, v] of Object.entries({ action: "apply", name: "Helping Person", mobile, unitId: "lu-hazratganj", idType: "EPIC", idNumber: idn, conduct: "1" })) fd.append(k, v);
-    fd.append("id_photo", new Blob([jpeg(idn)]), "a.jpg"); fd.append("selfie", new Blob([jpeg(idn + "s")]), "b.jpg");
+    fd.append("id_photo", new Blob([jpeg(idn)]), "a.jpg"); fd.append("selfie", new Blob([jpeg(idn + "s")]), "b.jpg"); fd.append("card_photo", new Blob([jpeg(idn + "c")]), "c.jpg");
     await fetch(B + "/api/helper", { method: "POST", headers: { "test-email": email }, body: fd });
     const o = await H(email, { action: "pay", ownFunds: true });
     const p = await T("rzp-pay", { orderId: o.body.orderId, status: "captured" });
     await H(email, { action: "paid", orderId: p.orderId, paymentId: p.paymentId, signature: p.signature });
     const h = hrow(email);
-    await adm(M, { action: "check", id: h.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) });
+    await adm(M, { action: "check", id: h.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(0) });
     await adm(O, { action: "approve", id: h.id });
     return hrow(email);
   }
@@ -3465,6 +3465,84 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(hr.filings.expired >= 1 && frow(f6.id).status === "EXPIRED" && frow(f6.id).payload === null, "not confirmed in 7 days: dropped and deleted", hr.filings);
   r = await H(HP, C({ citizen_phone: "9123400013", citizen_email: "citizen73g@x.in", description: "Stray dogs near the primary school gate" }));
   ok((await H(HP, { action: "cancel-filing", filingId: r.body.filing.id })).status === 200 && frow(r.body.filing.id).status === "CANCELLED" && frow(r.body.filing.id).payload === null, "the helper can cancel one still waiting");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+}
+
+// ---- grieviq-74: the helper's digital ID card ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const T = async (p, b) => (await fetch(B + "/__test/" + p, { method: "POST", body: JSON.stringify(b || {}) })).json();
+  const day = (n) => new Date(Date.now() + 5.5 * 3600000 + n * 86400000).toISOString().slice(0, 10);
+  const H = (who, b) => call(who, "POST", "/api/helper", b);
+  const adm = (who, b) => call(who, "POST", "/api/admin/helpers", b);
+  const jpeg = (tag) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0, 0]), Buffer.from([0xff, 0xda, 0x00, 0x02]), Buffer.from("PIXELS-" + tag), Buffer.from([0xff, 0xd9])]);
+  const hrow = (email) => sdb.prepare("SELECT * FROM helpers WHERE email = ? ORDER BY created_at DESC LIMIT 1").get(email);
+  const apply = async (email, extra, files) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(Object.assign({ action: "apply", name: "Card Person", mobile: "9811177001", unitId: "lu-hazratganj", idType: "EPIC", idNumber: "CRD1234567", conduct: "1" }, extra || {}))) fd.append(k, v);
+    for (const [k, v] of Object.entries(files)) fd.append(k, new Blob([v]), k + ".jpg");
+    const r = await fetch(B + "/api/helper", { method: "POST", headers: { "test-email": email }, body: fd });
+    return { status: r.status, body: await r.json() };
+  };
+  const E = "card1@x.in";
+  let r = await apply(E, {}, { id_photo: jpeg("i"), selfie: jpeg("s") });
+  ok(r.status === 400 && r.body.fields.cardPhoto === "REQUIRED", "a card photo (face only) is needed to apply", r.body);
+  r = await apply(E, {}, { id_photo: jpeg("i"), selfie: jpeg("s"), card_photo: jpeg("FACE-ONE") });
+  ok(r.status === 200 && r.body.helper.card.photo === true && r.body.helper.card.status === "PENDING", "card photo saved, waiting for GrievIQ", r.body.helper && r.body.helper.card);
+  const o = await H(E, { action: "pay", ownFunds: true });
+  const p = await T("rzp-pay", { orderId: o.body.orderId, status: "captured" });
+  await H(E, { action: "paid", orderId: p.orderId, paymentId: p.paymentId, signature: p.signature });
+  let h = hrow(E);
+  r = await adm(M, { action: "check", id: h.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) });
+  ok(r.status === 400 && r.body.fields.cardMatch === "REQUIRED", "the checker confirms the card photo matches the video call", r.body);
+  const img = await fetch(B + "/api/admin/helpers?file=" + h.id + "&kind=card", { headers: { "test-email": M } });
+  ok(img.status === 200 && Buffer.from(await img.arrayBuffer()).includes(Buffer.from("FACE-ONE")), "staff open the card photo (recorded)");
+  ok((await call(A, "GET", "/api/admin/helpers?file=" + h.id + "&kind=card")).status === 403, "not the auditor");
+  await adm(M, { action: "check", id: h.id, idClear: true, selfieMatch: true, videoDone: true, cardMatch: true, videoOn: day(0) });
+  r = await adm(O, { action: "approve", id: h.id });
+  h = hrow(E);
+  ok(r.status === 200 && h.card_status === "OK" && h.card_by === O, "approved: card photo confirmed", { s: h.card_status, by: h.card_by });
+  // the card
+  r = await call(E, "GET", "/api/helper?card=1");
+  ok(r.status === 200 && r.body.ref === h.ref && r.body.active === true && r.body.photo === true && /\/verify\?h=GIQ-H-\d+&t=\d+\.[0-9a-f]{20}$/.test(r.body.url) && r.body.validMinutes === 3, "the card: number, place and a QR link that changes every minute", r.body);
+  ok(!JSON.stringify(r.body).includes("Card Person") && !r.body.url.includes("Card"), "no name on the card or in the QR");
+  const u = new URL(r.body.url);
+  const q = (ex) => call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(u.searchParams.get("h")) + "&t=" + encodeURIComponent(ex || u.searchParams.get("t")));
+  r = await q();
+  ok(r.body.valid === true && r.body.ref === h.ref && r.body.place.startsWith("Hazratganj") && r.body.photo === true && !JSON.stringify(r.body).includes("Card Person") && !JSON.stringify(r.body).includes("9811177001"), "a citizen's scan: genuine and active, with no name or mobile", r.body);
+  const ph = await fetch(B + "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(u.searchParams.get("t")) + "&photo=1");
+  ok(ph.status === 200 && Buffer.from(await ph.arrayBuffer()).includes(Buffer.from("FACE-ONE")), "the photo shows with a current QR");
+  ok((await fetch(B + "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=bad&photo=1")).status === 404, "no photo without a valid QR");
+  const [m, sig] = u.searchParams.get("t").split(".");
+  ok((await q((Number(m) - 5) + "." + sig)).body.reason === "BAD", "a changed minute doesn't pass");
+  const { cardToken } = await import(new URL("../functions/_shared/helpers.js", import.meta.url).href);
+  const oldTok = await cardToken({ HELPER_ID_SECRET: "dev_only_helper_id_secret_0001" }, h.ref, Date.now() - 4 * 60000);
+  r = await q(oldTok);
+  ok(r.body.valid === false && r.body.reason === "EXPIRED", "a QR older than 3 minutes (a screenshot) is refused", r.body);
+  const other = await cardToken({ HELPER_ID_SECRET: "dev_only_helper_id_secret_0001" }, "GIQ-H-0001", Date.now());
+  ok((await q(other)).body.reason === "BAD", "one helper's QR doesn't work for another number");
+  // a new photo from the helper: waits for staff; the scan shows no photo meanwhile
+  const fd = new FormData(); fd.append("action", "card-photo"); fd.append("card_photo", new Blob([jpeg("FACE-TWO")]), "c.jpg");
+  const oldKey = h.card_key;
+  r = await fetch(B + "/api/helper", { method: "POST", headers: { "test-email": E }, body: fd }).then(async (x) => ({ status: x.status, body: await x.json() }));
+  ok(r.status === 200 && r.body.helper.card.status === "PENDING" && !(await T("r2-has", { key: oldKey })).exists, "a new card photo replaces the old one and waits", r.body.helper && r.body.helper.card);
+  r = await call(E, "GET", "/api/helper?card=1");
+  r = await call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(new URL(r.body.url).searchParams.get("t")));
+  ok(r.body.valid === true && r.body.photo === false, "until confirmed, the scan shows no photo", r.body);
+  h = hrow(E);
+  ok((await adm(M, { action: "card-ok", id: h.id })).body.fields.matches === "REQUIRED", "confirming needs the tick");
+  ok((await adm(M, { action: "card-refuse", id: h.id, reason: "short" })).body.fields.reason === "SHORT", "refusing needs a reason");
+  ok((await adm(M, { action: "card-ok", id: h.id, matches: true })).status === 200 && hrow(E).card_status === "OK", "confirmed by a checker");
+  // paused or stopped: the scan says not valid; the photo is deleted when they stop
+  sdb.prepare("UPDATE helpers SET paid_until = ? WHERE id = ?").run(day(-5), h.id);
+  r = await call(E, "GET", "/api/helper?card=1");
+  const t2 = new URL(r.body.url).searchParams.get("t");
+  ok(r.body.active === false && (await call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(t2))).body.reason === "NOT_ACTIVE", "an unpaid helper's card says not active", r.body);
+  sdb.prepare("UPDATE helpers SET paid_until = ? WHERE id = ?").run(day(20), h.id);
+  const key2 = hrow(E).card_key;
+  ok((await H(E, { action: "stop", confirm: true })).status === 200 && hrow(E).card_key === null && !(await T("r2-has", { key: key2 })).exists, "stopping deletes the card photo at once");
+  ok((await call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(t2))).body.valid === false, "and the card no longer passes");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
 }
 

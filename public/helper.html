@@ -103,6 +103,27 @@
   .idcard .badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #E6F2EA; color: #1C6B3C; }
   .idcard .badge.paused { background: #FBF3DF; color: #6B4700; }
   .idcard .meta { font-size: 13.5px; color: #E7ECF5; margin: 8px 0 0; }
+  .idcard .btn.light { background: #fff; color: #13233F; border-color: #fff; }
+  .idcard .btn.light:hover { background: #E9EEF7; }
+  .cd-wrap { position: fixed; inset: 0; z-index: 1000; background: rgba(10,14,22,.82); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 16px; }
+  .cd { background: #fff; color: #13233F; border-radius: 18px; width: 100%; max-width: 420px; padding: 16px 16px 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5); border-top: 10px solid #13233F; }
+  .cd-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .cd-brand { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 20px; color: #13233F; }
+  .cd-kind { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #3B4A63; }
+  .cd-main { display: grid; grid-template-columns: 112px 1fr; gap: 12px; align-items: center; }
+  .cd-photo { width: 112px; height: 140px; object-fit: cover; border-radius: 10px; border: 2px solid #13233F; background: #E9EEF7; }
+  .cd-nophoto { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12px; color: #3B4A63; padding: 6px; }
+  .cd-num { font-family: 'Source Serif 4', serif; font-size: 26px; font-weight: 700; color: #13233F; }
+  .cd-place { font-size: 14px; color: #22201C; margin: 2px 0 6px; }
+  .cd-badge { display: inline-block; font-size: 14px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: #1C6B3C; color: #fff; }
+  .cd-badge.off { background: #A5301F; }
+  .cd-valid { font-size: 13px; color: #3B4A63; margin-top: 6px; }
+  .cd-clock { text-align: center; font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 700; color: #13233F; background: #E9EEF7; border-radius: 8px; padding: 6px; margin: 12px 0 8px; }
+  .cd-qr { width: min(240px, 70vw); margin: 0 auto; }
+  .cd-qr svg { width: 100%; height: auto; display: block; }
+  .cd-scan { text-align: center; font-size: 13.5px; color: #22201C; margin: 8px 0 4px; }
+  .cd-warn { text-align: center; font-size: 13px; font-weight: 700; color: #A5301F; margin: 0 0 10px; }
+  .cd .cd-close { width: 100%; color: #13233F; border-color: #13233F; background: #fff; }
   .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
   .tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
   .tbl th { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
@@ -118,10 +139,11 @@
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
   @media (max-width: 480px) { .app-card { padding: 22px 16px; } dl.sum { grid-template-columns: 1fr; } dl.sum dt { margin-top: 6px; } .acts .btn { width: 100%; } }
 </style>
-<script src="/i18n.js?v=73"></script>
-<script src="/site.js?v=73" defer></script>
+<script src="/i18n.js?v=74"></script>
+<script src="/site.js?v=74" defer></script>
 <script src="/site-info.js?v=39" defer></script>
 <script src="/photo-tools.js?v=7c" defer></script>
+<script src="/vendor/qrcode/qrcode.js?v=1" defer></script>
 </head>
 <body>
   <div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
@@ -172,8 +194,8 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function $(id) { return document.getElementById(id); }
   function rupees(n) { return Number(n).toLocaleString("en-IN"); }
-  function dmy(s) { if (!s) return ""; try { return new Date(String(s).slice(0, 10) + "T00:00:00Z").toLocaleDateString(window.GIQ ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }); } catch (e) { return s; } }
-  function monthText(s) { if (!s) return ""; try { return new Date(s + "-01T00:00:00Z").toLocaleDateString(window.GIQ ? GIQ.locale() : "en-IN", { month: "long", year: "numeric", timeZone: "UTC" }); } catch (e) { return s; } }
+  function dmy(s) { if (!s) return ""; try { return new Date(String(s).slice(0, 10) + "T00:00:00Z").toLocaleDateString(window.GIQ && GIQ.locale ? GIQ.locale() : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }); } catch (e) { return s; } }
+  function monthText(s) { if (!s) return ""; try { return new Date(s + "-01T00:00:00Z").toLocaleDateString(window.GIQ && GIQ.locale ? GIQ.locale() : "en-IN", { month: "long", year: "numeric", timeZone: "UTC" }); } catch (e) { return s; } }
   function addDays(d, n) { var x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
   function msg(text, kind) { var m = $("hp-msg"); m.innerHTML = text ? '<div class="note ' + (kind || "") + '" tabindex="-1" id="hp-msg-box"><p>' + esc(text) + "</p></div>" : ""; if (text) { var b = $("hp-msg-box"); if (b) b.focus(); } }
   function errText(field, code) { var k = "hp.e_" + field + "_" + code; return window.GIQ && GIQ.has(k) ? T(k) : T("hp.e_" + code); }
@@ -260,8 +282,8 @@
   }
   function fldErr(k) { return S.fields[k] ? '<span class="ferr" id="hpf-' + k + '-e">' + esc(errText(k, S.fields[k])) + "</span>" : ""; }
   function inv(k, hint) { var d = [hint ? "hpf-" + k + "-h" : "", S.fields[k] ? "hpf-" + k + "-e" : ""].filter(Boolean).join(" "); return (d ? ' aria-describedby="' + d + '"' : "") + (S.fields[k] ? ' aria-invalid="true"' : ""); }
-  var ORDER = ["name", "mobile", "unitId", "about", "idType", "idNumber", "idPhoto", "selfie", "conduct"];
-  function labelOf(k) { return T({ name: "hp.f_name", mobile: "hp.f_mobile", unitId: "hp.f_unitId", about: "hp.f_about", idType: "hp.f_idType", idNumber: "hp.f_idNumber", idPhoto: "hp.f_idPhoto", selfie: "hp.f_selfie", conduct: "hp.f_conduct", text: "hp.f_appeal" }[k] || k); }
+  var ORDER = ["name", "mobile", "unitId", "about", "idType", "idNumber", "idPhoto", "selfie", "cardPhoto", "conduct"];
+  function labelOf(k) { return T({ name: "hp.f_name", mobile: "hp.f_mobile", unitId: "hp.f_unitId", about: "hp.f_about", idType: "hp.f_idType", idNumber: "hp.f_idNumber", idPhoto: "hp.f_idPhoto", selfie: "hp.f_selfie", cardPhoto: "hp.f_cardPhoto", conduct: "hp.f_conduct", text: "hp.f_appeal" }[k] || k); }
   function errSummary(fields, prefix) {
     var keys = ORDER.concat(["text"]).filter(function (k) { return fields[k]; });
     if (!keys.length) return "";
@@ -278,7 +300,8 @@
       '<p class="soft" style="font-size:13px">' + esc(T("hp.h_photos")) + "</p>";
   }
   function fileFld(k, label, hint, f, selfie) {
-    var kept = S.d.helper && S.d.helper.status === "DRAFT" && S.d.helper.filesIn && S.edit && !S.again;
+    var dh = S.d.helper;
+    var kept = dh && dh.status === "DRAFT" && (k === "cardPhoto" ? dh.card && dh.card.photo : dh.filesIn) && S.edit && !S.again;
     var chosen = f.files[k] ? '<p class="chosen">✓ ' + esc(f.files[k].name || "") + "</p>" : "";
     return '<div class="fld"><label for="hpf-' + k + '">' + esc(T(label)) + '</label><span class="hint" id="hpf-' + k + '-h">' + esc(T(hint)) + (kept ? " " + esc(T("hp.photo_kept")) : "") + "</span>" +
       '<input type="file" id="hpf-' + k + '" accept="image/jpeg,image/png,image/webp,image/*"' + (selfie ? ' capture="user"' : "") + inv(k, true) + ">" + chosen + fldErr(k) + "</div>";
@@ -297,6 +320,7 @@
         units.map(function (u) { return '<option value="' + esc(u.id) + '"' + (f.unitId === u.id ? " selected" : "") + ">" + esc(u.name) + "</option>"; }).join("") + "</select>" + fldErr("unitId") + "</div>" +
       '<div class="fld"><label for="hpf-about">' + esc(T("hp.f_about")) + '</label><span class="hint" id="hpf-about-h">' + esc(T("hp.h_about", { n: S.d.limits.about })) + '</span><textarea id="hpf-about" maxlength="' + S.d.limits.about + '" rows="3"' + inv("about", true) + ">" + esc(f.about) + "</textarea>" + fldErr("about") + "</div>" +
       idFields(f, S.fields, "hpf") +
+      fileFld("cardPhoto", "hp.f_cardPhoto", "hp.h_cardPhoto", f, true) +
       '<section class="box" aria-labelledby="hp-cc-h"><h3 id="hp-cc-h" style="margin-top:0">' + esc(T("hp.conduct_h")) + '</h3><ol class="steps">' + [1, 2, 3, 4, 5, 6].map(function (i) { return "<li>" + esc(T("hp.conduct" + i)) + "</li>"; }).join("") + "</ol>" +
       '<div class="check' + (S.fields.conduct ? " inv" : "") + '"><input type="checkbox" id="hpf-conduct"' + (f.conduct ? " checked" : "") + inv("conduct") + '><label for="hpf-conduct">' + esc(T("hp.f_conduct")) + "</label></div>" + fldErr("conduct") + "</section>" +
       '<div class="acts"><button type="submit" class="btn"' + (S.busy ? " disabled" : "") + ">" + esc(S.busy === "prep" ? T("hp.preparing") : S.busy === "save" ? T("hp.saving") : T("hp.save")) + "</button>" +
@@ -333,6 +357,70 @@
     S.fields = keep;
     return out;
   }
+  // ---- grieviq-74: the digital ID card ----
+  function cardPhotoBox(h) {
+    var c = h.card || {};
+    if (c.photo && c.status === "OK") return "";
+    var f = S.cp || (S.cp = { files: {} });
+    var e = S.cpFields || {};
+    return '<section class="box" aria-labelledby="hp-cp-h"><h2 id="hp-cp-h" style="margin-top:0">' + esc(T("hp.cp_h")) + "</h2>" +
+      (c.photo ? '<div class="note"><p>' + esc(T("hp.cp_wait")) + "</p></div>" : '<div class="note warn"><p>' + esc(T("hp.cp_none")) + "</p></div>") +
+      '<form id="hp-cp-form" novalidate><div class="fld"><label for="hpf-cardPhoto">' + esc(T(c.photo ? "hp.cp_new" : "hp.f_cardPhoto")) + '</label><span class="hint" id="hpf-cardPhoto-h">' + esc(T("hp.h_cardPhoto")) + "</span>" +
+      '<input type="file" id="hpf-cardPhoto" accept="image/jpeg,image/png,image/webp,image/*" capture="user" aria-describedby="hpf-cardPhoto-h' + (e.cardPhoto ? " hpf-cardPhoto-e" : "") + '"' + (e.cardPhoto ? ' aria-invalid="true"' : "") + ">" +
+      (f.files.cardPhoto ? '<p class="chosen">✓ ' + esc(f.files.cardPhoto.name || "") + "</p>" : "") + (e.cardPhoto ? '<span class="ferr" id="hpf-cardPhoto-e">' + esc(errText("cardPhoto", e.cardPhoto)) + "</span>" : "") +
+      '</div><div class="acts"><button type="submit" class="btn"' + (S.busy ? " disabled" : "") + ">" + esc(T("hp.cp_send")) + "</button></div></form></section>";
+  }
+  var CARD = { el: null, timer: null, refresh: null, data: null, opener: null };
+  function qrSvg(text) {
+    if (!window.GIQQR) return "";
+    var m = window.GIQQR.matrix(text, window.GIQQR.M), n = m.length, q = 4, size = n + q * 2, d = "";
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (m[r][c]) d += "M" + (c + q) + " " + (r + q) + "h1v1h-1z";
+    return '<svg viewBox="0 0 ' + size + " " + size + '" role="img" aria-label="' + esc(T("hp.card_qr_a")) + '" shape-rendering="crispEdges" focusable="false"><rect width="' + size + '" height="' + size + '" fill="#fff"/><path fill="#000" d="' + d + '"/></svg>';
+  }
+  function cardClock() {
+    var el = document.getElementById("cd-clock"); if (!el) return;
+    var n = new Date();
+    el.textContent = n.toLocaleDateString(window.GIQ && GIQ.locale ? GIQ.locale() : "en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) + " · " +
+      n.toLocaleTimeString(window.GIQ && GIQ.locale ? GIQ.locale() : "en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
+  }
+  function cardRender() {
+    var d = CARD.data, box = document.getElementById("cd-body"); if (!box || !d) return;
+    box.innerHTML = '<div class="cd-top"><span class="cd-brand">GrievIQ</span><span class="cd-kind">' + esc(T("hp.card_label")) + "</span></div>" +
+      '<div class="cd-main">' + (d.photo && d.photoStatus === "OK" ? '<img class="cd-photo" src="/api/helper?cardphoto=1&t=' + Date.now() + '" alt="' + esc(T("hp.card_photo_a")) + '" onerror="this.outerHTML=\'<div class=&quot;cd-photo cd-nophoto&quot;></div>\'">' : '<div class="cd-photo cd-nophoto">' + esc(T("hp.card_nophoto")) + "</div>") +
+      '<div><div class="cd-num">' + esc(d.ref) + '</div><div class="cd-place">' + esc(d.place) + '</div><span class="cd-badge' + (d.active ? "" : " off") + '">' + esc(T(d.active ? "hp.card_ACTIVE" : "hp.card_NOT")) + "</span>" +
+      (d.paidUntil ? '<div class="cd-valid">' + esc(T("hp.card_valid", { date: dmy(d.paidUntil) })) + "</div>" : "") + "</div></div>" +
+      '<p class="cd-clock" id="cd-clock" aria-live="off"></p>' +
+      '<div class="cd-qr">' + qrSvg(d.url) + '</div><p class="cd-scan">' + esc(T("hp.card_scan", { n: d.validMinutes })) + '</p><p class="cd-warn">' + esc(T("hp.card_money")) + "</p>";
+    cardClock();
+  }
+  function cardLoad() {
+    return fetch("/api/helper?card=1", { cache: "no-store" }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) { CARD.data = d; cardRender(); })
+      .catch(function () { var b = document.getElementById("cd-body"); if (b && !CARD.data) b.innerHTML = '<p class="cd-scan">' + esc(T("hp.e_net")) + "</p>"; });
+  }
+  function cardOpen(opener) {
+    CARD.opener = opener;
+    var wrap = document.createElement("div");
+    wrap.className = "cd-wrap"; wrap.id = "cd-wrap";
+    wrap.innerHTML = '<div class="cd" role="dialog" aria-modal="true" aria-labelledby="cd-h"><h2 id="cd-h" class="vh">' + esc(T("hp.card_show")) + '</h2><div id="cd-body"><p class="cd-scan">' + esc(T("hp.loading")) + '</p></div><button type="button" class="btn sec cd-close" id="cd-close">' + esc(T("hp.card_close")) + "</button></div>";
+    document.body.appendChild(wrap);
+    document.body.style.overflow = "hidden";
+    document.getElementById("cd-close").focus();
+    cardLoad();
+    CARD.timer = setInterval(cardClock, 1000);
+    CARD.refresh = setInterval(cardLoad, 50000);
+  }
+  function cardClose() {
+    clearInterval(CARD.timer); clearInterval(CARD.refresh); CARD.data = null;
+    var w = document.getElementById("cd-wrap"); if (w) w.remove();
+    document.body.style.overflow = "";
+    var o = document.getElementById("hp-card-open"); if (o) o.focus();
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!document.getElementById("cd-wrap")) return;
+    if (e.key === "Escape") { cardClose(); return; }
+    if (e.key === "Tab") { e.preventDefault(); document.getElementById("cd-close").focus(); }
+  });
+
   // ---- grieviq-73: filing for citizens ----
   function fileBox(h) {
     var t = S.d.today || { count: 0, max: 15 };
@@ -392,7 +480,8 @@
       var paused = !st.canHelp;
       out += '<div class="idcard" role="group" aria-label="' + esc(T("hp.card_label") + " " + h.ref) + '"><div class="lab">' + esc(T("hp.card_label")) + '</div><div class="num">' + esc(h.ref) + "</div>" +
         '<p class="place">' + esc([h.unit.name, h.unit.area].filter(Boolean).join(", ")) + '</p><span class="badge' + (paused ? " paused" : "") + '">' + esc(T(paused ? "hp.card_PAUSED" : "hp.card_ACTIVE")) + "</span>" +
-        (h.paidUntil ? '<p class="meta">' + esc(T("hp.card_paid", { date: dmy(h.paidUntil) })) + "</p>" : "") + '<p class="meta">' + esc(T("hp.card_check")) + "</p></div>";
+        (h.paidUntil ? '<p class="meta">' + esc(T("hp.card_paid", { date: dmy(h.paidUntil) })) + "</p>" : "") + '<p class="meta">' + esc(T("hp.card_check")) + "</p>" +
+        '<div class="acts"><button type="button" class="btn light" data-act="card" id="hp-card-open">' + esc(T("hp.card_show")) + "</button></div></div>" + cardPhotoBox(h);
       if (st.pause) out += '<div class="note warn"><p>' + esc(T("hp.pause", { date: dmy(st.pause.to) })) + "</p></div>";
       if (st.lapsed) out += '<div class="note bad"><p>' + esc(T("hp.lapsed")) + "</p></div>";
       else if (st.inGrace) out += '<div class="note warn"><p>' + esc(T("hp.grace", { date: dmy(h.paidUntil), grace: dmy(st.graceTo) })) + "</p></div>";
@@ -469,13 +558,16 @@
     S.busy = "prep"; if (busyKey === "rc") S.busy = "rc"; render();
     var files = {};
     return Promise.all([prepFile(f.files.idPhoto).then(function (x) { files.idPhoto = x; }, function () { files.idPhoto = "UNREADABLE"; }),
-      prepFile(f.files.selfie).then(function (x) { files.selfie = x; }, function () { files.selfie = "UNREADABLE"; })]).then(function () {
+      prepFile(f.files.selfie).then(function (x) { files.selfie = x; }, function () { files.selfie = "UNREADABLE"; }),
+      prepFile(f.files.cardPhoto).then(function (x) { files.cardPhoto = x; }, function () { files.cardPhoto = "UNREADABLE"; })]).then(function () {
       var bad = {};
-      ["idPhoto", "selfie"].forEach(function (k) { if (files[k] === "UNREADABLE") bad[k] = "UNREADABLE"; });
-      if (Object.keys(bad).length) { S[fieldsKey] = bad; S.busy = null; render(formId === "hp-form" ? "hpf-errs" : "hpr-errs"); return null; }
+      ["idPhoto", "selfie", "cardPhoto"].forEach(function (k) { if (files[k] === "UNREADABLE") bad[k] = "UNREADABLE"; });
+      if (Object.keys(bad).length) { S[fieldsKey] = bad; S.busy = null; render(formId === "hp-form" ? "hpf-errs" : formId === "hp-cp-form" ? "hpf-cardPhoto" : "hpr-errs"); return null; }
       if (busyKey !== "rc") S.busy = "save"; render();
       var fd = new FormData();
       fd.append("action", action);
+      if (files.cardPhoto) fd.append("card_photo", files.cardPhoto, files.cardPhoto.name || "card.jpg");
+      if (action === "card-photo") return fetch("/api/helper", { method: "POST", body: fd }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { r: r, j: j }; }); });
       if (action === "apply") { fd.append("name", f.name); fd.append("mobile", f.mobile); fd.append("unitId", f.unitId); fd.append("about", f.about); if (f.conduct) fd.append("conduct", "1"); }
       fd.append("idType", f.idType); fd.append("idNumber", f.idNumber);
       if (files.idPhoto) fd.append("id_photo", files.idPhoto, files.idPhoto.name || "id.jpg");
@@ -485,7 +577,7 @@
       if (!x) return;
       S.busy = null;
       if (x.r.ok) { S[fieldsKey] = {}; return x; }
-      if (x.j.error === "CHECK_FIELDS") { S[fieldsKey] = x.j.fields || {}; render(formId === "hp-form" ? "hpf-errs" : "hpr-errs"); return null; }
+      if (x.j.error === "CHECK_FIELDS") { S[fieldsKey] = x.j.fields || {}; render(formId === "hp-form" ? "hpf-errs" : formId === "hp-cp-form" ? "hpf-cardPhoto" : "hpr-errs"); return null; }
       render(); msg(serverErr(x.j.error), "bad"); return null;
     }).catch(function () { S.busy = null; render(); msg(T("hp.e_net"), "bad"); return null; });
   }
@@ -535,6 +627,7 @@
   }
 
   document.addEventListener("click", function (e) {
+    if (e.target.id === "cd-close" || e.target.id === "cd-wrap") { cardClose(); return; }
     var b = e.target.closest("[data-act]"); if (!b) return;
     var act = b.getAttribute("data-act");
     if (act === "signout") { fetch("/api/auth/signout", { method: "POST" }).finally(function () { location.href = "/helper"; }); return; }
@@ -555,6 +648,7 @@
       return;
     }
     if (act === "pay") { pay(); return; }
+    if (act === "card") { cardOpen(b); return; }
     var fid = b.getAttribute("data-f");
     S.fmsg = S.fmsg || {};
     if (act === "askf") { S.confirmF = fid; render("hpcf-q"); return; }
@@ -576,7 +670,7 @@
     if (t.name === "hpf-idType" && S.f) { readForm(); render(t.id); return; }
     if (t.name === "hpr-idType" && S.rc) { S.rc.idType = t.value; S.rc.idNumber = ($("hpf-idNumber") || {}).value || ""; render(t.id); return; }
     if (t.type === "file") {
-      var k = t.id.replace("hpf-", ""), target = t.closest("#hp-recheck") ? S.rc : S.f;
+      var k = t.id.replace("hpf-", ""), target = t.closest("#hp-recheck") ? S.rc : t.closest("#hp-cp-form") ? (S.cp || (S.cp = { files: {} })) : S.f;
       if (target && t.files && t.files[0]) { if (target === S.f) readForm(); else target.idNumber = ($("hpf-idNumber") || {}).value || ""; target.files[k] = t.files[0]; render(t.id); }
     }
   });
@@ -588,6 +682,12 @@
         S.edit = false; S.again = false; S.f = null;
         return load().then(function () { render("hp-pay-h"); });
       });
+    }
+    if (e.target.id === "hp-cp-form") {
+      e.preventDefault(); msg("");
+      if (!S.cp || !S.cp.files.cardPhoto) { S.cpFields = { cardPhoto: "REQUIRED" }; render("hpf-cardPhoto"); return; }
+      sendForm("card-photo", S.cp, "cpFields", "rc", "hp-cp-form").then(function (x) { if (!x) return; S.cp = null; return load().then(function () { msg(T("hp.cp_sent"), "ok"); }); });
+      return;
     }
     if (e.target.id === "hp-recheck") {
       e.preventDefault(); S.rc.idNumber = ($("hpf-idNumber") || {}).value || ""; msg("");

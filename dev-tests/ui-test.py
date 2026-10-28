@@ -3806,6 +3806,7 @@ window.Razorpay.prototype.open = function () {
     ok("last 4" in p.inner_text("label[for=hpf-idNumber]").lower(), "Aadhaar asks for the last 4 digits only")
     p.fill("#hpf-idNumber", "1234 5678 9012")
     p.set_input_files("#hpf-idPhoto", IMG72); p.wait_for_timeout(100); p.set_input_files("#hpf-selfie", SELF72); p.wait_for_timeout(100)
+    p.set_input_files("#hpf-cardPhoto", SELF72); p.wait_for_timeout(100)
     p.check("#hpf-conduct")
     with p.expect_response(lambda r: r.url.endswith("/api/helper") and r.request.method == "POST"): p.click("#hp-form button[type=submit]")
     p.wait_for_selector("#hpf-errs li"); p.wait_for_timeout(150)
@@ -3835,7 +3836,7 @@ window.Razorpay.prototype.open = function () {
     ok(True, "the ID photo opens for the checker")
     p.click(card + ' form[data-form="check"] button[type=submit]'); p.wait_for_selector(card + " .st-msg.error")
     ok(p.locator(card + ' [aria-invalid="true"]').count() >= 3, "unticked checks are marked")
-    for k in ("idClear", "selfieMatch", "videoDone"): p.check(card + ' input[data-f="%s"]' % k)
+    for k in ("idClear", "selfieMatch", "videoDone", "cardMatch"): p.check(card + ' input[data-f="%s"]' % k)
     p.click(card + ' form[data-form="check"] button[type=submit]'); p.wait_for_selector("#hl-approve .pr-card:has-text('Ui Helper')")
     ok(True, "checked: moved to approval")
     for theme in ("light", "dark"):
@@ -3986,6 +3987,91 @@ window.Razorpay.prototype.open = function () {
     p.check(card73 + ' input[value="CONFIRMED"]'); p.click(card73 + ' form[data-form="call"] button[type=submit]'); p.wait_for_selector("#hl-msg-p")
     ok("GRV-" in p.inner_text("#hl-msg-p") and not errs, "confirmed on the call: sent", p.inner_text("#hl-msg-p"))
     ctx.close()
+
+    # ---------- grieviq-74: the digital ID card, /verify, card photos ----------
+    # the API tests stored a stand-in card photo; send a real one through the page, then confirm it
+    _db73.execute("UPDATE helpers SET card_status = 'PENDING' WHERE email = ?", (HF,)); _db73.commit()
+    ctx, p, errs = hp72(HF)
+    p.goto(B + "/helper"); p.wait_for_selector("#hp-cp-form")
+    p.set_input_files("#hpf-cardPhoto", SELF72); p.wait_for_timeout(100)
+    with p.expect_response(lambda r: r.url.endswith("/api/helper") and r.request.method == "POST"): p.click("#hp-cp-form button[type=submit]")
+    p.wait_for_selector(".note.ok"); ctx.close()
+    _db73.execute("UPDATE helpers SET card_status = 'OK' WHERE email = ?", (HF,)); _db73.commit()
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s %s" % (theme, lang)
+            ctx, p, errs = hp72(HF, theme, lang, 390)
+            p.goto(B + "/helper"); p.wait_for_selector("#hp-card-open")
+            p.click("#hp-card-open"); p.wait_for_selector(".cd-qr svg path")
+            p.wait_for_function("() => { const i = document.querySelector('.cd-photo'); return i && (i.tagName !== 'IMG' || (i.complete && i.naturalWidth > 0)); }")
+            ok(p.evaluate("document.activeElement.id") == "cd-close" and p.locator("[role=dialog][aria-modal=true]").count() == 1, "ID card opens as a dialog, focus on Close " + tag)
+            c1 = p.inner_text("#cd-clock"); p.wait_for_timeout(2200); c2 = p.inner_text("#cd-clock")
+            ok(c1 and c1 != c2, "the clock on the card ticks every second " + tag, (c1, c2))
+            ok("GIQ-H-" in p.inner_text(".cd-num") and p.locator("img.cd-photo").count() == 1, "card: number and confirmed photo " + tag)
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "ID card clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+            if (theme, lang) in (("light", "en"), ("dark", "hi")): shot(p, "74-card-" + theme + "-" + lang)
+            p.keyboard.press("Escape"); p.wait_for_timeout(100)
+            ok(p.locator("#cd-wrap").count() == 0 and p.evaluate("document.activeElement.id") == "hp-card-open", "Esc closes it and focus returns " + tag)
+            ctx.close()
+    cd74 = api41("GET", "/api/helper?card=1", None, HF)[1]
+    vpath = cd74["url"][cd74["url"].index("/verify"):]
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s %s" % (theme, lang)
+            ctx, p, errs = hp72(None, theme, lang, 375)
+            p.goto(B + vpath); p.wait_for_selector(".vf.ok"); p.wait_for_selector("img.vf-photo")
+            p.wait_for_function("() => { const i = document.querySelector('img.vf-photo'); return i && i.complete && i.naturalWidth > 0; }")
+            ok(cd74["ref"] in p.inner_text("#vf-result") and p.evaluate("location.pathname + location.search") == "/verify", "scan: genuine, photo shown, code removed from the address bar " + tag)
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "verify page clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+            if lang == "en": shot(p, "74-verify-ok-" + theme)
+            ctx.close()
+    ctx, p, errs = hp72(None, "light", "en", 375)
+    p.goto(B + vpath.split("&t=")[0] + "&t=1.abcdef0123456789abcd"); p.wait_for_selector(".vf.bad")
+    ok("Not a genuine" in p.inner_text("#vf-result") and p.locator("img.vf-photo").count() == 0, "a made-up code: not genuine, no photo")
+    shot(p, "74-verify-bad")
+    import time as _t74
+    old_t = "%d.%s" % (int(_t74.time() // 60) - 10, "0" * 20)
+    p.goto(B + vpath.split("&t=")[0] + "&t=" + old_t); p.wait_for_selector(".vf")
+    ok(p.locator(".vf.bad, .vf.warn").count() == 1 and p.locator("img.vf-photo").count() == 0, "an old or wrong code shows no photo")
+    p.goto(B + "/verify"); p.wait_for_selector(".vf.warn")
+    ok("Scan a helper" in p.inner_text("#vf-app"), "opened without a code: how to scan")
+    ok(not p.evaluate(CONTRAST_JS) and not errs, "verify states clean", (p.evaluate(CONTRAST_JS)[:4], errs))
+    ctx.close()
+    # a new card photo after approval: sent by the helper, confirmed by staff
+    _db73.execute("UPDATE helpers SET card_key = NULL, card_status = NULL WHERE email = 'ui-helper@x.in'"); _db73.commit()
+    ctx, p, errs = hp72("ui-helper@x.in", "light", "en", 390)
+    p.goto(B + "/helper"); p.wait_for_selector("#hp-cp-form")
+    ok("no photo" in p.inner_text("#hp-cp-h ~ .note"), "no card photo: asked to send one")
+    p.click("#hp-cp-form button[type=submit]"); p.wait_for_timeout(200)
+    ok(p.get_attribute("#hpf-cardPhoto", "aria-invalid") == "true", "sending without a photo is explained")
+    p.set_input_files("#hpf-cardPhoto", SELF72); p.wait_for_timeout(100)
+    with p.expect_response(lambda r: r.url.endswith("/api/helper") and r.request.method == "POST"): p.click("#hp-cp-form button[type=submit]")
+    p.wait_for_selector(".note.ok:has-text('Photo sent')")
+    ok("checking your card photo" in p.inner_text("#hp-app") and not p.evaluate(CONTRAST_JS) and not errs, "sent: waiting for staff", errs)
+    shot(p, "74-card-photo-sent")
+    ctx.close()
+    for theme in ("dark", "light"):
+        ctx, p, errs = P("mod@test.in", theme=theme)
+        p.goto(B + "/admin-helpers.html"); p.wait_for_selector("#hl-cards .pr-card:has-text('Ui Helper')")
+        c74 = '#hl-cards .pr-card:has-text("Ui Helper")'
+        p.click(c74 + ' [data-act="open"]'); p.wait_for_selector(c74 + ' form[data-form="cardok"]')
+        p.click(c74 + ' [data-act="show"][data-k="card"]'); p.wait_for_selector(c74 + " .hl-imgs img")
+        ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS), "card photos to confirm: contrast and targets " + theme, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+        if theme == "dark": p.locator("#hl-cards").screenshot(path=os.path.join(SHOTS, "74-admin-card-dark.png"))
+        if theme == "light":
+            p.click(c74 + ' form[data-form="cardok"] button[type=submit]'); p.wait_for_selector(c74 + " .st-msg.error")
+            ok(p.get_attribute(c74 + ' input[data-f="matches"]', "aria-invalid") == "true", "confirming needs the tick")
+            p.check(c74 + ' input[data-f="matches"]'); p.click(c74 + ' form[data-form="cardok"] button[type=submit]'); p.wait_for_selector(".st-msg.success")
+            ok("now shows" in p.inner_text("body") and not errs, "card photo confirmed", errs)
+        ctx.close()
+    ok(_db73.execute("SELECT card_status FROM helpers WHERE email = 'ui-helper@x.in'").fetchone()[0] == "OK", "stored as confirmed")
+    # Privacy policy: the Community helpers section
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            ctx, p, errs = hp72(None, theme, lang, 390)
+            p.goto(B + "/privacy"); p.wait_for_selector('[data-i18n="priv.hlp5"]')
+            ok(p.locator('[data-i18n="priv.h_helpers"]').count() == 1 and len(p.inner_text('[data-i18n="priv.hlp2"]')) > 100 and not p.evaluate(CONTRAST_JS) and no_hscroll(p), "privacy: Community helpers section %s %s" % (theme, lang))
+            ctx.close()
 
     br.close()
 

@@ -588,6 +588,14 @@
   [
    "helper paused automatically",
    "helpers"
+  ],
+  [
+   "confirm a helper's card photo",
+   "helpers"
+  ],
+  [
+   "helper sent a new photo for the id card",
+   "helpers"
   ]
  ],
  "rep": [
@@ -1349,6 +1357,22 @@
   ],
   [
    "a helper filed a complaint for me",
+   "helper"
+  ],
+  [
+   "how do i know the helper is genuine",
+   "helper"
+  ],
+  [
+   "scan the helper's id card",
+   "helper"
+  ],
+  [
+   "helper card qr code says too old",
+   "helper"
+  ],
+  [
+   "सहायक का पहचान कार्ड स्कैन",
    "helper"
   ]
  ],

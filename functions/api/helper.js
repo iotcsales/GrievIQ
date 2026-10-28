@@ -9,6 +9,9 @@
 //            (a saved application that isn't paid yet can be changed; the
 //            photos can then be left out to keep the ones sent)
 //   recheck  idType, idNumber, id_photo, selfie (the yearly ID check)
+//   card-photo  card_photo: a new card photo (face only), checked by GrievIQ staff
+// GET ?card=1            grieviq-74: the digital ID card: a fresh QR value (every minute)
+// GET ?cardphoto=1       the helper's own card photo
 // POST JSON { action }
 //   pay {ownFunds: true}                       first month (sends the application) or the next month
 //   paid {orderId, paymentId, signature}       after Razorpay's payment window
@@ -29,7 +32,7 @@ import { onlineInfo } from "../_shared/razorpay.js";
 import { istToday } from "../_shared/site-settings.js";
 import {
   helpersReady, idSecretOk, cleanApplication, unitInfo, idHash, normaliseId, readImage, deleteFiles, logHelper, adminLog,
-  helperOut, stateOf, electionPause, feeNow, startHelperPay, helperCheckoutDone, tellStaff, emailHelper, OPEN, LIMITS,
+  helperOut, stateOf, electionPause, feeNow, startHelperPay, helperCheckoutDone, tellStaff, emailHelper, OPEN, LIMITS, cardToken, CARD_MINUTES,
 } from "../_shared/helpers.js";
 import { fileForCitizen, checkCode, resendCode, closeFiling, filingsFor, todayCount, filingsReady, DAILY_FILINGS } from "../_shared/helper-filing.js";
 
@@ -81,6 +84,22 @@ export async function onRequestGet({ request, env }) {
   const email = await helperEmail(request, env);
   if (!email) return json(Object.assign(base, { signedIn: false }));
   const h = await latest(env, email);
+  // grieviq-74: the digital ID card.
+  if (url.searchParams.get("card") && h) {
+    if (!h.ref || !["ACTIVE", "LAPSED", "SUSPENDED"].includes(h.status)) return json({ error: "NO_CARD" }, 409);
+    const unit = await unitInfo(env, h.unit_id);
+    const today = istToday();
+    const st = stateOf(h, today, await electionPause(env, h, today));
+    const t = await cardToken(env, h.ref);
+    return json({ ref: h.ref, place: unit ? unit.name + ", " + unit.area_name : "", active: h.status === "ACTIVE" && st.canHelp, status: st.status, paidUntil: h.paid_until,
+      photo: !!h.card_key, photoStatus: h.card_status || null, url: new URL(request.url).origin + "/verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(t), validMinutes: CARD_MINUTES, now: new Date().toISOString() });
+  }
+  if (url.searchParams.get("cardphoto") && h) {
+    if (!h.card_key || !env.PRIVATE_PHOTOS) return json({ error: "NOT_FOUND" }, 404);
+    const obj = await env.PRIVATE_PHOTOS.get(h.card_key);
+    if (!obj) return json({ error: "NOT_FOUND" }, 404);
+    return new Response(obj.body, { headers: { "Content-Type": /\.png$/.test(h.card_key) ? "image/png" : /\.webp$/.test(h.card_key) ? "image/webp" : "image/jpeg", "Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff" } });
+  }
   const rid = url.searchParams.get("receipt");
   if (rid) {
     if (!h) return json({ error: "NOT_FOUND" }, 404);
@@ -128,6 +147,7 @@ export async function onRequestPost({ request, env }) {
     if (!idSecretOk(env) || !env.PRIVATE_PHOTOS) return json({ error: "NOT_SET_UP" }, 503);
     if (action === "apply") return apply(env, origin, email, form);
     if (action === "recheck") return recheck(env, origin, email, form);
+    if (action === "card-photo") return cardPhoto(env, origin, email, form);
     return json({ error: "UNKNOWN_ACTION" }, 400);
   }
   let b;
@@ -147,16 +167,16 @@ export async function onRequestPost({ request, env }) {
     }
     case "withdraw": {
       if (h.status === "DRAFT") {
-        const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'").bind(now, now, h.id).run();
+        const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, card_key = NULL, card_status = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'").bind(now, now, h.id).run();
         if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
-        await deleteFiles(env, [h.id_key, h.selfie_key]);
+        await deleteFiles(env, [h.id_key, h.selfie_key, h.card_key]);
         await logHelper(env, h.id, email, "WITHDRAWN", { stage: "DRAFT" });
         return json({ ok: true });
       }
       if (["WAITING", "CHECKED"].includes(h.status)) {
-        const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status IN ('WAITING','CHECKED')").bind(now, now, h.id).run();
+        const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, card_key = NULL, card_status = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status IN ('WAITING','CHECKED')").bind(now, now, h.id).run();
         if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
-        await deleteFiles(env, [h.id_key, h.selfie_key]);
+        await deleteFiles(env, [h.id_key, h.selfie_key, h.card_key]);
         const pr = await env.DB.prepare("UPDATE helper_payments SET status = 'REFUND_DUE', refund_why = 'WITHDRAWN' WHERE helper_id = ? AND kind = 'FIRST' AND status = 'PAID'").bind(h.id).run();
         await logHelper(env, h.id, email, "WITHDRAWN", { stage: h.status, refund: !!(pr.meta && pr.meta.changes) });
         if (pr.meta && pr.meta.changes) await tellStaff(env, origin, "GrievIQ: a Community helper payment to refund", "An applicant withdrew before the decision: their first month's fee is to be refunded.");
@@ -172,6 +192,8 @@ export async function onRequestPost({ request, env }) {
       const r = await env.DB.prepare("UPDATE helpers SET status = 'STOPPED', updated_at = ?, files_decided_at = COALESCE(files_decided_at, ?) WHERE id = ? AND status IN ('ACTIVE','LAPSED')").bind(now, now, h.id).run();
       if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
       await logHelper(env, h.id, email, "STOPPED", { paidUntil: h.paid_until });
+      // The card photo is kept only while the person is a helper.
+      if (h.card_key) { await deleteFiles(env, [h.card_key]); await env.DB.prepare("UPDATE helpers SET card_key = NULL, card_status = NULL WHERE id = ?").bind(h.id).run(); }
       await emailHelper(env, origin, h, "GrievIQ: you have stopped being a Community helper",
         ["You have stopped being a Community helper. Your helper number no longer shows as active. Part-months are not refunded.", "You can apply again at any time."]);
       return json({ ok: true });
@@ -231,9 +253,11 @@ async function apply(env, origin, email, form) {
   } else if (await everBarred(env, email, null)) return json({ error: "NOT_ALLOWED" }, 403);
   // The photos: required, except when changing a saved application that has them.
   const files = {};
-  for (const [k, name] of [["idPhoto", "id_photo"], ["selfie", "selfie"]]) {
+  // grieviq-74: and the card photo (face only), for the digital ID card.
+  const COL = { idPhoto: "id_key", selfie: "selfie_key", cardPhoto: "card_key" };
+  for (const [k, name] of [["idPhoto", "id_photo"], ["selfie", "selfie"], ["cardPhoto", "card_photo"]]) {
     const f = form.get(name);
-    const keep = draft && draft.id_key && draft.selfie_key && (!f || typeof f === "string" || !f.size);
+    const keep = draft && draft[COL[k]] && (!f || typeof f === "string" || !f.size);
     if (keep) continue;
     const r = await readImage(f);
     if (r.code) fields[k] = r.code; else files[k] = r;
@@ -243,21 +267,22 @@ async function apply(env, origin, email, form) {
   const now = new Date().toISOString();
   const keys = {};
   for (const k of Object.keys(files)) {
-    keys[k] = "helper-kyc/" + id + "/" + (k === "idPhoto" ? "id" : "selfie") + "-" + crypto.randomUUID().slice(0, 8) + "." + files[k].ext;
+    keys[k] = "helper-kyc/" + id + "/" + ({ idPhoto: "id", selfie: "selfie", cardPhoto: "card" }[k]) + "-" + crypto.randomUUID().slice(0, 8) + "." + files[k].ext;
     await env.PRIVATE_PHOTOS.put(keys[k], files[k].buf, { httpMetadata: { contentType: files[k].type } });
   }
-  const idKey = keys.idPhoto || (draft && draft.id_key), selfieKey = keys.selfie || (draft && draft.selfie_key);
+  const idKey = keys.idPhoto || (draft && draft.id_key), selfieKey = keys.selfie || (draft && draft.selfie_key), cardKey = keys.cardPhoto || (draft && draft.card_key);
   try {
     if (draft) {
       await env.DB.prepare(`UPDATE helpers SET name = ?, mobile = ?, unit_id = ?, area_id = ?, state = ?, about = ?, id_type = ?, id_last4 = ?, id_hash = ?, id_key = ?, selfie_key = ?,
         files_at = ?, conduct_at = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'`)
         .bind(v.name, v.mobile, unit.id, unit.area_id, unit.state, v.about || null, v.idType, v.idLast4, hash, idKey, selfieKey, Object.keys(keys).length ? now : draft.files_at, now, now, id).run();
-      await deleteFiles(env, [keys.idPhoto ? draft.id_key : null, keys.selfie ? draft.selfie_key : null]);
+      await deleteFiles(env, [keys.idPhoto ? draft.id_key : null, keys.selfie ? draft.selfie_key : null, keys.cardPhoto ? draft.card_key : null]);
     } else {
       await env.DB.prepare(`INSERT INTO helpers (id, email, name, mobile, unit_id, area_id, state, about, id_type, id_last4, id_hash, id_key, selfie_key, files_at, conduct_at, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?)`)
         .bind(id, email, v.name, v.mobile, unit.id, unit.area_id, unit.state, v.about || null, v.idType, v.idLast4, hash, idKey, selfieKey, now, now, now, now).run();
     }
+    await env.DB.prepare("UPDATE helpers SET card_key = ?, card_status = 'PENDING', card_at = NULL, card_by = NULL WHERE id = ?").bind(cardKey, id).run();
   } catch (e) {
     await deleteFiles(env, Object.values(keys));
     if (/UNIQUE/i.test(String(e && e.message))) return json({ error: "ALREADY" }, 409);
@@ -305,6 +330,23 @@ async function recheck(env, origin, email, form) {
   await logHelper(env, h.id, email, "RECHECK_SENT", { idType });
   await adminLog(env, email, "helper_recheck_sent", h.ref || h.id, null);
   await tellStaff(env, origin, "GrievIQ: a Community helper's yearly ID check", "A Community helper has sent their yearly ID check.");
+  const nh = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(h.id).first();
+  return json({ ok: true, helper: await view(env, nh) });
+}
+
+// grieviq-74: a new card photo from a helper (face only). Shown on the card
+// as "waiting for GrievIQ" until a staff member confirms it matches the person.
+async function cardPhoto(env, origin, email, form) {
+  const h = await latest(env, email);
+  if (!h || !["ACTIVE", "LAPSED"].includes(h.status)) return json({ error: "STATE" }, 409);
+  const r = await readImage(form.get("card_photo"));
+  if (r.code) return json({ error: "CHECK_FIELDS", fields: { cardPhoto: r.code } }, 400);
+  const key = "helper-kyc/" + h.id + "/card-" + crypto.randomUUID().slice(0, 8) + "." + r.ext;
+  await env.PRIVATE_PHOTOS.put(key, r.buf, { httpMetadata: { contentType: r.type } });
+  await env.DB.prepare("UPDATE helpers SET card_key = ?, card_status = 'PENDING', card_at = NULL, card_by = NULL, updated_at = ? WHERE id = ?").bind(key, new Date().toISOString(), h.id).run();
+  if (h.card_key) await deleteFiles(env, [h.card_key]);
+  await logHelper(env, h.id, email, "CARD_PHOTO_SENT", null);
+  await tellStaff(env, origin, "GrievIQ: a Community helper card photo to confirm", "A Community helper sent a new card photo. Please confirm it matches the person.");
   const nh = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(h.id).first();
   return json({ ok: true, helper: await view(env, nh) });
 }

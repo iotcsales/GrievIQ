@@ -26,6 +26,7 @@
   }
   function needsCheck(h) { return h.rawStatus === "WAITING" || h.recheck === "WAITING"; }
   function needsApproval(h) { return h.rawStatus === "CHECKED" || h.recheck === "CHECKED"; }
+  function cardPending(h) { return !!(h.card && h.card.photo && h.card.status === "PENDING" && ["ACTIVE", "LAPSED", "SUSPENDED"].indexOf(h.rawStatus) >= 0); }
   function appealOpen(h) { return h.appeal && !h.appeal.result && (h.rawStatus === "SUSPENDED" || h.rawStatus === "REMOVED"); }
 
   function load() {
@@ -77,6 +78,7 @@
     if (h.actionBy) rows.push(["adm.hl_f_action", T("adm.hl_by_on", { who: staffName(h.actionBy), when: when(h.actionAt) }) + " · " + (h.actionReason || "")]);
     if (h.appeal) rows.push(["adm.hl_f_appeal", h.appeal.text + " (" + when(h.appeal.at) + ")" + (h.appeal.result ? " → " + T("adm.hl_ap_" + h.appeal.result) + " · " + staffName(h.appeal.by) + " · " + (h.appeal.note || "") : "")]);
     if (h.strikes) rows.push(["adm.hl_f_strikes", T("adm.hl_strikes_v", { n: h.strikes })]);
+    if (h.card) rows.push(["adm.hl_f_card", !h.card.photo ? T("adm.hl_card_none") : h.card.status === "OK" ? T("adm.hl_card_ok", { who: staffName(h.card.by), when: when(h.card.at) }) : T("adm.hl_card_pending")]);
     rows.push(["adm.hl_f_files", h.filesDeleted ? T("adm.hl_files_deleted", { d: day(h.filesDeleted) }) : h.filesIn ? T("adm.hl_files_kept") : "—"]);
     return "<dl>" + rows.map(function (r) { return "<dt>" + esc(T(r[0])) + "</dt><dd>" + esc(r[1]) + "</dd>"; }).join("") + "</dl>";
   }
@@ -87,20 +89,23 @@
     return out;
   }
   function photos(h) {
-    if (!S.d.canFiles || !h.filesIn) return "";
+    var kinds = (h.filesIn ? ["id", "selfie"] : []).concat(h.card && h.card.photo ? ["card"] : []);
+    if (!S.d.canFiles || !kinds.length) return "";
     var sh = S.show[h.id] || {};
-    return '<div class="acts small">' + ["id", "selfie"].map(function (k) {
-      return sh[k] ? "" : '<button type="button" data-act="show" data-k="' + k + '" data-h="' + h.id + '">' + esc(T(k === "id" ? "adm.hl_show_id" : "adm.hl_show_selfie")) + "</button>";
-    }).join("") + '</div><p class="muted-note">' + esc(T("adm.hl_show_note")) + '</p><div class="hl-imgs">' + ["id", "selfie"].filter(function (k) { return sh[k]; }).map(function (k) {
+    var LBL = { id: "adm.hl_show_id", selfie: "adm.hl_show_selfie", card: "adm.hl_show_card" }, ALT = { id: "adm.hl_alt_id", selfie: "adm.hl_alt_selfie", card: "adm.hl_alt_card" };
+    return '<div class="acts small">' + kinds.map(function (k) {
+      return sh[k] ? "" : '<button type="button" data-act="show" data-k="' + k + '" data-h="' + h.id + '">' + esc(T(LBL[k])) + "</button>";
+    }).join("") + '</div><p class="muted-note">' + esc(T("adm.hl_show_note")) + '</p><div class="hl-imgs">' + kinds.filter(function (k) { return sh[k]; }).map(function (k) {
       if (sh[k] === "loading") return '<p class="muted-note">' + esc(T("adm.it_loading")) + "</p>";
       if (sh[k] === "error") return '<p class="hl-flag">' + esc(T("adm.hl_e_FILES_GONE")) + "</p>";
-      return '<figure><img src="' + esc(sh[k]) + '" alt="' + esc(T(k === "id" ? "adm.hl_alt_id" : "adm.hl_alt_selfie", { name: h.name })) + '"><figcaption>' + esc(T(k === "id" ? "adm.hl_show_id" : "adm.hl_show_selfie")) + "</figcaption></figure>";
+      return '<figure><img src="' + esc(sh[k]) + '" alt="' + esc(T(ALT[k], { name: h.name })) + '"><figcaption>' + esc(T(LBL[k])) + "</figcaption></figure>";
     }).join("") + "</div>";
   }
   function checkForm(h) {
     var id = h.id, f = S.forms[id] || (S.forms[id] = { videoOn: istToday() });
     return '<form class="hl-form" data-form="check" data-h="' + id + '" novalidate><h3>' + esc(T(h.recheck ? "adm.hl_check_re_h" : "adm.hl_check_h")) + "</h3>" +
       chk(id, "idClear", "adm.hl_c_idClear") + chk(id, "selfieMatch", "adm.hl_c_selfieMatch") + chk(id, "videoDone", "adm.hl_c_videoDone") +
+      (h.card && h.card.photo && h.card.status !== "OK" ? chk(id, "cardMatch", "adm.hl_c_cardMatch") : "") +
       (h.idType === "AADHAAR" ? chk(id, "aadhaarMasked", "adm.hl_c_aadhaarMasked") : "") +
       '<div class="fld"><label for="hl-' + id + '-videoOn">' + esc(T("adm.hl_c_videoOn")) + '</label><input type="date" id="hl-' + id + '-videoOn" data-f="videoOn" data-h="' + id + '" max="' + istToday() + '" value="' + esc(f.videoOn || "") + '"' + inv(id, "videoOn") + ">" + errOf(id, "videoOn") + "</div>" +
       txt(id, "note", "adm.hl_c_note", T("adm.hl_c_note_h"), 2) +
@@ -115,6 +120,14 @@
       }).join("") + errOf(id, "kind") + "</fieldset>" +
       txt(id, "reason", "adm.hl_reason", T("adm.hl_reason_h", { a: S.d.limits.reason[0], b: S.d.limits.reason[1] }), 3) +
       '<div class="acts"><button type="submit" class="danger"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_refuse_btn")) + "</button></div></form>";
+  }
+  function cardForms(h) {
+    var id = h.id;
+    return '<form class="hl-form" data-form="cardok" data-h="' + id + '" novalidate><h3>' + esc(T("adm.hl_card_ok_h")) + '</h3><p class="muted-note">' + esc(T("adm.hl_card_ok_p")) + "</p>" +
+      chk(id, "matches", "adm.hl_c_cardMatch") + '<div class="acts"><button type="submit" class="primary"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_card_ok_btn")) + "</button></div></form>" +
+      '<form class="hl-form" data-form="cardref" data-h="' + id + '" novalidate><h3>' + esc(T("adm.hl_card_ref_h")) + "</h3>" +
+      txt(id, "reason", "adm.hl_reason", T("adm.hl_card_ref_hint", { a: S.d.limits.reason[0], b: S.d.limits.reason[1] }), 2) +
+      '<div class="acts"><button type="submit" class="danger"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_card_ref_btn")) + "</button></div></form>";
   }
   function approveBox(h) {
     var checker = h.recheck === "CHECKED" ? h.recheckBy : h.checkedBy;
@@ -165,12 +178,13 @@
       if (S.d.canCheck && needsCheck(h)) body += h.filesIn ? checkForm(h) : '<p class="hl-flag">' + esc(T("adm.hl_files_gone")) + "</p>";
       if (needsApproval(h) && (S.d.canApprove || String(h.recheck === "CHECKED" ? h.recheckBy : h.checkedBy || "").toLowerCase() === String(S.d.me || "").toLowerCase())) body += approveBox(h);
       if (S.d.canCheck && (h.rawStatus === "WAITING" || h.rawStatus === "CHECKED")) body += refuseForm(h);
+      if (S.d.canCheck && cardPending(h) && !needsCheck(h) && !needsApproval(h)) body += cardForms(h);
       if (S.d.canApprove && appealOpen(h)) body += appealForm(h);
       if (S.d.canApprove) body += actionForm(h);
       body += history(det);
     }
     return '<section class="pr-card" aria-labelledby="hl-h-' + h.id + '"><h2 id="hl-h-' + h.id + '">' + esc(title) + ' <span class="hl-badge">' + esc(st(h)) + "</span>" +
-      (h.recheck ? ' <span class="hl-badge">' + esc(T("adm.hl_recheck_" + h.recheck)) + "</span>" : "") + (appealOpen(h) ? ' <span class="hl-badge">' + esc(T("adm.hl_appeal_badge")) + "</span>" : "") + "</h2>" +
+      (h.recheck ? ' <span class="hl-badge">' + esc(T("adm.hl_recheck_" + h.recheck)) + "</span>" : "") + (cardPending(h) ? ' <span class="hl-badge">' + esc(T("adm.hl_card_badge")) + "</span>" : "") + (appealOpen(h) ? ' <span class="hl-badge">' + esc(T("adm.hl_appeal_badge")) + "</span>" : "") + "</h2>" +
       '<p class="muted-note">' + esc([h.unit, h.area].filter(Boolean).join(", ")) + " · " + esc(when(h.submittedAt || h.createdAt)) + "</p>" +
       '<div class="acts small"><button type="button" data-act="open" data-h="' + h.id + '" aria-expanded="' + open + '" aria-controls="hl-b-' + h.id + '">' + esc(T(open ? "adm.hl_close" : "adm.hl_open")) + "</button></div>" +
       '<div id="hl-b-' + h.id + '">' + body + "</div></section>";
@@ -230,18 +244,19 @@
     if (!d.ready) { app.innerHTML = '<p class="muted">' + esc(T("adm.hl_not_ready")) + "</p>"; return; }
     var hs = d.helpers;
     var toCheck = hs.filter(needsCheck), toApprove = hs.filter(needsApproval), appeals = hs.filter(appealOpen);
+    var cards = hs.filter(function (h) { return cardPending(h) && !needsCheck(h) && !needsApproval(h) && !appealOpen(h); });
     var q = S.q.trim().toLowerCase();
     var rest = hs.filter(function (h) {
       var okF = S.filter === "ALL" || (S.filter === "OPEN" ? ["ACTIVE", "LAPSED", "SUSPENDED", "DRAFT"].indexOf(h.rawStatus) >= 0 : h.rawStatus === S.filter);
       var okQ = !q || [h.name, h.ref, h.unit, h.mobile].join(" ").toLowerCase().indexOf(q) >= 0;
-      return okF && okQ && !needsCheck(h) && !needsApproval(h) && !appealOpen(h);
+      return okF && okQ && !needsCheck(h) && !needsApproval(h) && !appealOpen(h) && cards.indexOf(h) < 0;
     });
     var sec = function (key, list, id) {
       return '<section id="' + id + '" aria-labelledby="' + id + '-h"><h2 class="hl-sec" id="' + id + '-h">' + esc(T(key)) + '<span class="hl-count">' + list.length + "</span></h2>" + (list.length ? list.map(card).join("") : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>") + "</section>";
     };
     app.innerHTML = (d.setUp ? "" : '<p class="st-warn">' + esc(T("adm.hl_not_set_up")) + "</p>") +
       (!d.canCheck && !d.canApprove ? '<p class="readonly-tag" style="margin-left:0">' + esc(T("adm.hl_readonly")) + "</p>" : "") +
-      sec("adm.hl_to_check", toCheck, "hl-check") + sec("adm.hl_to_approve", toApprove, "hl-approve") + sec("adm.hl_appeals", appeals, "hl-appeals") + filingSecs() + refunds() +
+      sec("adm.hl_to_check", toCheck, "hl-check") + sec("adm.hl_to_approve", toApprove, "hl-approve") + sec("adm.hl_appeals", appeals, "hl-appeals") + sec("adm.hl_cards", cards, "hl-cards") + filingSecs() + refunds() +
       '<h2 class="hl-sec" id="hl-all">' + esc(T("adm.hl_all")) + '<span class="hl-count">' + rest.length + "</span></h2>" +
       '<div class="hl-filter"><div class="fld"><label for="hl-filter">' + esc(T("adm.hl_filter")) + '</label><select id="hl-filter">' +
         ["OPEN", "ALL", "ACTIVE", "LAPSED", "SUSPENDED", "REMOVED", "REFUSED", "STOPPED", "WITHDRAWN", "DRAFT"].map(function (k) { return '<option value="' + k + '"' + (S.filter === k ? " selected" : "") + ">" + esc(T(k === "OPEN" ? "adm.hl_f_open" : k === "ALL" ? "adm.hl_f_all" : "adm.hl_st_" + k)) + "</option>"; }).join("") + "</select></div>" +
@@ -314,9 +329,11 @@
     var kind = fm.getAttribute("data-form"), id = fm.getAttribute("data-h"), f = S.forms[id] || {};
     var by = e.submitter && e.submitter.getAttribute("data-do");
     var body, okKey;
-    if (kind === "check") { body = { action: "check", id: id, idClear: !!f.idClear, selfieMatch: !!f.selfieMatch, videoDone: !!f.videoDone, aadhaarMasked: !!f.aadhaarMasked, videoOn: f.videoOn || "", note: f.note || "" }; okKey = "adm.hl_ok_checked"; }
+    if (kind === "check") { body = { action: "check", id: id, idClear: !!f.idClear, selfieMatch: !!f.selfieMatch, videoDone: !!f.videoDone, cardMatch: !!f.cardMatch, aadhaarMasked: !!f.aadhaarMasked, videoOn: f.videoOn || "", note: f.note || "" }; okKey = "adm.hl_ok_checked"; }
     else if (kind === "refuse") { body = { action: "refuse", id: id, kind: f.kind || "", reason: f.reason || "" }; okKey = "adm.hl_ok_refused"; }
     else if (kind === "action") { body = { action: by === "suspend" ? "suspend" : "remove", id: id, reason: f.reason || "" }; okKey = by === "suspend" ? "adm.hl_ok_suspended" : "adm.hl_ok_removed"; }
+    else if (kind === "cardok") { body = { action: "card-ok", id: id, matches: !!f.matches }; okKey = "adm.hl_ok_card"; }
+    else if (kind === "cardref") { body = { action: "card-refuse", id: id, reason: f.reason || "" }; okKey = "adm.hl_ok_card_ref"; }
     else if (kind === "reinstate") { body = { action: "reinstate", id: id, note: f.note || "" }; okKey = "adm.hl_ok_reinstated"; }
     else if (kind === "appeal") { body = { action: "appeal", id: id, result: f.result || "", note: f.note || "" }; okKey = "adm.hl_ok_appeal"; }
     else if (kind === "call") { body = { action: "call", filingId: fm.getAttribute("data-f"), outcome: f.outcome || "", note: f.note || "" }; okKey = f.outcome === "CONFIRMED" ? "adm.hl_ok_call_sent" : "adm.hl_ok_call"; }

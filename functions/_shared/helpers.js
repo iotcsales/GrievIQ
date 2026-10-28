@@ -17,8 +17,10 @@
 //     twice. The ID photo and selfie are deleted 30 days after the decision;
 //     every time staff open them is recorded (helper_events, unchangeable).
 //   - The public record is the helper number only (GIQ-H-0123), with the
-//     ward or village and whether it is active. No name, party, photo or
-//     symbol, anywhere.
+//     ward or village and whether it is active. No name, party or symbol,
+//     anywhere. grieviq-74: the helper's own digital ID card also shows a
+//     face photo confirmed by staff; a scan of its live QR (never a typed
+//     number) shows that photo too (api/helper-verify.js).
 //   - The monthly fee (Prices & site details → Community helpers; GST
 //     included) is the same for everyone, paid through Razorpay in the
 //     helper's own name, from their own money (ticked). It buys the role
@@ -219,8 +221,33 @@ export function helperOut(h, unit, payments, today, pause) {
     appeal: h.appeal_at ? { text: h.appeal_text, at: h.appeal_at, result: h.appeal_result, decidedAt: h.appeal_decided_at, note: h.appeal_note } : null,
     canAppeal: !!appealOpen,
     canApplyAgain: ["STOPPED", "WITHDRAWN"].includes(h.status) || (h.status === "REFUSED" && h.refuse_kind !== "FORGED"),
+    // grieviq-74: the card photo for the digital ID card (PENDING until GrievIQ confirms it).
+    card: { photo: !!h.card_key, status: h.card_status || null },
     payments: (payments || []).filter((p) => p.status !== "CREATED" && p.status !== "EXPIRED").map(paymentOut),
   };
+}
+
+// ---- the digital ID card (grieviq-74) ----
+// The card's QR holds /verify?h=<helper number>&t=<minute>.<signature>. The
+// signature is an HMAC (HELPER_ID_SECRET) of the number and the minute, so
+// only GrievIQ can make one; it is accepted for CARD_MINUTES minutes, so a
+// screenshot of the card soon stops working. The helper's app asks for a
+// new one every minute.
+export const CARD_MINUTES = 3;
+const CARD_RE = /^([0-9]{6,9})\.([0-9a-f]{20})$/;
+export async function cardToken(env, ref, nowMs) {
+  const m = Math.floor((nowMs || Date.now()) / 60000);
+  return m + "." + (await hmacHex(String(env.HELPER_ID_SECRET), "giq-card|" + ref + "|" + m)).slice(0, 20);
+}
+// Returns "OK", "EXPIRED" or "BAD".
+export async function cardTokenCheck(env, ref, t, nowMs) {
+  const x = CARD_RE.exec(String(t || ""));
+  if (!x || !idSecretOk(env) || !helperRefOk(ref)) return "BAD";
+  const m = Number(x[1]), now = Math.floor((nowMs || Date.now()) / 60000);
+  const want = (await hmacHex(String(env.HELPER_ID_SECRET), "giq-card|" + ref + "|" + m)).slice(0, 20);
+  if (want !== x[2]) return "BAD";
+  if (m > now + 1) return "BAD";
+  return now - m < CARD_MINUTES ? "OK" : "EXPIRED";
 }
 
 // ---- emails (to the helper themselves; to staff, content-free) ----
@@ -480,12 +507,22 @@ export async function runHelpers(env, origin, nowMs) {
     } catch (e) { /* next hour */ }
   }
   // 7. Applications saved but never paid for: closed after 30 days, files deleted.
-  const { results: drafts } = await env.DB.prepare("SELECT id, id_key, selfie_key FROM helpers WHERE status = 'DRAFT' AND updated_at < ? LIMIT 100").bind(new Date(nowMs - DRAFT_DAYS * 86400000).toISOString()).all();
+  const { results: drafts } = await env.DB.prepare("SELECT id, id_key, selfie_key, card_key FROM helpers WHERE status = 'DRAFT' AND updated_at < ? LIMIT 100").bind(new Date(nowMs - DRAFT_DAYS * 86400000).toISOString()).all();
   for (const h of drafts || []) {
     try {
-      const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'").bind(now, now, h.id).run();
-      if (r.meta && r.meta.changes === 1) { await deleteFiles(env, [h.id_key, h.selfie_key]); await logHelper(env, h.id, "system", "DRAFT_CLOSED", { after: DRAFT_DAYS + " days" }); out.drafts++; }
+      const r = await env.DB.prepare("UPDATE helpers SET status = 'WITHDRAWN', id_key = NULL, selfie_key = NULL, card_key = NULL, card_status = NULL, files_deleted_at = ?, updated_at = ? WHERE id = ? AND status = 'DRAFT'").bind(now, now, h.id).run();
+      if (r.meta && r.meta.changes === 1) { await deleteFiles(env, [h.id_key, h.selfie_key, h.card_key]); await logHelper(env, h.id, "system", "DRAFT_CLOSED", { after: DRAFT_DAYS + " days" }); out.drafts++; }
     } catch (e) { /* next hour */ }
   }
+  // 8. grieviq-74: card photos are kept only while the person is a helper.
+  try {
+    const { results: gone } = await env.DB.prepare("SELECT id, card_key FROM helpers WHERE card_key IS NOT NULL AND status IN ('STOPPED','REMOVED','REFUSED','WITHDRAWN') LIMIT 100").all();
+    for (const h of gone || []) {
+      await deleteFiles(env, [h.card_key]);
+      await env.DB.prepare("UPDATE helpers SET card_key = NULL, card_status = NULL WHERE id = ? AND card_key = ?").bind(h.id, h.card_key).run();
+      await logHelper(env, h.id, "system", "CARD_PHOTO_DELETED", null);
+      out.cards = (out.cards || 0) + 1;
+    }
+  } catch (e) { /* before part48, or next hour */ }
   return out;
 }
