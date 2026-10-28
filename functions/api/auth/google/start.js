@@ -11,12 +11,21 @@ import { cookieHeader, tidySessions } from "../../../_shared/rep-session.js";
 
 export async function onRequestGet({ request, env }) {
   if (!configured(env)) {
-    return Response.redirect(new URL("/rep?signin=not_set_up", request.url).toString(), 302);
+    const to = new URL(request.url).searchParams.get("for") === "helper" ? "/helper" : "/rep";
+    return Response.redirect(new URL(to + "?signin=not_set_up", request.url).toString(), 302);
   }
   const state = randomString(32), nonce = randomString(32), verifier = randomString(48);
-  await env.DB.prepare(
-    "INSERT INTO oauth_states (state, nonce, code_verifier, created_at) VALUES (?, ?, ?, ?)"
-  ).bind(state, nonce, verifier, new Date().toISOString()).run();
+  // grieviq-72: "?for=helper" is a Community helper signing in (sent back to /helper).
+  const helper = new URL(request.url).searchParams.get("for") === "helper";
+  if (helper) {
+    await env.DB.prepare(
+      "INSERT INTO oauth_states (state, nonce, code_verifier, created_at, purpose) VALUES (?, ?, ?, ?, 'HELPER')"
+    ).bind(state, nonce, verifier, new Date().toISOString()).run();
+  } else {
+    await env.DB.prepare(
+      "INSERT INTO oauth_states (state, nonce, code_verifier, created_at) VALUES (?, ?, ?, ?)"
+    ).bind(state, nonce, verifier, new Date().toISOString()).run();
+  }
   await tidySessions(env);
   const url = authorizeUrl(env, request, { state, nonce, challenge: await pkceChallenge(verifier) });
   return new Response(null, {

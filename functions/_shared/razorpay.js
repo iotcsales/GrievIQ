@@ -142,6 +142,41 @@ export async function startOnline(env, bill, actor, input) {
   return out(row);
 }
 
+// Razorpay's own record of the payments for an order (row: order_id,
+// amount_paise). An authorised payment of the right amount is captured now
+// (the account may not capture by itself). Returns one of
+//   { paid }                    a captured payment (any amount: the caller checks it)
+//   { failed: text }            only failed tries so far
+//   { waiting: true, tryExpire } nothing yet (tryExpire: Razorpay answered)
+// Used for bills (below) and Community helpers' fees (helpers.js).
+export async function lookupOrder(env, row, hintPaymentId) {
+  let pays = [];
+  try {
+    const d = await rzp(env, "GET", "/orders/" + encodeURIComponent(row.order_id) + "/payments");
+    pays = (d && d.items) || [];
+  } catch (e) {
+    // Couldn't reach Razorpay: try just the one payment we were told about.
+    if (hintPaymentId && PAY_RE.test(hintPaymentId)) {
+      try { pays = [await rzp(env, "GET", "/payments/" + encodeURIComponent(hintPaymentId))]; } catch (e2) { return { waiting: true }; }
+    } else return { waiting: true };
+  }
+  pays = pays.filter((p) => p && p.order_id === row.order_id);
+  let paid = pays.find((p) => p.status === "captured");
+  if (!paid) {
+    const auth = pays.find((p) => p.status === "authorized");
+    if (auth && Number(auth.amount) === row.amount_paise && auth.currency === "INR") {
+      try { paid = await rzp(env, "POST", "/payments/" + encodeURIComponent(auth.id) + "/capture", { amount: row.amount_paise, currency: "INR" }); }
+      catch (e) { try { paid = await rzp(env, "GET", "/payments/" + encodeURIComponent(auth.id)); } catch (e2) { paid = null; } }
+      if (paid && paid.status !== "captured") paid = null;
+    }
+  }
+  if (paid) return { paid };
+  const failed = pays.filter((p) => p.status === "failed");
+  if (failed.length) return { failed: String(failed[0].error_description || failed[0].error_reason || "failed").slice(0, 200), tryExpire: true };
+  return { waiting: true, tryExpire: true };
+}
+export { PAY_RE, ORDER_RE, sameText };
+
 // ---- 4-5: settle ----
 // Looks at Razorpay's own record of the payments for an order and, if one is
 // paid for the right amount, finishes the bill. Safe to call any number of
@@ -157,37 +192,17 @@ export async function syncOrder(env, origin, row, via, hintPaymentId) {
     await env.DB.prepare("UPDATE bill_online_payments SET status = 'EXPIRED', settled_at = ?, settled_via = ? WHERE id = ? AND status = 'CREATED'").bind(new Date().toISOString(), via, row.id).run();
     return { state: "EXPIRED" };
   }
-  let pays = [];
-  try {
-    const d = await rzp(env, "GET", "/orders/" + encodeURIComponent(row.order_id) + "/payments");
-    pays = (d && d.items) || [];
-  } catch (e) {
-    // Couldn't reach Razorpay: try just the one payment we were told about.
-    if (hintPaymentId && PAY_RE.test(hintPaymentId)) {
-      try { pays = [await rzp(env, "GET", "/payments/" + encodeURIComponent(hintPaymentId))]; } catch (e2) { return { state: "WAITING" }; }
-    } else return { state: "WAITING" };
-  }
-  pays = pays.filter((p) => p && p.order_id === row.order_id);
-  let paid = pays.find((p) => p.status === "captured");
+  const look = await lookupOrder(env, row, hintPaymentId);
+  if (look.waiting && !look.tryExpire) return { state: "WAITING" };
+  const paid = look.paid || null;
   if (!paid) {
-    // Authorised but not yet captured (the account may not capture by itself): capture it now.
-    const auth = pays.find((p) => p.status === "authorized");
-    if (auth && Number(auth.amount) === row.amount_paise && auth.currency === "INR") {
-      try { paid = await rzp(env, "POST", "/payments/" + encodeURIComponent(auth.id) + "/capture", { amount: row.amount_paise, currency: "INR" }); }
-      catch (e) { try { paid = await rzp(env, "GET", "/payments/" + encodeURIComponent(auth.id)); } catch (e2) { paid = null; } }
-      if (paid && paid.status !== "captured") paid = null;
-    }
-  }
-  if (!paid) {
-    const failed = pays.filter((p) => p.status === "failed");
-    const last = failed.length ? failed[0] : null;
     const tooOld = Date.now() - Date.parse(row.started_at) > KEEP_TRYING_MS;
     if (tooOld) {
       await env.DB.prepare("UPDATE bill_online_payments SET status = 'EXPIRED', settled_at = ?, settled_via = ? WHERE id = ? AND status = 'CREATED'").bind(new Date().toISOString(), via, row.id).run();
       return { state: "EXPIRED" };
     }
-    if (last) {
-      await env.DB.prepare("UPDATE bill_online_payments SET last_fail = ? WHERE id = ?").bind(String(last.error_description || last.error_reason || "failed").slice(0, 200), row.id).run();
+    if (look.failed) {
+      await env.DB.prepare("UPDATE bill_online_payments SET last_fail = ? WHERE id = ?").bind(look.failed, row.id).run();
       return { state: "FAILED" };
     }
     return { state: "WAITING" };

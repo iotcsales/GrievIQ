@@ -13,6 +13,7 @@
 //   - runs the data-retention batch (notices, anonymising, old codes)
 //   - follow-up requests between officials: reminders, overdue, results
 //   - online bill payments still waiting are checked with Razorpay
+//   - Community helpers: fees, reminders, pauses, ID photos deleted on time
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
@@ -26,6 +27,7 @@ import { sendEmailNow } from "../functions/_shared/dept-auth.js";
 import { runGovReports } from "../functions/_shared/gov-report-run.js";
 import { runFollowups } from "../functions/_shared/followups.js";
 import { runOnlinePayments } from "../functions/_shared/razorpay.js";
+import { runHelpers } from "../functions/_shared/helpers.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -59,7 +61,12 @@ export async function runScheduled(env, nowMs) {
   // RZP_KEY_SECRET secrets on this Worker too; without them it does nothing.
   let onlinePay = null;
   try { onlinePay = await runOnlinePayments(env, origin, nowMs); } catch (e) { onlinePay = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay };
+  // grieviq-72: Community helpers: fee payments still waiting, month-end
+  // reminders, pausing after the grace days, election-code days added, the
+  // yearly ID check, and ID photos deleted 30 days after the decision.
+  let helpers = null;
+  try { helpers = await runHelpers(env, origin, nowMs); } catch (e) { helpers = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers };
 }
 
 export default {

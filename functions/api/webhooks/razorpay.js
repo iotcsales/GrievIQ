@@ -4,6 +4,7 @@
 // Razorpay's messages about payments ("webhook"). Address to give Razorpay:
 //   https://grieviq.in/api/webhooks/razorpay
 // Events to tick: payment.captured, payment.failed, order.paid.
+// Used for bills and (grieviq-72) Community helpers' monthly fees.
 //
 // Every message is checked before anything is read from it: the
 // X-Razorpay-Signature header must be the HMAC-SHA256 of the exact body with
@@ -15,6 +16,7 @@
 // Answers quickly (Razorpay waits 5 seconds) with no details.
 
 import { webhookSigOk, onlineReady, syncOrder } from "../../_shared/razorpay.js";
+import { helpersReady, syncHelperOrder } from "../../_shared/helpers.js";
 
 const reply = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const EVENT_ID = /^[A-Za-z0-9_-]{6,64}$/;
@@ -42,7 +44,11 @@ export async function onRequestPost({ request, env }) {
   let result = "IGNORED";
   if (["payment.captured", "payment.authorized", "order.paid", "payment.failed"].includes(event) && /^order_[A-Za-z0-9]{6,40}$/.test(orderId)) {
     const row = await env.DB.prepare("SELECT * FROM bill_online_payments WHERE order_id = ?").bind(orderId).first();
-    if (!row) result = "UNKNOWN_ORDER";
+    // grieviq-72: a Community helper's monthly fee.
+    const hrow = !row && (await helpersReady(env)) ? await env.DB.prepare("SELECT * FROM helper_payments WHERE order_id = ?").bind(orderId).first() : null;
+    if (hrow) {
+      try { result = (await syncHelperOrder(env, new URL(request.url).origin, hrow, "WEBHOOK", pay && pay.id)).state; } catch (e) { result = "ERROR"; }
+    } else if (!row) result = "UNKNOWN_ORDER";
     else {
       try {
         const r = await syncOrder(env, new URL(request.url).origin, row, "WEBHOOK", pay && pay.id);

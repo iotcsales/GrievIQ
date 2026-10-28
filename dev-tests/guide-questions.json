@@ -560,6 +560,26 @@
   [
    "national dashboard price",
    "bills"
+  ],
+  [
+   "approve a community helper",
+   "helpers"
+  ],
+  [
+   "helper kyc video call",
+   "helpers"
+  ],
+  [
+   "refund a helper fee",
+   "helpers"
+  ],
+  [
+   "suspend a helper",
+   "helpers"
+  ],
+  [
+   "open helper applications",
+   "helpers"
   ]
  ],
  "rep": [
@@ -1298,6 +1318,22 @@
   [
    "privacy policy",
    "data"
+  ],
+  [
+   "is this helper genuine",
+   "helper"
+  ],
+  [
+   "check helper number",
+   "helper"
+  ],
+  [
+   "how to become a community helper",
+   "helper"
+  ],
+  [
+   "someone offered to file my complaint for money",
+   "helper"
   ]
  ],
  "gov": [

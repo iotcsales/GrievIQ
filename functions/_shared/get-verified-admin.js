@@ -133,6 +133,16 @@ export const PERMISSIONS = {
   view_handovers: ["super_admin", "operations_admin", "data_entry_operator", "auditor"],
   request_handover: ["data_entry_operator"],
   apply_handover: ["super_admin", "operations_admin"],
+  // grieviq-72: Community helpers. Maker-checker (NIST AC-5): checking an
+  // application (ID, selfie, video call) is moderation work; approving it,
+  // and suspending or removing a helper, is for the two senior roles, never
+  // by the person who checked. The ID photos are seen only by those who
+  // check or approve (never the auditor); every view is recorded. The
+  // auditor reads everything else.
+  view_helpers: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  view_helper_files: ["super_admin", "operations_admin", "data_moderator"],
+  check_helpers: ["super_admin", "operations_admin", "data_moderator"],
+  approve_helpers: ["super_admin", "operations_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -169,6 +179,7 @@ export const PAGES = {
   "admin-gov": "view_gov",                         // grieviq-48
   "admin-handovers": "view_handovers",             // grieviq-53
   "admin-notices": "view_notices",                 // grieviq-55
+  "admin-helpers": "view_helpers",                 // grieviq-72
 };
 export function pagesFor(roleOrRoles) {
   const mine = [].concat(roleOrRoles);

@@ -49,10 +49,10 @@ export const CSP_MAPS = [
 export const CSP = CSP_STRICT;
 const MAP_PAGES = /^\/(index(\.html)?|submit(\.html)?|rep(\.html)?|admin-visitors(\.html)?)?$/;
 // grieviq-67: the two pages with Billing (representative console, department
-// dashboard) may also load Razorpay's payment window: its script from
+// dashboard), and (grieviq-72) the Community helper page, may also load Razorpay's payment window: its script from
 // checkout.razorpay.com and its frame from api.razorpay.com. Card, UPI and
 // bank details are typed inside Razorpay's frame, never into GrievIQ's page.
-const PAY_PAGES = /^\/(rep|dept)(\.html)?$/;
+const PAY_PAGES = /^\/(rep|dept|helper)(\.html)?$/;
 const RZP = { "script-src": "https://checkout.razorpay.com", "frame-src": "https://api.razorpay.com https://checkout.razorpay.com", "connect-src": "https://api.razorpay.com https://lumberjack.razorpay.com", "img-src": "https://*.razorpay.com" };
 export function withPay(csp) {
   return csp.split("; ").map((d) => {

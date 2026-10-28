@@ -34,6 +34,7 @@
     ["/sitemap", "common.sitemap", "Sitemap"],
     ["/time-limits", "common.time_limits", "Time limits"],
     ["/for-offices", "common.for_offices", "For offices"],
+    ["/helper", "common.helpers", "Community helpers"],   // grieviq-72
   ];
 
   var style = document.createElement("style");

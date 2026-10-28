@@ -58,6 +58,8 @@ const env = { DB, ACCESS_TEAM_DOMAIN: "test", ACCESS_AUD: "test", RESEND_API_KEY
 // finishes a bill; /__test/rzp-mode switches to TEST keys or none.
 const RZP_KEYS = { LIVE: "rzp_live_GIQDEV0001", TEST: "rzp_test_GIQDEV0001" };
 env.RZP_KEY_ID = RZP_KEYS.LIVE; env.RZP_KEY_SECRET = "dev_only_rzp_secret_0001"; env.RZP_WEBHOOK_SECRET = "dev_only_rzp_webhook_0001";
+// grieviq-72: the key for helpers' ID fingerprints (made up; tests only).
+env.HELPER_ID_SECRET = "dev_only_helper_id_secret_0001";
 const rzpState = { orders: new Map(), payments: new Map(), down: false, n: 0, calls: [] };
 function rzpId(prefix) { rzpState.n++; return prefix + "_DEV" + String(rzpState.n).padStart(10, "0"); }
 async function rzpHmac(secret, msg) {
@@ -85,6 +87,12 @@ function fakeRazorpay(u, opts) {
     if (!o || o.key !== env.RZP_KEY_ID) return j({ error: { code: "BAD_REQUEST_ERROR", description: "The id provided does not exist" } }, 400);
     const items = [...rzpState.payments.values()].filter((p) => p.order_id === o.id).reverse();
     return j({ entity: "collection", count: items.length, items });
+  }
+  if (method === "POST" && (m = /^\/payments\/([^/]+)\/refund$/.exec(path))) {
+    const p = rzpState.payments.get(m[1]);
+    if (!p || p.status !== "captured" || !Number.isInteger(body.amount) || body.amount > p.amount || p.refunded) return j({ error: { code: "BAD_REQUEST_ERROR" } }, 400);
+    p.refunded = body.amount;
+    return j({ id: rzpId("rfnd"), entity: "refund", amount: body.amount, payment_id: p.id, status: "processed" });
   }
   if ((m = /^\/payments\/([^/]+)(\/capture)?$/.exec(path))) {
     const p = rzpState.payments.get(m[1]);
@@ -241,6 +249,19 @@ http.createServer(async (req, res) => {
         const m = await import(pathToFileURL(path.join(build, "_shared", "razorpay.js")).href);
         return send(await m.runOnlinePayments(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now()));
       }
+    }
+    // Test only (grieviq-72): the hourly Community helpers job, at a chosen time.
+    if (url.pathname === "/__test/run-helpers" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(build, "_shared", "helpers.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runHelpers(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
+    // Test only: is a private file still kept? { key } -> { exists }
+    if (url.pathname === "/__test/r2-has" && req.method === "POST") {
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const buf = r2.get(String(b.key || ""));
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ exists: !!buf, found: buf && b.find ? buf.includes(Buffer.from(String(b.find))) : null, keys: [...r2.keys()].filter((k) => k.startsWith(String(b.prefix || "\u0000"))) }));
     }
     if (url.pathname === "/__test/run-subscriptions" && req.method === "POST") {
       const m = await import(pathToFileURL(path.join(repo, "functions", "_shared", "subscription-run.js")).href);

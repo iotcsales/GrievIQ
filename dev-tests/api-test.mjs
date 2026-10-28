@@ -1460,7 +1460,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
   ok(threw && threw2, "subscription history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 38, "38 triggers (part30, part32, part41)");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "40 triggers (part30, part32, part41, part46)");
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
@@ -1539,7 +1539,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
   await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
   ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 38, "trigger count 38 after part31, part32 and part41");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "trigger count 40 after part31, part32, part41 and part46");
   ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
   // tidy: the closed cases above stay (later checks don't count them)
 }
@@ -3012,6 +3012,304 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 200 && r.body.total === 354000, "a price-on-request plan quoted", r.body);
   const acts = sdb.prepare("SELECT action, detail FROM admin_events WHERE action IN ('quotation_made_on_request','quotation_order_recorded')").all();
   ok(acts.filter((a) => a.action === "quotation_made_on_request").length === 2 && acts.some((a) => a.action === "quotation_order_recorded") && acts.every((a) => a.action !== "quotation_made_on_request" || JSON.parse(a.detail).reason), "the price, scope and reason are in the admin log");
+}
+
+// ---- grieviq-72: Community helpers ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const T = async (p, b) => (await fetch(B + "/__test/" + p, { method: "POST", body: JSON.stringify(b || {}) })).json();
+  const { monthEnd, addMonths } = await import(new URL("../functions/_shared/helpers.js", import.meta.url).href);
+  const day = (n) => new Date(Date.now() + 5.5 * 3600000 + n * 86400000).toISOString().slice(0, 10);
+  const H = (who, b) => call(who, "POST", "/api/helper", b);
+  const hget = (who, q) => call(who, "GET", "/api/helper" + (q || ""));
+  const adm = (who, b) => call(who, "POST", "/api/admin/helpers", b);
+  const row = (email) => sdb.prepare("SELECT * FROM helpers WHERE email = ? ORDER BY created_at DESC LIMIT 1").get(email);
+  const pays = (id) => sdb.prepare("SELECT * FROM helper_payments WHERE helper_id = ? ORDER BY started_at").all(id);
+  const evs = (id) => sdb.prepare("SELECT action FROM helper_events WHERE helper_id = ? ORDER BY at").all(id).map((x) => x.action);
+  const jpeg = (tag) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x10]), Buffer.from("Exif\0\0GPSDATA!"), Buffer.from([0xff, 0xda, 0x00, 0x02]), Buffer.from("PIXELS-" + tag), Buffer.from([0xff, 0xd9])]);
+  const form = async (who, fields, files) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    for (const [k, v] of Object.entries(files || {})) fd.append(k, new Blob([v], { type: "image/jpeg" }), k + ".jpg");
+    const r = await fetch(B + "/api/helper", { method: "POST", headers: { "test-email": who }, body: fd });
+    return { status: r.status, body: await r.json() };
+  };
+  const good = (o) => Object.assign({ action: "apply", name: "Ravi Kumar", mobile: "+91 98765 43210", unitId: "lu-hazratganj", about: "I run a shop near the market.", idType: "EPIC", idNumber: "abc 1234567", conduct: "1" }, o || {});
+  const both = (t) => ({ id_photo: jpeg("id-" + t), selfie: jpeg("selfie-" + t) });
+  const payNow = async (who) => {
+    const r = await H(who, { action: "pay", ownFunds: true });
+    if (r.status !== 200) return { r };
+    const p = await T("rzp-pay", { orderId: r.body.orderId, status: "captured", method: "upi" });
+    const d = await H(who, { action: "paid", orderId: p.orderId, paymentId: p.paymentId, signature: p.signature });
+    return { r, p, d };
+  };
+  const settings = async (fn) => {
+    const live = (await call(S, "GET", "/api/admin/site-settings")).body.live.data;
+    fn(live);
+    const a = await call(S, "POST", "/api/admin/site-settings", { action: "save_draft", data: live });
+    const b2 = await call(S, "POST", "/api/admin/site-settings", { action: "publish", note: "helpers test" });
+    return [a, b2];
+  };
+  const A1 = "hlp1@x.in", A2 = "hlp2@x.in", A3 = "hlp3@x.in", A4 = "hlp4@x.in", A5 = "hlp5@x.in", A6 = "hlp6@x.in";
+
+  // signed out: the fee (GST included) and whether applications are open
+  let r = await hget("");
+  ok(r.status === 200 && r.body.signedIn === false && r.body.fee.price === 499 && r.body.fee.base === 423 && r.body.fee.gst === 76 && r.body.fee.rate === 18 && r.body.fee.open === false && r.body.setUp === true, "signed out: ₹499 a month including GST (₹423 + ₹76), closed by default", r.body);
+  ok((await call("", "GET", "/api/site-info")).body.helpers.price === 499, "the fee is published with the site details");
+  r = await hget(A1);
+  ok(r.body.signedIn === true && r.body.email === A1 && r.body.helper === null && r.body.blocked === null, "signed in, nothing applied for yet", r.body);
+  r = await form(A1, good(), both("a"));
+  ok(r.status === 409 && r.body.error === "CLOSED", "applications closed until the super admin opens them", r.body);
+  // site settings: price range, then open
+  let [s1] = await settings((d) => { d.helpers = { open: true, price: 50 }; });
+  ok(s1.status === 400 && s1.body.fields["helpers.price"] === "RANGE", "a fee under ₹100 is refused", s1.body);
+  let [, s2] = await settings((d) => { d.helpers = { open: true, price: "499" }; });
+  ok(s2.status === 200 && (await hget("")).body.fee.open === true, "the super admin opens applications", s2.body);
+
+  // who can't apply
+  ok((await form("r1@x.in", good(), both("x"))).body.error === "IS_OFFICE", "a representative's office can't be a helper");
+  ok((await form(S, good(), both("x"))).body.error === "IS_STAFF", "GrievIQ staff can't be helpers");
+  ok((await form("", good(), both("x"))).status === 401, "signed out can't apply");
+
+  // checks on the form
+  r = await form(A1, { action: "apply" }, {});
+  ok(r.status === 400 && ["name", "mobile", "unitId", "idType", "conduct", "idPhoto", "selfie"].every((k) => r.body.fields[k]), "empty form: every field named", r.body);
+  r = await form(A1, good({ name: "R2D2 <b>", mobile: "12345", idNumber: "1234 5678 9012" }), both("x"));
+  ok(r.body.fields.name === "FORMAT" && r.body.fields.mobile === "FORMAT" && r.body.fields.idNumber === "FULL_AADHAAR", "name, mobile; a full Aadhaar number is refused even as another ID", r.body);
+  r = await form(A1, good({ idType: "AADHAAR", idNumber: "234567890123" }), both("x"));
+  ok(r.body.fields.idNumber === "FULL_AADHAAR", "Aadhaar: only the last 4 digits (masked)", r.body);
+  r = await form(A1, good({ idType: "PAN", idNumber: "ABC1234567" }), both("x"));
+  ok(r.body.fields.idNumber === "FORMAT", "the number must fit the ID type", r.body);
+  r = await form(A1, good({ unitId: "lu-knp1" }), both("x"));
+  ok(r.body.fields.unitId === "UNKNOWN", "a ward in an area that isn't live is refused", r.body);
+  r = await form(A1, good(), { id_photo: Buffer.from("not a photo at all"), selfie: jpeg("s") });
+  ok(r.body.fields.idPhoto === "BAD_TYPE", "the ID photo must be a photo", r.body);
+
+  // saved (not yet sent)
+  r = await form(A1, good(), both("a"));
+  ok(r.status === 200 && r.body.helper.status === "DRAFT" && r.body.helper.idType === "EPIC" && r.body.helper.idLast4 === "4567" && r.body.helper.mobile === "9876543210" && r.body.helper.unit.name === "Hazratganj-Ramtirth", "application saved: ID type and last 4 only; mobile tidied", r.body);
+  let h1 = row(A1);
+  ok(/^[0-9a-f]{64}$/.test(h1.id_hash) && !JSON.stringify(h1).includes("1234567") && h1.status === "DRAFT", "the full ID number is never stored (keyed fingerprint only)", h1);
+  let f = await T("r2-has", { key: h1.id_key, find: "GPSDATA" });
+  ok(f.exists && f.found === false && (await T("r2-has", { key: h1.selfie_key })).exists, "photos kept privately, hidden details (GPS) removed", f);
+  r = await form(A1, good({ about: "Changed line" }), {});
+  ok(r.status === 200 && row(A1).id_key === h1.id_key && row(A1).about === "Changed line", "changing a saved application keeps the photos sent");
+  r = await form(A2, good({ name: "Someone Else" }), both("b"));
+  ok(r.status === 400 && r.body.fields.idNumber === "USED", "the same ID can't be used by another account", r.body);
+
+  // paying: own money, election code, test keys
+  r = await H(A1, { action: "pay" });
+  ok(r.status === 400 && r.body.fields.ownFunds === "REQUIRED", "own-funds tick needed (no party or campaign money)", r.body);
+  sdb.prepare("INSERT INTO notice_pauses (id, label, state, area_id, from_on, to_on, created_by, created_at) VALUES ('hp-mcc', 'Test election', 'Uttar Pradesh', NULL, ?, ?, 'super@test.in', ?)").run(day(-1), day(2), new Date().toISOString());
+  ok((await H(A1, { action: "pay", ownFunds: true })).body.error === "ELECTION_PAUSE", "no payments during election-code days");
+  ok((await form(A3, good({ idNumber: "XYZ7654321", name: "Third Person" }), both("c"))).body.error === "ELECTION_PAUSE", "no new applications during election-code days");
+  sdb.prepare("DELETE FROM notice_pauses WHERE id = 'hp-mcc'").run();
+  await T("rzp-mode", { mode: "TEST" });
+  let pn = await payNow(A1);
+  ok(pn.d.body.result === "TEST_PAID" && row(A1).status === "DRAFT", "test keys: no money moves, the application isn't sent", pn.d.body);
+  await T("rzp-mode", { mode: "LIVE" });
+  let before = mails().length;
+  pn = await payNow(A1);
+  ok(pn.r.body.amount === 49900 && pn.r.body.currency === "INR" && pn.r.body.description === "Community helper · 1 month" && pn.d.body.result === "PAID", "₹499 paid through Razorpay (amount from the server)", [pn.r.body, pn.d.body]);
+  h1 = row(A1);
+  let p1 = pays(h1.id).find((x) => x.status === "PAID");
+  ok(h1.status === "WAITING" && p1.receipt_no === "GIQ-HR-000001" && p1.base === 423 && p1.gst === 76 && p1.own_funds === 1 && !p1.period_from, "application sent; receipt numbered; month not started yet", p1);
+  let m = mails().slice(before);
+  ok(m.some((x) => x.to[0] === A1 && /application is in/.test(x.subject)) && m.some((x) => x.to[0] === "support@grieviq.in" && !x.html.includes("Ravi") && !x.html.includes(A1)), "applicant told; staff told without any personal details", m.map((x) => x.subject));
+  ok((await H(A1, { action: "pay", ownFunds: true })).body.error === "NOT_NOW", "no second first-month payment");
+  ok((await form(A1, good(), both("z"))).body.error === "ALREADY", "a sent application can't be changed");
+
+  // receipts
+  r = await hget(A1, "?receipt=" + p1.id);
+  ok(r.status === 200 && r.body.receipt.receiptNo === "GIQ-HR-000001" && r.body.receipt.base === 423 && r.body.receipt.gst === 76 && r.body.helper.name === "Ravi Kumar" && r.body.seller.legalName, "the helper's own receipt", r.body);
+  ok((await hget(A2, "?receipt=" + p1.id)).status === 404, "nobody else's receipt");
+
+  // staff: who sees what
+  ok((await call("deo@test.in", "GET", "/api/admin/helpers")).status === 403, "data entry operators don't see helpers");
+  r = await call(A, "GET", "/api/admin/helpers");
+  let lr = r.body.helpers.find((x) => x.id === h1.id);
+  ok(r.status === 200 && !r.body.canCheck && !r.body.canApprove && !r.body.canFiles && lr.mobile === "XXXXXX3210" && lr.email === null, "the auditor reads, mobile partly hidden, no photos", lr);
+  ok((await call(A, "GET", "/api/admin/helpers?file=" + h1.id + "&kind=id")).status === 403, "the auditor can't open ID photos");
+  let img = await fetch(B + "/api/admin/helpers?file=" + h1.id + "&kind=id", { headers: { "test-email": M } });
+  let buf = Buffer.from(await img.arrayBuffer());
+  ok(img.status === 200 && img.headers.get("content-type") === "image/jpeg" && buf.includes(Buffer.from("PIXELS-id-a")) && /no-store/.test(img.headers.get("cache-control")), "the data moderator opens the ID photo");
+  ok(evs(h1.id).includes("FILE_VIEWED"), "every view is recorded in the helper's history");
+  r = await call(M, "GET", "/api/admin/helpers?id=" + h1.id);
+  ok(r.body.helper.events.some((e) => e.action === "FILE_VIEWED" && e.actor === M && e.detail.kind === "id") && r.body.helper.payments.length >= 1, "history shows who opened what", r.body.helper.events.slice(0, 3));
+
+  // maker-checker
+  r = await adm(M, { action: "check", id: h1.id, idClear: true });
+  ok(r.status === 400 && r.body.fields.selfieMatch && r.body.fields.videoDone && r.body.fields.videoOn, "the checklist must be complete", r.body);
+  ok((await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(2) })).body.fields.videoOn === "FUTURE", "the video call date can't be in the future");
+  r = await adm(M, { action: "check", id: h1.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0), note: "Video call fine" });
+  ok(r.status === 200 && row(A1).status === "CHECKED" && row(A1).checked_by === M, "checked by the data moderator", r.body);
+  ok((await adm(M, { action: "approve", id: h1.id })).status === 403, "a data moderator can't approve");
+  ok((await adm(A, { action: "approve", id: h1.id })).status === 403, "the auditor can't approve");
+  before = mails().length;
+  r = await adm(O, { action: "approve", id: h1.id });
+  h1 = row(A1);
+  ok(r.status === 200 && r.body.ref === "GIQ-H-0001" && h1.status === "ACTIVE" && h1.paid_until === monthEnd(day(0)) && h1.kyc_due === addMonths(day(0), 12) && h1.decided_by === O, "approved by a different person: number given, month starts today", h1);
+  ok(pays(h1.id).find((x) => x.kind === "FIRST" && x.status === "PAID").period_from === day(0), "the first month on the receipt starts on approval");
+  ok(mails().slice(before).some((x) => x.to[0] === A1 && x.subject.includes("GIQ-H-0001")), "the helper is told their number");
+
+  // the public record
+  r = await call("", "GET", "/api/helper-check?ref=giq-h-0001");
+  ok(r.status === 200 && r.body.status === "ACTIVE" && r.body.place.unit === "Hazratganj-Ramtirth" && r.body.since === day(0).slice(0, 7), "anyone can check a helper number", r.body);
+  ok(!/Ravi|hlp1|9876|EPIC|4567/.test(JSON.stringify(r.body)), "the public record has no name, contact or ID");
+  ok((await call("", "GET", "/api/helper-check?ref=GIQ-H-9999")).body.found === false && (await call("", "GET", "/api/helper-check?ref=hello")).status === 400, "unknown and badly written numbers");
+
+  // the next month
+  ok((await H(A1, { action: "pay", ownFunds: true })).body.error === "NOT_YET", "the next month can be paid from 10 days before");
+  sdb.prepare("UPDATE helpers SET paid_until = ? WHERE id = ?").run(day(3), h1.id);
+  r = await H(A1, { action: "pay", ownFunds: true });
+  ok(r.status === 200 && r.body.kind === "RENEWAL", "renewal order", r.body);
+  let p = await T("rzp-pay", { orderId: r.body.orderId, status: "captured", method: "upi" });
+  const body = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: p.paymentId, order_id: p.orderId } } } });
+  const sig = (await T("rzp-sign", { body })).signature;
+  let wr = await fetch(B + "/api/webhooks/razorpay", { method: "POST", headers: { "content-type": "application/json", "x-razorpay-signature": sig, "x-razorpay-event-id": "evt_helper001" }, body });
+  ok(wr.status === 200 && row(A1).paid_until === monthEnd(day(4)), "paid through Razorpay's message: the month carries on from the paid-up date", row(A1).paid_until);
+  let rp = pays(h1.id).find((x) => x.kind === "RENEWAL" && x.status === "PAID");
+  ok(rp && rp.period_from === day(4) && rp.period_to === monthEnd(day(4)) && rp.settled_via === "WEBHOOK" && rp.receipt_no === "GIQ-HR-000002", "renewal receipt with its month", rp);
+
+  // the hourly job: reminder, grace, pause, election days, files
+  sdb.prepare("UPDATE helpers SET paid_until = ?, reminded_for = NULL WHERE id = ?").run(day(2), h1.id);
+  before = mails().length;
+  let hr = await T("run-helpers", {});
+  ok(hr.reminded === 1 && mails().slice(before).some((x) => x.to[0] === A1 && /ends soon/.test(x.subject)), "reminder 5 days before the month ends", hr);
+  ok((await T("run-helpers", {})).reminded === 0, "reminded once");
+  sdb.prepare("UPDATE helpers SET paid_until = ? WHERE id = ?").run(day(-2), h1.id);
+  r = await hget(A1);
+  ok(r.body.helper.state.inGrace === true && r.body.helper.state.canHelp === true && r.body.helper.state.canRenew === true, "3 days' grace: still a helper, asked to pay", r.body.helper.state);
+  sdb.prepare("UPDATE helpers SET paid_until = ? WHERE id = ?").run(day(-4), h1.id);
+  hr = await T("run-helpers", {});
+  ok(hr.lapsed === 1 && row(A1).status === "LAPSED", "after the grace days the helper role pauses", hr);
+  ok((await call("", "GET", "/api/helper-check?ref=GIQ-H-0001")).body.status === "PAUSED", "the public record says paused");
+  pn = await payNow(A1);
+  ok(pn.d.body.result === "PAID" && row(A1).status === "ACTIVE" && row(A1).paid_until === monthEnd(day(0)), "paying after a pause starts a new month today", row(A1).paid_until);
+  sdb.prepare("INSERT INTO notice_pauses (id, label, state, area_id, from_on, to_on, created_by, created_at) VALUES ('hp-mcc2', 'Test election', 'Uttar Pradesh', 'lucknow', ?, ?, 'super@test.in', ?)").run(day(0), day(5), new Date().toISOString());
+  const pu = row(A1).paid_until;
+  hr = await T("run-helpers", {});
+  ok(hr.credited === 1 && row(A1).paid_until === new Date(Date.parse(pu + "T00:00:00Z") + 86400000).toISOString().slice(0, 10) && row(A1).credit_day === day(0), "an election-code day is added to the month", hr);
+  ok((await T("run-helpers", {})).credited === 0, "once a day");
+  r = await hget(A1);
+  ok(r.body.helper.state.canHelp === false && r.body.helper.state.pause && r.body.helper.state.pause.to === day(5) && r.body.helper.state.canRenew === false, "helping and paying pause during the election code", r.body.helper.state);
+  ok((await call("", "GET", "/api/helper-check?ref=GIQ-H-0001")).body.status === "PAUSED", "public record: paused");
+  sdb.prepare("DELETE FROM notice_pauses WHERE id = 'hp-mcc2'").run();
+  const keys = [row(A1).id_key, row(A1).selfie_key];
+  sdb.prepare("UPDATE helpers SET files_decided_at = ? WHERE id = ?").run(new Date(Date.now() - 31 * 86400000).toISOString(), h1.id);
+  hr = await T("run-helpers", {});
+  ok(hr.filesDeleted >= 1 && row(A1).id_key === null && row(A1).files_deleted_at && !(await T("r2-has", { key: keys[0] })).exists && !(await T("r2-has", { key: keys[1] })).exists, "ID photo and selfie deleted 30 days after the decision", hr);
+  ok((await hget(A1)).body.helper.filesDeleted === true, "the helper sees they were deleted");
+
+  // refused, not their fault: refunded in full; refund through Razorpay
+  r = await form(A2, good({ name: "Sita Devi", idType: "PAN", idNumber: "ABCDE1234F", mobile: "9123456780" }), both("b"));
+  ok(r.status === 200, "second applicant saved", r.body);
+  pn = await payNow(A2);
+  const h2 = row(A2);
+  r = await adm(M, { action: "refuse", id: h2.id, kind: "NOT_FAULT", reason: "short" });
+  ok(r.status === 400 && r.body.fields.reason === "SHORT", "a reason is needed", r.body);
+  r = await adm(M, { action: "refuse", id: h2.id, kind: "NOT_FAULT", reason: "The ID photo is too blurred to read. Please send a clearer photo." });
+  ok(r.status === 200 && r.body.refund === true && row(A2).status === "REFUSED" && pays(h2.id).find((x) => x.kind === "FIRST" && x.status !== "EXPIRED" && x.status !== "CREATED").status === "REFUND_DUE", "refused, not their fault: full refund due", r.body);
+  r = await hget(A2);
+  ok(r.body.helper.reason.includes("blurred") && r.body.helper.canApplyAgain === true && r.body.helper.payments.some((x) => x.status === "REFUND_DUE"), "the applicant sees the reason and can apply again", r.body.helper);
+  r = await call(O, "GET", "/api/admin/helpers");
+  const due = r.body.refunds.find((x) => x.helperId === h2.id);
+  ok(due && due.price === 499, "listed as a refund to make", r.body.refunds);
+  ok((await adm(M, { action: "refund", paymentId: due.id })).status === 403, "a data moderator can't refund");
+  r = await adm(O, { action: "refund", paymentId: due.id, note: "refused, not their fault" });
+  const rz = await (await fetch(B + "/__test/rzp-state")).json();
+  ok(r.status === 200 && pays(h2.id).find((x) => x.id === due.id).status === "REFUNDED" && rz.payments.find((x) => x.id === pays(h2.id).find((y) => y.id === due.id).payment_id).refunded === 49900, "refunded in full through Razorpay", r.body);
+  ok(evs(h2.id).includes("REFUNDED"), "refund in the history");
+
+  // forged documents: no refund, and never again
+  r = await form(A3, good({ name: "Fake Person", idNumber: "XYZ7654321", mobile: "9988776655" }), both("c"));
+  pn = await payNow(A3);
+  const h3 = row(A3);
+  ok((await adm(M, { action: "refuse", id: h3.id, kind: "FORGED", reason: "The voter ID photo has been edited." })).status === 403, "only a senior role refuses for forged documents");
+  r = await adm(O, { action: "refuse", id: h3.id, kind: "FORGED", reason: "The voter ID photo has been edited." });
+  ok(r.status === 200 && r.body.refund === false && pays(h3.id).some((x) => x.status === "PAID"), "forged documents: no refund", r.body);
+  r = await hget(A3);
+  ok(r.body.helper.reason === null && r.body.helper.refuseKind === "FORGED" && r.body.helper.canApplyAgain === false, "the forged reason isn't repeated; no new application", r.body.helper);
+  ok((await form(A3, good({ name: "Fake Person", idNumber: "XYZ7654322", mobile: "9988776655" }), both("c2"))).body.error === "NOT_ALLOWED", "the same account can't apply again");
+  ok((await form(A4, good({ name: "Fake Again", idNumber: "XYZ7654321", mobile: "9988776600" }), both("c3"))).body.error === "NOT_ALLOWED", "nor anyone with the same ID");
+
+  // withdrawing before the decision: full refund, marked by hand
+  r = await form(A4, good({ name: "Mohan Lal", idType: "PASSPORT", idNumber: "K1234567", mobile: "9000011111" }), both("d"));
+  pn = await payNow(A4);
+  const h4 = row(A4), k4 = h4.id_key;
+  r = await H(A4, { action: "withdraw" });
+  ok(r.status === 200 && r.body.refund === true && row(A4).status === "WITHDRAWN" && row(A4).id_key === null && !(await T("r2-has", { key: k4 })).exists, "withdrawn before the decision: photos deleted at once, refund due", r.body);
+  const due4 = pays(h4.id).find((x) => x.status === "REFUND_DUE");
+  ok((await adm(O, { action: "refunded", paymentId: due4.id, note: "" })).body.fields.note === "REQUIRED", "marking refunded by hand needs a note");
+  ok((await adm(O, { action: "refunded", paymentId: due4.id, note: "Refunded from the Razorpay dashboard" })).status === 200 && pays(h4.id).find((x) => x.id === due4.id).status === "REFUNDED", "marked refunded");
+
+  // suspend, appeal (a different person decides), remove
+  r = await adm(O, { action: "suspend", id: h1.id, reason: "Complaints say you asked a citizen for money." });
+  ok(r.status === 200 && row(A1).status === "SUSPENDED", "suspended with a reason", r.body);
+  ok((await call("", "GET", "/api/helper-check?ref=GIQ-H-0001")).body.status === "NOT_ACTIVE", "the public record says not active");
+  r = await hget(A1);
+  ok(r.body.helper.reason.includes("money") && r.body.helper.canAppeal === true && r.body.helper.state.canHelp === false, "the helper sees why and can appeal", r.body.helper);
+  ok((await H(A1, { action: "appeal", text: "No" })).body.fields.text === "SHORT", "an appeal says something");
+  ok((await H(A1, { action: "appeal", text: "I never asked anyone for money. The shopkeeper next door can confirm this." })).status === 200, "appealed");
+  ok((await H(A1, { action: "appeal", text: "Second appeal, which is not allowed by the rules." })).status === 409, "one appeal only");
+  ok((await adm(O, { action: "appeal", id: h1.id, result: "OVERTURNED", note: "Checked with the citizen." })).body.error === "SAME_PERSON", "the person who suspended can't decide the appeal");
+  r = await adm(S, { action: "appeal", id: h1.id, result: "OVERTURNED", note: "The citizen withdrew the complaint after a call." });
+  ok(r.status === 200 && row(A1).status === "ACTIVE" && row(A1).appeal_result === "OVERTURNED", "appeal accepted by someone else: helper again", r.body);
+  r = await adm(S, { action: "remove", id: h1.id, reason: "Filed complaints the citizens had not asked for." });
+  ok(r.status === 200 && row(A1).status === "REMOVED" && row(A1).appeal_at === null, "removed; a new appeal is possible", r.body);
+  await H(A1, { action: "appeal", text: "Please look again, the citizens did ask me to help them." });
+  r = await adm(O, { action: "appeal", id: h1.id, result: "UPHELD", note: "Three citizens confirmed they did not ask." });
+  ok(r.status === 200 && row(A1).status === "REMOVED", "appeal not accepted: stays removed", r.body);
+  ok((await form(A1, good(), both("again"))).body.error === "NOT_ALLOWED", "a removed helper can't apply again");
+  ok((await call("", "GET", "/api/helper-check?ref=GIQ-H-0001")).body.place === null, "no place shown for a helper who isn't active");
+
+  // the yearly ID check (maker-checker again), and stopping
+  r = await form(A5, good({ name: "Asha Verma", idType: "DL", idNumber: "UP14 20110012345", mobile: "9555512345" }), both("e"));
+  pn = await payNow(A5);
+  let h5 = row(A5);
+  await adm(M, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) });
+  ok((await adm(M, { action: "approve", id: h5.id })).status === 403, "maker can't approve");
+  await adm(O, { action: "check", id: h5.id });
+  r = await adm(O, { action: "approve", id: h5.id });
+  ok(r.status === 200 && r.body.ref === "GIQ-H-0002", "second helper approved", r.body);
+  sdb.prepare("UPDATE helpers SET kyc_due = ? WHERE id = ?").run(day(10), h5.id);
+  r = await hget(A5);
+  ok(r.body.helper.state.recheckOpen === true, "the yearly ID check opens 30 days before", r.body.helper.state);
+  hr = await T("run-helpers", {});
+  ok(hr.rechecks === 1 && (await T("run-helpers", {})).rechecks === 0, "told once", hr);
+  r = await form(A5, { action: "recheck", idType: "DL", idNumber: "UP1420110012345" }, both("e2"));
+  ok(r.status === 200 && row(A5).recheck === "WAITING" && r.body.helper.recheck === "WAITING", "new ID photo and selfie sent", r.body);
+  ok((await adm(O, { action: "check", id: h5.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) })).status === 200, "checked");
+  ok((await adm(O, { action: "approve", id: h5.id })).body.error === "SAME_PERSON", "the checker can't approve the re-check");
+  r = await adm(S, { action: "approve", id: h5.id });
+  ok(r.status === 200 && row(A5).kyc_due === addMonths(day(10), 12) && row(A5).recheck === null, "next check in 12 months", row(A5).kyc_due);
+  ok((await H(A5, { action: "stop" })).body.error === "CONFIRM", "stopping needs a confirmation");
+  r = await H(A5, { action: "stop", confirm: true });
+  ok(r.status === 200 && row(A5).status === "STOPPED" && (await hget(A5)).body.helper.canApplyAgain === true, "stopped (no part-month refund); can apply again", r.body);
+
+  // applications never paid for are closed after 30 days
+  r = await form(A6, good({ name: "Draft Only", idType: "AADHAAR", idNumber: "XXXX XXXX 9012", mobile: "9444412345" }), both("f"));
+  ok(r.status === 200 && row(A6).id_hash === null && row(A6).id_last4 === "9012", "masked Aadhaar: last 4 only, no fingerprint", r.body);
+  const k6 = row(A6).id_key;
+  sdb.prepare("UPDATE helpers SET updated_at = ? WHERE email = ?").run(new Date(Date.now() - 31 * 86400000).toISOString(), A6);
+  hr = await T("run-helpers", {});
+  ok(hr.drafts === 1 && row(A6).status === "WITHDRAWN" && !(await T("r2-has", { key: k6 })).exists, "an unpaid application is closed after 30 days and its photos deleted", hr);
+
+  // the history can't be changed
+  let threw = false; try { sdb.prepare("UPDATE helper_events SET action = 'X' WHERE helper_id = ?").run(h1.id); } catch (e) { threw = true; }
+  let threw2 = false; try { sdb.prepare("DELETE FROM helper_events WHERE helper_id = ?").run(h1.id); } catch (e) { threw2 = true; }
+  ok(threw && threw2, "the helper history can't be changed or deleted");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "40 triggers");
+
+  // sign-in for helpers
+  const gs = await fetch(B + "/api/auth/google/start?for=helper", { redirect: "manual" });
+  ok(/\/helper\?signin=not_set_up$/.test(gs.headers.get("location") || ""), "helper sign-in comes back to /helper", gs.headers.get("location"));
+  // close applications again for the browser tests' starting point
+  await settings((d) => { d.helpers = { open: true, price: 499 }; });
 }
 
 // ---- audit trail ----

@@ -12,9 +12,9 @@ import { exchangeCode, verifyIdToken, configured, STATE_COOKIE, STATE_MINUTES } 
 import { readCookie, createSession, clearCookieHeader, logAuthEvent } from "../../../_shared/rep-session.js";
 import { lookupMandates } from "../../../_shared/get-verified-rep.js";
 
-function back(request, outcome, cookies) {
+function back(request, outcome, cookies, page) {
   const headers = new Headers({
-    Location: new URL("/rep" + (outcome ? "?signin=" + outcome : ""), request.url).toString(),
+    Location: new URL((page || "/rep") + (outcome ? "?signin=" + outcome : ""), request.url).toString(),
     "Cache-Control": "no-store",
     "Referrer-Policy": "no-referrer",
   });
@@ -28,7 +28,17 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   if (url.searchParams.get("error")) {
     // The person pressed Cancel on Google's screen, or Google refused.
-    return back(request, "cancelled");
+    // (Back to the page they started from: the helper page or the console.)
+    let page = "/rep";
+    const st = url.searchParams.get("state") || "";
+    if (st && st === readCookie(request, STATE_COOKIE)) {
+      try {
+        const r = await env.DB.prepare("SELECT * FROM oauth_states WHERE state = ?").bind(st).first();
+        await env.DB.prepare("DELETE FROM oauth_states WHERE state = ?").bind(st).run();
+        if (r && r.purpose === "HELPER") page = "/helper";
+      } catch (e) { /* the console */ }
+    }
+    return back(request, "cancelled", null, page);
   }
   const state = url.searchParams.get("state") || "";
   const code = url.searchParams.get("code") || "";
@@ -39,11 +49,14 @@ export async function onRequestGet({ request, env }) {
   }
 
   // One use only: taken out of the table as it is read.
-  const row = await env.DB.prepare("SELECT nonce, code_verifier, created_at FROM oauth_states WHERE state = ?").bind(state).first();
+  const row = await env.DB.prepare("SELECT * FROM oauth_states WHERE state = ?").bind(state).first();
   await env.DB.prepare("DELETE FROM oauth_states WHERE state = ?").bind(state).run();
+  // grieviq-72: a Community helper signing in goes back to /helper.
+  const helper = !!(row && row.purpose === "HELPER");
+  const page = helper ? "/helper" : "/rep";
   if (!row || Date.now() - new Date(row.created_at).getTime() > STATE_MINUTES * 60000) {
     await logAuthEvent(env, request, null, "SIGN_IN_REFUSED", { reason: "STATE_EXPIRED" });
-    return back(request, "expired");
+    return back(request, "expired", null, page);
   }
 
   let who;
@@ -52,7 +65,15 @@ export async function onRequestGet({ request, env }) {
     who = await verifyIdToken(env, idToken, row.nonce);
   } catch (e) {
     await logAuthEvent(env, request, null, "SIGN_IN_REFUSED", { reason: String((e && e.message) || "FAILED").slice(0, 40) });
-    return back(request, "failed");
+    return back(request, "failed", null, page);
+  }
+
+  // A Community helper (or someone applying to be one) needs no office.
+  // What they may do is decided by /api/helper.
+  if (helper) {
+    const cookie = await createSession(env, request, who.email);
+    await logAuthEvent(env, request, who.email, "SIGNED_IN", { method: "google", for: "helper" });
+    return back(request, "", [cookie], "/helper");
   }
 
   const mandates = await lookupMandates(env, who.email);

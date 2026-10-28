@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=71"></script>
-<script src="/admin-nav.js?v=r20"></script>
+<script src="/i18n.js?v=72"></script>
+<script src="/admin-nav.js?v=r21"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
 <style>
@@ -371,7 +371,7 @@ function renderErrors() {
 }
 function tabOf(k) {
   var top = k.split(".")[0];
-  return { plans: "plans", gst: "gst", yearly: "discounts", pilot: "discounts", offers: "discounts", subscriptions: "discounts", notices: "notices", company: "company", payments: "payments", policies: "policies", claims: "claims" }[top] || "plans";
+  return { plans: "plans", gst: "gst", yearly: "discounts", pilot: "discounts", offers: "discounts", subscriptions: "discounts", helpers: "discounts", notices: "notices", company: "company", payments: "payments", policies: "policies", claims: "claims" }[top] || "plans";
 }
 function labelOf(k) {
   var ps = k.split("."), top = ps[0];
@@ -498,6 +498,12 @@ function gstTab() {
     input("gst.sac", "adm.ss_f_gst_sac", { max: 8, mode: "numeric", help: T("adm.ss_h_sac") }) + "</div>";
 }
 
+function helperSplit() {
+  var p = num(S.W.helpers && S.W.helpers.price), r = num(S.W.gst && S.W.gst.rate) || 0;
+  if (p == null || p < 1) return T("adm.ss_h_helpers_price0");
+  var base = Math.round(p * 100 / (100 + r));
+  return T("adm.ss_h_helpers_price", { price: p.toLocaleString("en-IN"), base: base.toLocaleString("en-IN"), gst: (p - base).toLocaleString("en-IN"), rate: r });
+}
 function discountsTab() {
   var W = S.W, d = today();
   var h = '<h2 class="sec-h">' + esc(T("adm.ss_yearly_h")) + "</h2>" +
@@ -509,6 +515,10 @@ function discountsTab() {
     input("subscriptions.reminderDays", "adm.ss_f_subscriptions_reminderDays", { type: "number", min: 1, maxn: 30, req: true }) +
     input("subscriptions.graceDays", "adm.ss_f_subscriptions_graceDays", { type: "number", min: 0, maxn: 30, req: true }) +
     input("subscriptions.defaultPilotEnd", "adm.ss_f_subscriptions_defaultPilotEnd", { type: "date", req: true, help: T("adm.ss_h_default_pilot") }) + "</div>" +
+    // grieviq-72: Community helpers' monthly fee (GST included).
+    '<h2 class="sec-h">' + esc(T("adm.ss_helpers_h")) + '</h2><p class="muted">' + esc(T("adm.ss_helpers_help")) + "</p>" +
+    check("helpers.open", "adm.ss_f_helpers_open", T("adm.ss_h_helpers_open")) + '<div class="grid">' +
+    input("helpers.price", "adm.ss_f_helpers_price", { type: "number", min: 100, maxn: 100000, req: true, help: helperSplit() }) + "</div>" +
     '<h2 class="sec-h">' + esc(T("adm.ss_offers_h")) + '</h2><p class="muted">' + esc(T("adm.ss_offers_help")) + "</p>";
   if (!W.offers.length) h += '<p class="muted">' + esc(T("adm.ss_no_offers")) + "</p>";
   h += W.offers.map(function (o, i) {

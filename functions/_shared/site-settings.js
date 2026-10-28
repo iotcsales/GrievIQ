@@ -81,6 +81,10 @@ export const DEFAULTS = {
       { id: "month", nameEn: "One month (30 days)", nameHi: "एक माह (30 दिन)", days: 30, priceLocal: 899, priceWide: 2999, shown: true, retired: false },
     ],
   },
+  // grieviq-72: Community helpers. One monthly fee for everyone, GST
+  // INCLUDED (price is what the helper pays). Applications stay closed
+  // until the super admin opens them.
+  helpers: { open: false, price: 499 },
 };
 // Settings published before a section existed get that section's defaults.
 export function withDefaults(data) {
@@ -91,6 +95,12 @@ export function withDefaults(data) {
 
 export const LIMITS = { plans: 20, offers: 10, price: 100000000, payMethods: 6, noticePlans: 8 };
 export const PAY_DELAY_HOURS = 24;
+export const HELPER_PRICE = { min: 100, max: 100000 };
+// A price that includes GST, split into the amount before GST and the GST.
+export function gstIncluded(price, rate) {
+  const base = Math.round(Number(price) * 100 / (100 + Number(rate || 0)));
+  return { price: Number(price), base, gst: Number(price) - base, rate: Number(rate || 0) };
+}
 const UPI_RE = /^[a-z0-9][a-z0-9._-]{1,99}@[a-z][a-z0-9.-]{1,49}$/i;
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const ACCOUNT_RE = /^[0-9]{9,18}$/;
@@ -307,6 +317,14 @@ export function cleanSettings(raw) {
   });
   if (out.notices.enabled && !out.notices.plans.some((p) => p.shown)) f["notices.plans"] = "NONE_SHOWN";
 
+  // Community helpers (grieviq-72): monthly fee, GST included.
+  const hp = r.helpers && typeof r.helpers === "object" ? r.helpers : clone(DEFAULTS.helpers);
+  out.helpers = { open: !!hp.open, price: 499 };
+  const hpp = money(hp.price);
+  if (hpp === null) f["helpers.price"] = "REQUIRED";
+  else if (!Number.isInteger(hpp) || hpp < HELPER_PRICE.min || hpp > HELPER_PRICE.max) f["helpers.price"] = "RANGE";
+  else out.helpers.price = hpp;
+
   // Payment details (grieviq-41)
   const pm = r.payments && Array.isArray(r.payments.methods) ? r.payments.methods : [];
   if (pm.length > LIMITS.payMethods) f["payments"] = "TOO_MANY";
@@ -471,6 +489,7 @@ export function publicView(s, meta, today) {
       supportEmail: c.supportEmail, securityEmail: c.securityEmail, phone: c.phone, whatsapp: c.whatsapp,
       hoursEn: c.hoursEn, hoursHi: c.hoursHi, callbackEn: c.callbackEn, callbackHi: c.callbackHi },
     policies: s.policies,
+    helpers: Object.assign({ open: !!(s.helpers && s.helpers.open) }, gstIncluded((s.helpers || DEFAULTS.helpers).price, s.gst.rate)),
     claims: { gem: !!s.claims.gem, india: !!s.claims.india, audited: !!s.claims.audited, auditedOn: s.claims.audited ? s.claims.auditedOn : "", auditedBy: s.claims.audited ? s.claims.auditedBy : "" },
   };
 }
