@@ -168,8 +168,17 @@ async function buildCaseDetail(env, grievance) {
   }
   const allDeptNames = followupRows.length || ratingDept ? namesOf(await deptTypes(env)) : {};
 
+  // grieviq-73: filed with help from a Community helper: their number, and
+  // whether the citizen can still remove them (only the citizen sees this).
+  let helper = null;
+  try {
+    const hr = await env.DB.prepare("SELECT g.helper_id, g.helper_removed_at, h.ref FROM grievances g LEFT JOIN helpers h ON h.id = g.helper_id WHERE g.id = ?").bind(grievance.id).first();
+    if (hr && hr.helper_id) helper = { ref: hr.ref || null, removed: !!hr.helper_removed_at, removedAt: hr.helper_removed_at || null };
+  } catch (e) { /* before part47 */ }
+
   return {
     case: {
+      helper,
       rating,
       ratingStatus: rateStatus,
       ratingDept,

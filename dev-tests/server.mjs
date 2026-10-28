@@ -255,6 +255,8 @@ http.createServer(async (req, res) => {
       const m = await import(pathToFileURL(path.join(build, "_shared", "helpers.js")).href);
       const b = JSON.parse(body ? body.toString() : "{}");
       const out = await m.runHelpers(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
+      const mf = await import(pathToFileURL(path.join(build, "_shared", "helper-filing.js")).href);
+      out.filings = await mf.runHelperFilings(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
     // Test only: is a private file still kept? { key } -> { exists }

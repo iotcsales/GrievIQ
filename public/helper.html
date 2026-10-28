@@ -116,8 +116,8 @@
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
   @media (max-width: 480px) { .app-card { padding: 22px 16px; } dl.sum { grid-template-columns: 1fr; } dl.sum dt { margin-top: 6px; } .acts .btn { width: 100%; } }
 </style>
-<script src="/i18n.js?v=72"></script>
-<script src="/site.js?v=72" defer></script>
+<script src="/i18n.js?v=73"></script>
+<script src="/site.js?v=73" defer></script>
 <script src="/site-info.js?v=39" defer></script>
 <script src="/photo-tools.js?v=7c" defer></script>
 </head>
@@ -199,7 +199,7 @@
   // ---- loading ----
   function load() {
     return fetch("/api/helper", { cache: "no-store" }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(function (d) { S.d = d; S.err = false; render(); })
+      .then(function (d) { S.d = d; S.err = false; var fo = S.afterLoad; S.afterLoad = null; render(fo); })
       .catch(function () { S.err = true; render(); });
   }
   function opts() {
@@ -331,6 +331,44 @@
     S.fields = keep;
     return out;
   }
+  // ---- grieviq-73: filing for citizens ----
+  function fileBox(h) {
+    var t = S.d.today || { count: 0, max: 15 };
+    if (!h.state.canHelp) return "";
+    return '<section class="box tint" aria-labelledby="hp-file-h"><h2 id="hp-file-h" style="margin-top:0">' + esc(T("hp.file_h")) + "</h2><p>" + esc(T("hp.file_p")) + "</p>" +
+      '<ul class="plain"><li>' + esc(T("hp.file_li1")) + "</li><li>" + esc(T("hp.file_li2")) + "</li><li>" + esc(T("hp.file_li3")) + "</li></ul>" +
+      '<p class="soft">' + esc(T("hp.file_today", { n: t.count, max: t.max })) + "</p>" +
+      (t.count >= t.max ? '<div class="note warn"><p>' + esc(T("hp.e_HELPER_LIMIT", { max: t.max })) + "</p></div>" : '<div class="acts"><a class="btn" href="/submit?helper=1" id="hp-file-go">' + esc(T("hp.file_btn")) + "</a></div>") + "</section>";
+  }
+  function caseStatus(cs) { var k = "hp.cs_" + cs; return window.GIQ && GIQ.has(k) ? T(k) : cs; }
+  function filingCard(f) {
+    var id = f.id, m = (S.fmsg || {})[id];
+    var head = esc(f.category) + " · " + esc(f.unit) + ' <span class="soft">· ' + esc(dmy(f.createdAt)) + "</span>";
+    var body = "";
+    if (f.status === "WAITING_CODE") {
+      body = "<p>" + esc(T("hp.f_wait_code", { email: f.email || "" })) + "</p>" +
+        '<form class="check-row" data-code="' + esc(id) + '" novalidate><div class="fld"><label for="hpc-' + esc(id) + '">' + esc(T("hp.f_code")) + '</label><span class="hint" id="hpc-' + esc(id) + '-h">' + esc(T("hp.f_code_h")) + "</span>" +
+        '<input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" id="hpc-' + esc(id) + '" aria-describedby="hpc-' + esc(id) + '-h' + (m && m.bad ? " hpm-" + esc(id) : "") + '"' + (m && m.bad ? ' aria-invalid="true"' : "") + "></div>" +
+        '<button type="submit" class="btn"' + (S.busy ? " disabled" : "") + ">" + esc(T("hp.f_code_btn")) + "</button></form>" +
+        '<div class="acts"><button type="button" class="btn sec" data-act="resend" data-f="' + esc(id) + '"' + (f.codesLeft ? "" : " disabled") + ">" + esc(T("hp.f_resend", { n: f.codesLeft })) + '</button><button type="button" class="btn warn" data-act="askf" data-f="' + esc(id) + '">' + esc(T("hp.f_cancel")) + "</button></div>";
+    } else if (f.status === "WAITING_CALL") {
+      body = "<p>" + esc(T("hp.f_wait_call", { mobile: f.mobile || "" })) + '</p><div class="acts"><button type="button" class="btn warn" data-act="askf" data-f="' + esc(id) + '">' + esc(T("hp.f_cancel")) + "</button></div>";
+    } else if (f.status === "SENT") {
+      body = "<p>" + esc(T("hp.f_sent", { ref: f.ref || "", st: caseStatus(f.caseStatus) })) + "</p>";
+    } else body = "<p>" + esc(T("hp.f_st_" + f.status)) + "</p>";
+    if (S.confirmF === id) body += '<div class="confirm" role="group" aria-labelledby="hpcf-q"><p id="hpcf-q" tabindex="-1">' + esc(T("hp.f_cancel_q")) + '</p><div class="acts"><button type="button" class="btn warn" data-act="cancelf" data-f="' + esc(id) + '">' + esc(T("hp.f_cancel_yes")) + '</button><button type="button" class="btn sec" data-act="keepf" data-f="' + esc(id) + '">' + esc(T("hp.keep")) + "</button></div></div>";
+    if (m) body += '<p class="note ' + (m.bad ? "bad" : "ok") + '" id="hpm-' + esc(id) + '" tabindex="-1" role="' + (m.bad ? "alert" : "status") + '">' + esc(m.text) + "</p>";
+    return '<li class="box" id="hpf-card-' + esc(id) + '" tabindex="-1"><h3 style="margin-top:0">' + head + "</h3>" + body + "</li>";
+  }
+  function filings() {
+    var list = S.d.filings || [];
+    if (!list.length) return "";
+    var live = list.filter(function (f) { return /^WAITING|^SENT$/.test(f.status); }), rest = list.filter(function (f) { return !/^WAITING|^SENT$/.test(f.status); });
+    var ul = function (l) { return '<ul style="list-style:none;padding:0;margin:0">' + l.map(filingCard).join("") + "</ul>"; };
+    return '<section aria-labelledby="hp-fl-h"><h2 id="hp-fl-h">' + esc(T("hp.fl_h")) + '</h2><p class="soft">' + esc(T("hp.fl_p")) + "</p>" + (live.length ? ul(live) : "") +
+      (rest.length ? '<details class="box"><summary style="min-height:24px;cursor:pointer;font-weight:600">' + esc(T("hp.fl_not_sent", { n: rest.length })) + "</summary>" + ul(rest) + "</details>" : "") + "</section>";
+  }
+
   function helperView(h) {
     var st = h.state, out = "";
     if (h.status === "DRAFT" && !S.edit) {
@@ -361,6 +399,7 @@
       if (st.canRenew) out += payBox("RENEWAL");
       if (h.recheck) out += '<div class="note"><p>' + esc(T("hp.kyc_wait")) + "</p></div>";
       else if (st.recheckOpen || st.kycOverdue) out += recheckForm(h);
+      out += fileBox(h);
       out += '<section aria-labelledby="hp-stop-h"><h2 id="hp-stop-h">' + esc(T("hp.stop_h")) + "</h2><p>" + esc(T("hp.stop_p")) + '</p><div class="acts"><button type="button" class="btn warn" data-act="ask" data-kind="stop">' + esc(T("hp.stop_h")) + "</button></div>" +
         (S.confirm === "stop" ? confirmBox("stop") : "") + "</section>";
       return out;
@@ -405,6 +444,7 @@
         else if (!d.setUp) html += '<div class="note warn"><p>' + esc(T("hp.not_set_up")) + "</p></div>";
         else { if (!S.f) S.f = blankForm(null); if (!h) html += about(); html += formView(); }
       } else html += helperView(h);
+      html += filings();
       html += payments(h);
     }
     app.innerHTML = html;
@@ -513,6 +553,19 @@
       return;
     }
     if (act === "pay") { pay(); return; }
+    var fid = b.getAttribute("data-f");
+    S.fmsg = S.fmsg || {};
+    if (act === "askf") { S.confirmF = fid; render("hpcf-q"); return; }
+    if (act === "keepf") { S.confirmF = null; render(); var bk = document.querySelector('[data-act="askf"][data-f="' + fid + '"]'); if (bk) bk.focus(); return; }
+    if (act === "cancelf" || act === "resend") {
+      S.busy = act; render();
+      post({ action: act === "cancelf" ? "cancel-filing" : "resend", filingId: fid }).then(function (x) {
+        S.busy = null; S.confirmF = null;
+        S.fmsg[fid] = x.r.ok ? { text: T(act === "cancelf" ? "hp.f_cancelled" : "hp.f_resent") } : { text: serverErr(x.j.error), bad: true };
+        return load().then(function () { render("hpm-" + fid); });
+      }).catch(function () { S.busy = null; S.fmsg[fid] = { text: T("hp.e_net"), bad: true }; render("hpm-" + fid); });
+      return;
+    }
   });
   document.addEventListener("change", function (e) {
     var t = e.target;
@@ -538,6 +591,21 @@
       e.preventDefault(); S.rc.idNumber = ($("hpf-idNumber") || {}).value || ""; msg("");
       sendForm("recheck", S.rc, "rcFields", "rc", "hp-recheck").then(function (x) { if (!x) return; S.rc = null; return load().then(function () { msg(T("hp.kyc_sent"), "ok"); }); });
     }
+    if (e.target.getAttribute("data-code")) {
+      e.preventDefault();
+      var fid = e.target.getAttribute("data-code"), code = String(($("hpc-" + fid) || {}).value || "").replace(/\s+/g, "");
+      S.fmsg = S.fmsg || {};
+      if (!/^[0-9]{6}$/.test(code)) { S.fmsg[fid] = { text: T("hp.e_code_FORMAT"), bad: true }; render("hpc-" + fid); return; }
+      S.busy = "code"; render();
+      post({ action: "code", filingId: fid, code: code }).then(function (x) {
+        S.busy = null;
+        if (x.r.ok) { S.fmsg[fid] = { text: T("hp.f_code_ok", { ref: x.j.trackingRef }) }; return load().then(function () { render("hpm-" + fid); }); }
+        var f = x.j.fields && x.j.fields.code;
+        S.fmsg[fid] = { text: f === "WRONG" ? T("hp.e_code_WRONG", { n: x.j.left }) : f ? T("hp.e_code_FORMAT") : serverErr(x.j.error), bad: true };
+        render("hpc-" + fid);
+      }).catch(function () { S.busy = null; S.fmsg[fid] = { text: T("hp.e_net"), bad: true }; render("hpm-" + fid); });
+      return;
+    }
     if (e.target.id === "hp-appeal") {
       e.preventDefault(); S.appeal = ($("hpf-text") || {}).value || ""; S.busy = "appeal"; render();
       post({ action: "appeal", text: S.appeal }).then(function (x) {
@@ -553,6 +621,12 @@
   var si = new URLSearchParams(location.search).get("signin");
   if (si && /^(cancelled|failed|expired|not_set_up)$/.test(si)) setTimeout(function () { msg(T("hp.si_" + si), "bad"); }, 0);
   if (si != null) { try { history.replaceState(null, "", "/helper"); } catch (e) {} }
+  var filed = new URLSearchParams(location.search).get("filed");
+  if (filed) {
+    try { history.replaceState(null, "", "/helper"); } catch (e) {}
+    S.fmsg = {}; S.fmsg[filed] = { text: T("hp.f_filed") };
+    S.afterLoad = "hpm-" + filed;
+  }
   var pre = new URLSearchParams(location.search).get("check");
   if (pre) { $("hp-ref").value = pre; setTimeout(function () { $("hp-check").requestSubmit ? $("hp-check").requestSubmit() : $("hp-check").dispatchEvent(new Event("submit")); }, 0); }
   load();

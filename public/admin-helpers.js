@@ -15,7 +15,7 @@
   function when(s) { if (!s) return ""; var d = new Date(s); return isNaN(d) ? s : d.toLocaleString(loc(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); }
   function rupees(n) { return "₹" + Number(n).toLocaleString("en-IN"); }
   function istToday() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
-  var S = { d: null, err: null, open: {}, detail: {}, show: {}, forms: {}, fields: {}, filter: "OPEN", q: "", busy: null, rowMsg: {} };
+  var S = { d: null, err: null, open: {}, detail: {}, show: {}, forms: {}, fields: {}, filter: "OPEN", q: "", busy: null, rowMsg: {}, phone: {} };
 
   function staffName(e) { return e ? String(e) : ""; }
   function st(h) { return T("adm.hl_st_" + h.status); }
@@ -76,6 +76,7 @@
     if (h.kycDue) rows.push(["adm.hl_f_kyc", day(h.kycDue) + (h.kycOverdue ? " · " + T("adm.hl_overdue") : "")]);
     if (h.actionBy) rows.push(["adm.hl_f_action", T("adm.hl_by_on", { who: staffName(h.actionBy), when: when(h.actionAt) }) + " · " + (h.actionReason || "")]);
     if (h.appeal) rows.push(["adm.hl_f_appeal", h.appeal.text + " (" + when(h.appeal.at) + ")" + (h.appeal.result ? " → " + T("adm.hl_ap_" + h.appeal.result) + " · " + staffName(h.appeal.by) + " · " + (h.appeal.note || "") : "")]);
+    if (h.strikes) rows.push(["adm.hl_f_strikes", T("adm.hl_strikes_v", { n: h.strikes })]);
     rows.push(["adm.hl_f_files", h.filesDeleted ? T("adm.hl_files_deleted", { d: day(h.filesDeleted) }) : h.filesIn ? T("adm.hl_files_kept") : "—"]);
     return "<dl>" + rows.map(function (r) { return "<dt>" + esc(T(r[0])) + "</dt><dd>" + esc(r[1]) + "</dd>"; }).join("") + "</dl>";
   }
@@ -144,7 +145,11 @@
   function history(det) {
     if (!det) return '<p class="muted-note">' + esc(T("adm.it_loading")) + "</p>";
     var pays = (det.payments || []).filter(function (p) { return p.status !== "CREATED" && p.status !== "EXPIRED"; });
-    return (pays.length ? "<h3>" + esc(T("adm.hl_payments")) + '</h3><ul class="hl-ev">' + pays.map(function (p) {
+    var fl = det.filings || [];
+    var fhtml = fl.length ? "<h3>" + esc(T("adm.hl_filings")) + '</h3><ul class="hl-ev">' + fl.map(function (f) {
+      return "<li>" + esc([when(f.at), f.unit || "", T("adm.hl_fs_" + f.status)].concat(f.flags.map(function (x) { return T("adm.hl_flag_" + x); })).concat(f.removed ? [T("adm.hl_removed_" + f.removed)] : []).join(" · ")) + "</li>";
+    }).join("") + "</ul>" : "";
+    return fhtml + (pays.length ? "<h3>" + esc(T("adm.hl_payments")) + '</h3><ul class="hl-ev">' + pays.map(function (p) {
       return "<li>" + esc([p.receiptNo || "—", T("hp.rc_" + p.kind), rupees(p.price), T("hp.rc_st_" + p.status), day(p.settledAt), p.paymentId || ""].join(" · ")) + (p.receiptNo ? ' · <a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(T("hp.rc_view")) + "</a>" : "") + "</li>";
     }).join("") + "</ul>" : "") +
       "<h3>" + esc(T("adm.hl_history")) + '</h3><ul class="hl-ev">' + (det.events || []).map(function (e) {
@@ -169,6 +174,41 @@
       '<p class="muted-note">' + esc([h.unit, h.area].filter(Boolean).join(", ")) + " · " + esc(when(h.submittedAt || h.createdAt)) + "</p>" +
       '<div class="acts small"><button type="button" data-act="open" data-h="' + h.id + '" aria-expanded="' + open + '" aria-controls="hl-b-' + h.id + '">' + esc(T(open ? "adm.hl_close" : "adm.hl_open")) + "</button></div>" +
       '<div id="hl-b-' + h.id + '">' + body + "</div></section>";
+  }
+  // ---- grieviq-73: complaints filed by helpers, waiting for a call or flagged ----
+  function filingCard(f, kind) {
+    var id = "f" + f.id, sh = S.phone[f.id];
+    var html = '<section class="pr-card" aria-labelledby="hl-h-' + id + '"><h2 id="hl-h-' + id + '">' + esc(f.category || "") + " · " + esc(f.unit || "") + ' <span class="hl-badge">' + esc(f.helperRef || "") + "</span></h2>" +
+      '<p class="muted-note">' + esc(T("adm.hl_filed_on", { when: when(f.createdAt) })) + (f.callTries ? " · " + esc(T("adm.hl_call_tries", { n: f.callTries })) : "") + "</p>" +
+      (f.description ? "<p>" + esc(f.description) + "</p>" : "") + (f.place ? '<p class="muted-note">' + esc(f.place) + "</p>" : "") +
+      f.flags.map(function (x) { return '<p class="hl-flag">' + esc(T("adm.hl_flag_" + x + "_l")) + "</p>"; }).join("") + rowMsg(id);
+    if (kind === "call") {
+      html += "<p>" + esc(T("adm.hl_call_mobile")) + " <b>" + esc(sh || f.mobile || "") + "</b></p>";
+      if (S.d.canCall) {
+        html += (sh ? "" : '<div class="acts small"><button type="button" data-act="phone" data-f="' + esc(f.id) + '">' + esc(T("adm.hl_show_phone")) + '</button></div><p class="muted-note">' + esc(T("adm.hl_show_phone_note")) + "</p>") +
+          '<form class="hl-form" data-form="call" data-h="' + id + '" data-f="' + esc(f.id) + '" novalidate><h3>' + esc(T("adm.hl_call_h")) + "</h3>" +
+          '<fieldset class="rad"><legend>' + esc(T("adm.hl_call_outcome")) + "</legend>" + ["CONFIRMED", "NO_ANSWER", "NOT_NOW", "NOT_ASKED"].map(function (o) {
+            var fm = S.forms[id] || {};
+            return '<span class="ropt"><input type="radio" name="hl-' + id + '-o" id="hl-' + id + "-o-" + o + '" value="' + o + '" data-f="outcome" data-h="' + id + '"' + (fm.outcome === o ? " checked" : "") + '><label for="hl-' + id + "-o-" + o + '">' + esc(T("adm.hl_call_" + o)) + "</label></span>";
+          }).join("") + errOf(id, "outcome") + "</fieldset>" + txt(id, "note", "adm.hl_note_opt", T("adm.hl_c_note_h"), 2) +
+          '<div class="acts"><button type="submit" class="primary"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_call_btn")) + "</button></div></form>";
+      }
+    } else if (S.d.canCall) {
+      var fm2 = S.forms[id] || {};
+      html += '<form class="hl-form" data-form="flagrev" data-h="' + id + '" data-f="' + esc(f.id) + '" novalidate><h3>' + esc(T("adm.hl_flag_h")) + "</h3>" +
+        '<fieldset class="rad"><legend>' + esc(T("adm.hl_flag_q")) + "</legend>" + ["FINE", "FAKE"].map(function (o) {
+          return '<span class="ropt"><input type="radio" name="hl-' + id + '-r" id="hl-' + id + "-r-" + o + '" value="' + o + '" data-f="review" data-h="' + id + '"' + (fm2.review === o ? " checked" : "") + '><label for="hl-' + id + "-r-" + o + '">' + esc(T("adm.hl_flag_" + o)) + "</label></span>";
+        }).join("") + errOf(id, "review") + "</fieldset>" + txt(id, "note", "adm.hl_reason", T("adm.hl_flag_note_h"), 2) +
+        '<div class="acts"><button type="submit" class="primary"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_flag_btn")) + "</button></div></form>";
+    }
+    return html + "</section>";
+  }
+  function filingSecs() {
+    var calls = S.d.calls || [], flagged = S.d.flagged || [];
+    return '<section id="hl-calls" aria-labelledby="hl-calls-h"><h2 class="hl-sec" id="hl-calls-h">' + esc(T("adm.hl_calls_h")) + '<span class="hl-count">' + calls.length + '</span></h2><p class="muted-note">' + esc(T("adm.hl_calls_p")) + "</p>" +
+      (calls.length ? calls.map(function (f) { return filingCard(f, "call"); }).join("") : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>") + "</section>" +
+      '<section id="hl-flagged" aria-labelledby="hl-flagged-h"><h2 class="hl-sec" id="hl-flagged-h">' + esc(T("adm.hl_flagged_h")) + '<span class="hl-count">' + flagged.length + "</span></h2>" +
+      (flagged.length ? flagged.map(function (f) { return filingCard(f, "flag"); }).join("") : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>") + "</section>";
   }
   function refunds() {
     var list = S.d.refunds || [];
@@ -201,7 +241,7 @@
     };
     app.innerHTML = (d.setUp ? "" : '<p class="st-warn">' + esc(T("adm.hl_not_set_up")) + "</p>") +
       (!d.canCheck && !d.canApprove ? '<p class="readonly-tag" style="margin-left:0">' + esc(T("adm.hl_readonly")) + "</p>" : "") +
-      sec("adm.hl_to_check", toCheck, "hl-check") + sec("adm.hl_to_approve", toApprove, "hl-approve") + sec("adm.hl_appeals", appeals, "hl-appeals") + refunds() +
+      sec("adm.hl_to_check", toCheck, "hl-check") + sec("adm.hl_to_approve", toApprove, "hl-approve") + sec("adm.hl_appeals", appeals, "hl-appeals") + filingSecs() + refunds() +
       '<h2 class="hl-sec" id="hl-all">' + esc(T("adm.hl_all")) + '<span class="hl-count">' + rest.length + "</span></h2>" +
       '<div class="hl-filter"><div class="fld"><label for="hl-filter">' + esc(T("adm.hl_filter")) + '</label><select id="hl-filter">' +
         ["OPEN", "ALL", "ACTIVE", "LAPSED", "SUSPENDED", "REMOVED", "REFUSED", "STOPPED", "WITHDRAWN", "DRAFT"].map(function (k) { return '<option value="' + k + '"' + (S.filter === k ? " selected" : "") + ">" + esc(T(k === "OPEN" ? "adm.hl_f_open" : k === "ALL" ? "adm.hl_f_all" : "adm.hl_st_" + k)) + "</option>"; }).join("") + "</select></div>" +
@@ -213,7 +253,15 @@
   // ---- events ----
   function done(id, x, okKey) {
     S.busy = null;
-    if (x.r.ok) { S.fields[id] = {}; S.forms[id] = {}; S.rowMsg[id] = { text: T(okKey, { ref: x.j.ref || "" }) }; return load().then(function () { render("hl-" + id + "-msg"); }); }
+    if (x.r.ok) {
+      var text = T(okKey, { ref: x.j.ref || x.j.trackingRef || "" });
+      S.fields[id] = {}; S.forms[id] = {}; S.rowMsg[id] = { text: text };
+      return load().then(function () {
+        if ($("hl-" + id + "-msg")) { $("hl-msg").innerHTML = ""; render("hl-" + id + "-msg"); return; }
+        // The item has moved off its list (sent, dropped): say so at the top.
+        $("hl-msg").innerHTML = '<p class="st-msg success" tabindex="-1" id="hl-msg-p">' + esc(text) + "</p>"; $("hl-msg-p").focus();
+      });
+    }
     if (x.j.error === "CHECK_FIELDS") { S.fields[id] = x.j.fields || {}; S.rowMsg[id] = { text: T("adm.hl_e_fields"), bad: true }; render("hl-" + id + "-msg"); return; }
     S.rowMsg[id] = { text: T("adm.hl_e_" + (x.j.error || "x")) !== "adm.hl_e_" + (x.j.error || "x") ? T("adm.hl_e_" + x.j.error) : T("adm.hl_e_generic"), bad: true };
     render("hl-" + id + "-msg");
@@ -235,6 +283,12 @@
       fetch("/api/admin/helpers?file=" + encodeURIComponent(id) + "&kind=" + k, { cache: "no-store" }).then(function (r) { if (!r.ok) throw 0; return r.blob(); })
         .then(function (bl) { s[k] = URL.createObjectURL(bl); }, function () { s[k] = "error"; })
         .then(function () { return loadOne(id); }).then(function () { render(); });
+      return;
+    }
+    if (act === "phone") {
+      var fid = b.getAttribute("data-f");
+      fetch("/api/admin/helpers?phone=" + encodeURIComponent(fid), { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
+        .then(function (x) { if (x.r.ok) S.phone[fid] = x.j.mobile; else S.rowMsg["f" + fid] = { text: T("adm.hl_e_generic"), bad: true }; render(); });
       return;
     }
     if (act === "approve") { S.busy = "x"; render(); post({ action: "approve", id: id }).then(function (x) { return done(id, x, "adm.hl_ok_approved"); }, function () { fail(id); }); return; }
@@ -265,6 +319,8 @@
     else if (kind === "action") { body = { action: by === "suspend" ? "suspend" : "remove", id: id, reason: f.reason || "" }; okKey = by === "suspend" ? "adm.hl_ok_suspended" : "adm.hl_ok_removed"; }
     else if (kind === "reinstate") { body = { action: "reinstate", id: id, note: f.note || "" }; okKey = "adm.hl_ok_reinstated"; }
     else if (kind === "appeal") { body = { action: "appeal", id: id, result: f.result || "", note: f.note || "" }; okKey = "adm.hl_ok_appeal"; }
+    else if (kind === "call") { body = { action: "call", filingId: fm.getAttribute("data-f"), outcome: f.outcome || "", note: f.note || "" }; okKey = f.outcome === "CONFIRMED" ? "adm.hl_ok_call_sent" : "adm.hl_ok_call"; }
+    else if (kind === "flagrev") { body = { action: "flag", filingId: fm.getAttribute("data-f"), review: f.review || "", note: f.note || "" }; okKey = "adm.hl_ok_flag"; }
     else if (kind === "refunded") { body = { action: "refunded", paymentId: fm.getAttribute("data-p"), note: f.note || "" }; okKey = "adm.hl_ok_refunded"; }
     if (!body) return;
     S.busy = "x"; render();

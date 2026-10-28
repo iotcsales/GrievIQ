@@ -233,6 +233,11 @@
   button.submit:disabled { background: var(--grey-line); cursor: not-allowed; box-shadow: none; }
 
   .status-box { display: none; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+  .helper-banner { border: 2px solid var(--teal); background: var(--teal-tint); border-radius: 14px; padding: 14px 16px; margin: 12px 0 18px; }
+  .helper-banner h2 { font-size: 16px; margin: 0 0 6px; color: var(--teal-dark); }
+  .helper-banner p { font-size: 13.5px; line-height: 1.55; margin: 0 0 6px; color: var(--ink); }
+  .helper-banner a { color: var(--teal-dark); font-weight: 600; display: inline-flex; min-height: 24px; align-items: center; }
+  .helper-banner.bad { border-color: var(--brick); background: var(--brick-dim); }
   .status-box.success { background: var(--teal-tint); }
   .status-box.error { background: var(--brick-dim); }
   .status-box h2 { font-family: 'Source Serif 4', serif; font-size: 17px; margin: 0 0 8px; padding: 0; border: none; }
@@ -253,10 +258,10 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=72"></script>
+<script src="/i18n.js?v=73"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
-<script src="/site.js?v=72" defer></script>
+<script src="/site.js?v=73" defer></script>
 <script src="/site-info.js?v=39" defer></script>
 </head>
 <body>
@@ -272,6 +277,8 @@
       <h1 data-i18n="submit.title">File a complaint</h1>
       <p class="lede" data-i18n="submit.lede">Tell us what happened. Your complaint goes straight to your local representative, and stays visible to higher representatives if it isn't resolved in time.</p>
       <p class="guide-link"><a href="/guide#gq-file" data-i18n="guide.how_file">How filing works, step by step</a></p>
+      <!-- grieviq-73: a Community helper filing for a citizen (/submit?helper=1). -->
+      <section class="helper-banner" id="helperBanner" hidden aria-labelledby="helperBannerH"></section>
 
       <div class="status-box success" id="successBox">
         <h2 data-i18n="submit.done_title">Your complaint has been filed</h2>
@@ -439,6 +446,48 @@
 
 <script>
   const formLoadedAt = Date.now();
+  // ---- grieviq-73: a Community helper filing for a citizen ----
+  // Opened from the helper's page as /submit?helper=1. The complaint goes to
+  // /api/helper and waits until the CITIZEN confirms (email code or link, or
+  // a call from GrievIQ staff); the server checks everything again.
+  let helperMode = null;
+  function btnLabel() { return GIQ.t(helperMode ? 'submit.hl_button' : 'submit.button'); }
+  function helperBanner(kind, d) {
+    const b = document.getElementById('helperBanner');
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    b.hidden = false;
+    b.className = 'helper-banner' + (kind === 'ok' ? '' : ' bad');
+    b.innerHTML = kind === 'ok'
+      ? '<h2 id="helperBannerH">' + esc(GIQ.t('submit.hl_h', { ref: d.ref })) + '</h2><p>' + esc(GIQ.t('submit.hl_p')) + '</p><p>' + esc(GIQ.t('submit.hl_today', { n: d.count, max: d.max })) + '</p><p><a href="/helper">' + esc(GIQ.t('submit.hl_back')) + '</a></p>'
+      : '<h2 id="helperBannerH">' + esc(GIQ.t('submit.hl_cant_h')) + '</h2><p>' + esc(GIQ.t('submit.hl_cant_p')) + '</p><p><a href="/helper">' + esc(GIQ.t('submit.hl_back')) + '</a></p>';
+  }
+  function applyHelperMode() {
+    if (!helperMode) return;
+    helperBanner('ok', helperMode);
+    const lab = document.querySelector('label[for="consent"]');
+    if (lab) { lab.setAttribute('data-i18n', 'submit.hl_agree'); lab.textContent = GIQ.t('submit.hl_agree'); }
+    const eh = document.querySelector('#email + .hint');
+    if (eh) { eh.setAttribute('data-i18n', 'submit.hl_email_hint'); eh.textContent = GIQ.t('submit.hl_email_hint'); }
+    submitBtn.setAttribute('data-i18n', 'submit.hl_button'); submitBtn.textContent = btnLabel();
+    [['phoneError', 'phoneSelfError', 'submit.hl_self_phone'], ['emailError', 'emailSelfError', 'submit.hl_self_email']].forEach((x) => {
+      const after = document.getElementById(x[0]); if (!after || document.getElementById(x[1])) return;
+      const d = document.createElement('div'); d.className = 'field-error'; d.id = x[1]; d.setAttribute('role', 'alert'); d.setAttribute('data-i18n', x[2]); d.textContent = GIQ.t(x[2]);
+      after.parentNode.insertBefore(d, after.nextSibling);
+    });
+  }
+  if (new URLSearchParams(location.search).get('helper') === '1') {
+    fetch('/api/helper', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+      const h = d && d.helper;
+      if (d && d.signedIn && h && h.ref && h.state && h.state.canHelp) {
+        helperMode = { ref: h.ref, count: d.today ? d.today.count : 0, max: d.today ? d.today.max : 15 };
+        applyHelperMode();
+      } else {
+        helperBanner('bad');
+        submitBtn.disabled = true;
+      }
+    }).catch(() => { helperBanner('bad'); submitBtn.disabled = true; });
+    document.addEventListener('giq:lang', () => { if (helperMode) helperBanner('ok', helperMode); else if (!document.getElementById('helperBanner').hidden) helperBanner('bad'); });
+  }
   const form = document.getElementById('intakeForm');
   const submitBtn = document.getElementById('submitBtn');
   const successBox = document.getElementById('successBox');
@@ -1371,6 +1420,7 @@
   document.addEventListener('giq:lang', () => { if (limitKey) showLimit(limitKey.key, limitKey.vars); });
 
   form.addEventListener('submit', async (e) => {
+    ['phoneSelfError', 'emailSelfError'].forEach((id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
     e.preventDefault();
     successBox.style.display = 'none';
     errorBox.style.display = 'none';
@@ -1463,7 +1513,7 @@
       if (preparing > 0) {
         showPhotoError('submit.photo_wait');
         submitBtn.disabled = false;
-        submitBtn.textContent = GIQ.t('submit.button');
+        submitBtn.textContent = btnLabel();
         return;
       }
       if (selectedPhotos.length > 0) {
@@ -1472,10 +1522,11 @@
         submitBtn.textContent = GIQ.t('submit.filing');
       }
 
-      const res = await fetch('/api/grievances/submit', {
+      const res = await fetch(helperMode ? '/api/helper' : '/api/grievances/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: helperMode ? 'file' : undefined,
           category_id,
           local_unit_id,
           description,
@@ -1497,11 +1548,28 @@
 
       const data = await res.json();
 
+      // grieviq-73: a helper's filing waits for the citizen: on to the helper's page.
+      if (helperMode && res.ok && data.filing) { location.href = '/helper?filed=' + encodeURIComponent(data.filing.id); return; }
+      if (helperMode && !res.ok && data.error && data.code !== 'not_open' && !/ /.test(data.error)) {
+        if (data.error === 'SELF') {
+          const fe = document.getElementById(data.field === 'email' ? 'emailSelfError' : 'phoneSelfError');
+          fe.style.display = 'block';
+          document.getElementById(data.field === 'email' ? 'email' : 'phone').focus();
+        } else {
+          errorBox.style.display = 'block';
+          document.getElementById('errorMessage').textContent = GIQ.has('submit.hl_e_' + data.error) ? GIQ.t('submit.hl_e_' + data.error, { max: data.max || 15 }) : GIQ.t('common.generic_error');
+          errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = btnLabel();
+        return;
+      }
+
       if (!res.ok && data.code === 'DAILY_LIMIT') {
         showLimit(data.which === 'PHONE' ? 'submit.limit_phone' : 'submit.limit_device', { n: data.max });
         document.getElementById('limitError').scrollIntoView({ behavior: 'smooth', block: 'center' });
         submitBtn.disabled = false;
-        submitBtn.textContent = GIQ.t('submit.button');
+        submitBtn.textContent = btnLabel();
         return;
       }
       if (!res.ok && data.code === 'not_open') {
@@ -1509,7 +1577,7 @@
         setAreaOpenError('submit.srv_not_open');
         document.getElementById('areaSelected').scrollIntoView({ behavior: 'smooth', block: 'center' });
         submitBtn.disabled = false;
-        submitBtn.textContent = GIQ.t('submit.button');
+        submitBtn.textContent = btnLabel();
         return;
       }
       if (!res.ok) {
@@ -1517,7 +1585,7 @@
         document.getElementById('errorMessage').textContent =
           (GIQ.lang === 'en' && data.error) || GIQ.t('common.generic_error');
         submitBtn.disabled = false;
-        submitBtn.textContent = GIQ.t('submit.button');
+        submitBtn.textContent = btnLabel();
         return;
       }
 
@@ -1566,7 +1634,7 @@
       if (err && err.limit) {
         showLimit('submit.limit_photos');
         submitBtn.disabled = false;
-        submitBtn.textContent = GIQ.t('submit.button');
+        submitBtn.textContent = btnLabel();
         return;
       }
       errorBox.style.display = 'block';
@@ -1574,7 +1642,7 @@
       document.getElementById('errorMessage').textContent =
         err && err.shown ? err.message : GIQ.t('common.network');
       submitBtn.disabled = false;
-      submitBtn.textContent = GIQ.t('submit.button');
+      submitBtn.textContent = btnLabel();
     }
   });
 

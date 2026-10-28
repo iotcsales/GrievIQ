@@ -15,6 +15,11 @@
 //   withdraw                                   before the decision (a paid first month is refunded in full)
 //   stop {confirm: true}                       stop being a helper (no part-month refund)
 //   appeal {text}                              once, within 30 days of a suspension or removal
+// grieviq-73, filing for a citizen (see _shared/helper-filing.js):
+//   file {complaint fields as on /submit, consent}   held until the citizen confirms
+//   code {filingId, code}                      the code the citizen got by email
+//   resend {filingId}                          the code again (at most 3)
+//   cancel-filing {filingId}                   drop a filing still waiting
 // See _shared/helpers.js for the rules.
 
 import { sessionEmail } from "../_shared/rep-session.js";
@@ -26,6 +31,7 @@ import {
   helpersReady, idSecretOk, cleanApplication, unitInfo, idHash, normaliseId, readImage, deleteFiles, logHelper, adminLog,
   helperOut, stateOf, electionPause, feeNow, startHelperPay, helperCheckoutDone, tellStaff, emailHelper, OPEN, LIMITS,
 } from "../_shared/helpers.js";
+import { fileForCitizen, checkCode, resendCode, closeFiling, filingsFor, todayCount, filingsReady, DAILY_FILINGS } from "../_shared/helper-filing.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 
@@ -84,6 +90,12 @@ export async function onRequestGet({ request, env }) {
     return json(await receiptOut(env, p, owner));
   }
   const out = Object.assign(base, { signedIn: true, email, blocked: await blockedRole(env, email), helper: h ? await view(env, h) : null });
+  // grieviq-73: complaints filed for citizens (all of this person's helper records).
+  if (h && h.ref && (await filingsReady(env))) {
+    const { results: mine } = await env.DB.prepare("SELECT id FROM helpers WHERE email = ? AND ref IS NOT NULL").bind(email).all();
+    out.filings = await filingsFor(env, (mine || []).map((x) => x.id));
+    out.today = { count: await todayCount(env, h.id), max: DAILY_FILINGS };
+  }
   return json(out);
 }
 
@@ -163,6 +175,20 @@ export async function onRequestPost({ request, env }) {
       await emailHelper(env, origin, h, "GrievIQ: you have stopped being a Community helper",
         ["You have stopped being a Community helper. Your helper number no longer shows as active. Part-months are not refunded.", "You can apply again at any time."]);
       return json({ ok: true });
+    }
+    case "file": {
+      if (blocked) return json({ error: blocked }, 403);
+      const r = await fileForCitizen(env, origin, h, b);
+      return json(r.body, r.status);
+    }
+    case "code":
+    case "resend":
+    case "cancel-filing": {
+      const f = await env.DB.prepare("SELECT f.* FROM helper_filings f JOIN helpers h ON h.id = f.helper_id WHERE f.id = ? AND h.email = ?").bind(String(b.filingId || "").slice(0, 60), email).first();
+      if (!f) return json({ error: "NOT_FOUND" }, 404);
+      if (b.action === "code") { const r = await checkCode(env, origin, f, String(b.code || "").replace(/\s+/g, "")); return json(r.body, r.status); }
+      if (b.action === "resend") { const r = await resendCode(env, origin, f, h); return json(r.body, r.status); }
+      return (await closeFiling(env, f, "CANCELLED", email, "Cancelled by the helper")) ? json({ ok: true }) : json({ error: "STATE" }, 409);
     }
     case "appeal": {
       const out = await view(env, h);

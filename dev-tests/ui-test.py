@@ -3869,6 +3869,122 @@ window.Razorpay.prototype.open = function () {
     ok(p.input_value("#f-helpers-price") == "499" and "₹423" in p.inner_text("#f-helpers-price-h"), "the helper fee in Prices & site details, with the GST split")
     ctx.close()
 
+    # ---------- grieviq-73: filing for a citizen, consent, Remove helper ----------
+    import sqlite3 as _sq73
+    _db73 = _sq73.connect(os.path.join(WORK, "test.db"))
+    def _mails73(to):
+        out = []
+        for line in open(WORK + "/mail.log", encoding="utf-8").read().strip().split("\n"):
+            if line:
+                m = _json.loads(line)
+                if m.get("to") and m["to"][0] == to: out.append(m)
+        return out
+    HF = "hf1@x.in"
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            ctx, p, errs = hp72(HF, theme, lang, 390)
+            p.goto(B + "/submit?ward=lu-hazratganj&helper=1"); p.wait_for_selector("#helperBanner:not([hidden]) h2")
+            tag = "%s %s" % (theme, lang)
+            ok("GIQ-H-" in p.inner_text("#helperBanner"), "helper mode banner " + tag)
+            ok(not p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('helperBanner')", 1)), "helper banner contrast " + tag)
+            ok(no_hscroll(p) and not errs, "helper submit page clean " + tag, errs)
+            if theme == "dark" and lang == "en": p.locator("#helperBanner").screenshot(path=os.path.join(SHOTS, "73-submit-banner-dark.png"))
+            ctx.close()
+    ctx, p, errs = hp72(HF)
+    p.goto(B + "/submit?ward=lu-hazratganj&helper=1"); p.wait_for_selector("#helperBanner:not([hidden]) h2")
+    ok(p.inner_text("#submitBtn") == "Send for the citizen to confirm" and "citizen asked me" in p.inner_text("label[for=consent]"), "button and agreement worded for a helper")
+    p.evaluate("""() => { document.getElementById('category').value = 'water-sanitation'; document.getElementById('localUnitId').value = 'lu-hazratganj'; }""")
+    p.fill("#description", "Sewer line blocked behind the school for two weeks now")
+    p.fill("#phone", "9811100001"); p.fill("#email", "uicit73@x.in"); p.check("#consent"); p.wait_for_timeout(3100)
+    p.click("#submitBtn"); p.wait_for_selector("#phoneSelfError", state="visible")
+    ok("your own mobile" in p.inner_text("#phoneSelfError"), "the helper's own mobile is refused in the form")
+    p.fill("#phone", "9123488001")
+    with p.expect_navigation(): p.click("#submitBtn")
+    p.wait_for_selector("#hp-fl-h"); p.wait_for_timeout(300)
+    ok(p.url.endswith("/helper") and "waits for the citizen" in p.inner_text("#hp-app"), "sent to the helper page: waiting for the citizen", p.url)
+    code = re.search(r'letter-spacing:2px">(\d{6})<', _mails73("uicit73@x.in")[-1]["html"]).group(1)
+    form = 'form[data-code]'
+    p.fill(form + " input", "000000" if code != "000000" else "111111"); p.click(form + " button[type=submit]"); p.wait_for_timeout(500)
+    ok("isn't right" in p.inner_text("#hp-app"), "a wrong code is explained")
+    p.fill(form + " input", code); p.click(form + " button[type=submit]"); p.wait_for_selector(".note.ok:has-text('GRV-')")
+    ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "helper page with filings clean", (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+    shot(p, "73-helper-filings")
+    ctx.close()
+    # the consent link
+    ctx, p, errs = hp72(HF)
+    r73 = api41("POST", "/api/helper", {"action": "file", "category_id": "electricity", "local_unit_id": "lu-hazratganj", "description": "Street light near the ration shop not working", "citizen_phone": "9123488002", "citizen_email": "uicit73b@x.in", "lang": "hi", "consent": True}, HF)
+    ok(r73[0] == 200, "a filing for the link", r73)
+    k73 = re.search(r"consent\?k=([A-Za-z0-9_-]+)", _mails73("uicit73b@x.in")[-1]["html"]).group(1)
+    ctx.close()
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            ctx, p, errs = hp72(None, theme, lang, 375)
+            p.goto(B + "/consent?k=" + k73); p.wait_for_selector("#cs-q")
+            tag = "%s %s" % (theme, lang)
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "consent page clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+            if theme == "light" and lang == "en": shot(p, "73-consent")
+            ctx.close()
+    ctx, p, errs = hp72(None)
+    p.goto(B + "/consent?k=" + k73); p.wait_for_selector("#cs-q")
+    ok("Street light" in p.inner_text("#cs-app") and "9123488002" not in p.inner_text("#cs-app"), "the citizen sees what was filed, not their number")
+    p.click('[data-a="YES"]'); p.wait_for_selector("#cs-done")
+    ok("GRV-" in p.inner_text("#cs-done") and p.evaluate("document.activeElement.id") == "cs-done", "confirmed: the reference, focused")
+    ref73 = re.search(r"(GRV-[A-Z0-9]+)", p.inner_text("#cs-done")).group(1)
+    ctx.close()
+    # the office sees it was helped (never who)
+    ctx, p, errs = P("r1@x.in", theme="light")
+    p.goto(B + "/rep"); p.wait_for_timeout(2500)
+    ok("Filed with help from a Community helper" in p.inner_text("body") and "GIQ-H-" not in p.inner_text("body"), "the console tags it, without the helper")
+    ctx.close()
+    # Track page: Remove helper
+    _db73.execute("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, datetime('now','+10 minutes'), ?, 'EMAIL', strftime('%Y-%m-%dT%H:%M:%fZ','now'))", ("ui73-otp", "uicit73b@x.in")); _db73.commit()
+    for theme in ("light", "dark"):
+        ctx, p, errs = hp72(None, theme, "en", 390)
+        def _troute73(rt):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"):
+                real = urllib.request.urlopen(urllib.request.Request(B + "/api/otp/verify", data=_json.dumps({"email": "uicit73b@x.in", "trackingRef": ref73, "open": True}).encode(), headers={"content-type": "application/json"}, method="POST")).read()
+                c = _json.loads(real)["case"]
+                rt.fulfill(status=200, body=_json.dumps({"reports": [{"trackingRef": ref73, "status": c["status"]}], "case": c}), headers={"content-type": "application/json"})
+            else: rt.fallback()
+        p.route("**/api/otp/**", _troute73)
+        p.goto(B + "/status.html?ref=" + ref73); p.wait_for_timeout(400)
+        p.fill("#email", "uicit73b@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        fill_otp(p); p.click("#otp-submit"); p.wait_for_selector("#helper-card:not([hidden])")
+        ok("GIQ-H-" in p.inner_text("#helper-card"), "Track: the helper who filed it " + theme)
+        if theme == "light":
+            p.click("#btn-helper-remove"); p.wait_for_selector("#helper-q")
+            ok(p.evaluate("document.activeElement.id") == "helper-q" and "can't be undone" in p.inner_text("#helper-card"), "an in-page confirmation first, focused")
+            p.click("#btn-helper-no"); p.wait_for_timeout(100)
+            ok(p.evaluate("document.activeElement.id") == "btn-helper-remove", "keeping the helper returns focus")
+            p.click("#btn-helper-remove"); p.check('input[name="helper-reason"][value="DIDNT_ASK"]')
+            ok(not p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('helper-card')", 1)) and not p.evaluate(TARGET_JS.replace("main button", "#helper-card button", 1)), "remove box contrast and targets")
+            shot(p, "73-track-remove")
+            p.click("#btn-helper-yes"); p.wait_for_selector("#helper-removed")
+            ok("can no longer see it" in p.inner_text("#helper-card") and "staff have been told" in p.inner_text("#helper-card"), "removed: the helper can't see it; staff told")
+        else:
+            ok("can no longer see it" in p.inner_text("#helper-card") and not p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('helper-card')", 1)), "removed state shown (dark)")
+        ok(no_hscroll(p) and not errs, "Track helper box clean " + theme, errs)
+        ctx.close()
+    ok(_db73.execute("SELECT helper_removed_at FROM grievances WHERE tracking_ref = ?", (ref73,)).fetchone()[0], "recorded as removed")
+    # admin: citizens to call
+    api41("POST", "/api/helper", {"action": "file", "category_id": "water-sanitation", "local_unit_id": "lu-hazratganj", "description": "Handpump broken near the Panchayat building", "citizen_phone": "9123488003", "citizen_email": "", "lang": "en", "consent": True}, HF)
+    for theme in ("light", "dark"):
+        ctx, p, errs = P("ops@test.in", theme=theme)
+        p.goto(B + "/admin-helpers.html"); p.wait_for_selector("#hl-calls")
+        ok("Handpump broken" in p.inner_text("#hl-calls") and "XXXXXX8003" in p.inner_text("#hl-calls"), "a citizen to call, mobile hidden " + theme)
+        ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS), "admin calls contrast and targets " + theme, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+        if theme == "dark": p.locator("#hl-calls").screenshot(path=os.path.join(SHOTS, "73-admin-calls-dark.png"))
+        ctx.close()
+    ctx, p, errs = P("ops@test.in", theme="light")
+    p.goto(B + "/admin-helpers.html"); p.wait_for_selector("#hl-calls")
+    card73 = '#hl-calls .pr-card:has-text("Handpump broken")'
+    p.click(card73 + ' [data-act="phone"]'); p.wait_for_selector(card73 + ' b:has-text("9123488003")')
+    p.check(card73 + ' input[value="CONFIRMED"]'); p.click(card73 + ' form[data-form="call"] button[type=submit]'); p.wait_for_selector("#hl-msg-p")
+    ok("GRV-" in p.inner_text("#hl-msg-p") and not errs, "confirmed on the call: sent", p.inner_text("#hl-msg-p"))
+    ctx.close()
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

@@ -330,6 +330,8 @@ export async function onRequestGet(context) {
       sentBack,
       canApprove: Boolean(pendingRow && canManageCases(myRole) && pendingRow.created_by !== auth.email && !(myMandate.sub && myMandate.sub.status === "PAUSED")),
       trackingRef: grievance.tracking_ref,
+      // grieviq-73: filed with help from a Community helper (never who).
+      helped: !!grievance.helper_id,
       description: grievance.description,
       retentionRemovedAt: grievance.retention_removed_at || null,   // item 9d
       locationDetail: grievance.location_detail || null,

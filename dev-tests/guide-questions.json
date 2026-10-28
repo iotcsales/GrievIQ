@@ -580,6 +580,14 @@
   [
    "open helper applications",
    "helpers"
+  ],
+  [
+   "citizen to call for a helper filing",
+   "helpers"
+  ],
+  [
+   "helper paused automatically",
+   "helpers"
   ]
  ],
  "rep": [
@@ -1333,6 +1341,14 @@
   ],
   [
    "someone offered to file my complaint for money",
+   "helper"
+  ],
+  [
+   "remove helper from my complaint",
+   "helper"
+  ],
+  [
+   "a helper filed a complaint for me",
    "helper"
   ]
  ],

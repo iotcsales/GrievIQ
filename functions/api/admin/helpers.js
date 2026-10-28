@@ -18,6 +18,13 @@
 //             someone other than the person who suspended or removed
 //   refund    (approve_helpers) { paymentId, note? } refund through Razorpay
 //   refunded  (approve_helpers) { paymentId, note }  refunded from the Razorpay dashboard
+// grieviq-73, complaints filed by helpers for citizens:
+// GET ?phone=<filing>        (reveal_citizen_phone) the citizen's mobile, to call; recorded
+//   call      (approve_helpers) { filingId, outcome: CONFIRMED|NOT_ASKED|NO_ANSWER|NOT_NOW, note? }
+//             the citizen confirmed on the phone (sent now), didn't ask (a strike),
+//             didn't answer (tried again later), or doesn't want it now
+//   flag      (approve_helpers) { filingId, review: FINE|FAKE, note } a flagged filing
+//             looked at; FAKE is a strike (and drops it if it is still waiting)
 // The applicant sees the reason for a refusal (except forged documents),
 // suspension or removal; it must be about the application or conduct only.
 
@@ -28,6 +35,7 @@ import {
   emailHelper, refundThroughRazorpay, LIMITS, KYC_MONTHS, electionPause,
 } from "../../_shared/helpers.js";
 import { receiptOut } from "../helper.js";
+import { filingsReady, confirmFiling, closeFiling, addStrike, maskEmail } from "../../_shared/helper-filing.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).normalize("NFC").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -67,6 +75,14 @@ export async function onRequestGet({ request, env }) {
     const type = /\.png$/.test(key) ? "image/png" : /\.webp$/.test(key) ? "image/webp" : "image/jpeg";
     return new Response(obj.body, { headers: { "Content-Type": type, "Cache-Control": "no-store, private", "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox", "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline" } });
   }
+  const ph = url.searchParams.get("phone");
+  if (ph) {
+    if (!allows(auth, "reveal_citizen_phone")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT * FROM helper_filings WHERE id = ?").bind(String(ph).slice(0, 60)).first() : null;
+    if (!f || f.status !== "WAITING_CALL" || !f.payload) return json({ error: "NOT_FOUND" }, 404);
+    await logHelper(env, f.helper_id, auth.email, "PHONE_SHOWN", { filing: f.id });
+    return json({ mobile: String(JSON.parse(f.payload).citizen_phone || "") });
+  }
   const rid = url.searchParams.get("receipt");
   if (rid) {
     const p = await env.DB.prepare("SELECT * FROM helper_payments WHERE id = ? AND receipt_no IS NOT NULL").bind(String(rid).slice(0, 60)).first();
@@ -82,7 +98,12 @@ export async function onRequestGet({ request, env }) {
     const { results: ev } = await env.DB.prepare("SELECT at, actor, action, detail FROM helper_events WHERE helper_id = ? ORDER BY at DESC LIMIT 200").bind(h.id).all();
     const { results: pays } = await env.DB.prepare("SELECT * FROM helper_payments WHERE helper_id = ? ORDER BY started_at DESC LIMIT 60").bind(h.id).all();
     const same = await sameAs(env, h);
-    return json({ helper: staffRow(h, canFiles, today, { unit: unit ? unit.name : h.unit_id, area: unit ? unit.area_name : "", same,
+    let filings = [];
+    if (await filingsReady(env)) {
+      const { results: fr } = await env.DB.prepare("SELECT f.id, f.status, f.created_at, f.flags, f.flag_review, f.consent_via, f.remove_reason, lu.name AS unit FROM helper_filings f LEFT JOIN local_units lu ON lu.id = f.unit_id WHERE f.helper_id = ? ORDER BY f.created_at DESC LIMIT 50").bind(h.id).all();
+      filings = (fr || []).map((f) => ({ id: f.id, status: f.status, at: f.created_at, unit: f.unit, flags: f.flags ? JSON.parse(f.flags) : [], review: f.flag_review, via: f.consent_via, removed: f.remove_reason }));
+    }
+    return json({ helper: staffRow(h, canFiles, today, { unit: unit ? unit.name : h.unit_id, area: unit ? unit.area_name : "", same, filings,
       events: (ev || []).map((e) => ({ at: e.at, actor: e.actor, action: e.action, detail: e.detail ? JSON.parse(e.detail) : null })),
       payments: (pays || []).map((p) => Object.assign(paymentOut(p), { orderId: p.order_id, staffBy: p.staff_by, staffAt: p.staff_at, staffNote: p.staff_note, lastFail: p.last_fail })) }) });
   }
@@ -98,7 +119,24 @@ export async function onRequestGet({ request, env }) {
   const { results: refunds } = await env.DB.prepare(
     "SELECT p.*, h.ref, h.name FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.status IN ('REFUND_DUE','EXTRA') ORDER BY p.settled_at"
   ).all();
+  let calls = [], flagged = [];
+  if (await filingsReady(env)) {
+    const { results: fl } = await env.DB.prepare(
+      `SELECT f.*, h.ref AS helper_ref, lu.name AS unit_name, c.name AS category_name FROM helper_filings f JOIN helpers h ON h.id = f.helper_id
+       LEFT JOIN local_units lu ON lu.id = f.unit_id LEFT JOIN grievance_categories c ON c.id = f.category_id
+       WHERE f.status = 'WAITING_CALL' OR (f.flags IS NOT NULL AND f.flag_review IS NULL AND f.status NOT IN ('CANCELLED','EXPIRED','NOT_ASKED','FAKE')) ORDER BY f.created_at LIMIT 200`
+    ).all();
+    const out = (f) => {
+      const p = f.payload ? JSON.parse(f.payload) : null;
+      return { id: f.id, helperId: f.helper_id, helperRef: f.helper_ref, status: f.status, createdAt: f.created_at, unit: f.unit_name, category: f.category_name,
+        description: p ? p.description : null, place: p ? p.location_detail : null, mobile: p ? maskMobile(String(p.citizen_phone).slice(-10)) : null,
+        email: p ? maskEmail(p.citizen_email) : null, callTries: f.call_tries, lastCallAt: f.last_call_at, flags: f.flags ? JSON.parse(f.flags) : [] };
+    };
+    calls = (fl || []).filter((f) => f.status === "WAITING_CALL").map(out);
+    flagged = (fl || []).filter((f) => f.flags && !f.flag_review).map(out);
+  }
   return json({
+    calls, flagged, canCall: allows(auth, "approve_helpers") && allows(auth, "reveal_citizen_phone"),
     ready: true, setUp: idSecretOk(env) && !!env.PRIVATE_PHOTOS, today, me: auth.email,
     canCheck: allows(auth, "check_helpers"), canApprove: allows(auth, "approve_helpers"), canFiles,
     limits: { reason: LIMITS.reason, note: LIMITS.note },
@@ -146,6 +184,54 @@ export async function onRequestPost({ request, env }) {
     if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
     await logHelper(env, p.helper_id, me, "REFUNDED", { payment: p.id, via: "dashboard" });
     await adminLog(env, me, "helper_payment_refunded", p.receipt_no || p.id, { via: "dashboard" });
+    return json({ ok: true });
+  }
+
+  if (b.action === "call" || b.action === "flag") {
+    if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT * FROM helper_filings WHERE id = ?").bind(String(b.filingId || "").slice(0, 60)).first() : null;
+    if (!f) return json({ error: "NOT_FOUND" }, 404);
+    const note = clean(b.note, LIMITS.note);
+    if (note.length > LIMITS.note) return json({ error: "CHECK_FIELDS", fields: { note: "LENGTH" } }, 400);
+    if (b.action === "call") {
+      if (f.status !== "WAITING_CALL") return json({ error: "STATE" }, 409);
+      const o = b.outcome;
+      if (o === "CONFIRMED") {
+        const r = await confirmFiling(env, origin, f, "CALL", me);
+        if (r.error) return json({ error: r.error === "CANT_FILE" ? "CANT_FILE" : "STATE" }, 409);
+        await adminLog(env, me, "helper_filing_confirmed_by_call", f.id, null);
+        return json({ ok: true, trackingRef: r.trackingRef });
+      }
+      if (o === "NOT_ASKED") {
+        if (!(await closeFiling(env, f, "NOT_ASKED", me, note || "The citizen said on the phone they didn't ask for it"))) return json({ error: "STATE" }, 409);
+        await adminLog(env, me, "helper_filing_not_asked", f.id, null);
+        await addStrike(env, origin, f.helper_id, "NOT_ASKED_CALL", me);
+        return json({ ok: true });
+      }
+      if (o === "NOT_NOW") {
+        if (!(await closeFiling(env, f, "CANCELLED", me, note || "The citizen doesn't want it filed now"))) return json({ error: "STATE" }, 409);
+        await adminLog(env, me, "helper_filing_not_now", f.id, null);
+        return json({ ok: true });
+      }
+      if (o === "NO_ANSWER") {
+        await env.DB.prepare("UPDATE helper_filings SET call_tries = call_tries + 1, last_call_at = ? WHERE id = ? AND status = 'WAITING_CALL'").bind(now, f.id).run();
+        await logHelper(env, f.helper_id, me, "CALL_NO_ANSWER", { filing: f.id });
+        return json({ ok: true });
+      }
+      return json({ error: "CHECK_FIELDS", fields: { outcome: "REQUIRED" } }, 400);
+    }
+    // flag
+    if (!f.flags || f.flag_review) return json({ error: "STATE" }, 409);
+    if (!["FINE", "FAKE"].includes(b.review)) return json({ error: "CHECK_FIELDS", fields: { review: "REQUIRED" } }, 400);
+    if (b.review === "FAKE" && note.length < LIMITS.reason[0]) return json({ error: "CHECK_FIELDS", fields: { note: note ? "SHORT" : "REQUIRED" } }, 400);
+    const r = await env.DB.prepare("UPDATE helper_filings SET flag_review = ?, note = COALESCE(?, note) WHERE id = ? AND flag_review IS NULL").bind(b.review, note || null, f.id).run();
+    if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
+    await logHelper(env, f.helper_id, me, "FLAG_" + b.review, { filing: f.id });
+    await adminLog(env, me, "helper_filing_flag_" + b.review.toLowerCase(), f.id, null);
+    if (b.review === "FAKE") {
+      await closeFiling(env, f, "FAKE", me, note);
+      await addStrike(env, origin, f.helper_id, "FAKE", me);
+    }
     return json({ ok: true });
   }
 
@@ -263,7 +349,7 @@ export async function onRequestPost({ request, env }) {
       if (h.status !== "SUSPENDED") return json({ error: "STATE" }, 409);
       const note = clean(b.note, LIMITS.note);
       if (note.length < 5) return json({ error: "CHECK_FIELDS", fields: { note: note ? "SHORT" : "REQUIRED" } }, 400);
-      const r = await env.DB.prepare("UPDATE helpers SET status = 'ACTIVE', updated_at = ? WHERE id = ? AND status = 'SUSPENDED'").bind(now, h.id).run();
+      const r = await env.DB.prepare("UPDATE helpers SET status = 'ACTIVE', strikes = 0, updated_at = ? WHERE id = ? AND status = 'SUSPENDED'").bind(now, h.id).run();
       if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
       await done("REINSTATED", { note });
       await emailHelper(env, origin, h, "GrievIQ: your Community helper role has started again", ["Your suspension has ended and your Community helper role has started again."]);
@@ -277,8 +363,8 @@ export async function onRequestPost({ request, env }) {
       const note = clean(b.note, LIMITS.reason[1]);
       if (note.length < LIMITS.reason[0]) return json({ error: "CHECK_FIELDS", fields: { note: note ? "SHORT" : "REQUIRED" } }, 400);
       const back = b.result === "OVERTURNED";
-      const r = await env.DB.prepare("UPDATE helpers SET appeal_result = ?, appeal_by = ?, appeal_decided_at = ?, appeal_note = ?, status = CASE WHEN ? = 1 THEN 'ACTIVE' ELSE status END, updated_at = ? WHERE id = ? AND appeal_result IS NULL AND status IN ('SUSPENDED','REMOVED')")
-        .bind(b.result, me, now, note.slice(0, LIMITS.reason[1]), back ? 1 : 0, now, h.id).run();
+      const r = await env.DB.prepare("UPDATE helpers SET appeal_result = ?, appeal_by = ?, appeal_decided_at = ?, appeal_note = ?, status = CASE WHEN ? = 1 THEN 'ACTIVE' ELSE status END, strikes = CASE WHEN ? = 1 THEN 0 ELSE strikes END, updated_at = ? WHERE id = ? AND appeal_result IS NULL AND status IN ('SUSPENDED','REMOVED')")
+        .bind(b.result, me, now, note.slice(0, LIMITS.reason[1]), back ? 1 : 0, back ? 1 : 0, now, h.id).run();
       if (!r.meta || r.meta.changes !== 1) return json({ error: "STATE" }, 409);
       await done("APPEAL_" + b.result, { firstDecisionBy: h.action_by });
       await emailHelper(env, origin, h, "GrievIQ: the decision on your appeal",

@@ -3312,6 +3312,162 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await settings((d) => { d.helpers = { open: true, price: 499 }; });
 }
 
+// ---- grieviq-73: Community helpers file for citizens ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const T = async (p, b) => (await fetch(B + "/__test/" + p, { method: "POST", body: JSON.stringify(b || {}) })).json();
+  const day = (n) => new Date(Date.now() + 5.5 * 3600000 + n * 86400000).toISOString().slice(0, 10);
+  const H = (who, b) => call(who, "POST", "/api/helper", b);
+  const adm = (who, b) => call(who, "POST", "/api/admin/helpers", b);
+  const jpeg = (tag) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0, 0]), Buffer.from([0xff, 0xda, 0x00, 0x02]), Buffer.from("PIXELS-" + tag), Buffer.from([0xff, 0xd9])]);
+  const hrow = (email) => sdb.prepare("SELECT * FROM helpers WHERE email = ? ORDER BY created_at DESC LIMIT 1").get(email);
+  const frow = (id) => sdb.prepare("SELECT * FROM helper_filings WHERE id = ?").get(id);
+  async function makeHelper(email, idn, mobile) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ action: "apply", name: "Helping Person", mobile, unitId: "lu-hazratganj", idType: "EPIC", idNumber: idn, conduct: "1" })) fd.append(k, v);
+    fd.append("id_photo", new Blob([jpeg(idn)]), "a.jpg"); fd.append("selfie", new Blob([jpeg(idn + "s")]), "b.jpg");
+    await fetch(B + "/api/helper", { method: "POST", headers: { "test-email": email }, body: fd });
+    const o = await H(email, { action: "pay", ownFunds: true });
+    const p = await T("rzp-pay", { orderId: o.body.orderId, status: "captured" });
+    await H(email, { action: "paid", orderId: p.orderId, paymentId: p.paymentId, signature: p.signature });
+    const h = hrow(email);
+    await adm(M, { action: "check", id: h.id, idClear: true, selfieMatch: true, videoDone: true, videoOn: day(0) });
+    await adm(O, { action: "approve", id: h.id });
+    return hrow(email);
+  }
+  const C = (o) => Object.assign({ action: "file", category_id: "water-sanitation", local_unit_id: "lu-hazratganj", description: "No water supply in Gali number 4 since three days", citizen_phone: "9123400001", citizen_email: "citizen73@x.in", location_detail: "Near the temple", lang: "en", consent: true }, o || {});
+  const lastCode = (to) => { const m = mails().filter((x) => x.to[0] === to).pop(); const c = m && /letter-spacing:2px">(\d{6})</.exec(m.html); const k = m && /consent\?k=([A-Za-z0-9_-]+)/.exec(m.html); return { code: c && c[1], k: k && k[1], mail: m }; };
+  const gcount = () => sdb.prepare("SELECT COUNT(*) AS n FROM grievances").get().n;
+
+  const HP = "hf1@x.in";
+  const h = await makeHelper(HP, "HFA1234567", "9811100001");
+  ok(h.status === "ACTIVE" && h.ref, "a helper to file with", h);
+  let r = await H("hfnobody@x.in", C());
+  ok(r.status === 404, "not a helper: nothing to file with");
+  r = await H(HP, C({ consent: false }));
+  ok(r.status === 400 && /18 or older/.test(r.body.error), "the citizen's agreement is needed", r.body);
+  ok((await H(HP, C({ citizen_phone: "+91 98111 00001" }))).body.error === "SELF", "the helper's own mobile is refused");
+  ok((await H(HP, C({ citizen_email: HP }))).body.error === "SELF", "the helper's own email is refused");
+  ok((await H(HP, C({ local_unit_id: "lu-aishbagh" }))).body.code === "not_open", "the usual ward checks apply");
+
+  // with the citizen's email: held until they give the code
+  let g0 = gcount(), before = mails().length;
+  r = await H(HP, C());
+  const f1 = r.body.filing;
+  ok(r.status === 200 && f1.status === "WAITING_CODE" && f1.email === "c•••@x.in" && f1.mobile === "XXXXXX0001", "filed: waiting for the citizen's code", r.body);
+  ok(gcount() === g0, "nothing reaches any office before the citizen confirms");
+  let lc = lastCode("citizen73@x.in");
+  ok(lc.code && lc.k && lc.mail.html.includes(h.ref) && lc.mail.html.includes("No water supply"), "the code and a link go to the citizen's email", lc.mail && lc.mail.subject);
+  ok(!JSON.stringify(sdb.prepare("SELECT * FROM helper_filings WHERE id = ?").get(f1.id)).includes(lc.code), "the code is stored only as a fingerprint");
+  r = await H(HP, { action: "code", filingId: f1.id, code: lc.code === "000000" ? "111111" : "000000" });
+  ok(r.status === 400 && r.body.fields.code === "WRONG" && r.body.left === 4, "a wrong code", r.body);
+  ok((await H("hfother@x.in", { action: "code", filingId: f1.id, code: lc.code })).status === 404, "another person can't use the filing");
+  r = await H(HP, { action: "code", filingId: f1.id, code: lc.code });
+  ok(r.status === 200 && /^GRV-/.test(r.body.trackingRef), "the right code: filed now", r.body);
+  const g1 = sdb.prepare("SELECT * FROM grievances WHERE tracking_ref = ?").get(r.body.trackingRef);
+  ok(g1 && g1.helper_id === h.id && g1.citizen_email === "citizen73@x.in" && g1.citizen_phone === "9123400001" && /helper-code/.test(g1.consent_notice), "a normal complaint, marked as helped", g1);
+  ok(frow(f1.id).status === "SENT" && frow(f1.id).payload === null && frow(f1.id).grievance_id === g1.id, "the held copy is deleted once sent");
+  const rl = await call("r1@x.in", "GET", "/api/grievances");
+  const rc = (rl.body.grievances || rl.body.cases || []).find ? (rl.body.grievances || []).find((x) => x.trackingRef === g1.tracking_ref) : null;
+  ok(rc && rc.helped === true && !JSON.stringify(rc).includes(h.ref) && !JSON.stringify(rc).includes(HP), "the office sees 'filed with help', never who", rc && rc.helped);
+  let hg = await call(HP, "GET", "/api/helper");
+  ok(hg.body.filings[0].ref === g1.tracking_ref && hg.body.filings[0].status === "SENT" && hg.body.filings[0].caseStatus === "OPEN" && hg.body.today.count >= 1 && hg.body.today.max === 15, "the helper follows it on their page", hg.body.filings[0]);
+
+  // the link: "I didn't ask for this"
+  r = await H(HP, C({ description: "Street light broken outside the school for a week now" , citizen_email: "citizen73b@x.in", citizen_phone: "9123400002" }));
+  const f2 = r.body.filing; lc = lastCode("citizen73b@x.in");
+  r = await call("", "GET", "/api/helper-consent?k=" + lc.k);
+  ok(r.status === 200 && r.body.helperRef === h.ref && /Street light/.test(r.body.description) && !JSON.stringify(r.body).includes("9123400002"), "the link shows the citizen what was filed", r.body);
+  ok((await call("", "GET", "/api/helper-consent?k=nonsense-link-value-1234")).status === 404, "a wrong link shows nothing");
+  r = await call("", "POST", "/api/helper-consent", { k: lc.k, answer: "NO" });
+  ok(r.status === 200 && r.body.refused && frow(f2.id).status === "NOT_ASKED" && frow(f2.id).payload === null && hrow(HP).strikes === 1, "the citizen didn't ask: dropped, details deleted, a strike", r.body);
+  ok((await call("", "POST", "/api/helper-consent", { k: lc.k, answer: "YES" })).status === 404, "the link works once");
+  // the link: yes
+  r = await H(HP, C({ description: "Garbage not collected in our lane for ten days", citizen_email: "citizen73c@x.in", citizen_phone: "9123400003" }));
+  lc = lastCode("citizen73c@x.in");
+  r = await call("", "POST", "/api/helper-consent", { k: lc.k, answer: "YES" });
+  ok(r.status === 200 && /^GRV-/.test(r.body.trackingRef), "the citizen confirms by the link", r.body);
+
+  // no email: GrievIQ staff call first
+  r = await H(HP, C({ citizen_email: "", description: "Open drain overflowing near the market road", citizen_phone: "9123400004" }));
+  const f4 = r.body.filing;
+  ok(f4.status === "WAITING_CALL", "no email: waiting for GrievIQ's call", f4);
+  let al = await call(O, "GET", "/api/admin/helpers");
+  let cl = al.body.calls.find((x) => x.id === f4.id);
+  ok(cl && cl.mobile === "XXXXXX0004" && /Open drain/.test(cl.description) && cl.helperRef === h.ref && al.body.canCall, "staff see the call to make, mobile hidden", cl);
+  ok((await call(M, "GET", "/api/admin/helpers?phone=" + f4.id)).status === 403, "a data moderator can't see the mobile");
+  ok((await adm(M, { action: "call", filingId: f4.id, outcome: "CONFIRMED" })).status === 403, "a data moderator can't record the call");
+  r = await call(O, "GET", "/api/admin/helpers?phone=" + f4.id);
+  ok(r.body.mobile === "9123400004" && sdb.prepare("SELECT COUNT(*) AS n FROM helper_events WHERE action = 'PHONE_SHOWN' AND actor = ?").get(O).n === 1, "the operations admin sees the mobile; recorded", r.body);
+  ok((await adm(O, { action: "call", filingId: f4.id, outcome: "NO_ANSWER" })).status === 200 && frow(f4.id).call_tries === 1, "no answer: tried again later");
+  r = await adm(O, { action: "call", filingId: f4.id, outcome: "CONFIRMED" });
+  ok(r.status === 200 && /^GRV-/.test(r.body.trackingRef) && frow(f4.id).consent_via === "CALL", "confirmed on the phone: filed", r.body);
+
+  // flags: the same text again
+  r = await H(HP, C({ description: "No water supply in Gali number 4 since three days", citizen_phone: "9123400005", citizen_email: "citizen73e@x.in" }));
+  const f5 = r.body.filing;
+  ok(JSON.parse(frow(f5.id).flags).includes("SIMILAR_TEXT"), "a description like an earlier one is flagged", frow(f5.id).flags);
+  al = await call(O, "GET", "/api/admin/helpers");
+  ok(al.body.flagged.some((x) => x.id === f5.id), "flagged filings are listed for staff");
+  ok((await adm(O, { action: "flag", filingId: f5.id, review: "FAKE", note: "" })).body.fields.note === "REQUIRED", "a reason for 'false'");
+  r = await adm(O, { action: "flag", filingId: f5.id, review: "FAKE", note: "Same text as an earlier complaint, citizen unknown." });
+  ok(r.status === 200 && frow(f5.id).status === "FAKE" && hrow(HP).strikes === 2, "found false: dropped and a strike", hrow(HP).strikes);
+
+  // remove the helper from a complaint (Track page)
+  sdb.prepare("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, ?, 'EMAIL', ?)")
+    .run(crypto.randomUUID(), new Date(Date.now() + 600000).toISOString(), "citizen73@x.in", new Date().toISOString());
+  r = await call("", "POST", "/api/otp/verify", { email: "citizen73@x.in", trackingRef: g1.tracking_ref, open: true });
+  ok(r.status === 200 && r.body.case.helper && r.body.case.helper.ref === h.ref && r.body.case.helper.removed === false, "the citizen sees which helper filed it", r.body.case && r.body.case.helper);
+  ok((await call("", "POST", "/api/grievances/remove-helper", { email: "someone@x.in", trackingRef: g1.tracking_ref })).status === 401, "only after the email code");
+  ok((await call("", "POST", "/api/grievances/remove-helper", { email: "citizen73@x.in", trackingRef: g1.tracking_ref, reason: "WHATEVER" })).status === 400, "a known reason only");
+  before = mails().length;
+  r = await call("", "POST", "/api/grievances/remove-helper", { email: "citizen73@x.in", trackingRef: g1.tracking_ref, reason: "DIDNT_ASK" });
+  ok(r.status === 200, "removed", r.body);
+  const nm = mails().slice(before).find((x) => x.to[0] === HP);
+  ok(nm && !nm.html.includes(g1.tracking_ref) && !nm.html.includes("water"), "the helper is told, with no details of the complaint", nm && nm.html);
+  hg = await call(HP, "GET", "/api/helper");
+  ok(!hg.body.filings.some((x) => x.ref === g1.tracking_ref), "the helper can't see it any more");
+  ok((await call("", "POST", "/api/grievances/remove-helper", { email: "citizen73@x.in", trackingRef: g1.tracking_ref })).body.error === "NO_HELPER", "can't be undone or done twice");
+  r = await call("", "POST", "/api/otp/verify", { email: "citizen73@x.in", trackingRef: g1.tracking_ref, open: true });
+  ok(r.body.case.helper.removed === true, "the Track page shows it removed");
+  // third strike: paused automatically
+  const h3 = hrow(HP);
+  ok(h3.strikes === 3 && h3.status === "SUSPENDED" && h3.action_by === "system", "3 strikes: paused automatically", { s: h3.strikes, st: h3.status });
+  ok((await H(HP, C({ citizen_phone: "9123400009" }))).body.error === "CANT_HELP", "a paused helper can't file");
+  ok((await call("", "GET", "/api/helper-check?ref=" + h3.ref)).body.status === "NOT_ACTIVE", "public record: not active");
+  r = await adm(O, { action: "reinstate", id: h3.id, note: "Checked with staff, mistakes explained." });
+  ok(r.status === 200 && hrow(HP).status === "ACTIVE" && hrow(HP).strikes === 0, "reinstated with strikes cleared", r.body);
+
+  // 15 a day
+  const ins = sdb.prepare("INSERT INTO helper_filings (id, helper_id, created_at, day, unit_id, category_id, payload, phone_hash, has_email, status) VALUES (?, ?, ?, ?, 'lu-hazratganj', 'water-sanitation', NULL, 'x', 0, 'CANCELLED')");
+  const already = sdb.prepare("SELECT COUNT(*) AS n FROM helper_filings WHERE helper_id = ? AND day = ?").get(h.id, day(0)).n;
+  for (let i = already; i < 15; i++) ins.run(crypto.randomUUID(), h.id, new Date().toISOString(), day(0));
+  r = await H(HP, C({ citizen_phone: "9123400010", description: "Pothole on the main road near the bus stop" }));
+  ok(r.status === 429 && r.body.error === "HELPER_LIMIT" && r.body.max === 15, "15 filings a day per helper", r.body);
+  sdb.prepare("UPDATE helper_filings SET day = ? WHERE helper_id = ? AND status = 'CANCELLED' AND payload IS NULL AND phone_hash = 'x'").run(day(-1), h.id);
+
+  // election code: no filing
+  sdb.prepare("INSERT INTO notice_pauses (id, label, state, area_id, from_on, to_on, created_by, created_at) VALUES ('hp-mcc73', 'Test election', 'Uttar Pradesh', NULL, ?, ?, 'super@test.in', ?)").run(day(0), day(3), new Date().toISOString());
+  ok((await H(HP, C({ citizen_phone: "9123400011" }))).body.error === "ELECTION_PAUSE", "no filing during election-code days");
+  sdb.prepare("DELETE FROM notice_pauses WHERE id = 'hp-mcc73'").run();
+
+  // the clock: no code in 3 days -> a call; 7 days -> dropped; cancel
+  r = await H(HP, C({ citizen_phone: "9123400012", citizen_email: "citizen73f@x.in", description: "Water pipe leaking on the corner of the park" }));
+  const f6 = r.body.filing;
+  ok((await H(HP, { action: "resend", filingId: f6.id })).body.error === "WAIT", "the code again only after a minute");
+  let hr = await T("run-helpers", { now: new Date(Date.now() + 3.2 * 86400000).toISOString() });
+  ok(hr.filings.toCall >= 1 && frow(f6.id).status === "WAITING_CALL" && frow(f6.id).code_hash === null, "no code in 3 days: GrievIQ calls instead", hr.filings);
+  hr = await T("run-helpers", { now: new Date(Date.now() + 7.2 * 86400000).toISOString() });
+  ok(hr.filings.expired >= 1 && frow(f6.id).status === "EXPIRED" && frow(f6.id).payload === null, "not confirmed in 7 days: dropped and deleted", hr.filings);
+  r = await H(HP, C({ citizen_phone: "9123400013", citizen_email: "citizen73g@x.in", description: "Stray dogs near the primary school gate" }));
+  ok((await H(HP, { action: "cancel-filing", filingId: r.body.filing.id })).status === 200 && frow(r.body.filing.id).status === "CANCELLED" && frow(r.body.filing.id).payload === null, "the helper can cancel one still waiting");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
