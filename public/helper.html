@@ -6,7 +6,9 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
+<link rel="manifest" href="/helper.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GrievIQ Helper">
 <meta name="theme-color" content="#13233F">
 <link rel="stylesheet" href="/theme.css?v=22">
 <script src="/theme.js?v=45"></script>
@@ -630,6 +632,10 @@
   var pre = new URLSearchParams(location.search).get("check");
   if (pre) { $("hp-ref").value = pre; setTimeout(function () { $("hp-check").requestSubmit ? $("hp-check").requestSubmit() : $("hp-check").dispatchEvent(new Event("submit")); }, 0); }
   load();
+  // The page can be added to the phone's home screen as its own app
+  // ("GrievIQ Helper", /helper.webmanifest); the service worker is the same
+  // one the other GrievIQ apps use.
+  try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {}); } catch (e) {}
 })();
 </script>
 </body>

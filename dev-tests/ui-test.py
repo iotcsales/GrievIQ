@@ -3785,6 +3785,8 @@ window.Razorpay.prototype.open = function () {
                 ctx.close()
     ctx, p, errs = hp72()
     p.goto(B + "/helper"); p.wait_for_selector("#hp-become")
+    man72 = p.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r=>r.json())")
+    ok(man72.get("start_url") == "/helper" and man72.get("scope") == "/helper" and man72.get("short_name") == "GrievIQ Helper", "the helper page installs as its own app (GrievIQ Helper)", man72)
     ok("₹499" in p.inner_text("#hp-app") and "₹423" in p.inner_text("#hp-app") and p.locator('a[href="/api/auth/google/start?for=helper"]').count() == 1, "signed out: fee with GST split and Google sign-in to apply")
     p.fill("#hp-ref", "hello"); p.click("#hp-check button[type=submit]"); p.wait_for_timeout(200)
     ok("GIQ-H-0123" in p.inner_text("#hp-check-out") and p.get_attribute("#hp-ref", "aria-invalid") == "true", "badly written number explained")
