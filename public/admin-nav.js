@@ -44,6 +44,7 @@
     "adm.role_management_viewer": "Management (view only)",
     "adm.role_helper_checker": "Helper checker (duty)",
     "adm.role_helper_approver": "Helper approver (duty)",
+    "adm.role_staff_records_keeper": "Staff records (duty)",
     "adm.nav_menu": "Menu",
     "adm.nav_close": "Close",
     "adm.nav_g_daily": "Daily work",
@@ -173,9 +174,9 @@
       box = document.createElement("section"); box.id = "adm-denied"; box.className = "adm-denied"; box.setAttribute("role", "alert");
       main.parentNode.insertBefore(box, main); main.hidden = true; main.style.display = "none";
     }
-    var paused = blocked.error === "ACCESS_PAUSED";
-    box.innerHTML = "<h1>" + esc(t(paused ? "adm.nav_paused_title" : "adm.nav_left_title")) + "</h1><p>" +
-      esc(paused ? t("adm.nav_paused", { date: dayText(blocked.leaveUntil) }) : t("adm.nav_left")) + "</p><p>" + esc(t("adm.nav_denied_help")) + "</p>";
+    var paused = blocked.error === "ACCESS_PAUSED", auto = blocked.error === "ACCESS_PAUSED_AUTO";
+    box.innerHTML = "<h1>" + esc(t(auto ? "adm.nav_paused_auto_title" : paused ? "adm.nav_paused_title" : "adm.nav_left_title")) + "</h1><p>" +
+      esc(auto ? t(blocked.why === "CONTRACT_END" ? "adm.nav_paused_contract" : "adm.nav_paused_dormant") : paused ? t("adm.nav_paused", { date: dayText(blocked.leaveUntil) }) : t("adm.nav_left")) + "</p><p>" + esc(t("adm.nav_denied_help")) + "</p>";
     document.querySelectorAll("nav a[href]").forEach(function (a) { a.style.display = "none"; });
     tidyGroups();
   }
@@ -226,6 +227,44 @@
     ".adm-sc-tick{display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px}.adm-sc-tick input{width:20px;height:20px;margin-top:1px}" +
     ".adm-sc-e{color:var(--admin-danger,#e5675c);margin:0 0 8px}" +
     "#adm-sc-btn{font:inherit;font-weight:600;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--admin-accent-fill,#3d6be0);background:var(--admin-accent-fill,#3d6be0);color:#fff;cursor:pointer}";
+  // grieviq-78: the staff policies (confidentiality, data protection,
+  // security), accepted at sign-in, again when one changes and once a year.
+  // Until then the person can only read.
+  var POL_POINTS = { CONFIDENTIALITY: 6, DATA_PROTECTION: 6, SECURITY: 6 };
+  var polErr = false, polTicked = {};
+  function showPolicies() {
+    if (!info || !info.policies || !info.policies.need || !info.policies.need.length) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    var box = document.getElementById("adm-policies");
+    if (!box) { box = document.createElement("section"); box.id = "adm-policies"; box.className = "adm-salescode adm-policies"; box.setAttribute("aria-labelledby", "adm-pol-h"); main.insertBefore(box, main.firstChild); }
+    drawPolicies();
+  }
+  function drawPolicies() {
+    var box = document.getElementById("adm-policies");
+    if (!box || !info || !info.policies) return;
+    var need = info.policies.need;
+    box.innerHTML = '<h2 id="adm-pol-h">' + esc(t("adm.pol_h")) + "</h2><p>" + esc(t("adm.pol_p")) + "</p>" +
+      need.map(function (k) {
+        var pts = []; for (var i = 1; i <= (POL_POINTS[k] || 0); i++) pts.push("<li>" + esc(t("adm.pol_" + k + "_" + i)) + "</li>");
+        return '<details class="adm-pol"' + (need.length === 1 ? " open" : "") + "><summary>" + esc(t("adm.pol_" + k)) + "</summary><ol>" + pts.join("") + "</ol></details>" +
+          '<div class="adm-sc-tick"><input type="checkbox" class="adm-pol-ok" id="adm-pol-' + k + '" value="' + k + '"' + (polTicked[k] ? " checked" : "") + (polErr && !polTicked[k] ? ' aria-invalid="true" aria-describedby="adm-pol-e"' : "") + '><label for="adm-pol-' + k + '">' + esc(t("adm.pol_tick", { name: t("adm.pol_" + k) })) + "</label></div>";
+      }).join("") +
+      (polErr ? '<p class="adm-sc-e" id="adm-pol-e" role="alert">' + esc(t("adm.pol_e_tick")) + "</p>" : "") +
+      '<p class="adm-pol-ro">' + esc(t("adm.pol_ro")) + '</p><button type="button" id="adm-pol-btn">' + esc(t("adm.pol_btn")) + "</button>";
+    document.getElementById("adm-pol-btn").addEventListener("click", function () {
+      var boxes = Array.prototype.slice.call(document.querySelectorAll(".adm-pol-ok"));
+      boxes.forEach(function (b) { polTicked[b.value] = b.checked; });
+      var miss = boxes.filter(function (b) { return !b.checked; });
+      if (miss.length) { polErr = true; drawPolicies(); document.getElementById(miss[0].id).focus(); return; }
+      var btn = this; btn.disabled = true;
+      fetch("/api/admin/whoami", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "accept_policies", policies: boxes.map(function (b) { return b.value; }) }) })
+        .then(function (r) { if (!r.ok) throw 0; info.policies = null; polErr = false; box.innerHTML = '<p tabindex="-1" id="adm-pol-done">' + esc(t("adm.pol_done")) + "</p>"; document.getElementById("adm-pol-done").focus(); })
+        .catch(function () { btn.disabled = false; });
+    });
+  }
+  style.textContent += ".adm-pol summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}.adm-pol ol{margin:6px 0 8px;padding-left:22px}.adm-pol li{margin-bottom:4px}" +
+    ".adm-pol-ro{font-size:13px;margin:4px 0 10px}#adm-pol-btn{font:inherit;font-weight:600;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--admin-accent-fill,#3d6be0);background:var(--admin-accent-fill,#3d6be0);color:#fff;cursor:pointer}";
   style.textContent += ".adm-covering{margin:0 0 18px;padding:10px 14px;border-radius:8px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px}";
 
   // ---- The menu, on every screen size (WCAG 2.2: 1.4.10 Reflow, 2.5.8 Target size) ----
@@ -238,7 +277,7 @@
   var GROUPS = [
     { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-checks", "admin-exceptions", "admin-reviews", "admin-feedback", "admin-ratings", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-dept-performance", "admin-jurisdiction", "admin-handovers", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
-    { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-helpers", "admin-gov", "admin-audit", "admin-retention", "admin-photos", "admin-copies"] },
+    { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-staff-records", "admin-helpers", "admin-gov", "admin-audit", "admin-retention", "admin-photos", "admin-copies"] },
     { id: "offices", key: "adm.nav_g_offices", pages: ["admin-site-settings", "admin-subscriptions", "admin-bills", "admin-accounts", "admin-sales", "admin-notices", "admin-pilot-requests", "admin-speed"] },
   ];
   var TOP = ["admin-dashboard"], TAIL = ["admin-visitors"];
@@ -361,7 +400,7 @@
   }
   // Prices & site details and Pilot requests (grieviq-39), at the end.
   function addOfficeLinks(nav) {
-    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"], ["admin-bills", "adm.nav_bills"], ["admin-copies", "adm.nav_copies"], ["admin-subscriptions", "adm.nav_subscriptions"], ["admin-speed", "adm.nav_speed"], ["admin-gov", "adm.nav_gov"], ["admin-handovers", "adm.nav_handovers"], ["admin-notices", "adm.nav_notices"], ["admin-helpers", "adm.nav_helpers"], ["admin-accounts", "adm.nav_accounts"], ["admin-sales", "adm.nav_sales"]].forEach(function (x) {
+    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"], ["admin-bills", "adm.nav_bills"], ["admin-copies", "adm.nav_copies"], ["admin-subscriptions", "adm.nav_subscriptions"], ["admin-speed", "adm.nav_speed"], ["admin-gov", "adm.nav_gov"], ["admin-handovers", "adm.nav_handovers"], ["admin-notices", "adm.nav_notices"], ["admin-helpers", "adm.nav_helpers"], ["admin-accounts", "adm.nav_accounts"], ["admin-sales", "adm.nav_sales"], ["admin-staff-records", "adm.nav_staff_records"]].forEach(function (x) {
       if (nav.querySelector('a[href*="' + x[0] + '"]')) return;
       var a = document.createElement("a");
       a.href = "/" + x[0] + ".html";
@@ -555,15 +594,15 @@
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })
     .then(function (d) {
-      if (d && d.blocked && (d.blocked.error === "ACCOUNT_LEFT" || d.blocked.error === "ACCESS_PAUSED")) {
+      if (d && d.blocked && (d.blocked.error === "ACCOUNT_LEFT" || d.blocked.error === "ACCESS_PAUSED" || d.blocked.error === "ACCESS_PAUSED_AUTO")) {
         blocked = d.blocked; clearTimeout(failSafe); root.classList.remove("adm-nav-pending"); ready(showBlocked); return;
       }
       if (!d || !d.pages) { root.classList.remove("adm-nav-pending"); return; }
       info = d;
       window.GIQ_ADMIN = d;
-      ready(function () { run(); showCovering(); showSalesCode(); drawAccount(); });
+      ready(function () { run(); showCovering(); showSalesCode(); showPolicies(); drawAccount(); });
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); drawSalesCode(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); drawSalesCode(); drawPolicies(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
 })();

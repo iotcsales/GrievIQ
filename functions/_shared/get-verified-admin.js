@@ -17,6 +17,7 @@
 // require "is an admin at all" (existing behavior, unchanged).
 
 import { verifyAccessJwt } from "./verify-access-jwt.js";
+import { touchSeen, policiesNeeded } from "./staff-policies.js";
 
 export const PERMISSIONS = {
   manage_admins: ["super_admin"],
@@ -145,6 +146,12 @@ export const PERMISSIONS = {
   view_sales: ["super_admin", "operations_admin", "auditor", "sales_executive", "sales_manager", "management_viewer"],
   work_sales: ["super_admin", "operations_admin", "sales_executive", "sales_manager"],
   manage_sales: ["super_admin", "operations_admin", "sales_manager"],
+  // grieviq-78: staff records (joining checks, policy sign-offs, contract
+  // dates, the quarterly access review, leaving checklists). The super admin
+  // and the person holding the "Staff records" duty keep them; the auditor
+  // reads; management sees counts only.
+  view_staff_records: ["super_admin", "auditor", "management_viewer", "staff_records_keeper"],
+  manage_staff_records: ["super_admin", "staff_records_keeper"],
   // grieviq-45: web addresses where a copy of GrievIQ was seen.
   view_copies: ["super_admin", "auditor"],
   // grieviq-46: office subscriptions (pilot dates, paid-up date, pause, end).
@@ -217,6 +224,7 @@ export const PAGES = {
   "admin-notices": "view_notices",                 // grieviq-55
   "admin-accounts": "view_accounts",                // grieviq-76
   "admin-sales": "view_sales",                      // grieviq-77
+  "admin-staff-records": "view_staff_records",      // grieviq-78
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)
 };
 export function pagesFor(roleOrRoles) {
@@ -255,7 +263,17 @@ export async function getVerifiedAdmin(request, env, permission) {
     return { ok: false, status: 401, error: (err && err.message) || "Unauthorized" };
   }
 
-  return resolveAdmin(env, email, permission);
+  const auth = await resolveAdmin(env, email, permission);
+  if (!auth.ok) return auth;
+  // grieviq-78: last sign-in; and until the staff policies are accepted,
+  // only reading (the sign-off itself goes through whoami).
+  await touchSeen(env, auth.adminId);
+  const method = String(request.method || "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" && !/\/api\/admin\/whoami$/.test(new URL(request.url).pathname)) {
+    const need = await policiesNeeded(env, auth.adminId);
+    if (need.length) return { ok: false, status: 403, error: "POLICIES_NOT_ACCEPTED", need };
+  }
+  return auth;
 }
 
 // Does this signed-in admin hold the permission (through their own role or
@@ -266,9 +284,11 @@ export function allows(auth, permission) {
 }
 
 // ---- grieviq-75: named duties ----
-export const DUTIES = ["HELPER_CHECK", "HELPER_APPROVE", "GRIEVANCE_OFFICER", "SECURITY_CONTACT"];
+export const DUTIES = ["HELPER_CHECK", "HELPER_APPROVE", "GRIEVANCE_OFFICER", "SECURITY_CONTACT", "STAFF_RECORDS"];
 export const HELPER_DUTIES = ["HELPER_CHECK", "HELPER_APPROVE"];
-export const DUTY_ROLE = { HELPER_CHECK: "helper_checker", HELPER_APPROVE: "helper_approver" };
+export const DUTY_ROLE = { HELPER_CHECK: "helper_checker", HELPER_APPROVE: "helper_approver", STAFF_RECORDS: "staff_records_keeper" };
+// Duties the auditor can never hold (independence).
+export const NOT_FOR_AUDITOR = ["HELPER_CHECK", "HELPER_APPROVE", "STAFF_RECORDS"];
 // The roles that held these powers before duties: given to anyone else, the
 // super admin is warned and must confirm (with a reason).
 export const DUTY_USUAL_ROLES = { HELPER_CHECK: ["super_admin", "operations_admin", "data_moderator"], HELPER_APPROVE: ["super_admin", "operations_admin"] };
@@ -316,6 +336,12 @@ export async function resolveAdmin(env, email, permission) {
     admin = await env.DB.prepare("SELECT id, role FROM admin_users WHERE LOWER(email) = ?").bind(email).first();
   }
   if (!admin) return { ok: false, status: 403, error: "NOT_ADMIN" };
+  // grieviq-78: access paused by GrievIQ (contract ended, or 90 days
+  // without signing in) until a super admin restores it.
+  try {
+    const ap = await env.DB.prepare("SELECT auto_paused FROM admin_users WHERE id = ?").bind(admin.id).first();
+    if (ap && ap.auto_paused && admin.status !== "LEFT") return { ok: false, status: 403, error: "ACCESS_PAUSED_AUTO", why: ap.auto_paused };
+  } catch (e) { /* part52 not run yet */ }
 
   const today = istDay();
   let covering = [];
@@ -355,7 +381,7 @@ export async function resolveAdmin(env, email, permission) {
     const { results } = await env.DB.prepare("SELECT duty, areas FROM staff_duties WHERE admin_id = ? AND ended_at IS NULL").bind(admin.id).all();
     duties = (results || []).map((d) => ({ duty: d.duty, areas: parseAreas(d.areas) }));
   } catch (e) { duties = []; }
-  if (admin.role === "auditor") duties = duties.filter((d) => !HELPER_DUTIES.includes(d.duty));
+  if (admin.role === "auditor") duties = duties.filter((d) => !NOT_FOR_AUDITOR.includes(d.duty));
   const roles = Array.from(new Set([admin.role].concat(covering.map((c) => c.role)).concat(duties.map((d) => DUTY_ROLE[d.duty]).filter(Boolean))));
 
   if (permission) {

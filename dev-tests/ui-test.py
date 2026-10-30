@@ -4284,6 +4284,80 @@ window.Razorpay.prototype.open = function () {
     ok(p.locator('#qt-plan optgroup option[value="c:STATE"]').count() == 1 and not errs, "the sales manager can prepare a State quotation", errs)
     ctx.close()
 
+    # ---------- grieviq-78: Staff records and access controls ----------
+    import sqlite3 as _sq78
+    _d78 = _sq78.connect(os.path.join(WORK, "test.db"))
+    _dt78 = __import__("datetime")
+    _d78.execute("UPDATE admin_users SET last_seen_at = ?", (_dt78.datetime.now(_dt78.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),)); _d78.commit()
+    today78 = (_dt78.datetime.now(_dt78.timezone.utc) + _dt78.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    for theme in ("dark", "light"):
+        for width in (1280, 390):
+            tag = "%s %d" % (theme, width)
+            ctx, p, errs = P("super@test.in", width=width, theme=theme)
+            p.goto(B + "/admin-staff-records.html"); p.wait_for_selector("#sr-tab-people")
+            ok(p.locator(".ac-card").count() == 7 and "Joining checks complete" in p.inner_text("#sr-app"), "staff records page " + tag)
+            for t in ("people", "review", "leaving"):
+                p.click("#sr-tab-" + t); p.wait_for_selector("#sr-panel"); p.wait_for_timeout(200)
+                ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "staff records %s clean %s" % (t, tag), (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+                if width == 1280 and theme == "dark": shot(p, "78-staff-records-" + t)
+            p.click("#sr-tab-people"); p.wait_for_selector("[data-open]")
+            p.click("[data-open] >> nth=1"); p.wait_for_selector("#sr-person-h")
+            ok(p.evaluate("document.activeElement.id") == "sr-person-h", "a person's record opens, heading focused " + tag)
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "person record clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+            if width == 1280 and theme == "light": shot(p, "78-staff-record")
+            ok(not errs, "staff records no script errors " + tag, errs)
+            ctx.close()
+    # record a check, with an error first
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-staff-records.html"); p.wait_for_selector("#sr-tab-people")
+    p.click("#sr-tab-people"); p.wait_for_selector("[data-open]")
+    sid = _d78.execute("SELECT id FROM admin_users WHERE email = 'se@test.in'").fetchone()[0]
+    p.click('[data-open="%s"]' % sid); p.wait_for_selector("#sr-ck-DEVICE-d")
+    p.fill("#sr-ck-DEVICE-d", "2099-01-01"); p.click('[data-check="DEVICE"]'); p.wait_for_selector("#sr-ck-DEVICE-d[aria-invalid=true]")
+    ok(p.evaluate("document.activeElement.id") == "sr-ck-DEVICE-d", "a future date is marked and focused")
+    p.fill("#sr-ck-DEVICE-d", today78); p.fill("#sr-ck-DEVICE-r", "Laptop GIQ-L07"); p.click('[data-check="DEVICE"]')
+    p.wait_for_function("document.querySelector('#sr-msg').innerText.indexOf('Check recorded') >= 0")
+    ok("Laptop GIQ-L07" in p.inner_text("#sr-app"), "check recorded on the page")
+    p.select_option("#sr-r-kind", "CONSULTANT"); p.fill("#sr-r-contractEnd", ""); p.click("#sr-record button[type=submit]"); p.wait_for_selector("#sr-r-contractEnd[aria-invalid=true]")
+    ok(p.evaluate("document.activeElement.id") == "sr-r-contractEnd", "a consultant needs an end date: marked and focused")
+    ok(not errs, "record forms no script errors", errs)
+    ctx.close()
+    # the staff policies box for someone new
+    for theme in ("dark", "light"):
+        ctx, p, errs = P("sx2@test.in", theme=theme)
+        p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-policies")
+        ok("Staff policies" in p.inner_text("#adm-policies") and p.locator(".adm-pol-ok").count() == 3, "policies to accept shown " + theme)
+        p.click("#adm-policies summary >> nth=0"); p.wait_for_timeout(100)
+        _cb = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('#adm-policies')", 1))
+        ok(not _cb and not p.evaluate(TARGET_JS) and not errs, "policies box clean " + theme, (_cb[:4], p.evaluate(TARGET_JS)[:4], errs))
+        if theme == "light":
+            p.locator("#adm-policies").screenshot(path=os.path.join(SHOTS, "78-policies.png"))
+            p.check("#adm-pol-CONFIDENTIALITY"); p.click("#adm-pol-btn"); p.wait_for_selector("#adm-pol-e")
+            ok(p.evaluate("document.activeElement.id") == "adm-pol-DATA_PROTECTION", "every policy needs its tick: the first missing one is focused")
+            p.check("#adm-pol-DATA_PROTECTION"); p.check("#adm-pol-SECURITY"); p.click("#adm-pol-btn"); p.wait_for_selector("#adm-pol-done")
+            ok(p.evaluate("document.activeElement.id") == "adm-pol-done", "accepted")
+        ctx.close()
+    # paused by GrievIQ
+    _d78.execute("UPDATE admin_users SET auto_paused = 'DORMANT' WHERE email = 'se@test.in'"); _d78.commit()
+    ctx, p, errs = P("se@test.in", theme="dark", lang="hi")
+    p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-denied")
+    ok("90" in p.inner_text("#adm-denied") and not p.evaluate(CONTRAST_JS), "paused access explained (Hindi, dark)")
+    ctx.close()
+    _d78.execute("UPDATE admin_users SET auto_paused = NULL WHERE email = 'se@test.in'"); _d78.commit()
+    # management: counts only; Hindi
+    ctx, p, errs = P("mv3@test.in", theme="light", lang="hi")
+    p.goto(B + "/admin-staff-records.html"); p.wait_for_selector(".ac-card")
+    ok(p.locator("#sr-tab-people").count() == 0 and "se@test.in" not in p.inner_text("#sr-app") and "स्टाफ़" in p.inner_text("main") and not p.evaluate(CONTRAST_JS) and not errs, "management: counts only (Hindi)", errs)
+    ctx.close()
+    # the duty on the Staff page
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-staff.html"); p.wait_for_selector("#billing-panel")
+    row = '.staff-row[data-email="sx@test.in"]'
+    p.click(row + " .act-duties"); p.wait_for_selector(row + " #du-STAFF_RECORDS-on")
+    ok("Staff records" in p.inner_text(row), "the Staff records duty can be given on the Staff page")
+    ctx.close()
+
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

@@ -341,7 +341,7 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: true });
     }
     if (p.status === "LEFT") return bad("This person has left GrievIQ.", { email: "LEFT" });
-    if (helper && p.role === "auditor") return bad("The auditor stays independent: they can't check or approve helpers.", { duty: "AUDITOR" });
+    if ((helper || duty === "STAFF_RECORDS") && p.role === "auditor") return bad("The auditor stays independent: they can't check or approve helpers or keep staff records.", { duty: "AUDITOR" });
     let areas = null;
     if (helper && Array.isArray(body.areas) && body.areas.length) {
       const ids = Array.from(new Set(body.areas.map(String))).slice(0, 100);
@@ -457,6 +457,12 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("UPDATE staff_covers SET ended_at = ?, ended_by = ?, end_reason = 'Left GrievIQ' WHERE (LOWER(away_email) = ? OR LOWER(cover_email) = ?) AND ended_at IS NULL").bind(now, auth.email, email, email).run();
     await logEvent(env, auth.email, "staff_left", email, { lastDay, reason, role: p.role });
     await endDuties(env, auth.email, p.id, email, DUTIES, "Left GrievIQ");
+    // grieviq-78: their confidentiality duty continues (ISO 27001 6.5); the
+    // leaving checklist opens on the Staff records page.
+    try {
+      await sendEmailNow(env, email, "GrievIQ: your confidentiality duty continues",
+        `<p>Dear ${escH(p.name || "colleague")},</p><p>Your work with GrievIQ has ended. Thank you.</p><p>The confidentiality agreement you signed continues after you leave: please don't keep, share or use any information about citizens, offices, GrievIQ or its systems, and delete any copies you may have. If you still hold a GrievIQ laptop, phone or ID card, please return it.</p><p>Questions: reply to the person who manages your account.</p>`);
+    } catch (e) { /* recorded on the page either way */ }
     return json({ ok: true });
   }
 

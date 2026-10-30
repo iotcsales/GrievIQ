@@ -660,6 +660,22 @@
   [
    "change the sac code",
    "accounts"
+  ],
+  [
+   "record a background check for a new staff member",
+   "staff"
+  ],
+  [
+   "quarterly access review",
+   "staff"
+  ],
+  [
+   "a contractor's access was paused",
+   "staff"
+  ],
+  [
+   "leaving checklist for someone who left",
+   "staff"
   ]
  ],
  "rep": [

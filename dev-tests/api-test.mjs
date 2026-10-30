@@ -3565,6 +3565,14 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
     ok(r.status === 200, "super admin adds a " + role, r.body);
   }
   ok((await st(S, { action: "add", email: "x9@test.in", role: "cashier", name: "No Role", employeeId: "GIQ-199", phone: "9811000199" })).body.fields.role === "REQUIRED", "an unknown role is refused");
+  // grieviq-78: new staff accept the staff policies before changing anything.
+  const pw = await who("ae@test.in");
+  ok(pw.policies && pw.policies.need.length === 3, "a new person has the staff policies to accept", pw.policies);
+  const r78 = await bl("ae@test.in", { action: "create" });
+  ok(r78.status === 403 && r78.body.error === "POLICIES_NOT_ACCEPTED", "until then they can only read", r78.body);
+  ok((await call("ae@test.in", "POST", "/api/admin/whoami", { action: "accept_policies", policies: ["SECURITY"] })).status === 400, "every policy must be accepted");
+  for (const [e] of NEW) ok((await call(e, "POST", "/api/admin/whoami", { action: "accept_policies", policies: pw.policies.need })).status === 200, e + " accepts the staff policies");
+  ok(!(await who("ae@test.in")).policies, "accepted");
   const pg = async (e) => (await who(e)).pages;
   let w = await pg("ae@test.in");
   ok(w["admin-bills"].allowed && w["admin-helpers"].allowed && !w["admin-cases"].allowed && !w["admin-staff"].allowed, "accounts executive: bills and helper payments, no cases or staff");
@@ -3973,12 +3981,124 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await sp("sx@test.in", { action: "log", id: L1, kind: "NOTE", note: "x y" })).body.error === "CODE_NOT_ACCEPTED", "no sales work before the code is accepted");
   await call("sx@test.in", "POST", "/api/admin/whoami", { action: "accept_sales_code", accept: true });
   // A sales person's new sign-in email keeps their leads and states
-  await call(S, "POST", "/api/admin/staff", { action: "add", email: "sx2@test.in", role: "sales_executive", name: "Sam Sales", employeeId: "GIQ-108", phone: "9811000108" });
-  await sp("sm@test.in", { action: "territory", email: "sx2@test.in", states: ["10"] });
-  await sp("sm@test.in", { action: "assign", id: L4, owner: "sx2@test.in" });
-  ok((await call(O, "POST", "/api/admin/staff", { action: "change_email", email: "sx2@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200 || (await call(S, "POST", "/api/admin/staff", { action: "change_email", email: "sx2@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200, "email changed");
+  await call(S, "POST", "/api/admin/staff", { action: "add", email: "sx3@test.in", role: "sales_executive", name: "Sam Sales", employeeId: "GIQ-108", phone: "9811000108" });
+  await sp("sm@test.in", { action: "territory", email: "sx3@test.in", states: ["10"] });
+  await sp("sm@test.in", { action: "assign", id: L4, owner: "sx3@test.in" });
+  ok((await call(O, "POST", "/api/admin/staff", { action: "change_email", email: "sx3@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200 || (await call(S, "POST", "/api/admin/staff", { action: "change_email", email: "sx3@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200, "email changed");
   ok(sdb.prepare("SELECT owner_email FROM sales_leads WHERE id = ?").get(L4).owner_email === "sam.sales@test.in" && sdb.prepare("SELECT COUNT(*) AS n FROM sales_territories WHERE email = 'sam.sales@test.in'").get().n === 1, "leads and states follow the new email");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers (part51 adds none)");
+}
+
+// ---- grieviq-78: Staff records and access controls ----
+{
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const who = async (e) => (await call(e, "GET", "/api/admin/whoami"));
+  const sr = (w) => call(w, "GET", "/api/admin/staff-records");
+  const srp = (w, b) => call(w, "POST", "/api/admin/staff-records", b);
+  const runStaff = async (now) => (await fetch(B + "/__test/run-staff", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(now ? { now } : {}) })).json();
+  const addD = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  sdb.prepare("UPDATE admin_users SET last_seen_at = ?").run(new Date().toISOString());
+  // Who sees what
+  let g = await sr(S);
+  ok(g.status === 200 && g.body.ready && g.body.canManage && g.body.people.some((p) => p.email === "ae@test.in"), "staff records for the super admin", g.body.error);
+  const au = await sr(A);
+  ok(au.status === 200 && !au.body.totalsOnly && !au.body.canManage, "the auditor reads everything");
+  ok((await srp(A, { action: "review_start" })).status === 403, "the auditor changes nothing");
+  const mg = await sr("mv2@test.in");
+  ok(mg.status === 200 && mg.body.totalsOnly && !mg.body.people && mg.body.counts.staff > 5, "management sees counts only", Object.keys(mg.body));
+  ok((await sr("ae@test.in")).status === 403, "other staff don't see staff records");
+  ok(sdb.prepare("PRAGMA table_info(staff_records)").all().every((c) => !/salary|bank|aadhaar|pan|account/i.test(c.name)) && sdb.prepare("PRAGMA table_info(staff_checks)").all().every((c) => !/aadhaar|pan_|file|document/i.test(c.name)), "no salary, bank, Aadhaar, PAN or documents stored");
+  // The Staff records duty
+  r = await call(S, "POST", "/api/admin/staff", { action: "duty", email: A, duty: "STAFF_RECORDS", on: true, reason: "Should be refused" });
+  ok(r.status === 400 && r.body.fields.duty === "AUDITOR", "the auditor can't keep staff records", r.body);
+  ok((await call(S, "POST", "/api/admin/staff", { action: "duty", email: "am@test.in", duty: "STAFF_RECORDS", on: true, reason: "Keeps the staff records" })).status === 200, "the super admin gives Meera the Staff records duty");
+  const amw = (await who("am@test.in")).body;
+  ok(amw.roles.includes("staff_records_keeper") && amw.pages["admin-staff-records"].allowed, "the duty opens Staff records");
+  // Record
+  r = await srp(S, { action: "record", email: S, kind: "EMPLOYEE" });
+  ok(r.status === 403 && r.body.error === "SELF", "nobody keeps their own record");
+  r = await srp(S, { action: "record", email: "se@test.in", managerEmail: "am@test.in", kind: "CONTRACT", joinedOn: addD(today, -30), probationEnd: addD(today, -40) });
+  ok(r.status === 400 && r.body.fields.contractEnd === "REQUIRED" && r.body.fields.probationEnd === "BEFORE_JOIN", "a contract needs an end date; probation after joining", r.body);
+  ok((await srp(S, { action: "record", email: "se@test.in", managerEmail: "se@test.in", kind: "EMPLOYEE" })).body.fields.managerEmail === "SELF", "not their own manager");
+  r = await srp(S, { action: "record", email: "se@test.in", managerEmail: "am@test.in", kind: "CONTRACT", joinedOn: addD(today, -30), probationEnd: addD(today, 5), contractEnd: addD(today, 10) });
+  ok(r.status === 200, "record saved", r.body);
+  // Joining checks
+  ok((await srp(S, { action: "check", email: "ae@test.in", item: "IDENTITY", doneOn: addD(today, 1) })).body.fields.doneOn === "RANGE", "a check can't be in the future");
+  ok((await srp("am@test.in", { action: "check", email: "ae@test.in", item: "IDENTITY", doneOn: today, ref: "HR file 101" })).status === 200, "the duty holder records a check");
+  ok((await srp("am@test.in", { action: "check", email: "am@test.in", item: "IDENTITY", doneOn: today })).body.error === "SELF", "not on themselves");
+  g = await sr(S);
+  const ae = g.body.people.find((p) => p.email === "ae@test.in"), sxp = g.body.people.find((p) => p.email === "sx@test.in");
+  ok(ae.checks.IDENTITY.ref === "HR file 101" && !ae.needed.includes("BACKGROUND") && ae.missing.length === 4, "accounts executive: 5 checks needed, 1 done", ae.missing);
+  ok(sxp.needed.includes("BACKGROUND"), "a background check is needed for sales staff");
+  ok(g.body.people.find((p) => p.email === "se@test.in").contractSoon, "contract ending within 30 days is shown");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action IN ('staff_record_saved', 'staff_check_recorded')").get().n >= 2, "changes are in the audit log");
+  // Contract reminders and pause
+  const m0 = mails().length;
+  let rs = await runStaff();
+  const rem = mails().slice(m0).filter((x) => /contract ends soon/.test(x.subject));
+  ok(rem.length >= 2 && rem.some((x) => x.to[0] === "am@test.in") && rem.some((x) => x.to[0] === S) && rem.every((x) => !/Sunil|se@test/.test(x.html)), "14 days before: manager and super admins reminded, no details", rem.map((x) => x.to[0]));
+  ok(mails().slice(m0).some((x) => /probation ends soon/.test(x.subject)), "probation reminder too");
+  const m1 = mails().length; await runStaff();
+  ok(!mails().slice(m1).some((x) => /contract ends soon|probation/.test(x.subject)), "reminded once");
+  sdb.prepare("UPDATE staff_records SET contract_end = ? WHERE admin_id = (SELECT id FROM admin_users WHERE email = 'se@test.in')").run(addD(today, -1));
+  rs = await runStaff();
+  ok(rs.paused === 1, "after the last day, access pauses", rs);
+  r = await who("se@test.in");
+  ok(r.status === 403 && r.body.error === "ACCESS_PAUSED_AUTO" && r.body.why === "CONTRACT_END", "the person sees why", r.body);
+  ok((await srp(S, { action: "restore", email: "se@test.in", reason: "Still working with us" })).body.error === "CONTRACT_ENDED", "restore needs the contract extended");
+  r = await srp(S, { action: "record", email: "se@test.in", managerEmail: "am@test.in", kind: "CONTRACT", joinedOn: addD(today, -30), contractEnd: addD(today, 180) });
+  ok(r.status === 200 && r.body.restored && (await who("se@test.in")).status === 200, "extending the contract restores access", r.body);
+  // 90 days without signing in (never a super admin)
+  sdb.prepare("UPDATE admin_users SET last_seen_at = ? WHERE email IN ('ae@test.in', ?)").run(new Date(Date.now() - 91 * 86400000).toISOString(), S);
+  rs = await runStaff();
+  ok(rs.dormant === 1 && (await who("ae@test.in")).body.why === "DORMANT", "90 days without signing in: paused", rs);
+  ok((await who(S)).status === 200, "never a super admin");
+  ok((await srp(S, { action: "restore", email: "ae@test.in", reason: "x" })).body.fields.reason === "REQUIRED", "restoring needs a reason");
+  ok((await srp(S, { action: "restore", email: "ae@test.in", reason: "Back from a long field assignment" })).status === 200 && (await who("ae@test.in")).status === 200, "restored");
+  // Policies: version or year
+  sdb.prepare("UPDATE staff_policy_acceptances SET accepted_at = ? WHERE admin_id = (SELECT id FROM admin_users WHERE email = 'se@test.in')").run(new Date(Date.now() - 366 * 86400000).toISOString());
+  const sew = (await who("se@test.in")).body;
+  ok(sew.policies && sew.policies.need.length === 3, "after a year the policies are accepted again");
+  r = await call("se@test.in", "POST", "/api/admin/feedback", { action: "x" });
+  ok(r.status === 403 && r.body.error === "POLICIES_NOT_ACCEPTED", "read only until then", r.body);
+  ok((await call("se@test.in", "POST", "/api/admin/whoami", { action: "accept_policies", policies: sew.policies.need })).status === 200 && !(await who("se@test.in")).body.policies, "accepted again");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'staff_policies_accepted'").get().n >= 7, "acceptances are logged");
+  // Quarterly access review
+  r = await srp(S, { action: "review_start" });
+  ok(r.status === 200 && /^\d{4}-Q[1-4]$/.test(r.body.quarter), "review started", r.body);
+  ok((await srp(S, { action: "review_start" })).body.error === "STARTED", "once a quarter");
+  g = await sr(S);
+  const items = g.body.review.items;
+  const mine = items.find((i) => i.mine);
+  ok(mine && (await srp(S, { action: "review_decide", id: mine.id, decision: "KEEP" })).body.error === "SELF", "nobody decides their own row");
+  const other = items.find((i) => !i.mine);
+  ok((await srp(S, { action: "review_decide", id: other.id, decision: "REMOVE" })).body.fields.note === "REQUIRED", "remove needs a note");
+  let fin = null;
+  for (const i of items.filter((x) => !x.mine)) { const x = await srp(S, { action: "review_decide", id: i.id, decision: "KEEP" }); if (x.body.finished) fin = x; }
+  ok(!fin, "not finished while a row is left");
+  r = await srp("am@test.in", { action: "review_decide", id: mine.id, decision: "KEEP" });
+  ok(r.status === 200 && r.body.finished, "the duty holder decides the super admin's row; review complete", r.body);
+  ok((await sr("mv2@test.in")).body.counts.review === "DONE" && sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'access_review_finished'").get().n === 1, "complete, logged, counted");
+  // Leaving
+  const m2 = mails().length;
+  ok((await call(S, "POST", "/api/admin/staff", { action: "left", email: "sam.sales@test.in", lastDay: today, reason: "Moved to another company" })).status === 200, "a sales person leaves");
+  const lm = mails().slice(m2).find((x) => x.to[0] === "sam.sales@test.in");
+  ok(lm && /confidentiality duty continues/.test(lm.subject), "they are told their confidentiality duty continues");
+  g = await sr(S);
+  const sam = g.body.people.find((p) => p.email === "sam.sales@test.in");
+  ok(sam && sam.exit && sam.exit.open.length === 4 && sam.exit.leadsOpen === 1 && g.body.counts.exitsOpen >= 1, "the leaving checklist opens, with their open lead", sam && sam.exit);
+  ok((await srp(S, { action: "exit", email: "se@test.in", item: "ASSETS" })).body.error === "NOT_LEFT", "only for people who left");
+  for (const it of ["ASSETS", "EMAIL_ROUTING", "ACCESS_POLICY", "NO_COPIES"]) await srp(S, { action: "exit", email: "sam.sales@test.in", item: it });
+  ok((await sr(S)).body.people.find((p) => p.email === "sam.sales@test.in").exit.open.length === 0, "checklist items done");
+  // Headcount reminders
+  ok((g.body.thresholds || []).includes(10), "10+ people: the POSH and ESI reminder shows", g.body.thresholds);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers (part52 adds none)");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM staff_duties").get().n > 0 && sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'idx_staff_duty_one'").get().n === 1, "staff duties kept after the rebuild");
+  sdb.prepare("UPDATE admin_users SET last_seen_at = ?").run(new Date().toISOString());
 }
 
 // ---- audit trail ----

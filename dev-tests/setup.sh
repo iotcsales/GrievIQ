@@ -25,7 +25,7 @@ SHIFT = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.date(202
 def shifted(m):
     t = datetime.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(days=SHIFT)
     return "'" + t.strftime("%Y-%m-%dT%H:%M:%S") + "Z'"
-for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "part31-speed.sql", "part32-gov.sql", "part33-districts.sql", "part34-gov-login.sql", "part35-gov-reports.sql", "part36-handover.sql", "part37-transfers.sql", "part38-notices.sql", "part39-notice-letters.sql", "part40-ward-seats.sql", "part41-followups.sql", "part42-online-pay.sql", "part43-review-office.sql", "part44-quotations.sql", "part45-custom-quotes.sql", "part46-helpers.sql", "part47-helper-filing.sql", "part48-helper-card.sql", "part49-staff-duties.sql", "part50-accounts.sql", "part51-sales.sql", "seed.sql"]:
+for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.sql", "part23-department-step.sql", "part24-citizen-ratings.sql", "part25-department-officers.sql", "part26-dept-agreement-copy.sql", "part27-site-settings.sql", "part28-billing.sql", "part29-copy-sightings.sql", "part30-subscriptions.sql", "part31-speed.sql", "part32-gov.sql", "part33-districts.sql", "part34-gov-login.sql", "part35-gov-reports.sql", "part36-handover.sql", "part37-transfers.sql", "part38-notices.sql", "part39-notice-letters.sql", "part40-ward-seats.sql", "part41-followups.sql", "part42-online-pay.sql", "part43-review-office.sql", "part44-quotations.sql", "part45-custom-quotes.sql", "part46-helpers.sql", "part47-helper-filing.sql", "part48-helper-card.sql", "part49-staff-duties.sql", "part50-accounts.sql", "part51-sales.sql", "part52-staff-records.sql", "seed.sql"]:
     sql = open(os.path.join(here, f), encoding="utf-8").read()
     if f == "seed.sql" and SHIFT > 0:
         sql = re.sub(r"'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)Z'", shifted, sql)
@@ -34,6 +34,14 @@ for f in ["schema-live.sql", "part21-departments.sql", "part22-department-types.
 # them the duties the live move gives (part49's INSERTs, run again here).
 p49 = open(os.path.join(here, "part49-staff-duties.sql"), encoding="utf-8").read()
 for stmt in re.findall(r"INSERT INTO staff_duties[^;]*;", p49): c.execute(stmt)
+# grieviq-78: the test staff have accepted the staff policies (the tests of
+# the sign-off itself remove these rows first).
+pol = open(os.path.join(here, "..", "functions", "_shared", "staff-policies.js"), encoding="utf-8").read()
+vers = dict(re.findall(r'^\s*([A-Z_]+): "(\d{4}-\d\d-\d\d)",', re.search(r"POLICY_VERSIONS = \{([^}]*)\}", pol).group(1), re.M))
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+for (aid,) in c.execute("SELECT id FROM admin_users").fetchall():
+    for k, v in vers.items():
+        c.execute("INSERT INTO staff_policy_acceptances (id, admin_id, policy, version, accepted_at) VALUES (?, ?, ?, ?, ?)", ("seed-" + aid + "-" + k, aid, k, v, now))
 c.commit()
 PY
 nohup node --no-warnings "$HERE/server.mjs" "$REPO" "$WORK/test.db" 8788 > "$WORK/server.log" 2>&1 &
