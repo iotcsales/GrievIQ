@@ -36,6 +36,14 @@
     "adm.role_data_moderator": "Data moderator",
     "adm.role_auditor": "Auditor",
     "adm.role_data_entry_operator": "Data entry operator",
+    "adm.role_accounts_executive": "Accounts executive",
+    "adm.role_accounts_manager": "Accounts manager",
+    "adm.role_support_executive": "Support executive",
+    "adm.role_sales_executive": "Sales executive",
+    "adm.role_sales_manager": "Sales manager",
+    "adm.role_management_viewer": "Management (view only)",
+    "adm.role_helper_checker": "Helper checker (duty)",
+    "adm.role_helper_approver": "Helper approver (duty)",
     "adm.nav_menu": "Menu",
     "adm.nav_close": "Close",
     "adm.nav_g_daily": "Daily work",
@@ -185,6 +193,38 @@
       return t("adm.nav_covering", { name: (c.name || c.email) + (c.employeeId ? " (" + c.employeeId + ")" : ""), role: roleName(c.role), date: dayText(c.until) });
     }).join(" ");
   }
+  // grieviq-75: sales staff accept the sales code of conduct once (again when
+  // it changes) before they can work on pilot requests or quotations.
+  function showSalesCode() {
+    if (!info || !info.salesCode || !info.salesCode.needed) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    var box = document.getElementById("adm-salescode");
+    if (!box) { box = document.createElement("section"); box.id = "adm-salescode"; box.className = "adm-salescode"; box.setAttribute("aria-labelledby", "adm-sc-h"); main.insertBefore(box, main.firstChild); }
+    drawSalesCode();
+  }
+  var scErr = false;
+  function drawSalesCode() {
+    var box = document.getElementById("adm-salescode");
+    if (!box || !info || !info.salesCode) return;
+    box.innerHTML = '<h2 id="adm-sc-h">' + esc(t("adm.sc_h")) + "</h2><p>" + esc(t("adm.sc_p")) + "</p><ol>" +
+      [1, 2, 3, 4, 5].map(function (i) { return "<li>" + esc(t("adm.sc_" + i)) + "</li>"; }).join("") + "</ol>" +
+      '<div class="adm-sc-tick"><input type="checkbox" id="adm-sc-ok"' + (scErr ? ' aria-invalid="true" aria-describedby="adm-sc-e"' : "") + '><label for="adm-sc-ok">' + esc(t("adm.sc_tick")) + "</label></div>" +
+      (scErr ? '<p class="adm-sc-e" id="adm-sc-e" role="alert">' + esc(t("adm.sc_e_tick")) + "</p>" : "") +
+      '<button type="button" id="adm-sc-btn">' + esc(t("adm.sc_btn")) + "</button>";
+    document.getElementById("adm-sc-btn").addEventListener("click", function () {
+      if (!document.getElementById("adm-sc-ok").checked) { scErr = true; drawSalesCode(); document.getElementById("adm-sc-ok").focus(); return; }
+      var btn = this; btn.disabled = true;
+      fetch("/api/admin/whoami", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "accept_sales_code", accept: true }) })
+        .then(function (r) { if (!r.ok) throw 0; info.salesCode = null; box.innerHTML = '<p tabindex="-1" id="adm-sc-done">' + esc(t("adm.sc_done")) + "</p>"; document.getElementById("adm-sc-done").focus(); })
+        .catch(function () { btn.disabled = false; });
+    });
+  }
+  style.textContent += ".adm-salescode{margin:0 0 20px;padding:16px 18px;border-radius:10px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px;line-height:1.5}" +
+    ".adm-salescode h2{font-size:16px;margin:0 0 8px}.adm-salescode ol{margin:6px 0 12px;padding-left:22px}.adm-salescode li{margin-bottom:4px}" +
+    ".adm-sc-tick{display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px}.adm-sc-tick input{width:20px;height:20px;margin-top:1px}" +
+    ".adm-sc-e{color:var(--admin-danger,#e5675c);margin:0 0 8px}" +
+    "#adm-sc-btn{font:inherit;font-weight:600;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--admin-accent-fill,#3d6be0);background:var(--admin-accent-fill,#3d6be0);color:#fff;cursor:pointer}";
   style.textContent += ".adm-covering{margin:0 0 18px;padding:10px 14px;border-radius:8px;border:1px solid var(--admin-border,#334);border-left:4px solid var(--admin-accent,#4c7cf0);background:var(--admin-panel,rgba(127,127,127,.06));font-size:14px}";
 
   // ---- The menu, on every screen size (WCAG 2.2: 1.4.10 Reflow, 2.5.8 Target size) ----
@@ -395,7 +435,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=74", "/guide.js?v=63"].forEach(function (src) {
+      ["/guide-content.js?v=75", "/guide.js?v=63"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };
@@ -520,9 +560,9 @@
       if (!d || !d.pages) { root.classList.remove("adm-nav-pending"); return; }
       info = d;
       window.GIQ_ADMIN = d;
-      ready(function () { run(); showCovering(); drawAccount(); });
+      ready(function () { run(); showCovering(); showSalesCode(); drawAccount(); });
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); drawSalesCode(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
 })();

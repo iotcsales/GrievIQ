@@ -90,7 +90,7 @@
   }
   function photos(h) {
     var kinds = (h.filesIn ? ["id", "selfie"] : []).concat(h.card && h.card.photo ? ["card"] : []);
-    if (!S.d.canFiles || !kinds.length) return "";
+    if (!S.d.canFiles || !kinds.length || !(mine(h).check || mine(h).approve)) return "";
     var sh = S.show[h.id] || {};
     var LBL = { id: "adm.hl_show_id", selfie: "adm.hl_show_selfie", card: "adm.hl_show_card" }, ALT = { id: "adm.hl_alt_id", selfie: "adm.hl_alt_selfie", card: "adm.hl_alt_card" };
     return '<div class="acts small">' + kinds.map(function (k) {
@@ -115,7 +115,7 @@
     var id = h.id, f = S.forms[id] || (S.forms[id] = {});
     return '<form class="hl-form" data-form="refuse" data-h="' + id + '" novalidate><h3>' + esc(T("adm.hl_refuse_h")) + "</h3>" +
       '<fieldset class="rad"><legend>' + esc(T("adm.hl_refuse_kind")) + "</legend>" +
-      ["NOT_FAULT", "FORGED"].filter(function (k) { return k === "NOT_FAULT" || S.d.canApprove; }).map(function (k) {
+      ["NOT_FAULT", "FORGED"].filter(function (k) { return k === "NOT_FAULT" || (S.d.canApprove && mine(h).approve); }).map(function (k) {
         return '<span class="ropt"><input type="radio" name="hl-' + id + '-kind" id="hl-' + id + "-kind-" + k + '" value="' + k + '" data-f="kind" data-h="' + id + '"' + (f.kind === k ? " checked" : "") + '><label for="hl-' + id + "-kind-" + k + '">' + esc(T("adm.hl_kind_" + k + "_l")) + "</label></span>";
       }).join("") + errOf(id, "kind") + "</fieldset>" +
       txt(id, "reason", "adm.hl_reason", T("adm.hl_reason_h", { a: S.d.limits.reason[0], b: S.d.limits.reason[1] }), 3) +
@@ -175,12 +175,16 @@
     var body = "";
     if (open) {
       body = summaryDl(h) + flags(h, det) + photos(h) + rowMsg(h.id);
-      if (S.d.canCheck && needsCheck(h)) body += h.filesIn ? checkForm(h) : '<p class="hl-flag">' + esc(T("adm.hl_files_gone")) + "</p>";
-      if (needsApproval(h) && (S.d.canApprove || String(h.recheck === "CHECKED" ? h.recheckBy : h.checkedBy || "").toLowerCase() === String(S.d.me || "").toLowerCase())) body += approveBox(h);
-      if (S.d.canCheck && (h.rawStatus === "WAITING" || h.rawStatus === "CHECKED")) body += refuseForm(h);
-      if (S.d.canCheck && cardPending(h) && !needsCheck(h) && !needsApproval(h)) body += cardForms(h);
-      if (S.d.canApprove && appealOpen(h)) body += appealForm(h);
-      if (S.d.canApprove) body += actionForm(h);
+      var m = mine(h), out = false;
+      if (S.d.canCheck && needsCheck(h)) { if (m.check) body += h.filesIn ? checkForm(h) : '<p class="hl-flag">' + esc(T("adm.hl_files_gone")) + "</p>"; else out = true; }
+      var iChecked = String(h.recheck === "CHECKED" ? h.recheckBy : h.checkedBy || "").toLowerCase() === String(S.d.me || "").toLowerCase();
+      if (needsApproval(h) && ((S.d.canApprove && m.approve) || iChecked)) body += approveBox(h);
+      else if (needsApproval(h) && S.d.canApprove) out = true;
+      if (S.d.canCheck && m.check && (h.rawStatus === "WAITING" || h.rawStatus === "CHECKED")) body += refuseForm(h);
+      if (S.d.canCheck && cardPending(h) && !needsCheck(h) && !needsApproval(h)) { if (m.check) body += cardForms(h); else out = true; }
+      if (S.d.canApprove && m.approve && appealOpen(h)) body += appealForm(h);
+      if (S.d.canApprove && m.approve) body += actionForm(h);
+      if (out) body += '<p class="hl-flag">' + esc(T("adm.hl_outside", { area: h.area || "" })) + "</p>";
       body += history(det);
     }
     return '<section class="pr-card" aria-labelledby="hl-h-' + h.id + '"><h2 id="hl-h-' + h.id + '">' + esc(title) + ' <span class="hl-badge">' + esc(st(h)) + "</span>" +
@@ -198,7 +202,8 @@
       f.flags.map(function (x) { return '<p class="hl-flag">' + esc(T("adm.hl_flag_" + x + "_l")) + "</p>"; }).join("") + rowMsg(id);
     if (kind === "call") {
       html += "<p>" + esc(T("adm.hl_call_mobile")) + " <b>" + esc(sh || f.mobile || "") + "</b></p>";
-      if (S.d.canCall) {
+      if (S.d.canCall && f.mine === false) html += '<p class="hl-flag">' + esc(T("adm.hl_outside_f")) + "</p>";
+      else if (S.d.canCall) {
         html += (sh ? "" : '<div class="acts small"><button type="button" data-act="phone" data-f="' + esc(f.id) + '">' + esc(T("adm.hl_show_phone")) + '</button></div><p class="muted-note">' + esc(T("adm.hl_show_phone_note")) + "</p>") +
           '<form class="hl-form" data-form="call" data-h="' + id + '" data-f="' + esc(f.id) + '" novalidate><h3>' + esc(T("adm.hl_call_h")) + "</h3>" +
           '<fieldset class="rad"><legend>' + esc(T("adm.hl_call_outcome")) + "</legend>" + ["CONFIRMED", "NO_ANSWER", "NOT_NOW", "NOT_ASKED"].map(function (o) {
@@ -207,7 +212,7 @@
           }).join("") + errOf(id, "outcome") + "</fieldset>" + txt(id, "note", "adm.hl_note_opt", T("adm.hl_c_note_h"), 2) +
           '<div class="acts"><button type="submit" class="primary"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_call_btn")) + "</button></div></form>";
       }
-    } else if (S.d.canCall) {
+    } else if (S.d.canCall && f.mine !== false) {
       var fm2 = S.forms[id] || {};
       html += '<form class="hl-form" data-form="flagrev" data-h="' + id + '" data-f="' + esc(f.id) + '" novalidate><h3>' + esc(T("adm.hl_flag_h")) + "</h3>" +
         '<fieldset class="rad"><legend>' + esc(T("adm.hl_flag_q")) + "</legend>" + ["FINE", "FAKE"].map(function (o) {
@@ -230,18 +235,45 @@
     if (!list.length) return head + '<p class="muted">' + esc(T("adm.hl_none")) + "</p>";
     return head + list.map(function (p) {
       var id = "p" + p.id;
-      return '<section class="pr-card" aria-labelledby="hl-h-' + id + '"><h2 id="hl-h-' + id + '">' + esc(p.name) + (p.ref ? " · " + esc(p.ref) : "") + " · " + esc(rupees(p.amountTaken)) + "</h2>" +
+      return '<section class="pr-card" aria-labelledby="hl-h-' + id + '"><h2 id="hl-h-' + id + '">' + (p.name ? esc(p.name) + " · " : "") + esc(p.ref || "") + " · " + esc(rupees(p.amountTaken)) + "</h2>" +
         '<p class="muted-note">' + esc(T("adm.hl_why_" + (p.refundWhy || "AMOUNT"))) + " · " + esc(p.receiptNo || "") + " · " + esc(p.paymentId || "") + "</p>" + rowMsg(id) +
-        (S.d.canApprove ? '<div class="acts small"><button type="button" class="primary" data-act="refund" data-p="' + esc(p.id) + '"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_refund_btn", { amount: rupees(p.amountTaken) })) + "</button></div>" +
+        (S.d.canRefund && p.mine !== false ? '<div class="acts small"><button type="button" class="primary" data-act="refund" data-p="' + esc(p.id) + '"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_refund_btn", { amount: rupees(p.amountTaken) })) + "</button></div>" +
           '<form class="hl-form" data-form="refunded" data-h="' + id + '" data-p="' + esc(p.id) + '" novalidate>' + txt(id, "note", "adm.hl_refunded_note", T("adm.hl_refunded_note_h"), 2) +
           '<div class="acts"><button type="submit"' + (S.busy ? " disabled" : "") + ">" + esc(T("adm.hl_refunded_btn")) + "</button></div></form>" : "") + "</section>";
     }).join("");
+  }
+  // ---- grieviq-75: duties by area ----
+  function mine(h) { return h.mine || { check: !!S.d.canCheck, approve: !!S.d.canApprove, any: true }; }
+  function areaList(d) { return d.areas ? d.areas.map(function (id) { var a = (S.d.coverage && S.d.coverage.areas || []).find(function (x) { return x.id === id; }); return a ? a.name : id; }).join(", ") : T("adm.du_all_areas"); }
+  function coverBox() {
+    var c = S.d.coverage; if (!c) return "";
+    var warn = c.checkers < 1 || c.approvers < 1 || (c.checkers + c.approvers) < 2;
+    var areaRows = (c.areas || []).map(function (a) {
+      var none = a.checkers < 1 || a.approvers < 1;
+      return "<li" + (none ? ' class="hl-flag"' : "") + ">" + esc(T("adm.hl_cov_area", { area: a.name, c: a.checkers, a: a.approvers })) +
+        (none ? " — " + esc(T("adm.hl_cov_nobody")) : (!a.ownCheckers || !a.ownApprovers) ? " — " + esc(T("adm.hl_cov_by_all")) : "") + "</li>";
+    }).join("");
+    var mineTxt = (S.d.duties || []).map(function (d) { return T("adm.du_" + d.duty) + " (" + areaList(d) + ")"; }).join(" · ");
+    return '<section class="hl-cover" aria-labelledby="hl-cov-h"><h2 class="hl-sec" id="hl-cov-h">' + esc(T("adm.hl_cov_h")) + "</h2>" +
+      "<p>" + esc(T("adm.hl_cov_line", { c: c.checkers, a: c.approvers })) + (S.d.isSuper ? ' <a href="/admin-staff.html">' + esc(T("adm.hl_cov_assign")) + "</a>" : "") + "</p>" +
+      (warn ? '<p class="hl-flag">' + esc(T("adm.hl_cov_warn")) + "</p>" : "") +
+      (areaRows ? '<ul class="hl-ev">' + areaRows + "</ul>" : "") +
+      '<p class="muted-note">' + esc(mineTxt ? T("adm.hl_cov_mine", { duties: mineTxt }) : T("adm.hl_cov_none_mine")) + "</p></section>";
+  }
+  function paymentsView() {
+    var d = S.d, list = d.payments || [];
+    return '<p class="muted-note">' + esc(T("adm.hl_pay_only")) + "</p>" + refunds() +
+      '<h2 class="hl-sec" id="hl-pays">' + esc(T("adm.hl_pays_h")) + '<span class="hl-count">' + list.length + "</span></h2>" +
+      (list.length ? '<div class="hl-table-wrap"><table class="hl-table"><caption class="sr-only">' + esc(T("adm.hl_pays_h")) + "</caption><thead><tr><th scope=\"col\">" + esc(T("adm.hl_pt_ref")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_receipt")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_amount")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_status")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_date")) + "</th></tr></thead><tbody>" +
+        list.map(function (p) { return "<tr><td>" + esc(p.ref) + "</td><td>" + (p.receiptNo ? '<a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(p.receiptNo) + "</a>" : "—") + "</td><td>" + esc(rupees(p.price)) + "</td><td>" + esc(T("hp.rc_st_" + p.status)) + "</td><td>" + esc(day(p.settledAt || p.startedAt)) + "</td></tr>"; }).join("") +
+        "</tbody></table></div>" : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>");
   }
   function render(focusId) {
     var app = $("hl-app");
     if (S.err) { app.innerHTML = '<p class="muted">' + esc(T(S.err)) + "</p>"; return; }
     var d = S.d; if (!d) return;
     if (!d.ready) { app.innerHTML = '<p class="muted">' + esc(T("adm.hl_not_ready")) + "</p>"; return; }
+    if (d.paymentsOnly) { app.innerHTML = paymentsView(); if (focusId) { var fe = $(focusId); if (fe) fe.focus(); } return; }
     var hs = d.helpers;
     var toCheck = hs.filter(needsCheck), toApprove = hs.filter(needsApproval), appeals = hs.filter(appealOpen);
     var cards = hs.filter(function (h) { return cardPending(h) && !needsCheck(h) && !needsApproval(h) && !appealOpen(h); });
@@ -255,7 +287,7 @@
       return '<section id="' + id + '" aria-labelledby="' + id + '-h"><h2 class="hl-sec" id="' + id + '-h">' + esc(T(key)) + '<span class="hl-count">' + list.length + "</span></h2>" + (list.length ? list.map(card).join("") : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>") + "</section>";
     };
     app.innerHTML = (d.setUp ? "" : '<p class="st-warn">' + esc(T("adm.hl_not_set_up")) + "</p>") +
-      (!d.canCheck && !d.canApprove ? '<p class="readonly-tag" style="margin-left:0">' + esc(T("adm.hl_readonly")) + "</p>" : "") +
+      (!d.canCheck && !d.canApprove ? '<p class="readonly-tag" style="margin-left:0">' + esc(T("adm.hl_readonly_duty")) + "</p>" : "") + coverBox() +
       sec("adm.hl_to_check", toCheck, "hl-check") + sec("adm.hl_to_approve", toApprove, "hl-approve") + sec("adm.hl_appeals", appeals, "hl-appeals") + sec("adm.hl_cards", cards, "hl-cards") + filingSecs() + refunds() +
       '<h2 class="hl-sec" id="hl-all">' + esc(T("adm.hl_all")) + '<span class="hl-count">' + rest.length + "</span></h2>" +
       '<div class="hl-filter"><div class="fld"><label for="hl-filter">' + esc(T("adm.hl_filter")) + '</label><select id="hl-filter">' +

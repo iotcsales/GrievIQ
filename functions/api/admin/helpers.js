@@ -25,10 +25,16 @@
 //             didn't answer (tried again later), or doesn't want it now
 //   flag      (approve_helpers) { filingId, review: FINE|FAKE, note } a flagged filing
 //             looked at; FAKE is a strike (and drops it if it is still waiting)
+// grieviq-75: checking and approving are named duties given by the super
+// admin (staff_duties), each for all areas or some; a staff member acts only
+// on helpers in their areas (OUTSIDE_AREA). Refunds: refund_helper_fees
+// (super, operations, accounts manager, or the approver duty for that area).
+// Accounts staff (view_helper_payments without view_helpers) get the
+// payments only: helper number, receipt, amount, never names or KYC.
 // The applicant sees the reason for a refusal (except forged documents),
 // suspension or removal; it must be about the application or conduct only.
 
-import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, allows, dutyCovers, parseAreas } from "../../_shared/get-verified-admin.js";
 import { istToday } from "../../_shared/site-settings.js";
 import {
   helpersReady, idSecretOk, logHelper, adminLog, stateOf, paymentOut, maskMobile, unitInfo, nextHelperRef, monthEnd, addMonths, addDays,
@@ -57,11 +63,14 @@ function staffRow(h, canSeeMobile, today, extra) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_helpers");
+  const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
+  const full = allows(auth, "view_helpers");
+  if (!full && !allows(auth, "view_helper_payments")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
   if (!(await helpersReady(env))) return json({ ready: false });
   const url = new URL(request.url);
   const today = istToday();
+  if (!full) return paymentsOnly(env, auth, url);
   const canFiles = allows(auth, "view_helper_files");
   const file = url.searchParams.get("file");
   if (file) {
@@ -69,6 +78,7 @@ export async function onRequestGet({ request, env }) {
     const kq = url.searchParams.get("kind");
     const kind = kq === "selfie" ? "selfie" : kq === "card" ? "card" : "id";
     const h = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(String(file).slice(0, 60)).first();
+    if (h && !covers(auth, h.area_id).any) return json({ error: "OUTSIDE_AREA" }, 403);
     const key = h && (kind === "selfie" ? h.selfie_key : kind === "card" ? h.card_key : h.id_key);
     if (!key || !env.PRIVATE_PHOTOS) return json({ error: "NOT_FOUND" }, 404);
     const obj = await env.PRIVATE_PHOTOS.get(key);
@@ -79,9 +89,10 @@ export async function onRequestGet({ request, env }) {
   }
   const ph = url.searchParams.get("phone");
   if (ph) {
-    if (!allows(auth, "reveal_citizen_phone")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
-    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT * FROM helper_filings WHERE id = ?").bind(String(ph).slice(0, 60)).first() : null;
+    if (!allows(auth, "approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT f.*, h.area_id FROM helper_filings f JOIN helpers h ON h.id = f.helper_id WHERE f.id = ?").bind(String(ph).slice(0, 60)).first() : null;
     if (!f || f.status !== "WAITING_CALL" || !f.payload) return json({ error: "NOT_FOUND" }, 404);
+    if (!covers(auth, f.area_id).approve) return json({ error: "OUTSIDE_AREA" }, 403);
     await logHelper(env, f.helper_id, auth.email, "PHONE_SHOWN", { filing: f.id });
     return json({ mobile: String(JSON.parse(f.payload).citizen_phone || "") });
   }
@@ -105,7 +116,7 @@ export async function onRequestGet({ request, env }) {
       const { results: fr } = await env.DB.prepare("SELECT f.id, f.status, f.created_at, f.flags, f.flag_review, f.consent_via, f.remove_reason, lu.name AS unit FROM helper_filings f LEFT JOIN local_units lu ON lu.id = f.unit_id WHERE f.helper_id = ? ORDER BY f.created_at DESC LIMIT 50").bind(h.id).all();
       filings = (fr || []).map((f) => ({ id: f.id, status: f.status, at: f.created_at, unit: f.unit, flags: f.flags ? JSON.parse(f.flags) : [], review: f.flag_review, via: f.consent_via, removed: f.remove_reason }));
     }
-    return json({ helper: staffRow(h, canFiles, today, { unit: unit ? unit.name : h.unit_id, area: unit ? unit.area_name : "", same, filings,
+    return json({ helper: staffRow(h, canFiles && covers(auth, h.area_id).any, today, { unit: unit ? unit.name : h.unit_id, area: unit ? unit.area_name : "", same, filings, areaId: h.area_id || null, mine: covers(auth, h.area_id),
       events: (ev || []).map((e) => ({ at: e.at, actor: e.actor, action: e.action, detail: e.detail ? JSON.parse(e.detail) : null })),
       payments: (pays || []).map((p) => Object.assign(paymentOut(p), { orderId: p.order_id, staffBy: p.staff_by, staffAt: p.staff_at, staffNote: p.staff_note, lastFail: p.last_fail })) }) });
   }
@@ -116,15 +127,16 @@ export async function onRequestGet({ request, env }) {
   // The same mobile number on two applications is shown to staff (a hint, not a block).
   const mob = {};
   rows.forEach((h) => { (mob[h.mobile] = mob[h.mobile] || []).push(h); });
-  const helpers = rows.map((h) => staffRow(h, canFiles, today, { unit: h.unit_name || h.unit_id, area: h.area_name || "",
+  const helpers = rows.map((h) => staffRow(h, canFiles && covers(auth, h.area_id).any, today, { unit: h.unit_name || h.unit_id, area: h.area_name || "", areaId: h.area_id || null,
+    mine: covers(auth, h.area_id),
     sameMobile: (mob[h.mobile] || []).filter((x) => x.id !== h.id).map((x) => x.ref || x.id.slice(0, 8)) }));
   const { results: refunds } = await env.DB.prepare(
-    "SELECT p.*, h.ref, h.name FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.status IN ('REFUND_DUE','EXTRA') ORDER BY p.settled_at"
+    "SELECT p.*, h.ref, h.name, h.area_id FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.status IN ('REFUND_DUE','EXTRA') ORDER BY p.settled_at"
   ).all();
   let calls = [], flagged = [];
   if (await filingsReady(env)) {
     const { results: fl } = await env.DB.prepare(
-      `SELECT f.*, h.ref AS helper_ref, lu.name AS unit_name, c.name AS category_name FROM helper_filings f JOIN helpers h ON h.id = f.helper_id
+      `SELECT f.*, h.ref AS helper_ref, h.area_id AS helper_area, lu.name AS unit_name, c.name AS category_name FROM helper_filings f JOIN helpers h ON h.id = f.helper_id
        LEFT JOIN local_units lu ON lu.id = f.unit_id LEFT JOIN grievance_categories c ON c.id = f.category_id
        WHERE f.status = 'WAITING_CALL' OR (f.flags IS NOT NULL AND f.flag_review IS NULL AND f.status NOT IN ('CANCELLED','EXPIRED','NOT_ASKED','FAKE')) ORDER BY f.created_at LIMIT 200`
     ).all();
@@ -132,18 +144,83 @@ export async function onRequestGet({ request, env }) {
       const p = f.payload ? JSON.parse(f.payload) : null;
       return { id: f.id, helperId: f.helper_id, helperRef: f.helper_ref, status: f.status, createdAt: f.created_at, unit: f.unit_name, category: f.category_name,
         description: p ? p.description : null, place: p ? p.location_detail : null, mobile: p ? maskMobile(String(p.citizen_phone).slice(-10)) : null,
-        email: p ? maskEmail(p.citizen_email) : null, callTries: f.call_tries, lastCallAt: f.last_call_at, flags: f.flags ? JSON.parse(f.flags) : [] };
+        email: p ? maskEmail(p.citizen_email) : null, callTries: f.call_tries, lastCallAt: f.last_call_at, flags: f.flags ? JSON.parse(f.flags) : [],
+        mine: covers(auth, f.helper_area).approve };
     };
     calls = (fl || []).filter((f) => f.status === "WAITING_CALL").map(out);
     flagged = (fl || []).filter((f) => f.flags && !f.flag_review).map(out);
   }
   return json({
-    calls, flagged, canCall: allows(auth, "approve_helpers") && allows(auth, "reveal_citizen_phone"),
+    calls, flagged, canCall: allows(auth, "approve_helpers"),
+    coverage: await coverage(env, rows), duties: (auth.duties || []).filter((d) => d.duty === "HELPER_CHECK" || d.duty === "HELPER_APPROVE"),
+    canRefund: allows(auth, "refund_helper_fees"), isSuper: auth.role === "super_admin",
     ready: true, setUp: idSecretOk(env) && !!env.PRIVATE_PHOTOS, today, me: auth.email,
     canCheck: allows(auth, "check_helpers"), canApprove: allows(auth, "approve_helpers"), canFiles,
     limits: { reason: LIMITS.reason, note: LIMITS.note },
     helpers,
-    refunds: (refunds || []).map((p) => Object.assign(paymentOut(p), { helperId: p.helper_id, ref: p.ref, name: p.name, amountTaken: /^AMOUNT:(\d+)$/.test(String(p.last_fail || "")) ? Number(/^AMOUNT:(\d+)$/.exec(p.last_fail)[1]) / 100 : p.price })),
+    refunds: (refunds || []).map((p) => Object.assign(paymentOut(p), { helperId: p.helper_id, ref: p.ref, name: p.name, amountTaken: amountTaken(p), mine: canRefundFor(auth, p.area_id) })),
+  });
+}
+
+// ---- grieviq-75: duties by area ----
+// What this staff member may do for a helper in this area.
+function covers(auth, areaId) {
+  const check = allows(auth, "check_helpers") && dutyCovers(auth, "HELPER_CHECK", areaId);
+  const approve = allows(auth, "approve_helpers") && dutyCovers(auth, "HELPER_APPROVE", areaId);
+  // Others who may see helpers (super and operations admins, data
+  // moderators, the auditor) read every area.
+  const reader = ["super_admin", "operations_admin", "data_moderator", "auditor"].some((r) => (auth.roles || [auth.role]).includes(r));
+  return { check, approve, any: check || approve || reader };
+}
+function canRefundFor(auth, areaId) {
+  const roles = auth.roles || [auth.role];
+  if (["super_admin", "operations_admin", "accounts_manager"].some((r) => roles.includes(r))) return true;
+  return dutyCovers(auth, "HELPER_APPROVE", areaId);
+}
+function amountTaken(p) { return /^AMOUNT:(\d+)$/.test(String(p.last_fail || "")) ? Number(/^AMOUNT:(\d+)$/.exec(p.last_fail)[1]) / 100 : p.price; }
+// Who checks and approves in each area with helpers (all-areas holders
+// count everywhere). Areas without someone of their own are handled by
+// all-areas staff; an area with nobody at all is a warning.
+async function coverage(env, rows) {
+  let duties = [];
+  try {
+    const { results } = await env.DB.prepare(
+      "SELECT d.duty, d.areas, a.email FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE d.ended_at IS NULL AND d.duty IN ('HELPER_CHECK','HELPER_APPROVE') AND COALESCE(a.status, 'PRESENT') <> 'LEFT' AND a.role <> 'auditor'"
+    ).all();
+    duties = (results || []).map((d) => ({ duty: d.duty, areas: parseAreas(d.areas), email: String(d.email).toLowerCase() }));
+  } catch (e) { return null; }
+  const all = (duty) => duties.filter((d) => d.duty === duty && !d.areas).length;
+  const own = (duty, id) => duties.filter((d) => d.duty === duty && d.areas && d.areas.includes(id)).length;
+  const seen = {};
+  for (const h of rows) if (h.area_id && !seen[h.area_id]) seen[h.area_id] = h.area_name || h.area_id;
+  const areas = Object.keys(seen).map((id) => {
+    const c = own("HELPER_CHECK", id), a = own("HELPER_APPROVE", id);
+    return { id, name: seen[id], checkers: c + all("HELPER_CHECK"), approvers: a + all("HELPER_APPROVE"), ownCheckers: c, ownApprovers: a };
+  });
+  const people = (duty) => new Set(duties.filter((d) => d.duty === duty).map((d) => d.email)).size;
+  return { checkers: people("HELPER_CHECK"), approvers: people("HELPER_APPROVE"), allCheckers: all("HELPER_CHECK"), allApprovers: all("HELPER_APPROVE"), areas };
+}
+// Accounts staff: helper payments only.
+async function paymentsOnly(env, auth, url) {
+  const rid = url.searchParams.get("receipt");
+  if (rid) {
+    const p = await env.DB.prepare("SELECT * FROM helper_payments WHERE id = ? AND receipt_no IS NOT NULL").bind(String(rid).slice(0, 60)).first();
+    if (!p) return json({ error: "NOT_FOUND" }, 404);
+    const h = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(p.helper_id).first();
+    return json(await receiptOut(env, p, h));
+  }
+  if (url.searchParams.get("id") || url.searchParams.get("file") || url.searchParams.get("phone")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+  const { results: refunds } = await env.DB.prepare(
+    "SELECT p.*, h.ref, h.area_id FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.status IN ('REFUND_DUE','EXTRA') ORDER BY p.settled_at"
+  ).all();
+  const { results: pays } = await env.DB.prepare(
+    "SELECT p.*, h.ref FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.status NOT IN ('CREATED','EXPIRED') ORDER BY COALESCE(p.settled_at, p.started_at) DESC LIMIT 200"
+  ).all();
+  return json({
+    ready: true, paymentsOnly: true, today: istToday(), me: auth.email, canRefund: allows(auth, "refund_helper_fees"),
+    limits: { reason: LIMITS.reason, note: LIMITS.note },
+    refunds: (refunds || []).map((p) => Object.assign(paymentOut(p), { helperId: p.helper_id, ref: p.ref || "—", amountTaken: amountTaken(p), mine: canRefundFor(auth, p.area_id) })),
+    payments: (pays || []).map((p) => Object.assign(paymentOut(p), { ref: p.ref || "—" })),
   });
 }
 
@@ -159,7 +236,8 @@ async function sameAs(env, h) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_helpers");
+  const auth = await getVerifiedAdmin(request, env);
+  if (auth.ok && !allows(auth, "view_helpers") && !allows(auth, "refund_helper_fees")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await helpersReady(env))) return json({ error: "NOT_READY" }, 409);
   let b;
@@ -170,9 +248,10 @@ export async function onRequestPost({ request, env }) {
   const me = auth.email;
 
   if (b.action === "refund" || b.action === "refunded") {
-    if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
-    const p = await env.DB.prepare("SELECT * FROM helper_payments WHERE id = ?").bind(String(b.paymentId || "").slice(0, 60)).first();
+    if (!need("refund_helper_fees")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+    const p = await env.DB.prepare("SELECT p.*, h.area_id FROM helper_payments p JOIN helpers h ON h.id = p.helper_id WHERE p.id = ?").bind(String(b.paymentId || "").slice(0, 60)).first();
     if (!p || !["REFUND_DUE", "EXTRA"].includes(p.status)) return json({ error: "STATE" }, 409);
+    if (!canRefundFor(auth, p.area_id)) return json({ error: "OUTSIDE_AREA" }, 403);
     if (b.action === "refund") {
       const r = await refundThroughRazorpay(env, p, me, clean(b.note, LIMITS.note).slice(0, LIMITS.note));
       if (r.error) return json({ error: r.error }, r.error === "STATE" ? 409 : 502);
@@ -191,8 +270,9 @@ export async function onRequestPost({ request, env }) {
 
   if (b.action === "call" || b.action === "flag") {
     if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
-    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT * FROM helper_filings WHERE id = ?").bind(String(b.filingId || "").slice(0, 60)).first() : null;
+    const f = (await filingsReady(env)) ? await env.DB.prepare("SELECT f.*, h.area_id AS helper_area FROM helper_filings f JOIN helpers h ON h.id = f.helper_id WHERE f.id = ?").bind(String(b.filingId || "").slice(0, 60)).first() : null;
     if (!f) return json({ error: "NOT_FOUND" }, 404);
+    if (!covers(auth, f.helper_area).approve) return json({ error: "OUTSIDE_AREA" }, 403);
     const note = clean(b.note, LIMITS.note);
     if (note.length > LIMITS.note) return json({ error: "CHECK_FIELDS", fields: { note: "LENGTH" } }, 400);
     if (b.action === "call") {
@@ -239,6 +319,8 @@ export async function onRequestPost({ request, env }) {
 
   const h = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(String(b.id || "").slice(0, 60)).first();
   if (!h) return json({ error: "NOT_FOUND" }, 404);
+  const my = covers(auth, h.area_id);
+  const outside = () => json({ error: "OUTSIDE_AREA" }, 403);
   const target = h.ref || h.id;
   const reasonOf = () => {
     const r = clean(b.reason, LIMITS.reason[1]);
@@ -252,6 +334,7 @@ export async function onRequestPost({ request, env }) {
   switch (b.action) {
     case "check": {
       if (!need("check_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.check) return outside();
       const rc = h.recheck === "WAITING";
       if (h.status !== "WAITING" && !rc) return json({ error: "STATE" }, 409);
       if (!h.id_key || !h.selfie_key) return json({ error: "FILES_GONE" }, 409);
@@ -276,6 +359,7 @@ export async function onRequestPost({ request, env }) {
     }
     case "approve": {
       if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.approve) return outside();
       const rc = h.recheck === "CHECKED";
       if (h.status !== "CHECKED" && !rc) return json({ error: "STATE" }, 409);
       const checker = rc ? h.recheck_by : h.checked_by;
@@ -314,6 +398,7 @@ export async function onRequestPost({ request, env }) {
     case "refuse": {
       const forged = b.kind === "FORGED";
       if (!need(forged ? "approve_helpers" : "check_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!(forged ? my.approve : my.check)) return outside();
       if (!["WAITING", "CHECKED"].includes(h.status)) return json({ error: "STATE" }, 409);
       if (!["NOT_FAULT", "FORGED"].includes(b.kind)) return json({ error: "CHECK_FIELDS", fields: { kind: "REQUIRED" } }, 400);
       const rs = reasonOf();
@@ -336,6 +421,7 @@ export async function onRequestPost({ request, env }) {
     case "card-ok":
     case "card-refuse": {
       if (!need("check_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.check) return outside();
       if (!["ACTIVE", "LAPSED", "SUSPENDED"].includes(h.status) || h.card_status !== "PENDING" || !h.card_key) return json({ error: "STATE" }, 409);
       if (b.action === "card-ok") {
         if (b.matches !== true) return json({ error: "CHECK_FIELDS", fields: { matches: "REQUIRED" } }, 400);
@@ -356,6 +442,7 @@ export async function onRequestPost({ request, env }) {
     case "suspend":
     case "remove": {
       if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.approve) return outside();
       const from = b.action === "suspend" ? ["ACTIVE", "LAPSED"] : ["ACTIVE", "LAPSED", "SUSPENDED"];
       if (!from.includes(h.status)) return json({ error: "STATE" }, 409);
       const rs = reasonOf();
@@ -372,6 +459,7 @@ export async function onRequestPost({ request, env }) {
     }
     case "reinstate": {
       if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.approve) return outside();
       if (h.status !== "SUSPENDED") return json({ error: "STATE" }, 409);
       const note = clean(b.note, LIMITS.note);
       if (note.length < 5) return json({ error: "CHECK_FIELDS", fields: { note: note ? "SHORT" : "REQUIRED" } }, 400);
@@ -383,6 +471,7 @@ export async function onRequestPost({ request, env }) {
     }
     case "appeal": {
       if (!need("approve_helpers")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      if (!my.approve) return outside();
       if (!["SUSPENDED", "REMOVED"].includes(h.status) || !h.appeal_at || h.appeal_result) return json({ error: "STATE" }, 409);
       if (String(h.action_by || "").toLowerCase() === me) return json({ error: "SAME_PERSON" }, 409);
       if (!["UPHELD", "OVERTURNED"].includes(b.result)) return json({ error: "CHECK_FIELDS", fields: { result: "REQUIRED" } }, 400);

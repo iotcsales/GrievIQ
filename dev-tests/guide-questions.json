@@ -471,7 +471,7 @@
   ],
   [
    "refund a payment",
-   "bills|onlinepay"
+   "bills|onlinepay|accounts"
   ],
   [
    "office stopped paying",
@@ -596,6 +596,38 @@
   [
    "helper sent a new photo for the id card",
    "helpers"
+  ],
+  [
+   "give someone the helper checker duty",
+   "staff|helpers"
+  ],
+  [
+   "who is the grievance officer",
+   "staff"
+  ],
+  [
+   "billing for accounts staff only",
+   "staff|accounts"
+  ],
+  [
+   "accounts manager confirm a payment",
+   "accounts|bills"
+  ],
+  [
+   "i made this bill and can't confirm the payment",
+   "accounts"
+  ],
+  [
+   "sales code of conduct",
+   "sales"
+  ],
+  [
+   "support executive work",
+   "support"
+  ],
+  [
+   "what can management staff see",
+   "management"
   ]
  ],
  "rep": [

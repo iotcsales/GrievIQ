@@ -153,10 +153,19 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=74"></script>
-<script src="/admin-nav.js?v=r22"></script>
+<script src="/i18n.js?v=75"></script>
+<script src="/admin-nav.js?v=r23"></script>
 <style>
   /* grieviq-72: Community helpers */
+  /* grieviq-75: who checks and approves, by area; payments only for accounts staff */
+  .hl-cover { border: 1px solid var(--admin-border); border-left: 4px solid var(--admin-accent); border-radius: 10px; padding: 4px 16px 10px; margin: 0 0 18px; }
+  .hl-cover .hl-sec { margin-top: 10px; }
+  .hl-cover a { color: var(--admin-accent); display: inline-flex; align-items: center; min-height: 24px; }
+  .hl-table-wrap { overflow-x: auto; }
+  .hl-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .hl-table th, .hl-table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--admin-border); }
+  .hl-table a { color: var(--admin-accent); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   table tbody th[scope=row] { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 14px; color: var(--admin-text); }
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -271,6 +280,6 @@
   <div id="hl-msg" class="hl-msg" role="status" aria-live="polite"></div>
   <div id="hl-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
 </main>
-<script src="/admin-helpers.js?v=74"></script>
+<script src="/admin-helpers.js?v=75"></script>
 </body>
 </html>

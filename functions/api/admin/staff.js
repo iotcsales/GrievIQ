@@ -28,10 +28,22 @@ import { idKey } from "../../_shared/employee-id.js";
 //   reactivate { email, reason }
 //   cover_end  { id, reason }
 //   review     {}
+//   duty       { email, duty, on, areas?, reason, understood? }   grieviq-75: give,
+//              change the areas of, or remove a named duty (staff_duties)
+//   billing_accounts_only { on, reason }   grieviq-75: billing for accounts staff only
+//
+// grieviq-75, named duties: only the super admin gives them, to a named
+// person who is still with GrievIQ. Helper checker / approver: any role but
+// the auditor (whose independence they would break); outside the roles that
+// held them before, the super admin confirms a warning ("understood"). The
+// Grievance Officer and the Security contact are one person each: giving
+// the duty to someone else ends it for the previous holder. Every change is
+// in admin_events, and the person gets a content-free email.
 
-import { getVerifiedAdmin, PERMISSIONS } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, PERMISSIONS, ROLES, DUTIES, HELPER_DUTIES, DUTY_USUAL_ROLES, parseAreas, adminSetting } from "../../_shared/get-verified-admin.js";
+import { sendEmailNow } from "../../_shared/dept-auth.js";
 
-const VALID_ROLES = ["super_admin", "operations_admin", "data_moderator", "auditor", "data_entry_operator"];
+const VALID_ROLES = ROLES;
 export const REVIEW_DAYS = 90;
 export const MAX_COVER_DAYS = 90;
 export const MAX_LEAVE_DAYS = 365;
@@ -170,7 +182,17 @@ export async function onRequestGet({ request, env }) {
     for (const x of staff) { const a = act ? act.get(x.email) : null; x.canDelete = !!a && !a.length && !x.isMe && !(x.previousEmails || []).length; x.activity = a || null; }
     activityCheck = lastActivityCheck;
   }
+  // grieviq-75: named duties, the areas to choose from, the billing switch.
+  let duties = [], areas = [], dutiesReady = true;
+  try {
+    const { results } = await env.DB.prepare("SELECT d.*, a.email FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE d.ended_at IS NULL ORDER BY d.given_at").all();
+    duties = (results || []).map((d) => ({ email: String(d.email).toLowerCase(), duty: d.duty, areas: parseAreas(d.areas), reason: d.reason || null, givenBy: d.given_by, givenAt: d.given_at }));
+  } catch (e) { dutiesReady = false; }
+  try { areas = ((await env.DB.prepare("SELECT id, name, state FROM areas ORDER BY name").all()).results || []).map((a) => ({ id: a.id, name: a.name, state: a.state })); } catch (e) { areas = []; }
+  for (const x of staff) x.duties = duties.filter((d) => d.email === x.email);
   return json({
+    dutiesReady, areas, duties: { list: DUTIES, helper: HELPER_DUTIES, usualRoles: DUTY_USUAL_ROLES },
+    billingAccountsOnly: (await adminSetting(env, "billing_accounts_only")) === "1",
     role: auth.role, canManage: manage, ready: extended, today,
     staff: staff.filter((s) => s.status !== "LEFT"),
     former: staff.filter((s) => s.status === "LEFT"),
@@ -228,6 +250,8 @@ export async function onRequestPatch({ request, env }) {
     }
   } catch (e) { /* item 10 tables not there yet */ }
   await logEvent(env, auth.email, "staff_role_changed", email, { fromRole: existing.role, toRole: role });
+  // grieviq-75: an auditor holds no helper duty.
+  if (role === "auditor") await endDuties(env, auth.email, existing.id, email, HELPER_DUTIES, "Became the auditor");
   return json({ ok: true, email, role });
 }
 
@@ -285,9 +309,72 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true });
   }
 
+  if (action === "billing_accounts_only") {
+    const reason = String(body.reason || "").trim();
+    if (reason.length < 5 || reason.length > 300) return bad("Say why.", { reason: "LENGTH" });
+    const on = body.on === true;
+    await env.DB.prepare("INSERT INTO admin_settings (key, value, updated_by, updated_at) VALUES ('billing_accounts_only', ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at")
+      .bind(on ? "1" : "0", auth.email, now).run();
+    await logEvent(env, auth.email, on ? "billing_accounts_only_on" : "billing_accounts_only_off", "billing", { reason });
+    return json({ ok: true, on });
+  }
+
   const p = await get(body.email);
   if (!p) return json({ error: "No staff member with that email.", code: "NOT_FOUND" }, 404);
   const email = String(p.email).toLowerCase();
+
+  if (action === "duty") {
+    const duty = String(body.duty || "");
+    if (!DUTIES.includes(duty)) return bad("Unknown duty.", { duty: "UNKNOWN" });
+    const on = body.on === true;
+    const reason = String(body.reason || "").trim();
+    const helper = HELPER_DUTIES.includes(duty);
+    const fields = {};
+    if (reason.length < 5 || reason.length > 300) fields.reason = "LENGTH";
+    const cur = await env.DB.prepare("SELECT * FROM staff_duties WHERE admin_id = ? AND duty = ? AND ended_at IS NULL").bind(p.id, duty).first();
+    if (!on) {
+      if (!cur) return json({ error: "That person doesn't hold this duty.", code: "NOT_HELD" }, 409);
+      if (Object.keys(fields).length) return bad("Please correct the highlighted fields.", fields);
+      await env.DB.prepare("UPDATE staff_duties SET ended_at = ?, ended_by = ?, end_reason = ? WHERE id = ? AND ended_at IS NULL").bind(now, auth.email, reason, cur.id).run();
+      await logEvent(env, auth.email, "staff_duty_removed", email, { duty, reason });
+      await tellDuty(env, request, p);
+      return json({ ok: true });
+    }
+    if (p.status === "LEFT") return bad("This person has left GrievIQ.", { email: "LEFT" });
+    if (helper && p.role === "auditor") return bad("The auditor stays independent: they can't check or approve helpers.", { duty: "AUDITOR" });
+    let areas = null;
+    if (helper && Array.isArray(body.areas) && body.areas.length) {
+      const ids = Array.from(new Set(body.areas.map(String))).slice(0, 100);
+      const { results } = await env.DB.prepare("SELECT id FROM areas WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all();
+      const known = new Set((results || []).map((r) => r.id));
+      if (ids.some((x) => !known.has(x))) fields.areas = "UNKNOWN";
+      areas = ids.filter((x) => known.has(x)).sort();
+    } else if (helper && body.areas !== null && body.areas !== undefined && !Array.isArray(body.areas)) fields.areas = "UNKNOWN";
+    const unusual = helper && !(DUTY_USUAL_ROLES[duty] || []).includes(p.role);
+    if (unusual && body.understood !== true) fields.understood = "REQUIRED";
+    if (Object.keys(fields).length) return bad("Please correct the highlighted fields.", fields, { unusual });
+    const areasJson = areas && areas.length ? JSON.stringify(areas) : null;
+    if (cur) {
+      if ((cur.areas || null) === areasJson) return json({ ok: true, unchanged: true });
+      await env.DB.prepare("UPDATE staff_duties SET areas = ?, reason = ?, given_by = ?, given_at = ? WHERE id = ? AND ended_at IS NULL").bind(areasJson, reason, auth.email, now, cur.id).run();
+      await logEvent(env, auth.email, "staff_duty_areas_changed", email, { duty, from: parseAreas(cur.areas), to: areas && areas.length ? areas : null, reason });
+      await tellDuty(env, request, p);
+      return json({ ok: true });
+    }
+    // One Grievance Officer and one Security contact: the duty moves.
+    if (!helper) {
+      const { results: prev } = await env.DB.prepare("SELECT d.id, a.email FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE d.duty = ? AND d.ended_at IS NULL").bind(duty).all();
+      for (const x of prev || []) {
+        await env.DB.prepare("UPDATE staff_duties SET ended_at = ?, ended_by = ?, end_reason = ? WHERE id = ? AND ended_at IS NULL").bind(now, auth.email, "Given to " + email, x.id).run();
+        await logEvent(env, auth.email, "staff_duty_removed", String(x.email).toLowerCase(), { duty, reason: "Given to " + email });
+      }
+    }
+    await env.DB.prepare("INSERT INTO staff_duties (id, admin_id, duty, areas, reason, given_by, given_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(crypto.randomUUID(), p.id, duty, helper ? areasJson : null, reason, auth.email, now).run();
+    await logEvent(env, auth.email, "staff_duty_given", email, { duty, areas: helper && areas && areas.length ? areas : null, reason, unusual: unusual || undefined, role: p.role });
+    await tellDuty(env, request, p);
+    return json({ ok: true });
+  }
 
   if (action === "edit") {
     const d = await readDetails(env, body, email);
@@ -369,6 +456,7 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("UPDATE admin_users SET status = 'LEFT', left_at = ?, left_reason = ?, leave_until = NULL, access_paused = 0, updated_at = ? WHERE LOWER(email) = ?").bind(lastDay, reason, now, email).run();
     await env.DB.prepare("UPDATE staff_covers SET ended_at = ?, ended_by = ?, end_reason = 'Left GrievIQ' WHERE (LOWER(away_email) = ? OR LOWER(cover_email) = ?) AND ended_at IS NULL").bind(now, auth.email, email, email).run();
     await logEvent(env, auth.email, "staff_left", email, { lastDay, reason, role: p.role });
+    await endDuties(env, auth.email, p.id, email, DUTIES, "Left GrievIQ");
     return json({ ok: true });
   }
 
@@ -431,3 +519,25 @@ export async function onRequestPost({ request, env }) {
 
   return json({ error: "Unknown action." }, 400);
 }
+
+// ---- grieviq-75: named duties ----
+async function endDuties(env, actor, adminId, email, which, why) {
+  try {
+    const { results } = await env.DB.prepare("SELECT id, duty FROM staff_duties WHERE admin_id = ? AND ended_at IS NULL AND duty IN (SELECT value FROM json_each(?))").bind(adminId, JSON.stringify(which)).all();
+    for (const d of results || []) {
+      await env.DB.prepare("UPDATE staff_duties SET ended_at = ?, ended_by = ?, end_reason = ? WHERE id = ?").bind(new Date().toISOString(), actor, why, d.id).run();
+      await logEvent(env, actor, "staff_duty_removed", email, { duty: d.duty, reason: why });
+    }
+  } catch (e) { /* part49 not run yet */ }
+}
+// A content-free email: what changed is seen only after signing in.
+async function tellDuty(env, request, p) {
+  try {
+    const origin = new URL(request.url).origin;
+    const who = p.name ? escH(p.name) + (p.employee_id ? " (" + escH(p.employee_id) + ")" : "") : "colleague";
+    await sendEmailNow(env, String(p.email).toLowerCase(), "GrievIQ: your duties have changed",
+      `<p>Dear ${who},</p><p>Your duties on GrievIQ have changed. Sign in to see them:</p><p><a href="${escH(origin)}/admin-dashboard.html">${escH(origin)}/admin-dashboard.html</a></p>` +
+      "<p>For security, the details are shown only after you sign in.</p><p>GrievIQ will never ask for your sign-in code by email or phone.</p>");
+  } catch (e) { /* the Staff page shows it either way */ }
+}
+function escH(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }

@@ -3546,6 +3546,147 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
 }
 
+// ---- grieviq-75: new staff roles, named duties, billing for accounts staff ----
+{
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const st = (who, b) => call(who, "POST", "/api/admin/staff", b);
+  const bl = (who, b) => call(who, "POST", "/api/admin/bills", b);
+  const qt = (who, b) => call(who, "POST", "/api/admin/quotations", b);
+  const who = async (e) => (await call(e, "GET", "/api/admin/whoami")).body;
+  const NEW = [["ae@test.in", "accounts_executive", "Arun Accounts", "GIQ-101", "9811000101"], ["am@test.in", "accounts_manager", "Meera Manager", "GIQ-102", "9811000102"],
+    ["se@test.in", "support_executive", "Sunil Support", "GIQ-103", "9811000103"], ["sx@test.in", "sales_executive", "Sara Sales", "GIQ-104", "9811000104"],
+    ["sm@test.in", "sales_manager", "Mohan Sales", "GIQ-105", "9811000105"], ["mv@test.in", "management_viewer", "Maya Director", "GIQ-106", "9811000106"]];
+  for (const [e, role, name, id, ph] of NEW) {
+    const r = await st(S, { action: "add", email: e, role, name, employeeId: id, phone: ph });
+    ok(r.status === 200, "super admin adds a " + role, r.body);
+  }
+  ok((await st(S, { action: "add", email: "x9@test.in", role: "cashier", name: "No Role", employeeId: "GIQ-199", phone: "9811000199" })).body.fields.role === "REQUIRED", "an unknown role is refused");
+  const pg = async (e) => (await who(e)).pages;
+  let w = await pg("ae@test.in");
+  ok(w["admin-bills"].allowed && w["admin-helpers"].allowed && !w["admin-cases"].allowed && !w["admin-staff"].allowed, "accounts executive: bills and helper payments, no cases or staff");
+  w = await pg("se@test.in");
+  ok(w["admin-cases"].allowed && w["admin-checks"].allowed && w["admin-feedback"].allowed && w["admin-messages"].allowed && !w["admin-bills"].allowed && !w["admin-helpers"].allowed, "support executive: cases, checks, feedback, messages; no bills");
+  w = await pg("sx@test.in");
+  ok(w["admin-bills"].allowed && w["admin-pilot-requests"].allowed && !w["admin-cases"].allowed && !w["admin-subscriptions"].allowed === false, "sales executive: quotations (Bills page) and pilot requests; never cases");
+  w = await pg("mv@test.in");
+  ok(w["admin-dashboard"].allowed && w["admin-dept-performance"].allowed && w["admin-visitors"].allowed && !w["admin-cases"].allowed && !w["admin-bills"].allowed && !w["admin-staff"].allowed && !w["admin-helpers"].allowed, "management: totals only");
+  ok((await call("mv@test.in", "GET", "/api/admin/cases")).status === 403 && (await call("mv@test.in", "GET", "/api/admin/bills")).status === 403, "management can't read cases or bills");
+  ok((await call("se@test.in", "GET", "/api/admin/bills")).status === 403, "support can't read bills");
+
+  // Bills: make (executive), confirm (manager, never on their own bill)
+  let r = await bl("ae@test.in", { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-03-01" });
+  ok(r.status === 200, "accounts executive makes a bill", r.body);
+  const aeBill = r.body.id;
+  r = await bl("am@test.in", { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-04-01" });
+  ok(r.status === 200, "accounts manager makes a bill", r.body);
+  const amBill = r.body.id;
+  const pay = (bill, utr) => { const id = "p75-" + utr; sdb.prepare("INSERT INTO bill_payments (id, bill_id, method, utr, amount, paid_on, reported_by, reported_at) VALUES (?, ?, 'UPI', ?, 1, ?, 'r2@x.in', ?)").run(id, bill, utr, today, new Date().toISOString()); sdb.prepare("UPDATE bills SET status = 'REPORTED' WHERE id = ?").run(bill); return id; };
+  const p1 = pay(aeBill, "750000000001"), p2 = pay(amBill, "750000000002");
+  ok((await bl("ae@test.in", { action: "confirm", paymentId: p1 })).status === 403, "accounts executive can't confirm money received");
+  r = await bl("am@test.in", { action: "confirm", paymentId: p2 });
+  ok(r.status === 403 && r.body.error === "OWN_BILL", "accounts manager can't confirm a payment on a bill they made", r.body);
+  r = await bl("am@test.in", { action: "confirm", paymentId: p1 });
+  ok(r.status === 200, "accounts manager confirms a payment on someone else's bill", r.body);
+  const gb = await call("am@test.in", "GET", "/api/admin/bills");
+  ok(gb.body.canManage && gb.body.canConfirm && gb.body.ownRule === true && gb.body.me === "am@test.in", "the bills page knows the own-bill rule", gb.body.canConfirm);
+  ok((await bl("ae@test.in", { action: "cancel", id: amBill, reason: "Wrong month chosen" })).status === 403, "accounts executive can't cancel a bill");
+  r = await bl(S, { action: "return", paymentId: p2, reason: "Test payment only" });
+  ok(r.status === 200, "a senior admin may check any bill");
+
+  // Billing for accounts staff only
+  ok((await st(O, { action: "billing_accounts_only", on: true, reason: "We have accounts staff now" })).status === 403, "only the super admin switches billing");
+  ok((await st(S, { action: "billing_accounts_only", on: true, reason: "no" })).status === 400, "switching needs a reason");
+  ok((await st(S, { action: "billing_accounts_only", on: true, reason: "We have accounts staff now" })).status === 200, "billing is for accounts staff only");
+  r = await bl(O, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-05-01" });
+  ok(r.status === 403 && r.body.error === "BILLING_ACCOUNTS_ONLY", "operations admin now only reads bills", r.body);
+  ok((await call(O, "GET", "/api/admin/bills")).body.canManage === false, "and the page shows read-only");
+  ok((await bl(S, { action: "send", id: "nope" })).status === 404, "the super admin keeps billing");
+  ok((await call(S, "GET", "/api/admin/staff")).body.billingAccountsOnly === true, "the Staff page shows the switch");
+  await st(S, { action: "billing_accounts_only", on: false, reason: "Back to normal for the tests" });
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action IN ('billing_accounts_only_on','billing_accounts_only_off')").get().n >= 2, "both switches recorded");
+
+  // Sales: quotations only, after the sales code
+  const sb = await call("sx@test.in", "GET", "/api/admin/bills");
+  ok(sb.status === 200 && sb.body.quotesOnly && sb.body.bills.length === 0 && sb.body.plans.length > 0, "sales see plans for quotations, never bills");
+  ok((await call("sx@test.in", "GET", "/api/admin/bills?quote=1&plan=councillor&period=YEAR")).body.quote, "sales can price a quotation");
+  ok((await who("sx@test.in")).salesCode.needed === true && !(await who("ae@test.in")).salesCode, "sales staff must accept the sales code");
+  const qbody = { action: "create", officeName: "Office of the Corporator, Tilak Nagar", addressee: "The Corporator", email: "", planId: "councillor", period: "YEAR", validDays: 30 };
+  r = await qt("sx@test.in", qbody);
+  ok(r.status === 403 && r.body.error === "CODE_NOT_ACCEPTED", "no quotation before the code is accepted", r.body);
+  ok((await call("sx@test.in", "POST", "/api/admin/pilot-requests", { id: "x", status: "CONTACTED" })).body.error === "CODE_NOT_ACCEPTED", "no pilot request work either");
+  ok((await call("sx@test.in", "POST", "/api/admin/whoami", { action: "accept_sales_code" })).status === 400, "the code needs the tick");
+  ok((await call("sx@test.in", "POST", "/api/admin/whoami", { action: "accept_sales_code", accept: true })).status === 200, "sales executive accepts the code");
+  ok(!(await who("sx@test.in")).salesCode && sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'sales_code_accepted' AND actor_email = 'sx@test.in'").get().n === 1, "accepted and recorded");
+  r = await qt("sx@test.in", qbody);
+  ok(r.status === 200 && r.body.ref, "sales executive makes a quotation", r.body);
+  const qid = sdb.prepare("SELECT id FROM quotations WHERE ref = ?").get(r.body.ref).id;
+  ok((await qt("sx@test.in", { action: "withdraw", id: qid, reason: "Office asked to wait" })).status === 403, "sales executive can't withdraw or accept");
+  ok((await call("sx@test.in", "GET", "/api/admin/quotations")).body.canAccept === false && (await call("sm@test.in", "GET", "/api/admin/quotations")).body.canAccept === true, "only managers accept quotations");
+  await call("sm@test.in", "POST", "/api/admin/whoami", { action: "accept_sales_code", accept: true });
+  ok((await qt("sm@test.in", { action: "withdraw", id: qid, reason: "Office asked to wait" })).status === 200, "sales manager withdraws it");
+  ok((await qt("sx@test.in", Object.assign({}, qbody, { custom: true, offer: "state", amount: 100000, basis: "x", reason: "y" }))).status === 403, "State and National quotations stay with the super admin");
+
+  // Helper payments for accounts staff: no names or ID
+  const hp = await call("ae@test.in", "GET", "/api/admin/helpers");
+  ok(hp.status === 200 && hp.body.paymentsOnly && Array.isArray(hp.body.payments) && !("helpers" in hp.body) && !JSON.stringify(hp.body).includes("\"name\""), "accounts staff see helper payments only, no names", Object.keys(hp.body));
+  ok(hp.body.canRefund === false && (await call("am@test.in", "GET", "/api/admin/helpers")).body.canRefund === true, "accounts manager may refund helper fees");
+  const anyHelper = sdb.prepare("SELECT id, area_id FROM helpers WHERE status = 'ACTIVE' LIMIT 1").get();
+  ok((await call("ae@test.in", "GET", "/api/admin/helpers?id=" + anyHelper.id)).status === 403, "accounts staff can't open a helper's record");
+
+  // Named duties
+  const duty = (b) => st(S, Object.assign({ action: "duty" }, b));
+  ok((await st(O, { action: "duty", email: "se@test.in", duty: "HELPER_APPROVE", on: true, reason: "Covers Kanpur" })).status === 403, "only the super admin gives duties");
+  r = await duty({ email: A, duty: "HELPER_CHECK", on: true, reason: "Should be refused" });
+  ok(r.status === 400 && r.body.fields.duty === "AUDITOR", "the auditor can't hold helper duties", r.body);
+  r = await duty({ email: "se@test.in", duty: "HELPER_APPROVE", on: true, areas: ["kanpur"], reason: "Approves Kanpur helpers" });
+  ok(r.status === 400 && r.body.fields.understood === "REQUIRED" && r.body.unusual, "an unusual role needs the warning confirmed", r.body);
+  ok((await duty({ email: "se@test.in", duty: "HELPER_APPROVE", on: true, areas: ["nowhere"], understood: true, reason: "Approves Kanpur helpers" })).body.fields.areas === "UNKNOWN", "areas are checked");
+  const before75 = mails().length;
+  r = await duty({ email: "se@test.in", duty: "HELPER_APPROVE", on: true, areas: ["kanpur"], understood: true, reason: "Approves Kanpur helpers" });
+  ok(r.status === 200, "support executive gets the approver duty for Kanpur", r.body);
+  const dm = mails().slice(before75).find((x) => x.to[0] === "se@test.in");
+  ok(dm && /duties on GrievIQ have changed/.test(dm.html) && !/Kanpur|HELPER/i.test(dm.html) && /Sunil Support \(GIQ-103\)/.test(dm.html), "the person is told, with no details in the email", dm && dm.html);
+  const se = await who("se@test.in");
+  ok(se.roles.includes("helper_approver") && se.duties[0].areas[0] === "kanpur" && se.pages["admin-helpers"].allowed, "the duty opens Community helpers");
+  r = await call("se@test.in", "POST", "/api/admin/helpers", { action: "suspend", id: anyHelper.id, reason: "x" });
+  ok(r.status === 403 && r.body.error === "OUTSIDE_AREA", "a Lucknow helper is outside a Kanpur-only duty", r.body);
+  ok((await call("se@test.in", "GET", "/api/admin/helpers")).body.helpers.find((h) => h.id === anyHelper.id).mine.approve === false, "the page marks it outside their areas");
+  ok((await duty({ email: "se@test.in", duty: "HELPER_APPROVE", on: true, areas: ["kanpur", "lucknow"], understood: true, reason: "Lucknow too" })).status === 200, "areas changed");
+  r = await call("se@test.in", "POST", "/api/admin/helpers", { action: "suspend", id: anyHelper.id, reason: "x" });
+  ok(r.status === 400 && r.body.error === "CHECK_FIELDS", "now the suspension is theirs to decide (reason checked)", r.body);
+  const cov = (await call(S, "GET", "/api/admin/helpers")).body.coverage;
+  ok(cov && cov.approvers >= 3 && cov.areas.find((a) => a.id === "lucknow").approvers >= 3, "coverage by area", cov);
+  ok((await duty({ email: "se@test.in", duty: "HELPER_APPROVE", on: false, reason: "Back to support work" })).status === 200 && !(await who("se@test.in")).roles.includes("helper_approver"), "the duty is removed");
+  // Without the duty, a data moderator can't check any more
+  ok((await duty({ email: M, duty: "HELPER_CHECK", on: false, reason: "Moved to other work" })).status === 200, "checker duty removed from the data moderator");
+  ok((await call(M, "GET", "/api/admin/helpers")).body.canCheck === false, "and they can no longer check");
+  ok((await duty({ email: M, duty: "HELPER_CHECK", on: true, reason: "Back on helpers" })).status === 200, "given back (a usual role needs no warning)");
+  // Becoming the auditor ends helper duties
+  await duty({ email: "ae@test.in", duty: "HELPER_CHECK", on: true, understood: true, reason: "Checks while short-staffed" });
+  await call(S, "PATCH", "/api/admin/staff", { email: "ae@test.in", role: "auditor" });
+  ok(!sdb.prepare("SELECT 1 FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE a.email = 'ae@test.in' AND d.ended_at IS NULL").get(), "becoming the auditor ends helper duties");
+  await call(S, "PATCH", "/api/admin/staff", { email: "ae@test.in", role: "accounts_executive" });
+  // Grievance Officer: one person, published on the Privacy page
+  ok((await duty({ email: O, duty: "GRIEVANCE_OFFICER", on: true, reason: "Named Grievance Officer" })).status === 200, "Grievance Officer given");
+  ok((await call(S, "GET", "/api/site-info")).body.company.goName === "Omar Ops", "the Privacy page shows the duty holder's name");
+  ok((await duty({ email: M, duty: "GRIEVANCE_OFFICER", on: true, reason: "New Grievance Officer" })).status === 200, "given to someone else");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM staff_duties WHERE duty = 'GRIEVANCE_OFFICER' AND ended_at IS NULL").get().n === 1 && (await call(S, "GET", "/api/site-info")).body.company.goName === "Mona Mod", "it moved: one Grievance Officer");
+  ok((await duty({ email: M, duty: "GRIEVANCE_OFFICER", on: false, reason: "Tests: back to the published name" })).status === 200 && (await call(S, "GET", "/api/site-info")).body.company.goName !== "Mona Mod", "with no holder, the published name shows again");
+  ok((await duty({ email: S, duty: "SECURITY_CONTACT", on: true, reason: "CERT-In point of contact" })).status === 200, "Security contact given");
+  const sl = (await call(A, "GET", "/api/admin/staff")).body;
+  ok(sl.staff.find((x) => x.email === S).duties.some((d) => d.duty === "SECURITY_CONTACT") && sl.areas.length >= 2 && sl.canManage === false, "the auditor reads duties");
+  // Leaving ends every duty
+  await duty({ email: "mv@test.in", duty: "SECURITY_CONTACT", on: true, reason: "Temporary contact" });
+  await st(S, { action: "left", email: "mv@test.in", lastDay: today, reason: "Contract ended for this role" });
+  ok(!sdb.prepare("SELECT 1 FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE a.email = 'mv@test.in' AND d.ended_at IS NULL").get(), "leaving ends their duties");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action LIKE 'staff_duty_%'").get().n >= 10, "every duty change is in the audit log");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

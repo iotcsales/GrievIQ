@@ -4,14 +4,16 @@
 // POST (super admin only) { action: "on", email } | { action: "off" }
 // See _shared/review-office.js.
 
-import { getVerifiedAdmin } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { reviewStatus, reviewOn, reviewOff } from "../../_shared/review-office.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_bills");
+  const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
+  // grieviq-75: sales staff open the Bills page for quotations; this box isn't theirs.
+  if (!allows(auth, "view_bills")) return allows(auth, "view_quotations") ? json({ hidden: true, canManage: false }) : json({ error: "INSUFFICIENT_ROLE" }, 403);
   return json(Object.assign(await reviewStatus(env), { canManage: auth.role === "super_admin" }));
 }
 

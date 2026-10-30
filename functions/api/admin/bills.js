@@ -3,20 +3,26 @@
 //
 // Admin "Bills" (grieviq-41): bills for offices paid by UPI or bank
 // transfer, and checking the payments offices record.
-// GET  (view_bills: super, operations, auditor)
+// GET  (view_bills: super, operations, auditor, accounts staff; sales staff
+//        (view_quotations) get only ?offices= and ?quote=, for quotations)
 //        ?status=DUE|REPORTED|PAID|CANCELLED (optional) -> bills, newest first
 //        ?offices=REP|DEPT&q=text                       -> offices to bill (up to 20)
 //        ?quote=1&plan=&period=                         -> what that bill would cost today
-// POST (manage_bills: super, operations), { action, ... }:
-//   create  { officeType, officeTier?, officeId, planId, period, from, dueDays?, note? }
-//   cancel  { id, reason }
-//   confirm { paymentId }            the payment matched the bank statement -> bill paid
-//   return  { paymentId, reason }    it didn't -> bill due again, office told why
-//   online-check    { id }                 grieviq-67: ask Razorpay now about this bill's online payments
-//   online-refunded { onlineId, note }     an online payment that wasn't needed has been refunded
+// POST { action, ... } (grieviq-75: make_bills = super, operations, accounts
+// executive and manager; confirm_bills = super, operations, accounts manager;
+// operations admins only read when billing is for accounts staff only):
+//   create  { officeType, officeTier?, officeId, planId, period, from, dueDays?, note? }   make_bills
+//   send    { id }                                                                       make_bills
+//   cancel  { id, reason }                                                               confirm_bills
+//   confirm { paymentId }            the payment matched the bank statement -> bill paid  confirm_bills
+//   return  { paymentId, reason }    it didn't -> bill due again, office told why         confirm_bills
+//   online-check    { id }                 grieviq-67: ask Razorpay now about this bill's online payments   make_bills
+//   online-refunded { onlineId, note }     an online payment that wasn't needed has been refunded           confirm_bills
+// An accounts manager never confirms or returns a payment on a bill they
+// made themselves (another person checks the money).
 // Every action goes to bill_events (cannot be changed) and the admin log.
 
-import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
+import { getVerifiedAdmin, allows, billingAllows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday } from "../../_shared/site-settings.js";
 import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, billOut, paymentsFor, emailOffice, TIER_TABLE, tierTable, hasDraftColumns, planBillFilter } from "../../_shared/billing.js";
 import { applyPayment } from "../../_shared/subscriptions.js";
@@ -49,10 +55,13 @@ async function onlineStatus(env) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_bills");
+  const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
-  const canManage = allows(auth, "manage_bills");
-  if (!(await billingReady(env))) return json({ ready: false, canManage, bills: [], plans: [] });
+  const seeBills = allows(auth, "view_bills"), seeQuotes = allows(auth, "view_quotations");
+  if (!seeBills && !seeQuotes) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+  const canManage = await billingAllows(env, auth, "make_bills");
+  const canConfirm = await billingAllows(env, auth, "confirm_bills");
+  if (!(await billingReady(env))) return json({ ready: false, canManage, canConfirm, bills: [], plans: [] });
   const url = new URL(request.url);
   const live = await liveVersion(env);
   const today = istToday();
@@ -86,6 +95,9 @@ export async function onRequestGet({ request, env }) {
     return json({ offices: out.slice(0, 20) });
   }
 
+  // Sales staff: the plans and prices for quotations, never the bills.
+  if (!seeBills) return json({ ready: true, quotesOnly: true, canManage: false, canConfirm: false, today, gstRate: live.data.gst.rate, plans: billablePlans(live.data), counts: {}, bills: [] });
+
   const status = url.searchParams.get("status");
   const drafts = await hasDraftColumns(env);
   const where = status === "WAITING" && drafts ? " WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL"
@@ -100,7 +112,7 @@ export async function onRequestGet({ request, env }) {
   if (drafts) { const w = await env.DB.prepare("SELECT COUNT(*) AS n FROM bills WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL").first(); counts.WAITING = w ? w.n : 0; }
   const online = await onlineFor(env, bills.map((b) => b.id));
   return json({
-    ready: true, canManage, today, gstRate: live.data.gst.rate, settingsVersion: live.version,
+    ready: true, canManage, canConfirm, me: auth.email, ownRule: !allows(auth, "approve_changes"), today, gstRate: live.data.gst.rate, settingsVersion: live.version,
     plans: billablePlans(live.data), counts,
     online: await onlineStatus(env),
     bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o, true)) })),
@@ -108,11 +120,17 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "manage_bills");
+  const auth = await getVerifiedAdmin(request, env, "view_bills");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await billingReady(env))) return json({ error: "NOT_READY" }, 409);
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
+  const CONFIRM = ["cancel", "confirm", "return", "online-refunded"];
+  const perm = CONFIRM.includes(b && b.action) ? "confirm_bills" : "make_bills";
+  if (!allows(auth, perm)) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+  if (!(await billingAllows(env, auth, perm))) return json({ error: "BILLING_ACCOUNTS_ONLY" }, 403);
+  // An accounts manager doesn't check the money on a bill they made.
+  const ownRule = !allows(auth, "approve_changes");
   const origin = new URL(request.url).origin;
   const now = new Date().toISOString();
   const today = istToday();
@@ -198,6 +216,10 @@ export async function onRequestPost({ request, env }) {
     const p = await env.DB.prepare("SELECT * FROM bill_payments WHERE id = ?").bind(String(b.paymentId || "")).first();
     if (!p) return json({ error: "NOT_FOUND" }, 404);
     if (p.status !== "REPORTED") return json({ error: "ALREADY_CHECKED" }, 409);
+    if (ownRule) {
+      const ob = await env.DB.prepare("SELECT issued_by FROM bills WHERE id = ?").bind(p.bill_id).first();
+      if (ob && String(ob.issued_by || "").toLowerCase() === auth.email) return json({ error: "OWN_BILL" }, 403);
+    }
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(p.bill_id).first();
     if (b.action === "confirm") {
       await env.DB.batch([

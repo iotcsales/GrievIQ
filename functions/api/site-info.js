@@ -17,5 +17,14 @@ export async function onRequestGet({ env }) {
     const { results } = await env.DB.prepare("SELECT name, state FROM areas WHERE live = 1 ORDER BY name").all();
     out.areas = (results || []).map((r) => ({ name: r.name, state: r.state }));
   } catch (e) { out.areas = []; }
+  // grieviq-75: the Grievance Officer is the staff member who holds that duty
+  // (Staff page), so the published name can't go out of date. Their sign-in
+  // address is never published: the contact email stays the published one.
+  try {
+    const go = await env.DB.prepare(
+      "SELECT a.name FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE d.duty = 'GRIEVANCE_OFFICER' AND d.ended_at IS NULL AND COALESCE(a.status, 'PRESENT') <> 'LEFT' LIMIT 1"
+    ).first();
+    if (go && go.name) out.company.goName = go.name;
+  } catch (e) { /* part49 not run yet: the published name stays */ }
   return Response.json(out, { headers: { "Cache-Control": "public, max-age=300" } });
 }

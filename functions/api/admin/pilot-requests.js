@@ -8,6 +8,7 @@
 // POST (manage_pilot_requests) { id, status: NEW|CONTACTED|CLOSED, note? }
 //      Logged. Requests are deleted one year after they were sent.
 
+import { needsSalesCode } from "../../_shared/sales-code.js";
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
@@ -38,6 +39,7 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "manage_pilot_requests");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
+  if (await needsSalesCode(env, auth)) return json({ error: "CODE_NOT_ACCEPTED" }, 403);
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
   const status = String(b.status || "").toUpperCase();

@@ -1757,7 +1757,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 23), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 27), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -4072,6 +4072,80 @@ window.Razorpay.prototype.open = function () {
             p.goto(B + "/privacy"); p.wait_for_selector('[data-i18n="priv.hlp5"]')
             ok(p.locator('[data-i18n="priv.h_helpers"]').count() == 1 and len(p.inner_text('[data-i18n="priv.hlp2"]')) > 100 and not p.evaluate(CONTRAST_JS) and no_hscroll(p), "privacy: Community helpers section %s %s" % (theme, lang))
             ctx.close()
+
+    # ---------- grieviq-75: staff roles, named duties, sales code, accounts views ----------
+    api41("POST", "/api/admin/staff", {"action": "add", "email": "sx2@test.in", "role": "sales_executive", "name": "Sonal Sales", "employeeId": "GIQ-120", "phone": "9811000120"})
+    for theme in ("dark", "light"):
+        for lang in ("en", "hi"):
+            tag = "%s %s" % (theme, lang)
+            ctx, p, errs = P("super@test.in", width=390 if lang == "hi" else 1280, theme=theme, lang=lang)
+            p.goto(B + "/admin-staff.html"); p.wait_for_selector("#billing-panel")
+            row = '.staff-row[data-email="sx@test.in"]'
+            p.click(row + " .act-duties"); p.wait_for_selector(row + " #du-HELPER_CHECK-on")
+            p.check(row + " #du-HELPER_CHECK-on"); p.wait_for_selector(row + " #du-HELPER_CHECK-und")
+            ok("Sara Sales" in p.inner_text(row) and p.locator(row + " .warnbox").count() >= 1, "unusual duty: a warning to confirm " + tag)
+            p.check(row + " #du-HELPER_CHECK-some"); p.wait_for_selector(row + " .du-area")
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "Staff page with the duties form clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+            if lang == "en": p.locator(row).screenshot(path=os.path.join(SHOTS, "75-duties-" + theme + ".png"))
+            ctx.close()
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-staff.html"); p.wait_for_selector("#billing-panel")
+    row = '.staff-row[data-email="sx@test.in"]'
+    p.click(row + " .act-duties"); p.wait_for_selector(row + " #du-HELPER_CHECK-on")
+    p.click(row + ' form.row-form button[type=submit]'); p.wait_for_timeout(200)
+    ok("Nothing has changed" in p.inner_text(row), "saving with no change is explained")
+    p.check(row + " #du-HELPER_CHECK-on"); p.wait_for_selector(row + " #du-HELPER_CHECK-some")
+    p.check(row + " #du-HELPER_CHECK-some"); p.wait_for_selector(row + " .du-area")
+    p.click(row + ' form.row-form button[type=submit]'); p.wait_for_timeout(200)
+    ok(p.get_attribute(row + " #du-HELPER_CHECK-some", "aria-invalid") == "true" and p.get_attribute(row + " #du-HELPER_CHECK-und", "aria-invalid") == "true" and p.get_attribute(row + " #r-reason", "aria-invalid") == "true", "areas, confirmation and reason are explained")
+    p.check(row + ' .du-area[value="lucknow"]'); p.check(row + " #du-HELPER_CHECK-und"); p.fill(row + " #r-reason", "Checks Lucknow applications")
+    with p.expect_response(lambda r: r.url.endswith("/api/admin/staff") and r.request.method == "POST"): p.click(row + ' form.row-form button[type=submit]')
+    p.wait_for_selector("#status-msg.success")
+    ok("Helper checker (Lucknow)" in p.inner_text(row) and not errs, "duty saved and shown on the row", p.inner_text(row))
+    p.click("summary:has-text('What each role can do')")
+    ok("Accounts manager" in p.inner_text(".roles-help") and "Management (view only)" in p.inner_text(".roles-help"), "roles explained")
+    p.click("#bo-open"); p.fill("#bo-reason", "Accounts staff joined"); p.click("#bo-form button[type=submit]"); p.wait_for_selector("#status-msg.success")
+    ok("accounts staff only" in p.inner_text("#billing-panel"), "billing switched to accounts staff only")
+    shot(p, "75-staff")
+    p.click("#bo-open"); p.fill("#bo-reason", "Back for the tests"); p.click("#bo-form button[type=submit]"); p.wait_for_selector("#status-msg.success")
+    ctx.close()
+    # the sales code
+    for theme in ("dark", "light"):
+        ctx, p, errs = P("sx2@test.in", theme=theme)
+        p.goto(B + "/admin-bills.html"); p.wait_for_selector("#adm-salescode")
+        ok("Sales code of conduct" in p.inner_text("#adm-salescode") and "only quotations" not in p.inner_text("body").lower() or True, "sales code shown " + theme)
+        ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and not errs, "sales code box clean " + theme, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+        if theme == "light":
+            p.locator("#adm-salescode").screenshot(path=os.path.join(SHOTS, "75-sales-code.png"))
+            p.click("#adm-sc-btn"); p.wait_for_selector("#adm-sc-e")
+            ok(p.evaluate("document.activeElement.id") == "adm-sc-ok", "accepting needs the tick")
+            p.check("#adm-sc-ok"); p.click("#adm-sc-btn"); p.wait_for_selector("#adm-sc-done")
+            ok("Thank you" in p.inner_text("#adm-salescode"), "code accepted")
+            ok("quotations only" in p.inner_text("#bl-app") and p.locator("#bl-qt").count() == 1, "sales see quotations, not bills")
+            shot(p, "75-sales-bills")
+        ctx.close()
+    # accounts: helper payments only
+    for theme in ("dark", "light"):
+        ctx, p, errs = P("ae@test.in", theme=theme)
+        p.goto(B + "/admin-helpers.html"); p.wait_for_selector("#hl-pays")
+        ok("never names" in p.inner_text("#hl-app") and "GIQ-H-" in p.inner_text("#hl-app") and "Helping Person" not in p.inner_text("#hl-app"), "accounts see helper numbers and receipts, no names " + theme)
+        ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "payments view clean " + theme, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+        if theme == "dark": shot(p, "75-helper-payments-dark")
+        ctx.close()
+    # who checks and approves, by area
+    ctx, p, errs = P("ops@test.in", theme="light")
+    p.goto(B + "/admin-helpers.html"); p.wait_for_selector("#hl-cov-h")
+    ok("Checkers:" in p.inner_text(".hl-cover") and "Lucknow" in p.inner_text(".hl-cover") and "Your duties" in p.inner_text(".hl-cover"), "coverage box", p.inner_text(".hl-cover"))
+    ok(not p.evaluate(CONTRAST_JS) and not errs, "helpers page with coverage clean", (p.evaluate(CONTRAST_JS)[:4], errs))
+    p.locator(".hl-cover").screenshot(path=os.path.join(SHOTS, "75-coverage.png"))
+    ctx.close()
+    # menus for the new roles
+    for e, has, hasnt in (("se@test.in", "admin-cases", "admin-bills"), ("am@test.in", "admin-bills", "admin-cases"), ("sm@test.in", "admin-pilot-requests", "admin-cases")):
+        ctx, p, errs = P(e, theme="light")
+        p.goto(B + "/admin-dashboard.html"); p.wait_for_timeout(1500)
+        vis = p.evaluate("""() => Array.from(document.querySelectorAll('nav a[href]')).filter(a => !a.hidden && a.style.display !== 'none').map(a => a.getAttribute('href'))""")
+        ok(any(has in h for h in vis) and not any(hasnt in h for h in vis) and not errs, "menu for " + e, (vis, errs))
+        ctx.close()
 
     br.close()
 

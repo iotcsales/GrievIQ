@@ -1,7 +1,10 @@
 /*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // functions/api/admin/quotations.js (grieviq-70)
-// GET  (view_bills: super, operations, auditor) -> quotations, newest first
-// POST (manage_bills: super, operations), { action, ... }:
+// GET  (view_quotations: super, operations, auditor, accounts and sales staff) -> quotations, newest first
+// POST { action, ... } (grieviq-75: create and email = make_quotations: super,
+// operations, accounts and sales staff; withdraw and accept = accept_quotations:
+// super, operations, accounts manager, sales manager; sales staff accept the
+// sales code of conduct first):
 //   create   { officeName, addressee?, email?, planId, period, validDays?, note? }
 //            grieviq-71, super admin only: { custom: true, offer, amount, basis, reason, ... }
 //            priced on request (State / National / District dashboard or a
@@ -15,6 +18,7 @@
 //            order; it is invoiced outside GrievIQ's bills)
 // Every action goes to the admin log (admin_events cannot be changed).
 
+import { needsSalesCode } from "../../_shared/sales-code.js";
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { liveVersion, istToday, withGst } from "../../_shared/site-settings.js";
 import { quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, emailOffice, planBillFilter, billingReady } from "../../_shared/billing.js";
@@ -37,24 +41,26 @@ function cleanEmail(v) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "view_bills");
+  const auth = await getVerifiedAdmin(request, env, "view_quotations");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await quotesReady(env))) return json({ ready: false, quotations: [] });
   const today = istToday();
   const { results } = await env.DB.prepare("SELECT * FROM quotations ORDER BY made_at DESC LIMIT 200").all();
   const live = await liveVersion(env);
   const custom = await customReady(env);
-  return json({ ready: true, canManage: allows(auth, "manage_bills"), canCustom: custom && auth.role === "super_admin", today, days: QUOTE_DAYS,
+  return json({ ready: true, canManage: allows(auth, "make_quotations"), canAccept: allows(auth, "accept_quotations"), canCustom: custom && auth.role === "super_admin", today, days: QUOTE_DAYS,
     gstRate: Number(live.data.gst.rate), customOffers: custom ? customOffers(live.data) : [], customLimits: CUSTOM_LIMITS,
     quotations: (results || []).map((q) => quoteOut(q, today, true)) });
 }
 
 export async function onRequestPost({ request, env }) {
-  const auth = await getVerifiedAdmin(request, env, "manage_bills");
+  const auth = await getVerifiedAdmin(request, env, "make_quotations");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await quotesReady(env))) return json({ error: "NOT_READY" }, 409);
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
+  if ((b.action === "accept" || b.action === "withdraw") && !allows(auth, "accept_quotations")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
+  if (await needsSalesCode(env, auth)) return json({ error: "CODE_NOT_ACCEPTED" }, 403);
   const origin = new URL(request.url).origin;
   const now = new Date().toISOString(), today = istToday();
 
