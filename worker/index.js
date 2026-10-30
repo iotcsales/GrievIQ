@@ -14,6 +14,8 @@
 //   - follow-up requests between officials: reminders, overdue, results
 //   - online bill payments still waiting are checked with Razorpay
 //   - Community helpers: fees, reminders, pauses, ID photos deleted on time
+//   - GST documents due are issued (grieviq-76)
+//   - sales pipeline: pilot requests in, old contacts out, 9 am follow-ups email
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
@@ -30,6 +32,7 @@ import { runOnlinePayments } from "../functions/_shared/razorpay.js";
 import { runHelpers } from "../functions/_shared/helpers.js";
 import { runHelperFilings } from "../functions/_shared/helper-filing.js";
 import { syncTaxDocs } from "../functions/_shared/tax-docs.js";
+import { runSales } from "../functions/_shared/sales.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -75,7 +78,11 @@ export async function runScheduled(env, nowMs) {
   // payments settled here) are issued and emailed.
   let taxDocs = null;
   try { const t = await syncTaxDocs(env, { origin }); taxDocs = { on: t.on, reason: t.reason, issued: t.issued.length }; } catch (e) { taxDocs = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers, taxDocs };
+  // grieviq-77: sales pipeline: pilot requests copied in, contacts removed
+  // 2 years after a lead closed, and at 9 am the follow-ups-due count email.
+  let sales = null;
+  try { sales = await runSales(env, origin, nowMs, sendEmailNow); } catch (e) { sales = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers, taxDocs, sales };
 }
 
 export default {

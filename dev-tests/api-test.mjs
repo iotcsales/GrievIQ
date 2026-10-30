@@ -3812,6 +3812,175 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(await publishGst(""), "GSTIN removed again for the rest of the tests");
 }
 
+// ---- grieviq-77: Sales pipeline ----
+{
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const who = async (e) => (await call(e, "GET", "/api/admin/whoami")).body;
+  const sa = (w, q) => call(w, "GET", "/api/admin/sales" + (q ? "?" + q : ""));
+  const sp = (w, b) => call(w, "POST", "/api/admin/sales", b);
+  const qt = (w, b) => call(w, "POST", "/api/admin/quotations", b);
+  const runSales = async (now) => (await fetch(B + "/__test/run-sales", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(now ? { now } : {}) })).json();
+  const addD = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  // Pilot requests come in as leads nobody has yet.
+  sdb.prepare("INSERT INTO pilot_requests (id, created_at, name, office_kind, place, mobile, email, lang, consent_at, consent_text) VALUES ('pr-77', ?, 'Ravi Kumar', 'COUNCILLOR', 'Ward 12, Kanpur', '9876500077', NULL, 'en', ?, 'consent')")
+    .run(new Date().toISOString(), new Date().toISOString());
+  let s7 = await sa(S);
+  ok(s7.status === 200 && s7.body.ready && s7.body.canManage && s7.body.canWork, "sales page for the super admin", s7.body.error);
+  const pilotN = sdb.prepare("SELECT COUNT(*) AS n FROM pilot_requests").get().n;
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sales_leads WHERE source = 'PILOT'").get().n === pilotN, "every pilot request is a lead");
+  const pl = s7.body.leads.find((l) => l.contactName === "Ravi Kumar");
+  ok(pl && pl.stage === "NEW" && !pl.owner && pl.officeKind === "COUNCILLOR" && /^GIQ-L-\d{6}$/.test(pl.ref), "a pilot request arrives as a New lead nobody has yet", pl);
+  await sa(S);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sales_leads WHERE pilot_request_id = 'pr-77'").get().n === 1, "copied over once only");
+  ok(sdb.prepare("PRAGMA table_info(sales_leads)").all().every((c) => !/party|caste|relig/i.test(c.name)), "no party, caste or religion field");
+  // Who sees what
+  ok((await call(S, "POST", "/api/admin/staff", { action: "add", email: "mv2@test.in", role: "management_viewer", name: "Mira Director", employeeId: "GIQ-107", phone: "9811000107" })).status === 200, "a management viewer for these tests");
+  const mv = await sa("mv2@test.in");
+  ok(mv.status === 200 && mv.body.totalsOnly && !mv.body.leads && mv.body.totals && mv.body.totals.stages.NEW >= 1, "management sees totals only", Object.keys(mv.body));
+  ok((await sa("mv2@test.in", "id=" + pl.id)).status === 403, "management can't open a lead");
+  const au = await sa(A);
+  const auL = au.body.leads.find((l) => l.id === pl.id);
+  ok(au.status === 200 && au.body.auditor && auL && auL.mobile === "98XXXXXX77", "the auditor reads, mobile partly hidden", auL && auL.mobile);
+  ok((await sp(A, { action: "take", id: pl.id })).status === 403, "the auditor can't change anything");
+  ok((await sa("ae@test.in")).status === 403, "accounts staff don't see sales");
+  ok((await who("sm@test.in")).pages["admin-sales"].allowed && !(await who("ae@test.in")).pages["admin-sales"].allowed, "the Sales page is in the menu for sales staff only");
+  // Territories
+  ok((await sp("sx@test.in", { action: "territory", email: "sx@test.in", states: ["09"] })).status === 403, "a sales executive can't set territories");
+  ok((await sp("sm@test.in", { action: "territory", email: "sx@test.in", states: ["99"] })).status === 400, "states are checked");
+  s7 = await sp("sm@test.in", { action: "territory", email: "sx@test.in", states: ["09", "05"] });
+  ok(s7.status === 200 && s7.body.states.join() === "05,09", "the sales manager gives Sara Uttar Pradesh and Uttarakhand", s7.body);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'sales_territory_set'").get().n === 1, "territory change logged");
+  // A sales executive adds a lead
+  s7 = await sp("sx@test.in", { action: "create", officeKind: "COUNCILLOR", officeName: "Office of the Councillor, Ward 5", place: "Pune", state: "27" });
+  ok(s7.status === 400 && s7.body.fields.state === "NOT_YOURS" && s7.body.fields.mobile === "CONTACT", "only their states; a mobile or email is needed", s7.body);
+  ok((await sp("sx@test.in", { action: "create", officeKind: "NATIONAL", officeName: "Ministry office", mobile: "9876500001" })).body.fields.officeKind === "MANAGER", "Government of India leads are for the manager");
+  s7 = await sp("sx@test.in", { action: "create", officeKind: "COUNCILLOR", officeName: "Office of the Councillor, Ward 5, Aliganj", place: "Aliganj, Lucknow", state: "09", contactName: "Sunita Verma", designation: "PA to the Councillor", mobile: "91234 56780", email: "Ward5@Example.in", nextDate: addD(today, 2), nextStep: "Call back about a demo" });
+  ok(s7.status === 200 && /^GIQ-L-/.test(s7.body.ref), "sales executive adds a lead", s7.body);
+  const L1 = s7.body.id;
+  let row = sdb.prepare("SELECT * FROM sales_leads WHERE id = ?").get(L1);
+  ok(row.owner_email === "sx@test.in" && row.mobile === "9123456780" && row.email === "ward5@example.in" && row.stage === "NEW", "it is theirs, mobile and email cleaned", row);
+  s7 = await sp("sx@test.in", { action: "create", officeKind: "MLA", officeName: "MLA office, Lucknow Central", state: "09", mobile: "9123456780" });
+  ok(s7.status === 400 && s7.body.fields.mobile === "DUPLICATE" && s7.body.ref, "the same mobile on an open lead is flagged", s7.body);
+  s7 = await sp("sx@test.in", { action: "create", officeKind: "MLA", officeName: "MLA office, Lucknow Central", state: "09", mobile: "9123456780", sameOk: true });
+  ok(s7.status === 200, "added anyway when they confirm");
+  const L2 = s7.body.id;
+  // Leads nobody has, by state
+  const L3 = (await sp("sm@test.in", { action: "create", officeKind: "MAYOR", officeName: "Mayor's office, Dehradun", state: "05", email: "mayor@example.in", owner: "" })).body.id;
+  const L4 = (await sp("sm@test.in", { action: "create", officeKind: "MAYOR", officeName: "Mayor's office, Pune", state: "27", email: "pune@example.in", owner: "" })).body.id;
+  const L5 = (await sp("sm@test.in", { action: "create", officeKind: "STATE", officeName: "Department of Urban Development, Uttar Pradesh", state: "09", email: "ud@example.in" })).body.id;
+  const sxl = (await sa("sx@test.in")).body;
+  ok(sxl.leads.some((l) => l.id === L3 && l.access.take) && !sxl.leads.some((l) => l.id === L4) && !sxl.leads.some((l) => l.id === L5) && !sxl.leads.some((l) => l.id === pl.id), "Sara sees her leads and the free ones in her states only", sxl.leads.map((l) => l.officeName));
+  ok(sxl.followups.open === 2 && sxl.followups.free === 1, "tiles: her open leads and free ones", sxl.followups);
+  ok((await sa("sx@test.in", "id=" + L5)).status === 404 && (await sp("sx@test.in", { action: "log", id: L5, kind: "NOTE", note: "x" })).status === 404, "another person's lead can't be opened");
+  ok((await sp("sx@test.in", { action: "take", id: L3 })).status === 200, "Sara takes the Dehradun lead");
+  ok((await sp("sx@test.in", { action: "take", id: L3 })).status === 403, "it can't be taken twice");
+  ok(sdb.prepare("SELECT owner_email FROM sales_leads WHERE id = ?").get(L3).owner_email === "sx@test.in", "now hers");
+  // Recording what was done
+  s7 = await sp("sx@test.in", { action: "log", id: L1, kind: "CALL", note: "" });
+  ok(s7.status === 400 && s7.body.fields.note === "REQUIRED", "a note is needed");
+  ok((await sp("sx@test.in", { action: "log", id: L1, kind: "CALL", note: "Spoke to the PA", nextDate: addD(today, -1) })).body.fields.nextDate === "RANGE", "a follow-up can't be in the past");
+  s7 = await sp("sx@test.in", { action: "log", id: L1, kind: "CALL", note: "Spoke to the PA; demo on Monday", nextDate: addD(today, 4), nextStep: "Demo" });
+  ok(s7.status === 200 && s7.body.stage === "CONTACTED", "a call moves a new lead to Contacted", s7.body);
+  s7 = await sp("sx@test.in", { action: "log", id: L1, kind: "DEMO", note: "Showed the console and the citizen app" });
+  ok(s7.body.stage === "DEMO", "a demo moves it to Demo done");
+  ok((await sp("sx@test.in", { action: "log", id: L1, kind: "CALL", note: "Follow-up call" })).body.stage === "DEMO", "a later call doesn't move it back");
+  let det = (await sa("sx@test.in", "id=" + L1)).body;
+  ok(det.events.filter((e) => e.kind === "STAGE").length === 2 && det.events.some((e) => e.kind === "NEXT") && det.events.some((e) => e.kind === "CREATED"), "the history keeps every step", det.events.map((e) => e.kind));
+  ok(det.lead.nextDate === addD(today, 4) && det.lead.access.edit, "next follow-up kept");
+  // Details
+  ok((await sp("sx@test.in", { action: "details", id: L1, officeKind: "COUNCILLOR", officeName: "Office of the Councillor, Ward 5, Aliganj", state: "27", email: "bad", mobile: "9123456780" })).body.fields.state === "NOT_YOURS", "details: states checked");
+  s7 = await sp("sx@test.in", { action: "details", id: L1, officeKind: "COUNCILLOR", officeName: "Office of the Councillor, Ward 5, Aliganj", place: "Aliganj, Lucknow", state: "09", contactName: "Sunita Verma", designation: "Personal Assistant", mobile: "9123456780", email: "ward5@example.in" });
+  ok(s7.status === 200 && s7.body.changed.join() === "designation", "details changed and recorded", s7.body);
+  // Stages
+  ok((await sp("sx@test.in", { action: "stage", id: L2, stage: "LOST" })).body.fields.lostReason === "REQUIRED", "lost needs a reason");
+  ok((await sp("sx@test.in", { action: "stage", id: L2, stage: "LOST", lostReason: "OTHER" })).body.fields.note === "REQUIRED", "'other' needs a note");
+  ok((await sp("sx@test.in", { action: "stage", id: L2, stage: "WON" })).body.fields.note === "REQUIRED", "won needs a note (order or letter)");
+  s7 = await sp("sx@test.in", { action: "stage", id: L2, stage: "LOST", lostReason: "NO_BUDGET", note: "No budget this year" });
+  row = sdb.prepare("SELECT * FROM sales_leads WHERE id = ?").get(L2);
+  ok(s7.status === 200 && row.stage === "LOST" && row.lost_reason === "NO_BUDGET" && row.closed_at && !row.next_date, "lost with a reason, closed", row);
+  ok((await sp("sx@test.in", { action: "next", id: L2, nextDate: addD(today, 3) })).body.error === "CLOSED", "no follow-up on a closed lead");
+  s7 = await sp("sx@test.in", { action: "stage", id: L2, stage: "CONTACTED", note: "They found budget" });
+  ok(s7.status === 200 && !sdb.prepare("SELECT closed_at FROM sales_leads WHERE id = ?").get(L2).closed_at, "reopened");
+  // Giving leads
+  ok((await sp("sx@test.in", { action: "assign", id: L1, owner: "sm@test.in" })).status === 403, "a sales executive can't give leads away");
+  ok((await sp("sm@test.in", { action: "assign", id: pl.id, owner: "ae@test.in" })).body.fields.owner === "REQUIRED", "leads go to sales staff only");
+  const m0 = mails().length;
+  ok((await sp("sm@test.in", { action: "assign", id: pl.id, owner: "sx@test.in" })).status === 200, "the manager gives the pilot lead to Sara");
+  const gm = mails().slice(m0).find((x) => x.to[0] === "sx@test.in");
+  ok(gm && /given to you/.test(gm.subject) && !/Ravi|Kanpur|9876500077/.test(gm.html), "Sara is told, with no details in the email", gm);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'sales_lead_given'").get().n === 1, "giving a lead is logged");
+  // Quotations from a lead
+  const qb7 = { action: "create", officeName: "Office of the Councillor, Ward 5, Aliganj", addressee: "Sunita Verma", planId: "councillor", period: "YEAR", validDays: 30 };
+  ok((await qt("sx@test.in", Object.assign({}, qb7, { leadId: L5 }))).body.fields.leadId === "REQUIRED", "a quotation only on your own lead");
+  s7 = await qt("sx@test.in", Object.assign({}, qb7, { leadId: L1 }));
+  ok(s7.status === 200 && !s7.body.pending, "quotation made from the lead", s7.body);
+  const q7 = sdb.prepare("SELECT * FROM quotations WHERE ref = ?").get(s7.body.ref);
+  ok(q7.lead_id === L1 && sdb.prepare("SELECT quotation_id FROM sales_leads WHERE id = ?").get(L1).quotation_id === q7.id, "linked both ways");
+  ok((await qt("sx@test.in", { action: "email", id: q7.id, email: "ward5@example.in" })).status === 200, "emailed");
+  det = (await sa("sx@test.in", "id=" + L1)).body;
+  ok(det.lead.stage === "QUOTED" && det.quotations[0].ref === q7.ref, "emailing it moves the lead to Quotation sent", det.lead.stage);
+  // State quotation: the sales manager prepares, the super admin approves
+  ok((await call("sm@test.in", "GET", "/api/admin/quotations")).body.canCustom === true && (await call("sx@test.in", "GET", "/api/admin/quotations")).body.canCustom === false, "the sales manager may prepare quotations priced on request");
+  const m1 = mails().length;
+  s7 = await qt("sm@test.in", Object.assign({}, qb7, { officeName: "Department of Urban Development, Uttar Pradesh", custom: true, offer: "STATE", amount: 1200000, basis: "All 17 municipal corporations of Uttar Pradesh", reason: "Scope agreed in the meeting of 28 Oct", leadId: L5 }));
+  ok(s7.status === 200 && s7.body.pending === true, "the sales manager prepares a State quotation, waiting for approval", s7.body);
+  const q8 = sdb.prepare("SELECT * FROM quotations WHERE ref = ?").get(s7.body.ref);
+  ok(q8.approval === "PENDING" && q8.lead_id === L5, "stored as waiting");
+  const am = mails().slice(m1).find((x) => x.to[0] === S);
+  ok(am && /waiting for your approval/.test(am.subject) && !/1200000|12,00,000|Urban/.test(am.html), "the super admin is told, no details", am);
+  ok((await qt("sm@test.in", { action: "email", id: q8.id, email: "ud@example.in" })).body.error === "NOT_APPROVED", "it can't be emailed before approval");
+  ok((await qt("sm@test.in", { action: "accept", id: q8.id, orderRef: "UD/2026/14" })).body.error === "NOT_APPROVED", "or accepted");
+  ok((await fetch(B + "/api/quote?ref=" + q8.ref + "&k=" + q8.view_key)).status === 404, "the office can't open it yet");
+  ok((await qt("sm@test.in", { action: "approve", id: q8.id })).status === 403, "the sales manager can't approve");
+  ok((await qt(S, { action: "approve", id: q8.id })).status === 200, "the super admin approves it");
+  ok((await qt(S, { action: "approve", id: q8.id })).body.error === "NOT_PENDING", "once");
+  ok((await fetch(B + "/api/quote?ref=" + q8.ref + "&k=" + q8.view_key)).status === 200, "now the office can open it");
+  ok((await call("sm@test.in", "GET", "/api/admin/quotations")).body.quotations.find((x) => x.id === q8.id).approvedBy === S, "approval shown");
+  ok((await qt("sm@test.in", { action: "accept", id: q8.id, orderRef: "UD/2026/14" })).status === 200, "the order is recorded");
+  row = sdb.prepare("SELECT * FROM sales_leads WHERE id = ?").get(L5);
+  ok(row.stage === "WON" && row.closed_at, "the lead is Won", row.stage);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action = 'quotation_approved'").get().n === 1, "approval logged");
+  s7 = await qt(S, Object.assign({}, qb7, { officeName: "National office", custom: true, offer: "NATIONAL", amount: 5000000, basis: "All ministries", reason: "Super admin's own quotation" }));
+  ok(s7.status === 200 && !s7.body.pending && !sdb.prepare("SELECT approval FROM quotations WHERE ref = ?").get(s7.body.ref).approval, "the super admin's own needs no approval");
+  // Totals
+  const tot = (await sa(S)).body.totals;
+  ok(tot.stages.WON >= 1 && tot.wonMonth >= 1 && tot.newMonth >= 5 && JSON.stringify((await sa("mv2@test.in")).body.totals) === JSON.stringify(tot), "totals, the same for management", tot);
+  // Follow-ups email at 9 am India time, once a day, count only
+  const nowUtc = today + "T04:00:00Z";   // 9:30 am in India
+  sdb.prepare("UPDATE sales_leads SET next_date = ? WHERE id IN (?, ?)").run(today, L1, L3);
+  const m2 = mails().length;
+  let rs = await runSales(today + "T02:00:00Z");
+  ok(rs.digests === 0, "no email before 9 am", rs);
+  rs = await runSales(nowUtc);
+  const dg = mails().slice(m2).filter((x) => /follow-up/.test(x.subject));
+  ok(rs.digests >= 1 && dg.some((x) => x.to[0] === "sx@test.in" && /\b2\b/.test(x.subject)) && dg.every((x) => !/Aliganj|Dehradun|Sunita/.test(x.html)), "9 am: one email with the count only", dg.map((x) => x.subject));
+  ok((await runSales(today + "T05:00:00Z")).digests === 0, "only once a day");
+  ok((await sa("sx@test.in")).body.followups.due === 2, "tiles count today's follow-ups");
+  // Contacts removed 2 years after closing
+  sdb.prepare("UPDATE sales_leads SET stage = 'LOST', lost_reason = 'PRICE', closed_at = ? WHERE id = ?").run(new Date(Date.now() - 731 * 86400000).toISOString(), L2);
+  rs = await runSales();
+  row = sdb.prepare("SELECT * FROM sales_leads WHERE id = ?").get(L2);
+  ok(rs.erased >= 1 && row.erased_at && !row.mobile && !row.contact_name && !row.email && row.office_name, "2 years after closing: contact details removed, the office kept", row);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sales_lead_events WHERE lead_id = ? AND note IS NOT NULL").get(L2).n === 0, "notes removed too");
+  ok((await sp("sx@test.in", { action: "log", id: L2, kind: "NOTE", note: "late" })).body.error === "ERASED", "an erased lead can't be changed");
+  ok((await sp("sx@test.in", { action: "create", officeKind: "MLA", officeName: "x" })).status === 400, "create is checked");
+  // The code of conduct still applies
+  sdb.prepare("UPDATE admin_users SET code_version = NULL WHERE email = 'sx@test.in'").run();
+  ok((await sp("sx@test.in", { action: "log", id: L1, kind: "NOTE", note: "x y" })).body.error === "CODE_NOT_ACCEPTED", "no sales work before the code is accepted");
+  await call("sx@test.in", "POST", "/api/admin/whoami", { action: "accept_sales_code", accept: true });
+  // A sales person's new sign-in email keeps their leads and states
+  await call(S, "POST", "/api/admin/staff", { action: "add", email: "sx2@test.in", role: "sales_executive", name: "Sam Sales", employeeId: "GIQ-108", phone: "9811000108" });
+  await sp("sm@test.in", { action: "territory", email: "sx2@test.in", states: ["10"] });
+  await sp("sm@test.in", { action: "assign", id: L4, owner: "sx2@test.in" });
+  ok((await call(O, "POST", "/api/admin/staff", { action: "change_email", email: "sx2@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200 || (await call(S, "POST", "/api/admin/staff", { action: "change_email", email: "sx2@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200, "email changed");
+  ok(sdb.prepare("SELECT owner_email FROM sales_leads WHERE id = ?").get(L4).owner_email === "sam.sales@test.in" && sdb.prepare("SELECT COUNT(*) AS n FROM sales_territories WHERE email = 'sam.sales@test.in'").get().n === 1, "leads and states follow the new email");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers (part51 adds none)");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

@@ -543,7 +543,7 @@
   ],
   [
    "send a quotation to a department",
-   "bills"
+   "bills|sales"
   ],
   [
    "department sent a work order",
@@ -619,6 +619,22 @@
   ],
   [
    "sales code of conduct",
+   "sales"
+  ],
+  [
+   "how do i add a sales lead",
+   "sales"
+  ],
+  [
+   "where do i see my follow-ups for today",
+   "sales"
+  ],
+  [
+   "give a lead to a sales executive",
+   "sales"
+  ],
+  [
+   "who approves a state government quotation",
    "sales"
   ],
   [

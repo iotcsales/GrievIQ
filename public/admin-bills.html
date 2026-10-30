@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=76"></script>
-<script src="/admin-nav.js?v=r24"></script>
+<script src="/i18n.js?v=77"></script>
+<script src="/admin-nav.js?v=r25"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -498,7 +498,7 @@ async function rvAct(body, btn) {
 // grieviq-70: quotations. Made from the published prices; printable from a
 // private link; emailed to the office; an order turns it into a bill at the
 // quoted price.
-var QT = { data: null, f: { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "", amount: "", basis: "", reason: "" }, fields: {}, quote: null, acc: {}, show: false };
+var QT = { data: null, f: { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "", amount: "", basis: "", reason: "", leadId: "" }, fields: {}, quote: null, acc: {}, show: false, lead: null };
 function qCustom() { return /^c:/.test(QT.f.plan || ""); }
 function qCustomPreview() {
   var a = Number(String(QT.f.amount || "").replace(/[,\s₹]/g, "")), r = QT.data.gstRate || 0;
@@ -517,6 +517,7 @@ function renderQuotes() {
   var h = '<section class="bl-new" aria-labelledby="bl-qt-h" id="bl-qt"><h2 id="bl-qt-h">' + esc(T("adm.qt_h")) + "</h2><p>" + esc(T("adm.qt_p")) + "</p>";
   if (d.canManage) {
     h += '<details id="qt-new"' + (QT.show ? " open" : "") + '><summary style="cursor:pointer;font-weight:600;min-height:32px">' + esc(T("adm.qt_new_h")) + "</summary>" +
+      (QT.lead && f.leadId ? '<p class="warnline" id="qt-lead">' + esc(T("adm.qt_for_lead", { ref: QT.lead.ref })) + "</p>" : "") + (QT.fields.leadId ? '<p class="ferr" role="alert">' + esc(T("adm.qt_e_leadId")) + "</p>" : "") +
       '<div class="bl-row"><div class="fld"><label for="qt-office">' + esc(T("adm.qt_office")) + '</label><input type="text" id="qt-office" maxlength="160" autocomplete="off" value="' + esc(f.officeName) + '"' + qInv("officeName") + ">" + qErr("officeName") + "</div></div>" +
       '<div class="bl-row"><div class="fld"><label for="qt-to">' + esc(T("adm.qt_to")) + '</label><input type="text" id="qt-to" maxlength="160" autocomplete="off" value="' + esc(f.addressee) + '"' + qInv("addressee") + ">" + qErr("addressee") + "</div>" +
       '<div class="fld"><label for="qt-email">' + esc(T("adm.qt_email")) + '</label><input type="email" id="qt-email" maxlength="120" autocomplete="off" spellcheck="false" value="' + esc(f.email) + '"' + qInv("email") + ">" + qErr("email") + "</div></div>" +
@@ -546,8 +547,9 @@ function customFields() {
 }
 function quoteCard(x) {
   var link = "/quote?ref=" + encodeURIComponent(x.ref) + "&k=" + x.viewKey;
-  var open = x.status === "OPEN" && QT.data.canManage, a = QT.acc[x.id], canAcc = QT.data.canAccept;
-  var stK = x.kind === "CUSTOM" && x.status === "ACCEPTED" ? "ORDERED" : x.status;
+  var pending = x.approval === "PENDING" && x.status === "OPEN";
+  var open = x.status === "OPEN" && QT.data.canManage && !pending, a = QT.acc[x.id], canAcc = QT.data.canAccept;
+  var stK = pending ? "PENDING" : x.kind === "CUSTOM" && x.status === "ACCEPTED" ? "ORDERED" : x.status;
   var h = '<div class="bl-pay qt-card" data-qt="' + esc(x.id) + '"><h4>' + esc(x.ref) + " · " + esc(x.officeName) + ' <span class="badge">' + esc(T("adm.qt_st_" + stK)) + "</span></h4><dl>" +
     "<dt>" + esc(T("adm.bl_plan")) + "</dt><dd>" + esc(x.planName) + " · " + esc(T(x.period === "YEAR" ? "adm.bl_year" : "adm.bl_month")) + (x.kind === "CUSTOM" ? " · " + esc(T("adm.qt_c_tag")) : "") + "</dd>" +
     (x.basis ? "<dt>" + esc(T("adm.qt_c_basis_s")) + "</dt><dd>" + esc(x.basis) + "</dd>" : "") +
@@ -557,9 +559,13 @@ function quoteCard(x) {
     "<dt>" + esc(T("adm.qt_made")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(x.madeAt), who: x.madeBy })) + "</dd>" +
     (x.emailedTo ? "<dt>" + esc(T("adm.qt_emailed")) + "</dt><dd>" + esc(x.emailedTo) + " · " + esc(timeText(x.emailedAt)) + "</dd>" : "") +
     (x.status === "ACCEPTED" ? "<dt>" + esc(T("adm.qt_order")) + "</dt><dd>" + esc(x.orderRef) + " · " + esc(T("adm.pr_by", { when: timeText(x.acceptedAt), who: x.acceptedBy })) + "</dd>" : "") +
+    (x.approvedBy ? "<dt>" + esc(T("adm.qt_approved")) + "</dt><dd>" + esc(T("adm.pr_by", { when: timeText(x.approvedAt), who: x.approvedBy })) + "</dd>" : "") +
     (x.status === "WITHDRAWN" ? "<dt>" + esc(T("adm.qt_withdrawn")) + "</dt><dd>" + esc(x.withdrawReason) + " · " + esc(timeText(x.withdrawnAt)) + "</dd>" : "") +
     "</dl>" +
-    '<p style="margin:4px 0 8px;font-size:14px"><a style="color:var(--admin-accent)" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(T("adm.qt_open", { ref: x.ref })) + "</a></p>";
+    (pending ? '<p class="warnline">' + esc(T("adm.qt_pending_p")) + "</p>" : '<p style="margin:4px 0 8px;font-size:14px"><a style="color:var(--admin-accent)" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(T("adm.qt_open", { ref: x.ref })) + "</a></p>");
+  if (pending && QT.data.canApprove) h += '<div class="acts"><button type="button" class="primary" data-qt-approve="' + esc(x.id) + '">' + esc(T("adm.qt_approve_btn")) + "</button></div>";
+  if (pending && canAcc) h += '<div class="bl-row"><div class="fld"><label for="qw-' + esc(x.id) + '">' + esc(T("adm.qt_withdraw_reason")) + '</label><input type="text" id="qw-' + esc(x.id) + '" maxlength="300" autocomplete="off"></div>' +
+      '<button type="button" class="danger" data-qt-withdraw="' + esc(x.id) + '">' + esc(T("adm.qt_withdraw_btn")) + "</button></div>";
   if (open) {
     h += '<div class="bl-row"><div class="fld"><label for="qe-' + esc(x.id) + '">' + esc(T("adm.qt_email_to")) + '</label><input type="email" id="qe-' + esc(x.id) + '" maxlength="120" autocomplete="off" spellcheck="false" value="' + esc(x.email || "") + '"></div>' +
       '<button type="button" data-qt-email="' + esc(x.id) + '">' + esc(T("adm.qt_email_btn")) + "</button></div>" +
@@ -605,6 +611,7 @@ function wireQuotes() {
   box.querySelectorAll('input[name="qt-period"]').forEach(function (r) { r.addEventListener("change", function () { f.period = r.value; qQuote(); }); });
   var mk = document.getElementById("qt-make"); if (mk) mk.addEventListener("click", function () { qMake(mk); });
   box.querySelectorAll("[data-qt-email]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-email"); qAct({ action: "email", id: id, email: document.getElementById("qe-" + id).value }, btn, "adm.qt_done_email"); }); });
+  box.querySelectorAll("[data-qt-approve]").forEach(function (btn) { btn.addEventListener("click", function () { qAct({ action: "approve", id: btn.getAttribute("data-qt-approve") }, btn, "adm.qt_done_approve"); }); });
   box.querySelectorAll("[data-qt-withdraw]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-withdraw"); qAct({ action: "withdraw", id: id, reason: document.getElementById("qw-" + id).value }, btn, "adm.qt_done_withdraw"); }); });
   box.querySelectorAll("[data-qt-accept]").forEach(function (btn) { btn.addEventListener("click", function () { var id = btn.getAttribute("data-qt-accept"); if (QT.acc[id]) delete QT.acc[id]; else QT.acc[id] = { type: "DEPT", q: "", from: B.data.today }; renderQuotes(); var t = document.querySelector('[data-qt-accept="' + id + '"]'); if (t) t.focus(); }); });
   Object.keys(QT.acc).forEach(function (id) {
@@ -640,13 +647,13 @@ async function qMake(btn) {
   var f = QT.f; QT.fields = {}; btn.disabled = true;
   try {
     var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(qCustom()
-      ? { action: "create", custom: true, offer: f.plan.slice(2), amount: f.amount, basis: f.basis, reason: f.reason, officeName: f.officeName, addressee: f.addressee, email: f.email, validDays: f.days, note: f.note }
-      : { action: "create", officeName: f.officeName, addressee: f.addressee, email: f.email, planId: f.plan, period: f.period, validDays: f.days, note: f.note }) });
+      ? { action: "create", custom: true, offer: f.plan.slice(2), amount: f.amount, basis: f.basis, reason: f.reason, officeName: f.officeName, addressee: f.addressee, email: f.email, validDays: f.days, note: f.note, leadId: f.leadId || undefined }
+      : { action: "create", officeName: f.officeName, addressee: f.addressee, email: f.email, planId: f.plan, period: f.period, validDays: f.days, note: f.note, leadId: f.leadId || undefined }) });
     var d = await res.json(); btn.disabled = false;
     if (res.status === 400 && d.fields) { QT.fields = d.fields; renderQuotes(); var k = Object.keys(d.fields)[0]; var map = { officeName: "qt-office", addressee: "qt-to", email: "qt-email", plan: "qt-plan", validDays: "qt-days", period: "qt-p-YEAR", amount: "qt-amount", basis: "qt-basis", reason: "qt-reason" }; var t = document.getElementById(map[k]); if (t) t.focus(); return; }
     if (!res.ok) { setMsg(true, T(d.error === "CODE_NOT_ACCEPTED" ? "adm.sc_needed" : "adm.ss_e_generic")); return; }
-    QT.f = { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "", amount: "", basis: "", reason: "" }; QT.quote = null; QT.show = false;
-    await loadQuotes(); setMsg(false, T("adm.qt_done_make", { ref: d.ref, t: rupees(d.total) }));
+    QT.f = { officeName: "", addressee: "", email: "", plan: "", period: "YEAR", days: "30", note: "", amount: "", basis: "", reason: "", leadId: "" }; QT.quote = null; QT.show = false; QT.lead = null;
+    await loadQuotes(); setMsg(false, T(d.pending ? "adm.qt_done_pending" : "adm.qt_done_make", { ref: d.ref, t: rupees(d.total) }));
   } catch (e) { btn.disabled = false; setMsg(true, T("adm.ss_e_net")); }
 }
 async function qAct(body, btn, okKey) {
@@ -687,7 +694,25 @@ async function qAccept(id, btn) {
 }
 async function loadQuotes() {
   try { var r = await fetch("/api/admin/quotations"); QT.data = r.ok ? await r.json() : null; } catch (e) { QT.data = null; }
+  await leadFromAddress();
   renderQuotes();
+}
+// grieviq-77: "Make a quotation" from a sales lead opens this page with
+// ?lead=<id>; the office, contact and email are filled in from the lead.
+var leadAsked = false;
+async function leadFromAddress() {
+  if (leadAsked || !QT.data || !QT.data.canManage) return;
+  leadAsked = true;
+  var id = new URLSearchParams(location.search).get("lead");
+  if (!id) return;
+  try {
+    var r = await fetch("/api/admin/sales?id=" + encodeURIComponent(id)); if (!r.ok) return;
+    var l = (await r.json()).lead;
+    QT.lead = l; QT.show = true;
+    QT.f.leadId = l.id; QT.f.officeName = l.officeName; QT.f.email = l.email || "";
+    QT.f.addressee = [l.contactName, l.designation].filter(Boolean).join(", ");
+    setTimeout(function () { var el = document.getElementById("qt-office"); if (el) { el.scrollIntoView({ block: "center" }); el.focus(); } }, 0);
+  } catch (e) { /* the form stays empty */ }
 }
 function onlineHtml(b) {
   return (b.online || []).map(function (x) {

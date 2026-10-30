@@ -486,6 +486,13 @@ export async function onRequestPost({ request, env }) {
       env.DB.prepare("UPDATE staff_covers SET cover_email = ? WHERE LOWER(cover_email) = ?").bind(newEmail, email),
       env.DB.prepare("UPDATE change_requests SET requested_by = ? WHERE status = 'PENDING' AND LOWER(requested_by) = ?").bind(newEmail, email),
     ]);
+    // grieviq-77: their sales leads and states follow them too.
+    try {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE sales_leads SET owner_email = ? WHERE owner_email = ?").bind(newEmail, email),
+        env.DB.prepare("UPDATE sales_territories SET email = ? WHERE email = ?").bind(newEmail, email),
+      ]);
+    } catch (e) { /* part51 not run yet */ }
     await logEvent(env, auth.email, "staff_email_changed", newEmail, { from: email, to: newEmail, reason, name: p.name || null, employeeId: p.employee_id || null });
     return json({ ok: true, email: newEmail });
   }

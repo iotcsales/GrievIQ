@@ -16,6 +16,7 @@
 import { checkDailyLimits, deviceParts } from "../_shared/daily-limit.js";
 import { liveVersion } from "../_shared/site-settings.js";
 import { sendEmailNow } from "../_shared/dept-auth.js";
+import { importPilotRequests } from "../_shared/sales.js";
 
 export const OFFICE_KINDS = ["PRADHAN", "COUNCILLOR", "MAYOR", "MLA", "MP", "DEPARTMENT", "OTHER"];
 export const CONSENT_TEXT = {
@@ -66,6 +67,9 @@ export async function onRequestPost(context) {
     if (/no such table/i.test(String(e && e.message))) return json({ error: "NOT_READY" }, 503);
     throw e;
   }
+  // grieviq-77: it goes into the sales pipeline at once (the hourly job and
+  // the Sales page also pick it up if this step fails).
+  try { await importPilotRequests(env); } catch (e) { /* picked up later */ }
   // A content-free alert to the published contact address.
   const live = await liveVersion(env);
   const to = live.data.company && live.data.company.supportEmail;

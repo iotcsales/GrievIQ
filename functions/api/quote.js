@@ -15,5 +15,6 @@ export async function onRequestGet({ request, env }) {
   if (!/^GIQ-QT-\d{6}$/.test(ref) || !/^[0-9a-f]{48}$/.test(k) || !(await quotesReady(env))) return json({ error: "NOT_FOUND" }, 404);
   const q = await env.DB.prepare("SELECT * FROM quotations WHERE ref = ?").bind(ref).first();
   if (!q || !sameKey(q.view_key, k)) return json({ error: "NOT_FOUND" }, 404);
+  if (q.approval === "PENDING") return json({ error: "NOT_FOUND" }, 404);   // grieviq-77: not yet approved by the super admin
   return json({ ok: true, quotation: quoteOut(q, istToday(), false) });
 }

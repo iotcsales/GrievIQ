@@ -12,6 +12,12 @@
 //            the quotation, reason kept for the auditor
 //   email    { id, email? }        the quotation and its private link, to the office
 //   withdraw { id, reason }
+//   approve  { id }   grieviq-77, super admin: a quotation priced on request
+//            that a sales manager prepared (approval PENDING) can then be
+//            emailed and accepted
+//   create also takes { leadId } (grieviq-77): the quotation is linked to
+//            the sales lead; emailing it moves the lead to "Quotation sent",
+//            accepting it to "Won"
 //   accept   { id, officeType, officeTier?, officeId, from, orderRef, dueDays? }
 //            the office's order arrived: a bill at the quoted price
 //            (a quotation priced on request: { id, orderRef } records the
@@ -26,6 +32,8 @@ import { sendEmailNow } from "../../_shared/dept-auth.js";
 import { validateContact } from "../../_shared/contact-validation.js";
 import { quotesReady, nextQuoteRef, newViewKey, quoteOut, QUOTE_DAYS, customReady, customOffers, CUSTOM_LIMITS } from "../../_shared/quotes.js";
 import { syncTaxDocs, cleanGstin, GSTIN_RE } from "../../_shared/tax-docs.js";
+import { approvalReady } from "../../_shared/quotes.js";
+import { salesReady, statesOf, leadAccess, logLead, OPEN_STAGES } from "../../_shared/sales.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -49,7 +57,7 @@ export async function onRequestGet({ request, env }) {
   const { results } = await env.DB.prepare("SELECT * FROM quotations ORDER BY made_at DESC LIMIT 200").all();
   const live = await liveVersion(env);
   const custom = await customReady(env);
-  return json({ ready: true, canManage: allows(auth, "make_quotations"), canAccept: allows(auth, "accept_quotations"), canCustom: custom && auth.role === "super_admin", today, days: QUOTE_DAYS,
+  return json({ ready: true, canManage: allows(auth, "make_quotations"), canAccept: allows(auth, "accept_quotations"), canCustom: custom && (auth.role === "super_admin" || (auth.role === "sales_manager" && (await approvalReady(env)))), canApprove: auth.role === "super_admin", today, days: QUOTE_DAYS,
     gstRate: Number(live.data.gst.rate), customOffers: custom ? customOffers(live.data) : [], customLimits: CUSTOM_LIMITS,
     quotations: (results || []).map((q) => quoteOut(q, today, true)) });
 }
@@ -77,7 +85,9 @@ async function handlePost({ request, env }) {
     let plan, period, q, custom = null;
     if (b.custom) {
       // grieviq-71: priced on request, super admin only.
-      if (auth.role !== "super_admin") return json({ error: "INSUFFICIENT_ROLE" }, 403);
+      // grieviq-77: a sales manager prepares it; the super admin approves it
+      // before it can be emailed or accepted.
+      if (auth.role !== "super_admin" && !(auth.role === "sales_manager" && (await approvalReady(env)))) return json({ error: "INSUFFICIENT_ROLE" }, 403);
       if (!(await customReady(env))) return json({ error: "NOT_READY" }, 409);
       const offer = customOffers(live.data).find((o) => o.id === String(b.offer || ""));
       if (!offer) f.plan = "REQUIRED";
@@ -103,6 +113,12 @@ async function handlePost({ request, env }) {
     if (!Number.isInteger(days) || days < QUOTE_DAYS.min || days > QUOTE_DAYS.max) f.validDays = "RANGE";
     const note = clean(b.note, 300);
     if (note.length > 300) f.note = "LENGTH";
+    let lead = null;
+    if (b.leadId) {
+      // grieviq-77: only a lead the person works on (or a sales manager / senior admin).
+      if (await salesReady(env)) lead = await env.DB.prepare("SELECT * FROM sales_leads WHERE id = ?").bind(String(b.leadId)).first();
+      if (!lead || lead.erased_at || !OPEN_STAGES.includes(lead.stage) || !leadAccess(auth, lead, await statesOf(env, auth.email)).edit) f.leadId = "REQUIRED";
+    }
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     const id = crypto.randomUUID();
     let ref = null;
@@ -118,13 +134,35 @@ async function handlePost({ request, env }) {
     }
     if (!ref) return json({ error: "CONFLICT" }, 409);
     if (custom) await env.DB.prepare("UPDATE quotations SET kind = 'CUSTOM', basis = ?, custom_reason = ? WHERE id = ?").bind(custom.basis, custom.reason, id).run();
+    const pending = !!custom && auth.role !== "super_admin";
+    if (pending) {
+      await env.DB.prepare("UPDATE quotations SET approval = 'PENDING' WHERE id = ?").bind(id).run();
+      await tellSuperAdmins(env, origin);
+    }
+    if (lead) {
+      await env.DB.prepare("UPDATE quotations SET lead_id = ? WHERE id = ?").bind(lead.id, id).run();
+      await env.DB.prepare("UPDATE sales_leads SET quotation_id = ?, updated_at = ? WHERE id = ?").bind(id, now, lead.id).run();
+      await logLead(env, lead.id, auth.email, "QUOTATION", { note: ref + (pending ? " · waiting for approval" : "") });
+    }
     await adminLog(env, auth.email, custom ? "quotation_made_on_request" : "quotation_made", ref, Object.assign({ office: officeName, plan: plan.id, period, total: q.total, validUntil: addDays(today, days) }, custom ? { basis: custom.basis, reason: custom.reason } : {}));
-    return json({ ok: true, id, ref, total: q.total, validUntil: addDays(today, days) });
+    return json({ ok: true, id, ref, total: q.total, validUntil: addDays(today, days), pending });
   }
 
   const row = await env.DB.prepare("SELECT * FROM quotations WHERE id = ?").bind(String(b.id || "")).first();
   if (!row) return json({ error: "NOT_FOUND" }, 404);
   const expired = row.status === "OPEN" && row.valid_until < today;
+
+  if (b.action === "approve") {
+    if (auth.role !== "super_admin") return json({ error: "INSUFFICIENT_ROLE" }, 403);
+    if (row.approval !== "PENDING") return json({ error: "NOT_PENDING" }, 409);
+    if (row.status !== "OPEN") return json({ error: "NOT_OPEN" }, 409);
+    const r = await env.DB.prepare("UPDATE quotations SET approval = 'APPROVED', approved_by = ?, approved_at = ? WHERE id = ? AND approval = 'PENDING'").bind(auth.email, now, row.id).run();
+    if (!r.meta || r.meta.changes !== 1) return json({ error: "NOT_PENDING" }, 409);
+    await adminLog(env, auth.email, "quotation_approved", row.ref, { madeBy: row.made_by, total: row.total });
+    if (row.lead_id) { try { await logLead(env, row.lead_id, auth.email, "QUOTATION", { note: row.ref + " · approved" }); } catch (e) { /* the admin log has it */ } }
+    return json({ ok: true });
+  }
+  if ((b.action === "email" || b.action === "accept") && row.approval === "PENDING") return json({ error: "NOT_APPROVED" }, 409);
 
   if (b.action === "email") {
     if (row.status !== "OPEN" || expired) return json({ error: expired ? "EXPIRED" : "NOT_OPEN" }, 409);
@@ -139,6 +177,7 @@ async function handlePost({ request, env }) {
     if (!sent) return json({ error: "EMAIL_FAILED" }, 502);
     await env.DB.prepare("UPDATE quotations SET emailed_to = ?, emailed_at = ?, email = COALESCE(email, ?) WHERE id = ?").bind(to, now, to, row.id).run();
     await adminLog(env, auth.email, "quotation_emailed", row.ref, { to });
+    await leadMoves(env, row, auth.email, "QUOTED", row.ref + " · emailed");
     return json({ ok: true, to });
   }
 
@@ -148,6 +187,7 @@ async function handlePost({ request, env }) {
     if (reason.length < 5 || reason.length > 300) return json({ error: "CHECK_FIELDS", fields: { reason: reason.length > 300 ? "LENGTH" : "REQUIRED" } }, 400);
     await env.DB.prepare("UPDATE quotations SET status = 'WITHDRAWN', withdrawn_by = ?, withdrawn_at = ?, withdraw_reason = ? WHERE id = ? AND status = 'OPEN'").bind(auth.email, now, reason, row.id).run();
     await adminLog(env, auth.email, "quotation_withdrawn", row.ref, { reason });
+    if (row.lead_id) { try { await logLead(env, row.lead_id, auth.email, "QUOTATION", { note: row.ref + " · withdrawn" }); } catch (e) { /* admin log has it */ } }
     return json({ ok: true });
   }
 
@@ -160,6 +200,7 @@ async function handlePost({ request, env }) {
     const r = await env.DB.prepare("UPDATE quotations SET status = 'ACCEPTED', accepted_by = ?, accepted_at = ?, order_ref = ? WHERE id = ? AND status = 'OPEN'").bind(auth.email, now, orderRef, row.id).run();
     if (!r.meta || r.meta.changes !== 1) return json({ error: "NOT_OPEN" }, 409);
     await adminLog(env, auth.email, "quotation_order_recorded", row.ref, { orderRef, total: row.total });
+    await leadMoves(env, row, auth.email, "WON", row.ref + " · order " + orderRef);
     return json({ ok: true, recorded: true, total: row.total });
   }
 
@@ -213,12 +254,39 @@ async function handlePost({ request, env }) {
     if (buyerGstin) { try { await env.DB.prepare("UPDATE bills SET buyer_gstin = ? WHERE id = ?").bind(buyerGstin, id).run(); } catch (e) { /* part50 not run yet */ } }
     await logBill(env, id, auth.email, "ISSUED", { ref, quotation: row.ref, orderRef, total: row.total, settingsVersion: row.settings_version });
     await adminLog(env, auth.email, "quotation_accepted", row.ref, { bill: ref, office: office.name, orderRef, total: row.total });
+    await leadMoves(env, row, auth.email, "WON", row.ref + " · order " + orderRef + " · bill " + ref);
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(id).first();
     const emailed = await emailOffice(env, origin, bill, "ISSUED");
     return json({ ok: true, billId: id, billRef: ref, total: row.total, emailed });
   }
 
   return json({ error: "Unknown action." }, 400);
+}
+
+// grieviq-77: the linked sales lead moves forward (never backward, never
+// once it is closed).
+async function leadMoves(env, row, by, to, note) {
+  if (!row.lead_id) return;
+  try {
+    const l = await env.DB.prepare("SELECT id, stage FROM sales_leads WHERE id = ?").bind(row.lead_id).first();
+    if (!l || !OPEN_STAGES.includes(l.stage)) return;
+    const order = { NEW: 0, CONTACTED: 1, DEMO: 2, QUOTED: 3, WON: 4 };
+    const now = new Date().toISOString();
+    if (order[to] <= order[l.stage]) { await logLead(env, l.id, by, "QUOTATION", { note }); return; }
+    await env.DB.prepare("UPDATE sales_leads SET stage = ?, closed_at = ?, next_date = CASE WHEN ? THEN NULL ELSE next_date END, updated_at = ? WHERE id = ?")
+      .bind(to, to === "WON" ? now : null, to === "WON" ? 1 : 0, now, l.id).run();
+    await logLead(env, l.id, by, "STAGE", { from: l.stage, to, note });
+  } catch (e) { /* part51 not run yet */ }
+}
+// Content-free: a quotation is waiting for the super admin's approval.
+async function tellSuperAdmins(env, origin) {
+  try {
+    const { results } = await env.DB.prepare("SELECT LOWER(email) AS email FROM admin_users WHERE role = 'super_admin' AND COALESCE(status, 'PRESENT') <> 'LEFT'").all();
+    for (const r of results || []) {
+      await sendEmailNow(env, r.email, "GrievIQ: a quotation is waiting for your approval",
+        `<p>A quotation priced on request is waiting for your approval. Sign in to see it:</p><p><a href="${escH(origin)}/admin-bills.html">${escH(origin)}/admin-bills.html</a></p><p>For security, the details are shown only after you sign in.</p>`);
+    }
+  } catch (e) { /* the Bills page shows it either way */ }
 }
 
 // grieviq-76: after a successful action, issue any GST document now due

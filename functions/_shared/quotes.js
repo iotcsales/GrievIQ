@@ -45,6 +45,12 @@ export function sameKey(a, b) {
   for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   return d === 0 && a.length === 48;
 }
+// grieviq-77: approval and lead link (part51).
+let salesCols = null;
+export async function approvalReady(env) {
+  if (salesCols === true) return true;
+  try { await env.DB.prepare("SELECT approval, lead_id FROM quotations LIMIT 1").all(); salesCols = true; return true; } catch (e) { return false; }
+}
 // What everyone may see of a quotation (staff get more: see quoteOut(q, true)).
 export function quoteOut(q, today, staff) {
   const expired = q.status === "OPEN" && q.valid_until < today;
@@ -57,6 +63,7 @@ export function quoteOut(q, today, staff) {
   if (staff) Object.assign(x, { email: q.email || null, madeBy: q.made_by, emailedTo: q.emailed_to || null, emailedAt: q.emailed_at || null,
     orderRef: q.order_ref || null, billId: q.bill_id || null, acceptedBy: q.accepted_by || null, acceptedAt: q.accepted_at || null,
     withdrawnBy: q.withdrawn_by || null, withdrawnAt: q.withdrawn_at || null, withdrawReason: q.withdraw_reason || null, viewKey: q.view_key,
-    customReason: q.custom_reason || null });
+    customReason: q.custom_reason || null,
+    approval: q.approval || null, approvedBy: q.approved_by || null, approvedAt: q.approved_at || null, leadId: q.lead_id || null });
   return x;
 }

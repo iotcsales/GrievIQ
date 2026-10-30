@@ -274,6 +274,14 @@ http.createServer(async (req, res) => {
       const out = await m.syncTaxDocs(env, { origin: "http://localhost:" + port });
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
+    // Test only (grieviq-77): the hourly sales step, at a chosen time.
+    if (url.pathname === "/__test/run-sales" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(build, "_shared", "sales.js")).href);
+      const md = await import(pathToFileURL(path.join(build, "_shared", "dept-auth.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runSales(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now(), md.sendEmailNow);
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
     // Test only: is a private file still kept? { key } -> { exists }
     if (url.pathname === "/__test/r2-has" && req.method === "POST") {
       const b = JSON.parse(body ? body.toString() : "{}");
