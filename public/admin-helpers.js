@@ -163,7 +163,8 @@
       return "<li>" + esc([when(f.at), f.unit || "", T("adm.hl_fs_" + f.status)].concat(f.flags.map(function (x) { return T("adm.hl_flag_" + x); })).concat(f.removed ? [T("adm.hl_removed_" + f.removed)] : []).join(" · ")) + "</li>";
     }).join("") + "</ul>" : "";
     return fhtml + (pays.length ? "<h3>" + esc(T("adm.hl_payments")) + '</h3><ul class="hl-ev">' + pays.map(function (p) {
-      return "<li>" + esc([p.receiptNo || "—", T("hp.rc_" + p.kind), rupees(p.price), T("hp.rc_st_" + p.status), day(p.settledAt), p.paymentId || ""].join(" · ")) + (p.receiptNo ? ' · <a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(T("hp.rc_view")) + "</a>" : "") + "</li>";
+      return "<li>" + esc([p.receiptNo || "—", T("hp.rc_" + p.kind), rupees(p.price), T("hp.rc_st_" + p.status), day(p.settledAt), p.paymentId || ""].join(" · ")) + (p.receiptNo ? ' · <a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(T("hp.rc_view")) + "</a>" : "") +
+        (p.docs || []).map(function (d) { return ' · <a href="' + esc(d.url) + '">' + esc(T("bill.doc_" + d.kind, { no: d.number })) + "</a>"; }).join("") + "</li>";
     }).join("") + "</ul>" : "") +
       "<h3>" + esc(T("adm.hl_history")) + '</h3><ul class="hl-ev">' + (det.events || []).map(function (e) {
         return "<li>" + esc(when(e.at)) + " · " + esc(T("adm.hl_ev_" + e.action) !== "adm.hl_ev_" + e.action ? T("adm.hl_ev_" + e.action) : e.action) + " · " + esc(e.actor) + "</li>";
@@ -265,7 +266,7 @@
     return '<p class="muted-note">' + esc(T("adm.hl_pay_only")) + "</p>" + refunds() +
       '<h2 class="hl-sec" id="hl-pays">' + esc(T("adm.hl_pays_h")) + '<span class="hl-count">' + list.length + "</span></h2>" +
       (list.length ? '<div class="hl-table-wrap"><table class="hl-table"><caption class="sr-only">' + esc(T("adm.hl_pays_h")) + "</caption><thead><tr><th scope=\"col\">" + esc(T("adm.hl_pt_ref")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_receipt")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_amount")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_status")) + "</th><th scope=\"col\">" + esc(T("adm.hl_pt_date")) + "</th></tr></thead><tbody>" +
-        list.map(function (p) { return "<tr><td>" + esc(p.ref) + "</td><td>" + (p.receiptNo ? '<a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(p.receiptNo) + "</a>" : "—") + "</td><td>" + esc(rupees(p.price)) + "</td><td>" + esc(T("hp.rc_st_" + p.status)) + "</td><td>" + esc(day(p.settledAt || p.startedAt)) + "</td></tr>"; }).join("") +
+        list.map(function (p) { return "<tr><td>" + esc(p.ref) + "</td><td>" + (p.receiptNo ? '<a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '&src=admin">' + esc(p.receiptNo) + "</a>" : "—") + (p.docs || []).map(function (d) { return '<br><a href="' + esc(d.url) + '">' + esc(d.number) + "</a>"; }).join("") + "</td><td>" + esc(rupees(p.price)) + "</td><td>" + esc(T("hp.rc_st_" + p.status)) + "</td><td>" + esc(day(p.settledAt || p.startedAt)) + "</td></tr>"; }).join("") +
         "</tbody></table></div>" : '<p class="muted">' + esc(T("adm.hl_none")) + "</p>");
   }
   function render(focusId) {

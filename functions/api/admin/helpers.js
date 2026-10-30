@@ -42,6 +42,7 @@ import {
 } from "../../_shared/helpers.js";
 import { receiptOut } from "../helper.js";
 import { filingsReady, confirmFiling, closeFiling, addStrike, maskEmail } from "../../_shared/helper-filing.js";
+import { syncTaxDocs, docsFor } from "../../_shared/tax-docs.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).normalize("NFC").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -118,7 +119,7 @@ export async function onRequestGet({ request, env }) {
     }
     return json({ helper: staffRow(h, canFiles && covers(auth, h.area_id).any, today, { unit: unit ? unit.name : h.unit_id, area: unit ? unit.area_name : "", same, filings, areaId: h.area_id || null, mine: covers(auth, h.area_id),
       events: (ev || []).map((e) => ({ at: e.at, actor: e.actor, action: e.action, detail: e.detail ? JSON.parse(e.detail) : null })),
-      payments: (pays || []).map((p) => Object.assign(paymentOut(p), { orderId: p.order_id, staffBy: p.staff_by, staffAt: p.staff_at, staffNote: p.staff_note, lastFail: p.last_fail })) }) });
+      payments: await withDocs(env, (pays || []).map((p) => Object.assign(paymentOut(p), { orderId: p.order_id, staffBy: p.staff_by, staffAt: p.staff_at, staffNote: p.staff_note, lastFail: p.last_fail }))) }) });
   }
   const { results } = await env.DB.prepare(
     "SELECT h.*, lu.name AS unit_name, ar.name AS area_name FROM helpers h LEFT JOIN local_units lu ON lu.id = h.unit_id LEFT JOIN areas ar ON ar.id = h.area_id ORDER BY COALESCE(h.submitted_at, h.created_at) DESC LIMIT 500"
@@ -177,6 +178,12 @@ function canRefundFor(auth, areaId) {
   if (["super_admin", "operations_admin", "accounts_manager"].some((r) => roles.includes(r))) return true;
   return dutyCovers(auth, "HELPER_APPROVE", areaId);
 }
+// grieviq-76: each payment's GST documents (staff links).
+async function withDocs(env, list) {
+  const d = await docsFor(env, "HELPER_PAYMENT", list.map((p) => p.id), false);
+  list.forEach((p) => { p.docs = d[p.id] || []; });
+  return list;
+}
 function amountTaken(p) { return /^AMOUNT:(\d+)$/.test(String(p.last_fail || "")) ? Number(/^AMOUNT:(\d+)$/.exec(p.last_fail)[1]) / 100 : p.price; }
 // Who checks and approves in each area with helpers (all-areas holders
 // count everywhere). Areas without someone of their own are handled by
@@ -220,7 +227,7 @@ async function paymentsOnly(env, auth, url) {
     ready: true, paymentsOnly: true, today: istToday(), me: auth.email, canRefund: allows(auth, "refund_helper_fees"),
     limits: { reason: LIMITS.reason, note: LIMITS.note },
     refunds: (refunds || []).map((p) => Object.assign(paymentOut(p), { helperId: p.helper_id, ref: p.ref || "—", amountTaken: amountTaken(p), mine: canRefundFor(auth, p.area_id) })),
-    payments: (pays || []).map((p) => Object.assign(paymentOut(p), { ref: p.ref || "—" })),
+    payments: await withDocs(env, (pays || []).map((p) => Object.assign(paymentOut(p), { ref: p.ref || "—" }))),
   });
 }
 
@@ -235,7 +242,7 @@ async function sameAs(env, h) {
   return out;
 }
 
-export async function onRequestPost({ request, env }) {
+async function handlePost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env);
   if (auth.ok && !allows(auth, "view_helpers") && !allows(auth, "refund_helper_fees")) return json({ error: "INSUFFICIENT_ROLE" }, 403);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
@@ -489,4 +496,15 @@ export async function onRequestPost({ request, env }) {
     default:
       return json({ error: "UNKNOWN_ACTION" }, 400);
   }
+}
+
+// grieviq-76: after a successful action, issue any GST document now due
+// (tax invoice, credit note, receipt or refund voucher). The hourly job and
+// the Accounts page do the same, so nothing is lost if this step fails.
+export async function onRequestPost(context) {
+  const res = await handlePost(context);
+  if (res && res.status < 300) {
+    try { await syncTaxDocs(context.env, { origin: new URL(context.request.url).origin, limit: 20 }); } catch (e) { /* issued later */ }
+  }
+  return res;
 }

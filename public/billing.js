@@ -256,7 +256,9 @@
         (b.status === "DUE" || b.status === "REPORTED" ? "<dt>" + esc(T("bill.due")) + "</dt><dd>" + (late ? "<b>" : "") + esc(dateText(b.dueOn)) + (late ? " — " + esc(T("bill.late")) + "</b>" : "") + "</dd>" : "") +
         "</dl>" +
         // grieviq-69: the bill as a document to print or keep as a PDF.
-        '<p><a class="gb-printlink" href="/bill?id=' + encodeURIComponent(b.id) + "&src=" + (/\/dept\//.test(opts.api) ? "dept" : "rep") + '" target="_blank" rel="noopener">' + esc(T("bill.print")) + '<span class="gb-sr"> ' + esc(T("bill.print_sr", { ref: b.ref })) + "</span></a></p>";
+        '<p><a class="gb-printlink" href="/bill?id=' + encodeURIComponent(b.id) + "&src=" + (/\/dept\//.test(opts.api) ? "dept" : "rep") + '" target="_blank" rel="noopener">' + esc(T("bill.print")) + '<span class="gb-sr"> ' + esc(T("bill.print_sr", { ref: b.ref })) + "</span></a></p>" +
+        // grieviq-76: the GST tax invoice (and a credit note if the bill was cancelled).
+        (b.docs || []).map(function (d) { return '<p><a class="gb-printlink" href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(T("bill.doc_" + d.kind, { no: d.number })) + "</a></p>"; }).join("");
       // A payment that couldn't be matched matters only while the bill is still to pay.
       var returned = b.status === "DUE" ? b.payments.filter(function (p) { return p.status === "RETURNED"; }) : [];
       out += returned.map(function (p) { return '<p class="gb-past">' + esc(T("bill.returned", { utr: p.utr, reason: p.reason || "" })) + "</p>"; }).join("");

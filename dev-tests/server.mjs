@@ -103,6 +103,15 @@ function fakeRazorpay(u, opts) {
     }
     return j(p);
   }
+  // grieviq-76: settlement reconciliation for a month (fee 2%, GST 18% on the fee).
+  if (method === "GET" && (m = /^\/settlements\/recon\/combined\?(.*)$/.exec(path))) {
+    const items = [...rzpState.payments.values()].filter((p) => p.captured).map((p, i) => {
+      const fee = Math.round(p.amount * 0.02), tax = Math.round(fee * 0.18);
+      return { entity_id: p.id, type: "payment", amount: p.amount, fee, tax, debit: 0, credit: p.amount - fee - tax, currency: "INR",
+        settlement_id: "setl_DEV" + String(i + 1).padStart(6, "0"), settled_at: Math.floor(Date.now() / 1000), settlement_utr: "UTRDEV" + String(i + 1).padStart(8, "0"), order_id: p.order_id };
+    });
+    return j({ entity: "collection", count: items.length, items });
+  }
   return j({ error: { code: "NOT_FOUND" } }, 404);
 }
 // Emails "sent" in tests are written here (one JSON per line).
@@ -257,6 +266,12 @@ http.createServer(async (req, res) => {
       const out = await m.runHelpers(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
       const mf = await import(pathToFileURL(path.join(build, "_shared", "helper-filing.js")).href);
       out.filings = await mf.runHelperFilings(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
+    // Test only (grieviq-76): the hourly GST documents step.
+    if (url.pathname === "/__test/run-tax-docs" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(build, "_shared", "tax-docs.js")).href);
+      const out = await m.syncTaxDocs(env, { origin: "http://localhost:" + port });
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
     // Test only: is a private file still kept? { key } -> { exists }

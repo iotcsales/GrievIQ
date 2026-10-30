@@ -139,7 +139,7 @@
   .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
   @media (max-width: 480px) { .app-card { padding: 22px 16px; } dl.sum { grid-template-columns: 1fr; } dl.sum dt { margin-top: 6px; } .acts .btn { width: 100%; } }
 </style>
-<script src="/i18n.js?v=75"></script>
+<script src="/i18n.js?v=76"></script>
 <script src="/site.js?v=74" defer></script>
 <script src="/site-info.js?v=39" defer></script>
 <script src="/photo-tools.js?v=7c" defer></script>
@@ -252,7 +252,9 @@
       list.map(function (p) {
         var forT = T("hp.rc_" + p.kind) + (p.periodFrom ? " · " + T("hp.rc_period", { from: dmy(p.periodFrom), to: dmy(p.periodTo) }) : "");
         var no = p.receiptNo ? '<a href="/helper-receipt?id=' + encodeURIComponent(p.id) + '" aria-label="' + esc(T("hp.rc_print", { no: p.receiptNo })) + '">' + esc(p.receiptNo) + "</a>" : "—";
-        return "<tr><td>" + no + "</td><td>" + esc(dmy(p.settledAt)) + "</td><td>" + esc(forT) + "</td><td>₹" + esc(rupees(p.price)) + "</td><td>" + esc(T("hp.rc_st_" + p.status)) + "</td></tr>";
+        // grieviq-76: the GST documents for this payment (receipt voucher, tax invoice, refund voucher, credit note).
+        var docs = (p.docs || []).map(function (d) { return '<br><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(T("bill.doc_" + d.kind, { no: d.number })) + "</a>"; }).join("");
+        return "<tr><td>" + no + docs + "</td><td>" + esc(dmy(p.settledAt)) + "</td><td>" + esc(forT) + "</td><td>₹" + esc(rupees(p.price)) + "</td><td>" + esc(T("hp.rc_st_" + p.status)) + "</td></tr>";
       }).join("") + "</tbody></table></div></section>";
   }
   function confirmBox(kind) {

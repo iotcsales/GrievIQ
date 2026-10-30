@@ -28,6 +28,7 @@ import { billingReady, quote, nextRef, periodEnd, addDays, realDate, repOffice, 
 import { applyPayment } from "../../_shared/subscriptions.js";
 import { noticePaid, noticeBillCancelled } from "../../_shared/notices.js";
 import { rzpConfig, onlineReady, onlineFor, onlineOut, syncOrder } from "../../_shared/razorpay.js";
+import { syncTaxDocs, cleanGstin, GSTIN_RE, docsFor } from "../../_shared/tax-docs.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -111,15 +112,16 @@ export async function onRequestGet({ request, env }) {
   for (const r of cr || []) counts[r.status] = r.n;
   if (drafts) { const w = await env.DB.prepare("SELECT COUNT(*) AS n FROM bills WHERE status = 'DUE' AND auto = 1 AND sent_at IS NULL").first(); counts.WAITING = w ? w.n : 0; }
   const online = await onlineFor(env, bills.map((b) => b.id));
+  const docs = await docsFor(env, "BILL", bills.map((b) => b.id), false);   // grieviq-76
   return json({
     ready: true, canManage, canConfirm, me: auth.email, ownRule: !allows(auth, "approve_changes"), today, gstRate: live.data.gst.rate, settingsVersion: live.version,
     plans: billablePlans(live.data), counts,
     online: await onlineStatus(env),
-    bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o, true)) })),
+    bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o, true)), docs: docs[b.id] || [] })),
   });
 }
 
-export async function onRequestPost({ request, env }) {
+async function handlePost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "view_bills");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await billingReady(env))) return json({ error: "NOT_READY" }, 409);
@@ -160,6 +162,9 @@ export async function onRequestPost({ request, env }) {
     if (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 60) f.dueDays = "RANGE";
     const note = clean(b.note, 300);
     if (note.length > 300) f.note = "LENGTH";
+    // grieviq-76: the office's GSTIN, if it has one (printed on the tax invoice).
+    const buyerGstin = cleanGstin(b.buyerGstin);
+    if (buyerGstin && !GSTIN_RE.test(buyerGstin)) f.buyerGstin = "FORMAT";
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     // The same office can't be billed twice for a period starting the same day.
     const twice = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'" + (await planBillFilter(env))).bind(type, office.id, from).first();
@@ -177,6 +182,7 @@ export async function onRequestPost({ request, env }) {
       } catch (e) { if (!/UNIQUE/i.test(String(e && e.message))) throw e; }
     }
     if (!ref) return json({ error: "CONFLICT" }, 409);
+    if (buyerGstin) { try { await env.DB.prepare("UPDATE bills SET buyer_gstin = ? WHERE id = ?").bind(buyerGstin, id).run(); } catch (e) { /* part50 not run yet */ } }
     await logBill(env, id, auth.email, "ISSUED", { ref, plan: plan.id, period, from, total: q.total, settingsVersion: live.version });
     await adminLog(env, auth.email, "bill_issued", ref, { office: office.name, total: q.total });
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(id).first();
@@ -221,7 +227,19 @@ export async function onRequestPost({ request, env }) {
       if (ob && String(ob.issued_by || "").toLowerCase() === auth.email) return json({ error: "OWN_BILL" }, 403);
     }
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(p.bill_id).first();
+    // grieviq-76: tax a government buyer deducted (GST TDS, income-tax TDS), with the certificate.
+    let tds = null;
+    if (b.action === "confirm" && (b.gstTds || b.itTds || b.tdsRef)) {
+      const g = b.gstTds === "" || b.gstTds == null ? 0 : Number(b.gstTds), it = b.itTds === "" || b.itTds == null ? 0 : Number(b.itTds);
+      const tf = {};
+      if (!Number.isInteger(g) || g < 0 || g > bill.total) tf.gstTds = "RANGE";
+      if (!Number.isInteger(it) || it < 0 || it > bill.total) tf.itTds = "RANGE";
+      const cert = clean(b.tdsRef, 60);
+      if (Object.keys(tf).length) return json({ error: "CHECK_FIELDS", fields: tf }, 400);
+      tds = { g, it, cert: cert || null };
+    }
     if (b.action === "confirm") {
+      if (tds) { try { await env.DB.prepare("UPDATE bill_payments SET gst_tds = ?, it_tds = ?, tds_ref = ? WHERE id = ?").bind(tds.g || null, tds.it || null, tds.cert, p.id).run(); } catch (e) { /* part50 not run yet */ } }
       await env.DB.batch([
         env.DB.prepare("UPDATE bill_payments SET status = 'CONFIRMED', checked_by = ?, checked_at = ? WHERE id = ? AND status = 'REPORTED'").bind(auth.email, now, p.id),
         env.DB.prepare("UPDATE bills SET status = 'PAID', paid_at = ?, paid_checked_by = ? WHERE id = ?").bind(now, auth.email, bill.id),
@@ -276,4 +294,15 @@ export async function onRequestPost({ request, env }) {
   }
 
   return json({ error: "Unknown action." }, 400);
+}
+
+// grieviq-76: after a successful action, issue any GST document now due
+// (tax invoice, credit note, receipt or refund voucher). The hourly job and
+// the Accounts page do the same, so nothing is lost if this step fails.
+export async function onRequestPost(context) {
+  const res = await handlePost(context);
+  if (res && res.status < 300) {
+    try { await syncTaxDocs(context.env, { origin: new URL(context.request.url).origin, limit: 20 }); } catch (e) { /* issued later */ }
+  }
+  return res;
 }

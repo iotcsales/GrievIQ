@@ -4147,6 +4147,61 @@ window.Razorpay.prototype.open = function () {
         ok(any(has in h for h in vis) and not any(hasnt in h for h in vis) and not errs, "menu for " + e, (vis, errs))
         ctx.close()
 
+    # ---------- grieviq-76: Accounts, GST documents ----------
+    import sqlite3 as _sq76
+    _d76 = _sq76.connect(os.path.join(WORK, "test.db"))
+    def _gst76(g):
+        lv = api41("GET", "/api/admin/site-settings")[1]["live"]["data"]; lv["gst"]["gstin"] = g
+        api41("POST", "/api/admin/site-settings", {"action": "save_draft", "data": lv}); api41("POST", "/api/admin/site-settings", {"action": "publish", "note": "ui 76"})
+    _gst76("09ABCDE1234F1Z5")
+    st76, b76 = api41("POST", "/api/admin/bills", {"action": "create", "officeType": "REP", "officeTier": "LOCAL", "officeId": "lu-tilak", "planId": "councillor", "period": "MONTH", "from": "2027-10-01", "buyerGstin": "09AAACB1234C1Z5"})
+    ok(st76 == 200, "bill for the documents", b76)
+    d76 = _d76.execute("SELECT id, view_key, number FROM tax_docs WHERE source_id = ? AND kind = 'INVOICE'", (b76.get("id"),)).fetchone()
+    ok(d76 is not None, "invoice issued for the UI tests")
+    for theme in ("light", "dark"):
+        for lang in ("en", "hi"):
+            tag = "%s %s" % (theme, lang)
+            ctx, p, errs = hp72(None, theme, lang, 390 if lang == "hi" else 900)
+            p.goto(B + "/tax-doc?id=%s&k=%s" % (d76[0], d76[1])); p.wait_for_selector("#bp-h")
+            ok(d76[2] in p.inner_text("#bp-doc") and "09AAACB1234C1Z5" in p.inner_text("#bp-doc") and "Rupees" in p.inner_text("#bp-doc"), "tax invoice shown " + tag)
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and not errs, "tax invoice page clean " + tag, (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4], errs))
+            if lang == "en" and theme == "light": shot(p, "76-tax-invoice")
+            ctx.close()
+    ctx, p, errs = hp72(None)
+    p.goto(B + "/tax-doc?id=%s&k=%s" % (d76[0], "0" * 32)); p.wait_for_selector("#bp-doc [role=alert]")
+    ok("No such document" in p.inner_text("#bp-doc"), "a wrong key shows nothing")
+    ctx.close()
+    for theme in ("dark", "light"):
+        for width in (1280, 390):
+            tag = "%s %d" % (theme, width)
+            ctx, p, errs = P("super@test.in", width=width, theme=theme)
+            p.goto(B + "/admin-accounts.html"); p.wait_for_selector("#ac-tab-summary")
+            ok("09ABCDE1234F1Z5" in p.inner_text("#ac-app") and "GIQ-R/" in p.inner_text("#ac-app"), "accounts overview " + tag)
+            for t in ("summary", "register", "gst", "tds", "receivables", "deferred", "settlements"):
+                p.click("#ac-tab-" + t); p.wait_for_selector("#ac-panel"); p.wait_for_timeout(250)
+                ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "accounts %s clean %s" % (t, tag), (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+                if width == 1280 and t in ("summary", "gst") and theme == "dark": shot(p, "76-accounts-" + t)
+                if width == 1280 and t == "register" and theme == "light": shot(p, "76-accounts-register")
+            ok(not errs, "accounts no script errors " + tag, errs)
+            ctx.close()
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-accounts.html"); p.wait_for_selector("#ac-tab-summary")
+    p.click("#ac-tab-summary"); p.keyboard.press("ArrowRight"); p.wait_for_timeout(300)
+    ok(p.evaluate("document.activeElement.id") == "ac-tab-register", "tabs move with the arrow keys")
+    p.click("#ac-tab-summary"); p.wait_for_selector("#as-sacOffice")
+    p.fill("#as-sacOffice", "12"); p.click("#ac-set button[type=submit]"); p.wait_for_selector("#as-sacOffice[aria-invalid=true]")
+    ok(p.evaluate("document.activeElement.id") == "as-sacOffice", "settings errors are marked and focused")
+    ctx.close()
+    ctx, p, errs = P("ae@test.in", theme="light")
+    p.goto(B + "/admin-accounts.html"); p.wait_for_selector("#ac-tab-summary")
+    ok(p.locator("#as-sacOffice[disabled]").count() == 1 and p.locator("#ac-sync").count() == 0 and not errs, "accounts executive reads; can't change settings", errs)
+    ctx.close()
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-bills.html"); p.wait_for_selector("#bl-gstin")
+    ok(p.locator('a[href^="/tax-doc?id="]').count() >= 1, "bills link their tax invoices")
+    ctx.close()
+    _gst76("")
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

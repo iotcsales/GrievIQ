@@ -130,6 +130,13 @@ export const PERMISSIONS = {
   view_quotations: ["super_admin", "operations_admin", "auditor", "accounts_executive", "accounts_manager", "sales_executive", "sales_manager"],
   make_quotations: ["super_admin", "operations_admin", "accounts_executive", "accounts_manager", "sales_executive", "sales_manager"],
   accept_quotations: ["super_admin", "operations_admin", "accounts_manager", "sales_manager"],
+  // grieviq-76: Accounts (tax invoices, credit notes, GST summary, TDS,
+  // settlements, exports). Accounts staff and the super admin; the auditor
+  // reads. The accounts manager and super admin lock filed months, fetch
+  // settlements and issue credit notes; only the super admin changes the
+  // settings (SAC codes, series, start date) or unlocks a month.
+  view_accounts: ["super_admin", "auditor", "accounts_executive", "accounts_manager"],
+  manage_accounts: ["super_admin", "accounts_manager"],
   // grieviq-45: web addresses where a copy of GrievIQ was seen.
   view_copies: ["super_admin", "auditor"],
   // grieviq-46: office subscriptions (pilot dates, paid-up date, pause, end).
@@ -200,6 +207,7 @@ export const PAGES = {
   "admin-gov": "view_gov",                         // grieviq-48
   "admin-handovers": "view_handovers",             // grieviq-53
   "admin-notices": "view_notices",                 // grieviq-55
+  "admin-accounts": "view_accounts",                // grieviq-76
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)
 };
 export function pagesFor(roleOrRoles) {

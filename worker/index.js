@@ -29,6 +29,7 @@ import { runFollowups } from "../functions/_shared/followups.js";
 import { runOnlinePayments } from "../functions/_shared/razorpay.js";
 import { runHelpers } from "../functions/_shared/helpers.js";
 import { runHelperFilings } from "../functions/_shared/helper-filing.js";
+import { syncTaxDocs } from "../functions/_shared/tax-docs.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -70,7 +71,11 @@ export async function runScheduled(env, nowMs) {
   // grieviq-73: helpers' filings for citizens: no email code in 3 days goes
   // to GrievIQ staff to call; not confirmed in 7 days is dropped.
   try { helpers = Object.assign(helpers || {}, { filings: await runHelperFilings(env, origin, nowMs) }); } catch (e) { helpers = Object.assign(helpers || {}, { filings: { errors: 1 } }); }
-  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers };
+  // grieviq-76: GST documents now due (bills sent by the hourly job, helper
+  // payments settled here) are issued and emailed.
+  let taxDocs = null;
+  try { const t = await syncTaxDocs(env, { origin }); taxDocs = { on: t.on, reason: t.reason, issued: t.issued.length }; } catch (e) { taxDocs = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers, taxDocs };
 }
 
 export default {

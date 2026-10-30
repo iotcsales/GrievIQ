@@ -25,6 +25,7 @@ import { quote, nextRef, periodEnd, addDays, realDate, repOffice, logBill, email
 import { sendEmailNow } from "../../_shared/dept-auth.js";
 import { validateContact } from "../../_shared/contact-validation.js";
 import { quotesReady, nextQuoteRef, newViewKey, quoteOut, QUOTE_DAYS, customReady, customOffers, CUSTOM_LIMITS } from "../../_shared/quotes.js";
+import { syncTaxDocs, cleanGstin, GSTIN_RE } from "../../_shared/tax-docs.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const clean = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max + 1);
@@ -53,7 +54,7 @@ export async function onRequestGet({ request, env }) {
     quotations: (results || []).map((q) => quoteOut(q, today, true)) });
 }
 
-export async function onRequestPost({ request, env }) {
+async function handlePost({ request, env }) {
   const auth = await getVerifiedAdmin(request, env, "make_quotations");
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   if (!(await quotesReady(env))) return json({ error: "NOT_READY" }, 409);
@@ -183,6 +184,8 @@ export async function onRequestPost({ request, env }) {
     if (orderRef.length < 2 || orderRef.length > 80) f.orderRef = orderRef.length > 80 ? "LENGTH" : "REQUIRED";
     const dueDays = b.dueDays === "" || b.dueDays == null ? 15 : Number(b.dueDays);
     if (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 60) f.dueDays = "RANGE";
+    const buyerGstin = cleanGstin(b.buyerGstin);   // grieviq-76: printed on the tax invoice
+    if (buyerGstin && !GSTIN_RE.test(buyerGstin)) f.buyerGstin = "FORMAT";
     if (Object.keys(f).length) return json({ error: "CHECK_FIELDS", fields: f }, 400);
     const twice = await env.DB.prepare("SELECT ref FROM bills WHERE office_type = ? AND office_id = ? AND period_from = ? AND status != 'CANCELLED'" + (await planBillFilter(env))).bind(type, office.id, from).first();
     if (twice) return json({ error: "CHECK_FIELDS", fields: { from: "TWICE" }, ref: twice.ref }, 400);
@@ -207,6 +210,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "CONFLICT" }, 409);
     }
     await env.DB.prepare("UPDATE quotations SET bill_id = ? WHERE id = ?").bind(id, row.id).run();
+    if (buyerGstin) { try { await env.DB.prepare("UPDATE bills SET buyer_gstin = ? WHERE id = ?").bind(buyerGstin, id).run(); } catch (e) { /* part50 not run yet */ } }
     await logBill(env, id, auth.email, "ISSUED", { ref, quotation: row.ref, orderRef, total: row.total, settingsVersion: row.settings_version });
     await adminLog(env, auth.email, "quotation_accepted", row.ref, { bill: ref, office: office.name, orderRef, total: row.total });
     const bill = await env.DB.prepare("SELECT * FROM bills WHERE id = ?").bind(id).first();
@@ -215,4 +219,15 @@ export async function onRequestPost({ request, env }) {
   }
 
   return json({ error: "Unknown action." }, 400);
+}
+
+// grieviq-76: after a successful action, issue any GST document now due
+// (tax invoice, credit note, receipt or refund voucher). The hourly job and
+// the Accounts page do the same, so nothing is lost if this step fails.
+export async function onRequestPost(context) {
+  const res = await handlePost(context);
+  if (res && res.status < 300) {
+    try { await syncTaxDocs(context.env, { origin: new URL(context.request.url).origin, limit: 20 }); } catch (e) { /* issued later */ }
+  }
+  return res;
 }

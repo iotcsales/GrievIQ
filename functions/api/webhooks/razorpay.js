@@ -17,11 +17,12 @@
 
 import { webhookSigOk, onlineReady, syncOrder } from "../../_shared/razorpay.js";
 import { helpersReady, syncHelperOrder } from "../../_shared/helpers.js";
+import { syncTaxDocs } from "../../_shared/tax-docs.js";
 
 const reply = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const EVENT_ID = /^[A-Za-z0-9_-]{6,64}$/;
 
-export async function onRequestPost({ request, env }) {
+async function handlePost({ request, env }) {
   if (!env.RZP_WEBHOOK_SECRET) return reply({ error: "NOT_SET_UP" }, 503);
   const len = Number(request.headers.get("content-length") || 0);
   if (len > 200000) return reply({ error: "TOO_LARGE" }, 413);
@@ -69,4 +70,15 @@ export async function onRequestPost({ request, env }) {
 
 export async function onRequest() {
   return reply({ error: "POST only" }, 405);
+}
+
+// grieviq-76: after a successful action, issue any GST document now due
+// (tax invoice, credit note, receipt or refund voucher). The hourly job and
+// the Accounts page do the same, so nothing is lost if this step fails.
+export async function onRequestPost(context) {
+  const res = await handlePost(context);
+  if (res && res.status < 300) {
+    try { await syncTaxDocs(context.env, { origin: new URL(context.request.url).origin, limit: 20 }); } catch (e) { /* issued later */ }
+  }
+  return res;
 }

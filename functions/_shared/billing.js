@@ -166,7 +166,9 @@ export function billOut(b, payments) {
     kind: b.kind || "PLAN", noticeId: b.notice_id || null,
     issuedAt: b.issued_at, issuedBy: b.issued_by, paidAt: b.paid_at, auto: !!b.auto, sentAt: b.sent_at || null, waiting: !!b.auto && !b.sent_at, cancelledAt: b.cancelled_at, cancelReason: b.cancel_reason, note: b.note,
     payments: (payments || []).filter((p) => p.bill_id === b.id).map((p) => ({ id: p.id, method: p.method, utr: p.utr, amount: p.amount, paidOn: p.paid_on,
-      reportedBy: p.reported_by, reportedAt: p.reported_at, status: p.status, checkedAt: p.checked_at, reason: p.reason })),
+      reportedBy: p.reported_by, reportedAt: p.reported_at, status: p.status, checkedAt: p.checked_at, reason: p.reason,
+      gstTds: p.gst_tds || 0, itTds: p.it_tds || 0, tdsRef: p.tds_ref || null })),
+    buyerGstin: b.buyer_gstin || null,
   };
 }
 export async function paymentsFor(env, billIds) {

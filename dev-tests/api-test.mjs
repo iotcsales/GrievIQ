@@ -1460,7 +1460,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
   ok(threw && threw2, "subscription history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "40 triggers (part30, part32, part41, part46)");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers (part30, part32, part41, part46, part50)");
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
@@ -1539,7 +1539,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
   await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
   ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "trigger count 40 after part31, part32, part41 and part46");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "trigger count 42 after part31, part32, part41, part46 and part50");
   ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
   // tidy: the closed cases above stay (later checks don't count them)
 }
@@ -3303,7 +3303,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("UPDATE helper_events SET action = 'X' WHERE helper_id = ?").run(h1.id); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("DELETE FROM helper_events WHERE helper_id = ?").run(h1.id); } catch (e) { threw2 = true; }
   ok(threw && threw2, "the helper history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "40 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers");
 
   // sign-in for helpers
   const gs = await fetch(B + "/api/auth/google/start?for=helper", { redirect: "manual" });
@@ -3465,7 +3465,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(hr.filings.expired >= 1 && frow(f6.id).status === "EXPIRED" && frow(f6.id).payload === null, "not confirmed in 7 days: dropped and deleted", hr.filings);
   r = await H(HP, C({ citizen_phone: "9123400013", citizen_email: "citizen73g@x.in", description: "Stray dogs near the primary school gate" }));
   ok((await H(HP, { action: "cancel-filing", filingId: r.body.filing.id })).status === 200 && frow(r.body.filing.id).status === "CANCELLED" && frow(r.body.filing.id).payload === null, "the helper can cancel one still waiting");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
 }
 
 // ---- grieviq-74: the helper's digital ID card ----
@@ -3543,7 +3543,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const key2 = hrow(E).card_key;
   ok((await H(E, { action: "stop", confirm: true })).status === 200 && hrow(E).card_key === null && !(await T("r2-has", { key: key2 })).exists, "stopping deletes the card photo at once");
   ok((await call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(t2))).body.valid === false, "and the card no longer passes");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
 }
 
 // ---- grieviq-75: new staff roles, named duties, billing for accounts staff ----
@@ -3684,7 +3684,132 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await st(S, { action: "left", email: "mv@test.in", lastDay: today, reason: "Contract ended for this role" });
   ok(!sdb.prepare("SELECT 1 FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE a.email = 'mv@test.in' AND d.ended_at IS NULL").get(), "leaving ends their duties");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action LIKE 'staff_duty_%'").get().n >= 10, "every duty change is in the audit log");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 40, "still 40 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
+}
+
+// ---- grieviq-76: Accounts (GST documents) ----
+{
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const mails = () => fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const ac = (who, view) => call(who, "GET", "/api/admin/accounts" + (view ? "?" + view : ""));
+  const acp = (who, b) => call(who, "POST", "/api/admin/accounts", b);
+  const bl = (who, b) => call(who, "POST", "/api/admin/bills", b);
+  const ss = (who, b) => call(who, "POST", "/api/admin/site-settings", b);
+  const publishGst = async (gstin) => {
+    const live = (await call(S, "GET", "/api/admin/site-settings")).body.live.data;
+    live.gst.gstin = gstin;
+    const r1 = await ss(S, { action: "save_draft", data: live });
+    const r2 = await ss(S, { action: "publish", note: "GSTIN for accounts tests" });
+    return r1.status === 200 && r2.status === 200;
+  };
+  ok((await ac(O)).status === 403 && (await ac(M)).status === 403, "operations admin and data moderator don't see Accounts");
+  let r = await ac(S);
+  ok(r.status === 200 && r.body.ready && r.body.gstOk === false, "summary: no GSTIN yet", r.body);
+  r = await acp(S, { action: "sync" });
+  ok(r.status === 200 && r.body.on === false && r.body.reason === "NO_GSTIN" && r.body.issued.length === 0, "nothing is issued without a GSTIN", r.body);
+  ok(await publishGst("09ABCDE1234F1Z5"), "GSTIN published (Uttar Pradesh)");
+  // a bill for an unregistered office in UP and one for a registered office in Maharashtra
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-08-01", buyerGstin: "27ABC" });
+  ok(r.status === 400 && r.body.fields.buyerGstin === "FORMAT", "a wrong GSTIN is refused", r.body);
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-08-01" });
+  ok(r.status === 200, "bill for an unregistered office", r.body);
+  const b1 = r.body.id;
+  r = await bl(S, { action: "create", officeType: "REP", officeTier: "LOCAL", officeId: "lu-tilak", planId: "councillor", period: "MONTH", from: "2027-09-01", buyerGstin: "27aaacb1234c1z5" });
+  ok(r.status === 200, "bill for an office with a Maharashtra GSTIN", r.body);
+  const b2 = r.body.id;
+  const inv = (bill) => sdb.prepare("SELECT * FROM tax_docs WHERE kind = 'INVOICE' AND source_type = 'BILL' AND source_id = ?").get(bill);
+  const i1 = inv(b1), i2 = inv(b2);
+  ok(i1 && /^GIQ-R\/\d\d-\d\d\/\d{4}$/.test(i1.number) && i1.number.length <= 16, "a tax invoice is issued with the bill (GIQ-R/yy-yy/nnnn, at most 16 characters)", i1 && i1.number);
+  ok(i1 && i1.cgst_paise > 0 && i1.sgst_paise > 0 && i1.igst_paise === 0 && i1.cgst_paise + i1.sgst_paise + i1.taxable_paise === i1.total_paise && i1.place_code === "09" && !i1.party_gstin, "same state: CGST + SGST, B2C", i1);
+  ok(i2 && i2.igst_paise > 0 && i2.cgst_paise === 0 && i2.place_code === "27" && i2.party_gstin === "27AAACB1234C1Z5" && i2.sac === "998315", "other state with a GSTIN: IGST, B2B, SAC 998315", i2);
+  ok(i2.seq === i1.seq + 1, "numbers follow on without gaps");
+  const allSeq = sdb.prepare("SELECT seq FROM tax_docs WHERE prefix = 'GIQ-R' ORDER BY seq").all().map((x) => x.seq);
+  ok(allSeq.every((n, i) => n === i + 1), "the R series has no gaps", allSeq);
+  ok(mails().some((m) => /tax invoice GIQ-R\//.test(m.subject) && /\/tax-doc\?id=/.test(m.html)), "the office is emailed a link to its invoice");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM tax_docs WHERE kind = 'INVOICE' AND series = 'D'").get().n >= 0, "department bills use the D series");
+  // the payer's link
+  let pub = await call("", "GET", "/api/tax-doc?id=" + i1.id + "&k=" + i1.view_key);
+  ok(pub.status === 200 && pub.body.doc.number === i1.number && pub.body.doc.supplier.gstin === "09ABCDE1234F1Z5", "the private link opens the invoice", pub.body);
+  ok((await call("", "GET", "/api/tax-doc?id=" + i1.id + "&k=" + "0".repeat(32))).status === 404, "a wrong key shows nothing");
+  const office = await call("r2@x.in", "GET", "/api/billing");
+  const ob = office.body.bills.find((x) => x.id === b1);
+  ok(ob && ob.docs.length === 1 && ob.docs[0].url.includes("&k="), "the office's Billing tab links its invoice", ob && ob.docs);
+  // documents can't be changed or deleted
+  let threw = false; try { sdb.prepare("UPDATE tax_docs SET total_paise = 1 WHERE id = ?").run(i1.id); } catch (e) { threw = true; }
+  ok(threw, "an issued invoice can't be changed");
+  threw = false; try { sdb.prepare("DELETE FROM tax_docs WHERE id = ?").run(i1.id); } catch (e) { threw = true; }
+  ok(threw, "or deleted");
+  // cancelling an invoiced bill: a credit note
+  r = await bl(S, { action: "cancel", id: b2, reason: "Office chose a yearly plan instead" });
+  ok(r.status === 200, "invoiced bill cancelled");
+  const cn = sdb.prepare("SELECT * FROM tax_docs WHERE kind = 'CREDIT_NOTE' AND source_id = ?").get(b2);
+  ok(cn && /^CN-R\//.test(cn.number) && cn.ref_doc_id === i2.id && cn.total_paise === i2.total_paise && /yearly plan/.test(cn.reason), "a credit note cancels the invoice in full", cn);
+  // TDS on a payment
+  const pid = "p76-tds";
+  sdb.prepare("INSERT INTO bill_payments (id, bill_id, method, utr, amount, paid_on, reported_by, reported_at) VALUES (?, ?, 'BANK', 'TDS7600000001', 1, ?, 'r2@x.in', ?)").run(pid, b1, today, new Date().toISOString());
+  sdb.prepare("UPDATE bills SET status = 'REPORTED' WHERE id = ?").run(b1);
+  ok((await bl(S, { action: "confirm", paymentId: pid, gstTds: -1 })).body.fields.gstTds === "RANGE", "TDS amounts are checked");
+  r = await bl(S, { action: "confirm", paymentId: pid, gstTds: 20, itTds: 100, tdsRef: "GSTR7A-2027-001" });
+  ok(r.status === 200, "payment confirmed with TDS", r.body);
+  r = await ac(S, "view=tds");
+  ok(r.body.tds.some((x) => x.gstTds === 20 && x.itTds === 100 && x.cert === "GSTR7A-2027-001" && x.invoice === i1.number), "TDS to claim lists it", r.body.tds);
+  // helper fees: receipt voucher, invoice on approval, refund voucher
+  r = await call("", "POST", "/__test/run-tax-docs");
+  r = await call("", "POST", "/__test/run-tax-docs");
+  ok(r.body.on && r.body.issued.length === 0, "running again issues nothing twice", r);
+  const rv = sdb.prepare("SELECT * FROM tax_docs WHERE kind = 'RECEIPT_VOUCHER'").all();
+  const hi = sdb.prepare("SELECT * FROM tax_docs WHERE kind = 'INVOICE' AND series = 'H'").all();
+  const rf = sdb.prepare("SELECT * FROM tax_docs WHERE kind = 'REFUND_VOUCHER'").all();
+  ok(rv.length > 0 && rv.every((d) => /^RV-H\//.test(d.number)), "helpers' first payments get receipt vouchers", rv.length);
+  ok(hi.length > 0 && hi.every((d) => /^GIQ-H\//.test(d.number) && (d.ref_doc_id || sdb.prepare("SELECT kind FROM helper_payments WHERE id = ?").get(d.source_id).kind === "RENEWAL")), "approved helpers get tax invoices that refer to the voucher", hi.length);
+  ok(rf.every((d) => /^RF-H\//.test(d.number) && d.ref_doc_id), "refunded advances get refund vouchers", rf.length);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM tax_docs t JOIN helper_payments p ON p.id = t.source_id WHERE p.mode = 'TEST'").get().n === 0, "test-mode payments get no documents");
+  const hp = await call("hf1@x.in", "GET", "/api/helper");
+  ok(hp.body.helper.payments.some((p) => (p.docs || []).some((d) => d.kind === "INVOICE" && d.url.includes("&k="))), "the helper's page links their documents", hp.body.helper.payments.map((p) => p.docs));
+  // reports
+  const month = today.slice(0, 7);
+  r = await ac("ae@test.in", "view=register&month=" + month);
+  ok(r.status === 200 && r.body.docs.some((d) => d.number === i1.number) && r.body.docs.find((d) => d.number === i2.number).cancelled, "sales register (accounts executive)");
+  r = await ac(A, "view=gst&month=" + month);
+  ok(r.status === 200 && r.body.b2b.some((x) => x.gstin === "27AAACB1234C1Z5") && r.body.b2c.some((x) => x.place === "09") && r.body.sac.length >= 1 && r.body.documents.length >= 3, "GST summary (auditor)", r.body.totals);
+  ok(Math.abs(r.body.b2b.filter((x) => x.gstin === "27AAACB1234C1Z5").reduce((a, x) => a + x.total, 0)) < 0.01, "the credit note cancels the B2B invoice in the summary");
+  ok((await ac(S, "view=receivables")).body.receivables !== undefined && (await ac(S, "view=deferred&month=" + month)).body.deferred !== undefined, "money owed and unearned views");
+  let csv = await fetch(B + "/api/admin/accounts?export=gstr1&month=" + month, { headers: { "test-email": "am@test.in" } });
+  let txt = await csv.text();
+  ok(csv.status === 200 && /text\/csv/.test(csv.headers.get("content-type")) && txt.includes("27AAACB1234C1Z5") && txt.includes("B2CS") && txt.includes(i1.number), "GSTR-1 CSV for the CA");
+  csv = await fetch(B + "/api/admin/accounts?export=tally&month=" + month, { headers: { "test-email": "am@test.in" } }); txt = await csv.text();
+  ok(txt.includes("Credit Note") && txt.includes("Output CGST"), "Tally / Zoho CSV");
+  // settlements
+  ok((await acp("ae@test.in", { action: "fetch_settlements", month })).status === 403, "accounts executive can't fetch settlements");
+  r = await acp("am@test.in", { action: "fetch_settlements", month });
+  ok(r.status === 200 && r.body.lines > 0, "accounts manager fetches Razorpay settlements", r.body);
+  r = await ac("am@test.in", "view=settlements&month=" + month);
+  ok(r.body.settlements.some((x) => x.matched) && r.body.totals.fee > 0, "settlements matched to GrievIQ payments, with fees", r.body.totals);
+  // filed months
+  ok((await acp("am@test.in", { action: "lock", month })).body.fields.month === "PAST_ONLY", "only a past month can be marked filed");
+  const prev = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 2, 1)).toISOString().slice(0, 7);
+  ok((await acp("am@test.in", { action: "lock", month: prev, note: "GSTR-1 filed" })).status === 200, "accounts manager marks last month filed");
+  ok((await acp("am@test.in", { action: "lock", month: prev })).status === 409, "only once");
+  ok((await acp("am@test.in", { action: "unlock", month: prev, reason: "Mistake in the return" })).status === 403, "only the super admin unmarks");
+  ok((await acp(S, { action: "unlock", month: prev, reason: "short" })).status === 400 && (await acp(S, { action: "unlock", month: prev, reason: "The CA is revising the return" })).status === 200, "super admin unmarks, with a reason");
+  // settings
+  ok((await acp("am@test.in", { action: "settings" })).status === 403, "only the super admin changes the settings");
+  const set = (await ac(S)).body.settings;
+  r = await acp(S, Object.assign({}, set, { action: "settings", sacOffice: "12", prefixes: Object.assign({}, set.prefixes, { R: "giq-r-toolong" }), reason: "" }));
+  ok(r.status === 400 && r.body.fields.sacOffice === "FORMAT" && r.body.fields["prefixes.R"] === "FORMAT" && r.body.fields.reason === "REQUIRED", "settings are checked", r.body.fields);
+  r = await acp(S, Object.assign({}, set, { action: "settings", prefixes: Object.assign({}, set.prefixes, { D: "GIQ-R" }), reason: "Testing duplicates" }));
+  ok(r.status === 400 && r.body.fields.prefixes === "SAME", "two series can't share a prefix");
+  r = await acp(S, Object.assign({}, set, { action: "settings", sacOffice: "997331", reason: "CA advised 997331 for subscriptions" }));
+  ok(r.status === 200 && (await ac(S)).body.settings.sacOffice === "997331", "SAC changed by the super admin");
+  await acp(S, Object.assign({}, set, { action: "settings", reason: "Back to the default for the tests" }));
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action IN ('accounts_settings_changed','accounts_month_locked','accounts_month_unlocked','accounts_settlements_fetched','tax_doc_issued')").get().n >= 6, "accounts actions are in the audit log");
+  ok((await ac(S)).body.nextNumbers.R.startsWith("GIQ-R/"), "next numbers shown");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers (part50 adds 2)");
+  // later tests run without GST documents (no extra emails)
+  ok(await publishGst(""), "GSTIN removed again for the rest of the tests");
 }
 
 // ---- audit trail ----

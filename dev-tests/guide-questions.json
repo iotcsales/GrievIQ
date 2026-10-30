@@ -628,6 +628,22 @@
   [
    "what can management staff see",
    "management"
+  ],
+  [
+   "export for the ca gstr-1",
+   "accounts"
+  ],
+  [
+   "credit note for a cancelled bill",
+   "accounts"
+  ],
+  [
+   "tds deducted by a government office",
+   "accounts|bills"
+  ],
+  [
+   "change the sac code",
+   "accounts"
   ]
  ],
  "rep": [

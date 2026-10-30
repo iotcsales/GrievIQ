@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=75"></script>
-<script src="/admin-nav.js?v=r23"></script>
+<script src="/i18n.js?v=76"></script>
+<script src="/admin-nav.js?v=r24"></script>
 <style>
   /* grieviq-39: Prices & site details / Pilot requests */
   button.danger { color: #ff8f87; }
@@ -233,6 +233,8 @@
   .bl-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 8px 0; }
   .bl-row .fld { min-width: 200px; flex: 1; }
   .bl-row .fld.short { flex: 0 1 160px; min-width: 140px; }
+  .bl-tds { margin: 6px 0; } .bl-tds summary { cursor: pointer; font-weight: 600; min-height: 28px; padding: 4px 0; }
+  .fld .hint { display: block; font-size: 12.5px; color: var(--admin-muted); margin: 0 0 4px; }
   .bl-row select, .fld select { min-height: 38px; width: 100%; }
   .bl-found { list-style: none; margin: 6px 0; padding: 0; } .bl-found li { margin: 2px 0; }
   .bl-found label { font-size: 14px; }
@@ -305,7 +307,7 @@ var B = { data: null, filter: "open", err: null, msg: null,
   f: { type: "REP", q: "", found: null, office: null, plan: "", period: "MONTH", from: "", dueDays: "15", note: "" }, fields: {}, quote: null };
 var FILTERS = [["open", "adm.bl_f_open"], ["WAITING", "adm.bl_f_waiting"], ["REPORTED", "adm.bl_f_reported"], ["DUE", "adm.bl_f_due"], ["PAID", "adm.bl_f_paid"], ["CANCELLED", "adm.bl_f_cancelled"], ["all", "adm.bl_f_all"]];
 function planName(id) { var p = (B.data.plans || []).find(function (x) { return x.id === id; }); return p ? (hi() ? p.nameHi : p.nameEn) : id; }
-function errOf(k) { var c = B.fields[k]; return c ? T("adm.bl_e_" + c) : ""; }
+function errOf(k) { var c = B.fields[k]; return c ? T(k === "buyerGstin" ? "adm.bl_e_GSTIN" : "adm.bl_e_" + c) : ""; }
 function errHtml(k) { var e = errOf(k); return e ? '<span class="ferr" id="e-' + k + '">' + esc(e) + "</span>" : ""; }
 function inv(k) { return B.fields[k] ? ' aria-invalid="true" aria-describedby="e-' + k + '"' : ""; }
 
@@ -341,7 +343,9 @@ function renderNew() {
     '<div class="fld short"><label for="bl-due">' + esc(T("adm.bl_due_days")) + '</label><input type="number" id="bl-due" min="1" max="60" step="1" inputmode="numeric" value="' + esc(f.dueDays) + '"' + inv("dueDays") + ">" + errHtml("dueDays") + "</div></div>" +
     '<fieldset class="rad"><legend>' + esc(T("adm.bl_period")) + "</legend>" +
     [["MONTH", "adm.bl_month"], ["YEAR", "adm.bl_year"]].map(function (o) { var off = plan && plan.billing === "YEARLY" && o[0] === "MONTH"; return '<span class="ropt"><input type="radio" name="bl-period" id="bl-p-' + o[0] + '" value="' + o[0] + '"' + (f.period === o[0] ? " checked" : "") + (off ? " disabled" : "") + '><label for="bl-p-' + o[0] + '">' + esc(T(o[1])) + "</label></span>"; }).join("") + errHtml("period") + "</fieldset>" +
-    '<div class="bl-row"><div class="fld"><label for="bl-note">' + esc(T("adm.bl_note_l")) + '</label><input type="text" id="bl-note" maxlength="300" autocomplete="off" value="' + esc(f.note) + '"></div></div>' +
+    '<div class="bl-row"><div class="fld"><label for="bl-note">' + esc(T("adm.bl_note_l")) + '</label><input type="text" id="bl-note" maxlength="300" autocomplete="off" value="' + esc(f.note) + '"></div>' +
+    // grieviq-76: the office's GSTIN (optional), printed on the tax invoice.
+    '<div class="fld"><label for="bl-gstin">' + esc(T("adm.bl_gstin")) + '</label><span class="hint" id="bl-gstin-h">' + esc(T("adm.bl_gstin_h")) + '</span><input type="text" id="bl-gstin" maxlength="15" autocomplete="off" spellcheck="false" style="text-transform:uppercase" value="' + esc(f.gstin || "") + '"' + (B.fields.buyerGstin ? ' aria-invalid="true" aria-describedby="bl-gstin-h e-buyerGstin"' : ' aria-describedby="bl-gstin-h"') + ">" + errHtml("buyerGstin") + "</div></div>" +
     '<p class="bl-quote" id="bl-quote" role="status" aria-live="polite">' + esc(B.quote ? T("adm.bl_quote", { a: rupees(B.quote.amount), r: B.quote.gstRate, g: rupees(B.quote.gst), t: rupees(B.quote.total) }) : T("adm.bl_quote_wait")) + "</p>" +
     '<div class="acts"><button type="button" class="primary" id="bl-make">' + esc(T("adm.bl_make")) + "</button></div></section>";
   box.innerHTML = h;
@@ -359,6 +363,7 @@ function renderNew() {
   document.getElementById("bl-from").addEventListener("change", function (e) { f.from = e.target.value; });
   document.getElementById("bl-due").addEventListener("input", function (e) { f.dueDays = e.target.value; });
   document.getElementById("bl-note").addEventListener("input", function (e) { f.note = e.target.value; });
+  document.getElementById("bl-gstin").addEventListener("input", function (e) { f.gstin = e.target.value; });
   document.getElementById("bl-make").addEventListener("click", make);
 }
 async function find() {
@@ -386,11 +391,11 @@ async function make() {
   if (Object.keys(B.fields).length) { renderNew(); document.getElementById("bl-q").focus(); return; }
   if (B.quote && !confirm(T("adm.bl_make_q", { office: f.office.name, t: rupees(B.quote.total) }))) return;
   try {
-    var res = await fetch("/api/admin/bills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", officeType: f.office.type, officeTier: f.office.tier, officeId: f.office.id, planId: f.plan, period: f.period, from: f.from, dueDays: f.dueDays, note: f.note }) });
+    var res = await fetch("/api/admin/bills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", officeType: f.office.type, officeTier: f.office.tier, officeId: f.office.id, planId: f.plan, period: f.period, from: f.from, dueDays: f.dueDays, note: f.note, buyerGstin: f.gstin || "" }) });
     var d = await res.json();
     if (res.status === 400 && d.fields) {
       B.fields = d.fields; renderNew();
-      var k = Object.keys(d.fields)[0], target = { office: "bl-q", plan: "bl-plan", from: "bl-from", dueDays: "bl-due", period: "bl-p-" + f.period }[k];
+      var k = Object.keys(d.fields)[0], target = { office: "bl-q", plan: "bl-plan", from: "bl-from", dueDays: "bl-due", period: "bl-p-" + f.period, buyerGstin: "bl-gstin" }[k];
       var el = target && document.getElementById(target); if (el) el.focus();
       if (d.fields.from === "TWICE") setMsg(true, T("adm.bl_e_TWICE_ref", { ref: d.ref }));
       return;
@@ -586,7 +591,8 @@ function acceptForm(x, a) {
     }).join("") + "</ul></fieldset>" : '<p class="muted" role="status">' + esc(T("adm.bl_none_found")) + "</p>";
   }
   return h + '<div class="bl-row"><div class="fld"><label for="' + p + 'order">' + esc(T("adm.qt_order_ref")) + '</label><input type="text" id="' + p + 'order" maxlength="80" autocomplete="off" value="' + esc(a.orderRef || "") + '"' + iv("orderRef") + ">" + er("orderRef") + "</div>" +
-    '<div class="fld short"><label for="' + p + 'from">' + esc(T("adm.bl_from")) + '</label><input type="date" id="' + p + 'from" value="' + esc(a.from || B.data.today) + '"' + iv("from") + ">" + er("from") + "</div></div>" +
+    '<div class="fld short"><label for="' + p + 'from">' + esc(T("adm.bl_from")) + '</label><input type="date" id="' + p + 'from" value="' + esc(a.from || B.data.today) + '"' + iv("from") + ">" + er("from") + "</div>" +
+    '<div class="fld"><label for="' + p + 'gstin">' + esc(T("adm.bl_gstin")) + '</label><input type="text" id="' + p + 'gstin" maxlength="15" autocomplete="off" spellcheck="false" style="text-transform:uppercase" value="' + esc(a.gstin || "") + '"' + iv("buyerGstin") + ">" + (e.buyerGstin ? '<span class="ferr" id="' + p + 'buyerGstin-e">' + esc(T("adm.bl_e_GSTIN")) + "</span>" : "") + "</div></div>" +
     '<div class="acts"><button type="button" class="primary" data-qa-make="' + esc(x.id) + '">' + esc(T("adm.qt_make_bill")) + "</button></div></div>";
 }
 function wireQuotes() {
@@ -606,6 +612,7 @@ function wireQuotes() {
     document.querySelectorAll('input[name="' + p + 'type"]').forEach(function (r) { r.addEventListener("change", function () { a.type = r.value; a.found = null; a.office = null; renderQuotes(); document.getElementById(p + "t-" + r.value).focus(); }); });
     var q = document.getElementById(p + "q"); if (q) { q.addEventListener("input", function () { a.q = q.value; }); q.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); qFind(id); } }); }
     var o = document.getElementById(p + "order"); if (o) o.addEventListener("input", function () { a.orderRef = o.value; });
+    var gi = document.getElementById(p + "gstin"); if (gi) gi.addEventListener("input", function () { a.gstin = gi.value; });
     var fr = document.getElementById(p + "from"); if (fr) fr.addEventListener("change", function () { a.from = fr.value; });
     document.querySelectorAll('input[name="' + p + 'office"]').forEach(function (r) { r.addEventListener("change", function () { a.office = a.found[+r.value]; }); });
   });
@@ -670,9 +677,9 @@ async function qAccept(id, btn) {
   if (!a.office) { a.fields.office = "REQUIRED"; renderQuotes(); document.getElementById(p + "q").focus(); return; }
   btn.disabled = true;
   try {
-    var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "accept", id: id, officeType: a.office.type, officeTier: a.office.tier, officeId: a.office.id, from: a.from || B.data.today, orderRef: a.orderRef || "" }) });
+    var res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "accept", id: id, officeType: a.office.type, officeTier: a.office.tier, officeId: a.office.id, from: a.from || B.data.today, orderRef: a.orderRef || "", buyerGstin: a.gstin || "" }) });
     var d = await res.json(); btn.disabled = false;
-    if (res.status === 400 && d.fields) { a.fields = d.fields; renderQuotes(); var k = Object.keys(d.fields)[0]; var t = document.getElementById(p + (k === "office" ? "q" : k === "orderRef" ? "order" : "from")); if (t) t.focus(); return; }
+    if (res.status === 400 && d.fields) { a.fields = d.fields; renderQuotes(); var k = Object.keys(d.fields)[0]; var t = document.getElementById(p + (k === "office" ? "q" : k === "orderRef" ? "order" : k === "buyerGstin" ? "gstin" : "from")); if (t) t.focus(); return; }
     if (!res.ok) { var m = btn.closest(".qt-card").querySelector(".row-msg"); m.className = "row-msg error"; m.textContent = T(d.error === "EXPIRED" ? "adm.qt_e_expired" : "adm.ss_e_generic"); return; }
     delete QT.acc[id];
     await load(); await loadQuotes(); setMsg(false, T("adm.qt_done_accept", { bill: d.billRef, t: rupees(d.total) }));
@@ -721,7 +728,9 @@ function renderList() {
       (b.note ? "<dt>" + esc(T("adm.bl_note_l")) + "</dt><dd>" + esc(b.note) + "</dd>" : "") +
       (b.status === "PAID" ? "<dt>" + esc(T("adm.bl_paid")) + "</dt><dd>" + esc(timeText(b.paidAt)) + "</dd>" : "") +
       (b.status === "CANCELLED" ? "<dt>" + esc(T("adm.bl_cancelled")) + "</dt><dd>" + esc(timeText(b.cancelledAt)) + " · " + esc(b.cancelReason) + "</dd>" : "") + "</dl>" +
-      '<p style="margin:4px 0 8px;font-size:14px"><a style="color:var(--admin-accent)" href="/bill?id=' + encodeURIComponent(b.id) + '&src=admin" target="_blank" rel="noopener">' + esc(T("adm.bl_print")) + "</a></p>";
+      '<p style="margin:4px 0 8px;font-size:14px"><a style="color:var(--admin-accent)" href="/bill?id=' + encodeURIComponent(b.id) + '&src=admin" target="_blank" rel="noopener">' + esc(T("adm.bl_print")) + "</a>" +
+        (b.docs || []).map(function (d) { return ' · <a style="color:var(--admin-accent)" href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(T("bill.doc_" + d.kind, { no: d.number })) + "</a>"; }).join("") +
+        (b.buyerGstin ? ' · <span class="muted">' + esc(T("adm.bl_gstin_s", { g: b.buyerGstin })) + "</span>" : "") + "</p>";
     h += b.payments.map(function (p) {
       var mismatch = p.amount !== b.total;
       var x = '<div class="bl-pay"><h4>' + esc(T("adm.bl_pay_h", { st: T("adm.bl_ps_" + p.status) })) + "</h4><dl>" +
@@ -734,6 +743,11 @@ function renderList() {
       if (p.status === "REPORTED" && B.data.canConfirm && B.data.ownRule && String(b.issuedBy || "").toLowerCase() === B.data.me) {
         x += '<p class="warnline">' + esc(T("adm.bl_own")) + "</p>";
       } else if (p.status === "REPORTED" && B.data.canConfirm) {
+        // grieviq-76: tax a government buyer deducted (optional).
+        x += '<details class="bl-tds"><summary>' + esc(T("adm.bl_tds_h")) + '</summary><p class="muted">' + esc(T("adm.bl_tds_p")) + '</p><div class="bl-row">' +
+          '<div class="fld short"><label for="tg-' + esc(p.id) + '">' + esc(T("adm.bl_tds_gst")) + '</label><input type="number" min="0" step="1" inputmode="numeric" id="tg-' + esc(p.id) + '"></div>' +
+          '<div class="fld short"><label for="ti-' + esc(p.id) + '">' + esc(T("adm.bl_tds_it")) + '</label><input type="number" min="0" step="1" inputmode="numeric" id="ti-' + esc(p.id) + '"></div>' +
+          '<div class="fld"><label for="tr-' + esc(p.id) + '">' + esc(T("adm.bl_tds_ref")) + '</label><input type="text" maxlength="60" autocomplete="off" id="tr-' + esc(p.id) + '"></div></div></details>';
         x += '<div class="acts"><button type="button" class="primary" data-confirm="' + esc(p.id) + '" data-ref="' + esc(b.ref) + '">' + esc(T("adm.bl_confirm")) + "</button></div>" +
           '<div class="bl-row"><div class="fld"><label for="rr-' + esc(p.id) + '">' + esc(T("adm.bl_return_reason")) + '</label><input type="text" id="rr-' + esc(p.id) + '" maxlength="300" autocomplete="off"></div>' +
           '<button type="button" class="danger" data-return="' + esc(p.id) + '">' + esc(T("adm.bl_return")) + "</button></div>";
@@ -752,7 +766,8 @@ function renderList() {
   }).join("");
   app.querySelectorAll("[data-confirm]").forEach(function (btn) { btn.addEventListener("click", function () {
     if (!confirm(T("adm.bl_confirm_q", { ref: btn.getAttribute("data-ref") }))) return;
-    act({ action: "confirm", paymentId: btn.getAttribute("data-confirm") }, btn, "adm.bl_done_confirm"); }); });
+    var pid = btn.getAttribute("data-confirm"), gv = function (id) { var el = document.getElementById(id + pid); return el ? el.value.trim() : ""; };
+    act({ action: "confirm", paymentId: pid, gstTds: gv("tg-") === "" ? "" : Number(gv("tg-")), itTds: gv("ti-") === "" ? "" : Number(gv("ti-")), tdsRef: gv("tr-") }, btn, "adm.bl_done_confirm"); }); });
   app.querySelectorAll("[data-return]").forEach(function (btn) { btn.addEventListener("click", function () {
     var id = btn.getAttribute("data-return"), inp = document.getElementById("rr-" + id);
     act({ action: "return", paymentId: id, reason: inp.value }, btn, "adm.bl_done_return", inp); }); });
@@ -786,6 +801,7 @@ async function act(body, btn, okKey, reasonInput) {
     if (res.status === 400 && d.fields && d.fields.reason && reasonInput) {
       m.className = "row-msg error"; m.textContent = T("adm.bl_e_reason"); m.id = m.id || "rm"; reasonInput.setAttribute("aria-invalid", "true"); reasonInput.setAttribute("aria-describedby", m.id); reasonInput.focus(); return;
     }
+    if (res.status === 400 && d.fields && (d.fields.gstTds || d.fields.itTds)) { m.className = "row-msg error"; m.textContent = T("adm.bl_e_tds"); return; }
     if (!res.ok) { m.className = "row-msg error"; m.textContent = d.error === "ALREADY_CHECKED" ? T("adm.bl_e_checked") : d.error === "OWN_BILL" ? T("adm.bl_own") : d.error === "BILLING_ACCOUNTS_ONLY" ? T("adm.bl_e_accounts_only") : T("adm.ss_e_generic"); return; }
     await load(); setMsg(false, T(okKey));
   } catch (e) { btn.disabled = false; m.className = "row-msg error"; m.textContent = T("adm.ss_e_net"); }

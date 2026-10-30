@@ -16,6 +16,7 @@ import { getVerifiedRep } from "../_shared/get-verified-rep.js";
 import { ROLE } from "../_shared/team.js";
 import { billingReady, billOut, paymentsFor, payInfo, reportPayment, officeBillFilter } from "../_shared/billing.js";
 import { onlineInfo, onlineFor, onlineOut, startOnline, checkoutDone } from "../_shared/razorpay.js";
+import { docsFor } from "../_shared/tax-docs.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 function billingOffices(auth) {
@@ -40,7 +41,8 @@ export async function onRequestGet({ request, env }) {
   const pays = await paymentsFor(env, bills.map((b) => b.id));
   const online = await onlineFor(env, bills.map((b) => b.id));
   const pay = Object.assign(await payInfo(env), { online: await onlineInfo(env) });
-  return json({ ready: true, offices, bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o)) })), pay });
+  const docs = await docsFor(env, "BILL", bills.map((b) => b.id), true);   // grieviq-76: tax invoices and credit notes
+  return json({ ready: true, offices, bills: bills.map((b) => Object.assign(billOut(b, pays), { online: online.filter((o) => o.bill_id === b.id).map((o) => onlineOut(o)), docs: docs[b.id] || [] })), pay });
 }
 
 export async function onRequestPost({ request, env }) {

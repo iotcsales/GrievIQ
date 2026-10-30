@@ -35,6 +35,7 @@ import {
   helperOut, stateOf, electionPause, feeNow, startHelperPay, helperCheckoutDone, tellStaff, emailHelper, OPEN, LIMITS, cardToken, CARD_MINUTES,
 } from "../_shared/helpers.js";
 import { fileForCitizen, checkCode, resendCode, closeFiling, filingsFor, todayCount, filingsReady, DAILY_FILINGS } from "../_shared/helper-filing.js";
+import { syncTaxDocs, docsFor } from "../_shared/tax-docs.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 
@@ -71,7 +72,12 @@ async function view(env, h) {
   const unit = await unitInfo(env, h.unit_id);
   const today = istToday();
   const pause = await electionPause(env, h, today);
-  return helperOut(h, unit, await paymentsOf(env, h.id), today, pause);
+  const pays = await paymentsOf(env, h.id);
+  const out = helperOut(h, unit, pays, today, pause);
+  // grieviq-76: receipt vouchers, tax invoices, refund vouchers, credit notes.
+  const docs = await docsFor(env, "HELPER_PAYMENT", pays.map((p) => p.id), true);
+  if (out && out.payments) out.payments.forEach((p) => { p.docs = docs[p.id] || []; });
+  return out;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -130,7 +136,7 @@ export async function receiptOut(env, p, h) {
   };
 }
 
-export async function onRequestPost({ request, env }) {
+async function handlePost({ request, env }) {
   const origin = new URL(request.url).origin;
   const o = request.headers.get("Origin");
   if (o && o !== origin) return json({ error: "Not allowed." }, 403);
@@ -349,4 +355,15 @@ async function cardPhoto(env, origin, email, form) {
   await tellStaff(env, origin, "GrievIQ: a Community helper card photo to confirm", "A Community helper sent a new card photo. Please confirm it matches the person.");
   const nh = await env.DB.prepare("SELECT * FROM helpers WHERE id = ?").bind(h.id).first();
   return json({ ok: true, helper: await view(env, nh) });
+}
+
+// grieviq-76: after a successful action, issue any GST document now due
+// (tax invoice, credit note, receipt or refund voucher). The hourly job and
+// the Accounts page do the same, so nothing is lost if this step fails.
+export async function onRequestPost(context) {
+  const res = await handlePost(context);
+  if (res && res.status < 300) {
+    try { await syncTaxDocs(context.env, { origin: new URL(context.request.url).origin, limit: 20 }); } catch (e) { /* issued later */ }
+  }
+  return res;
 }
