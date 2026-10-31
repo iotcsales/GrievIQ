@@ -20,6 +20,7 @@
 
 import { liveJoin, areasReady, PILOT_AREA } from "../_shared/areas.js";
 import { seatsReady, isMulti, choosableSeats } from "../_shared/seats.js";
+import { smsRequired } from "../_shared/misuse.js";
 
 export async function onRequestGet({ env }) {
   try {
@@ -62,6 +63,8 @@ export async function onRequestGet({ env }) {
         areas: ready
           ? ((await env.DB.prepare("SELECT id, name, state, slug FROM areas WHERE live = 1 ORDER BY name").all()).results || [])
           : [{ id: PILOT_AREA.id, name: PILOT_AREA.name, state: PILOT_AREA.state, slug: PILOT_AREA.slug }],
+        // grieviq-82: when on, the form asks for a 6-digit SMS code before filing.
+        smsCode: await smsRequired(env).catch(() => false),
       }),
       {
         status: 200,

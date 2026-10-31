@@ -15,6 +15,7 @@
 //     do); who did what is shown as a role, not a person, except the
 //     department's own officers.
 
+import { maskPersonal } from "./misuse.js";
 import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "./photo-store.js";
 import { toUtcMs } from "./time-limits.js";
@@ -119,7 +120,7 @@ export async function officeCaseList(env, officer, nowMs, closedWanted) {
     cases.push({
       id: g.id, trackingRef: g.tracking_ref, status: g.status, bucket,
       category: { id: g.category_id, name: g.category_name || "" }, ward: { id: g.local_unit_id, name: g.ward_name || "" },
-      summary: g.retention_removed_at ? "" : String(g.description || "").slice(0, 160),
+      summary: g.retention_removed_at ? "" : String(maskPersonal(g.description) || "").slice(0, 160),
       createdAt: g.created_at, forwardedAt: (steps.filter((x) => x.kind === STEP.FORWARDED).pop() || {}).created_at || null,
       lastStep: last ? { kind: last.kind, at: last.created_at } : null,
       state: { phase: st.phase, days: st.days, dayOf: st.dayOf, overdue: !!st.overdue, overdueDays: st.overdueDays || 0, dueAt: st.dueAt || null, expectedDate: st.expectedDate || null, sentBack: !!st.sentBack },
@@ -157,12 +158,15 @@ export async function officeCaseDetail(env, officer, g, nowMs) {
   return {
     id: g.id, trackingRef: g.tracking_ref, status: g.status,
     category: { id: g.category_id, name: g.category_name || "" }, ward: { id: g.local_unit_id, name: g.ward_name || "" },
-    description: g.retention_removed_at ? "" : (g.description || ""), retentionRemoved: !!g.retention_removed_at,
-    locationDetail: g.retention_removed_at ? "" : (g.location_detail || ""),
+    description: g.retention_removed_at ? "" : (maskPersonal(g.description) || ""), retentionRemoved: !!g.retention_removed_at,
+    locationDetail: g.retention_removed_at ? "" : (maskPersonal(g.location_detail) || ""),
     pin: !g.retention_removed_at && g.pin_lat != null && g.pin_lng != null ? { lat: Number(g.pin_lat), lng: Number(g.pin_lng) } : null,
     photos, createdAt: g.created_at,
     steps: steps.map((s) => Object.assign(shapeStepForDept(s, names), s.photo_report_id && stepPhotos[s.photo_report_id] ? { photos: stepPhotos[s.photo_report_id] } : {})),
     state: { phase: st.phase, days: st.days, dayOf: st.dayOf, overdue: !!st.overdue, overdueDays: st.overdueDays || 0, dueAt: st.dueAt || null, expectedDate: st.expectedDate || null, sentBack: !!st.sentBack, department: st.department || null },
     canReply: open && !!last && last.kind !== STEP.NOT_OURS,
+    // grieviq-82: this office has reported the complaint to GrievIQ and is waiting for a decision.
+    reportedByOffice: await (async () => { try { return !!(await env.DB.prepare("SELECT id FROM complaint_reports WHERE grievance_id = ? AND office_key = ? AND status = 'OPEN'").bind(g.id, "DEPT:" + officer.office_id).first()); } catch (e) { return false; } })(),
+    canReport: open,
   };
 }

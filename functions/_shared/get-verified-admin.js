@@ -152,6 +152,13 @@ export const PERMISSIONS = {
   // reads; management sees counts only.
   view_staff_records: ["super_admin", "auditor", "management_viewer", "staff_records_keeper"],
   manage_staff_records: ["super_admin", "staff_records_keeper"],
+  // grieviq-82: misuse controls. Deciding reported complaints and proposing restrictions:
+  // super admin, operations admin, data moderator; a second person (super or operations
+  // admin) approves a restriction; only the super admin turns switches (SMS before filing).
+  view_misuse: ["super_admin", "operations_admin", "data_moderator", "auditor"],
+  manage_misuse: ["super_admin", "operations_admin", "data_moderator"],
+  approve_restriction: ["super_admin", "operations_admin"],
+  manage_switches: ["super_admin"],
   // grieviq-45: web addresses where a copy of GrievIQ was seen.
   view_copies: ["super_admin", "auditor"],
   // grieviq-46: office subscriptions (pilot dates, paid-up date, pause, end).
@@ -225,6 +232,7 @@ export const PAGES = {
   "admin-accounts": "view_accounts",                // grieviq-76
   "admin-sales": "view_sales",                      // grieviq-77
   "admin-staff-records": "view_staff_records",      // grieviq-78
+  "admin-misuse": "view_misuse",                    // grieviq-82
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)
 };
 export function pagesFor(roleOrRoles) {

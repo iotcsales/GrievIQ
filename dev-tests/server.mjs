@@ -117,6 +117,10 @@ function fakeRazorpay(u, opts) {
 // Emails "sent" in tests are written here (one JSON per line).
 const MAIL_LOG = path.join(path.dirname(dbFile), "mail.log");
 fs.writeFileSync(MAIL_LOG, "");
+// grieviq-82: SMS codes go to sms.log instead of a provider (one JSON line each).
+const SMS_LOG = path.join(path.dirname(dbFile), "sms.log");
+fs.writeFileSync(SMS_LOG, "");
+env.SMS_TEST_LOG = async (to, code) => { fs.appendFileSync(SMS_LOG, JSON.stringify({ to, code, at: new Date().toISOString() }) + "\n"); };
 
 // grieviq-35: phone alerts in tests. A throw-away VAPID key pair made at
 // start-up (never a real key), and browser push services answered here:

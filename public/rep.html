@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="GrievIQ Rep">
 <meta name="theme-color" content="#13233F">
 <link rel="stylesheet" href="/theme.css?v=22">
-<script src="/demo-mode.js?v=81"></script>
+<script src="/demo-mode.js?v=82"></script>
 <script src="/theme.js?v=45"></script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,8 +22,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=81"></script>
-<script src="/guide-content.js?v=79"></script>
+<script src="/i18n.js?v=82"></script>
+<script src="/guide-content.js?v=82"></script>
 <script src="/guide.js?v=80"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -313,6 +313,12 @@
   .role-form { margin: 12px 0 0; }
   .team-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .badge.neutral { background: #eef1f4; color: #3c4650; }
+  .cv-badge { font-weight: 600; }
+  .rp-form { margin-top: 10px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 6px; max-width: 520px; }
+  .rp-form .hint { font-size: 12.5px; color: var(--steel-2); margin: 0 0 6px; line-height: 1.45; }
+  .rp-form .field-err { font-size: 12.5px; color: var(--red-strong, var(--red)); margin-top: 4px; font-weight: 600; }
+  .rp-form .field-err:empty { display: none; }
+  .rp-row { margin: 10px 0 0; } .rp-row .linkish { min-height: 24px; font-size: 13px; }
   /* Item 9c: Audit tab */
   .tab-count { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 6px; border-radius: 10px; background: var(--gold-tint); color: #6b5210; font-size: 12px; font-weight: 700; text-align: center; }
   .tab-count.late { background: var(--red); color: #fff; }
@@ -522,7 +528,7 @@
     line-height: 1.5;
     max-width: 46ch;
   }
-  .dispute-note b { color: var(--red); }
+  .dispute-note b { color: var(--red-strong, var(--red)); }
   /* Citizen ratings (grieviq-30) */
   .rating-note { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--steel); background: var(--paper, transparent); font-size: 12.5px; color: var(--ink); line-height: 1.5; max-width: 52ch; border: 1px solid var(--line, #d5d9de); border-left-width: 3px; border-radius: 4px; }
   .rating-note .rn-h { font-weight: 700; display: block; margin-bottom: 2px; }
@@ -802,7 +808,7 @@
   .followup-dept[aria-invalid="true"] { border-color: var(--red); border-width: 2px; }
   .resolve-btn { min-height: 36px; margin-right: 8px; }
   /* Mark resolved form and resolution report (item 7b) */
-  .resolve-form { margin-top: 10px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 6px; background: #FAFBFC; max-width: 520px; }
+  .resolve-form { margin-top: 10px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); max-width: 520px; }
   .resolve-form label { display: block; font-size: 12.5px; font-weight: 600; color: var(--steel); margin: 10px 0 3px; }
   .resolve-form label:first-child { margin-top: 0; }
   .resolve-form .hint { font-size: 12px; color: var(--steel-2); margin: 0 0 5px; line-height: 1.45; }
@@ -1561,6 +1567,7 @@ function renderCase(c) {
   if (c.reopen && c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.status !== 'PENDING_CONFIRMATION') {
     badge += ' <span class="badge escalated">' + esc(T('rep.badge_reopened')) + '</span>';
   }
+  badge += renderContactBadge(c);
   var locationLine = c.locationDetail
     ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
     : '';
@@ -1576,7 +1583,7 @@ function renderCase(c) {
       badge +
       renderResolution(c) +
       renderCitizenRating(c) +
-      renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) +
+      renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) + renderMisuseNote(c) +
       renderTeamNotes(c) +
       // Actions sit beside the details on a laptop, below them on a phone.
       renderSeatNote(c) +
@@ -1586,7 +1593,7 @@ function renderCase(c) {
         renderAssignControl(c) +
         renderFollowupControl(c) +
         renderAcknowledgeControl(c) +
-        renderResolveControl(c) + renderSeatReturn(c)) +
+        renderResolveControl(c) + renderSeatReturn(c) + renderReportControl(c)) +
       '</div>' +
     '</div>' +
     '<div class="case-meta">' +
@@ -1954,7 +1961,8 @@ var ACT_KEYS = { ACKNOWLEDGED: 'rep.act_ack', FORWARDED: 'rep.act_forward', ASSI
   PROFILE_CHANGED: 'rep.act_profile', TEAM_REVIEWED: 'rep.act_reviewed', GOV_SHARE_ON: 'rep.act_gov_on', GOV_SHARE_OFF: 'rep.act_gov_off', OVERVIEW_EXPORTED: 'rep.act_exported',
   OBSERVATION_REPLIED: 'rep.act_obs_replied', OBSERVATION_DONE: 'rep.act_obs_done', OBSERVATION_COMMENTED: 'rep.act_obs_comment',
   DEPT_SCHEDULED: 'rep.act_dept_sched', DEPT_IN_PROGRESS: 'rep.act_dept_prog', DEPT_DONE_CLAIMED: 'rep.act_dept_done', DEPT_NOT_OURS: 'rep.act_dept_notours',
-  DEPT_CANT_DO: 'rep.act_dept_cantdo', DEPT_CHECK_PARTLY: 'rep.act_dept_check_failed', DEPT_CHECK_NOT_FIXED: 'rep.act_dept_check_failed' };
+  DEPT_CANT_DO: 'rep.act_dept_cantdo', DEPT_CHECK_PARTLY: 'rep.act_dept_check_failed', DEPT_CHECK_NOT_FIXED: 'rep.act_dept_check_failed',
+  REPORTED_COMPLAINT: 'rep.act_reported' };
 function activityText(a) {
   var d = a.detail || {};
   if (a.action === 'UNASSIGNED' && d.reason === 'OUT_OF_AREA') return T('rep.act_unassign_area', { ref: a.trackingRef || '' });
@@ -4026,6 +4034,91 @@ document.addEventListener('click', async function(e) {
   } catch (err) {
     d.busy = false; d.errors.form = T('common.network_error'); renderContent();
   }
+});
+// grieviq-82: misuse controls. Whether the citizen's contact was confirmed
+// (SMS code at filing, or the email code later); a complaint GrievIQ closed
+// as not genuine; and "Report this complaint" (to GrievIQ staff, never
+// closes the case by itself: time limits carry on until staff decide).
+var RP_REASONS = ['FALSE', 'ABUSIVE', 'DUPLICATE', 'OUTSIDE', 'OTHER'];
+var rpDraft = {};
+function renderContactBadge(c) {
+  var k = c.contactVerified === 'PHONE' ? 'rep.cv_phone' : c.contactVerified === 'EMAIL' ? 'rep.cv_email' : 'rep.cv_none';
+  return ' <span class="badge neutral cv-badge">' + esc(T(k)) + '</span>';
+}
+function renderMisuseNote(c) {
+  var h = '';
+  if (c.notGenuine) {
+    h += '<div class="dispute-note"><b>' + esc(T('rep.ng_closed')) + '</b> <span class="muted-inline">(' + formatDate(c.notGenuine.at) + ')</span><br>' +
+      esc(c.notGenuine.reason) + (c.notGenuine.appealed ? '<br><span class="muted-inline">' + esc(T('rep.ng_appealed')) + '</span>' : '') + '</div>';
+  }
+  if (c.reportedByOffice && !c.notGenuine) h += '<p class="seat-note">' + esc(T('rep.rp_waiting')) + '</p>';
+  return h;
+}
+function renderReportControl(c) {
+  if (c.status !== 'OPEN' && c.status !== 'ACKNOWLEDGED') return '';
+  if (c.viewOnly || c.reportedByOffice) return '';
+  if (c.myRole && c.myRole !== 'REPRESENTATIVE' && c.myRole !== 'OFFICE_MANAGER') return '';
+  var id = esc(c.id), d = rpDraft[c.id];
+  if (!d || !d.open) return '<p class="rp-row"><button type="button" class="linkish rp-open" data-id="' + id + '" aria-expanded="false">' + esc(T('rep.rp_btn')) + '</button></p>';
+  var e = d.errors || {};
+  return '<div class="ds-form rp-form" id="rp-form-' + id + '">' +
+    '<p class="hint">' + esc(T('rep.rp_intro')) + '</p>' +
+    '<fieldset class="ds-fs"' + (e.reason ? ' aria-describedby="rp-reason-err-' + id + '"' : '') + '><legend>' + esc(T('rep.rp_q')) + '</legend>' +
+    RP_REASONS.map(function(k) {
+      return '<label class="ds-radio"><input type="radio" name="rp-reason-' + id + '" class="rp-reason" data-id="' + id + '" value="' + k + '"' + (d.reason === k ? ' checked' : '') + '> ' + esc(T('rep.rp_r_' + k)) + '</label>';
+    }).join('') +
+    '<div class="field-err" id="rp-reason-err-' + id + '" role="alert">' + esc(e.reason || '') + '</div></fieldset>' +
+    '<label for="rp-note-' + id + '">' + esc(T('rep.rp_note')) + '</label>' +
+    '<p class="hint" id="rp-note-hint-' + id + '">' + esc(T('rep.rp_note_hint')) + '</p>' +
+    '<textarea id="rp-note-' + id + '" class="rp-note" data-id="' + id + '" maxlength="500" aria-describedby="rp-note-hint-' + id + (e.note ? ' rp-note-err-' + id + '" aria-invalid="true"' : '"') + '>' + esc(d.note || '') + '</textarea>' +
+    '<div class="field-err" id="rp-note-err-' + id + '" role="alert">' + esc(e.note || '') + '</div>' +
+    '<div class="actions"><button type="button" class="resolve-btn rp-save" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.rp_send')) + '</button>' +
+    '<button type="button" class="resolve-btn rp-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+    '<div class="resolve-error" id="rp-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+}
+function rpRead(id) {
+  var d = rpDraft[id]; if (!d) return;
+  var r = document.querySelector('input[name="rp-reason-' + cssId(id) + '"]:checked'); if (r) d.reason = r.value;
+  var n = document.getElementById('rp-note-' + id); if (n) d.note = n.value;
+}
+document.addEventListener('click', async function(e) {
+  var b = e.target.closest && e.target.closest('.rp-open, .rp-cancel, .rp-save');
+  if (!b) return;
+  var id = b.getAttribute('data-id');
+  if (b.classList.contains('rp-open')) {
+    rpDraft[id] = { open: true, reason: '', note: '', errors: {} };
+    renderContent();
+    var first = document.querySelector('input[name="rp-reason-' + cssId(id) + '"]'); if (first) first.focus();
+    return;
+  }
+  if (b.classList.contains('rp-cancel')) {
+    delete rpDraft[id]; renderContent();
+    var ob = document.querySelector('.rp-open[data-id="' + cssId(id) + '"]'); if (ob) ob.focus();
+    return;
+  }
+  var d = rpDraft[id]; if (!d) return;
+  rpRead(id);
+  d.errors = {};
+  if (!d.reason) d.errors.reason = T('rep.rp_err_reason');
+  var len = (d.note || '').trim().length;
+  if (len < 10 || len > 500) d.errors.note = T('rep.rp_err_note');
+  if (Object.keys(d.errors).length) {
+    renderContent();
+    var bad = d.errors.reason ? document.querySelector('input[name="rp-reason-' + cssId(id) + '"]') : document.getElementById('rp-note-' + id);
+    if (bad) bad.focus();
+    return;
+  }
+  d.busy = true; renderContent();
+  try {
+    var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: d.reason, note: d.note }) });
+    var data = await res.json().catch(function() { return {}; });
+    d.busy = false;
+    if (!res.ok) { d.errors.form = data.code === 'ALREADY' ? T('rep.rp_err_already') : errText(data.error); renderContent(); var fe = document.getElementById('rp-err-' + id); if (fe) { fe.setAttribute('tabindex', '-1'); fe.focus(); } return; }
+    delete rpDraft[id];
+    await init();
+    say(T('rep.rp_sent'));
+    var row = document.getElementById('case-' + id); if (row) { row.setAttribute('tabindex', '-1'); row.focus(); }
+  } catch (err) { d.busy = false; d.errors.form = T('common.network_error'); renderContent(); }
 });
 function attachResolveHandlers() {
   // Item 7b: "Mark resolved" opens a short form (what was done + "after"

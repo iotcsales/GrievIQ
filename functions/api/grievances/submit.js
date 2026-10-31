@@ -21,6 +21,7 @@
 
 import { checkDailyLimits, deviceParts, COMPLAINTS_PER_PHONE, COMPLAINTS_PER_DEVICE } from "../../_shared/daily-limit.js";
 import { makeFilingPass } from "../../_shared/citizen-push.js";
+import { smsRequired } from "../../_shared/misuse.js";
 // grieviq-73: the checks and the saving moved to _shared/file-complaint.js
 // (shared with Community helpers' filings), unchanged.
 import { checkComplaint, createComplaint, generateTrackingRef, nextSteps, NOTICE_VERSION } from "../../_shared/file-complaint.js";
@@ -50,6 +51,22 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (!checked.ok) return jsonRes(checked.body, checked.status);
     const v = checked.v;
 
+    // grieviq-82: when "SMS code before filing" is switched on, the phone number must be proved
+    // with the 6-digit code sent to it (api/sms-code.js) in the last 15 minutes; the code is used once.
+    let contactVerified = null;
+    if (await smsRequired(env)) {
+      const code = String(body.sms_code || "").replace(/\D/g, "");
+      const ph = String(citizen_phone).replace(/\D/g, "").slice(-10);
+      const since = new Date(Date.now() - 15 * 60000).toISOString();
+      const row = code.length === 6 ? await env.DB.prepare("SELECT id, otp_code, failed_attempts FROM grievance_otp WHERE phone = ? AND purpose = 'SUBMIT' AND channel = 'SMS' AND verified = 0 AND created_at >= ? ORDER BY created_at DESC LIMIT 1").bind(ph, since).first() : null;
+      if (!row || row.failed_attempts >= 5 || row.otp_code !== code) {
+        if (row && row.otp_code !== code) await env.DB.prepare("UPDATE grievance_otp SET failed_attempts = failed_attempts + 1 WHERE id = ?").bind(row.id).run();
+        return jsonRes({ error: "Please enter the 6-digit code we sent to your phone by SMS. Codes work for 10 minutes.", code: "SMS_CODE", fields: { sms_code: code ? "WRONG" : "REQUIRED" } }, 400);
+      }
+      await env.DB.prepare("UPDATE grievance_otp SET verified = 1, verified_at = ?, otp_code = '' WHERE id = ?").bind(new Date().toISOString(), row.id).run();
+      contactVerified = "PHONE";
+    }
+
     // grieviq-36: daily limits, per phone number and per device. Checked
     // only for a complaint that would otherwise be filed; the form keeps
     // everything the citizen typed.
@@ -67,7 +84,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       }, 429, { "Retry-After": "3600" });
     }
 
-    const made = await createComplaint(env, v, { origin: env.SITE_ORIGIN || new URL(request.url).origin, waitUntil });
+    const made = await createComplaint(env, v, { origin: env.SITE_ORIGIN || new URL(request.url).origin, waitUntil, contactVerified });
     if (made.error) return jsonRes({ error: "Could not generate a tracking reference. Please try again." }, 500);
     // "Get updates on this phone" (Oct 2026): a one-time pass, valid 24
     // hours, so only the person who just filed can turn updates on here.

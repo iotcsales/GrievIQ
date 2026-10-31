@@ -49,7 +49,7 @@
   // ---- the recording, with every date moved forward ----
   var realFetch = window.fetch.bind(window);
   var DAY = 86400000;
-  var ready = realFetch("/demo/" + FILE + ".json?v=81", { credentials: "omit", cache: "no-cache" }).then(function (r) { return r.json(); }).then(function (rec) {
+  var ready = realFetch("/demo/" + FILE + ".json?v=82", { credentials: "omit", cache: "no-cache" }).then(function (r) { return r.json(); }).then(function (rec) {
     var delta = Date.now() - rec.recordedAt, days = Math.round(delta / DAY);
     var text = JSON.stringify(rec.responses)
       .replace(/"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z)"/g, function (m, t) { return '"' + new Date(Date.parse(t) + delta).toISOString() + '"'; })

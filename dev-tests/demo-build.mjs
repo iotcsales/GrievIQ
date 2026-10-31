@@ -82,6 +82,8 @@ async function file(unit, cat, text, place, photo, email) {
       consent: true, form_loaded_at: Date.now() - 60000, lang: "en", photo_ids: ids }) });
   const j = await r.json();
   if (r.status !== 200) throw new Error("file: " + JSON.stringify(j));
+  // grieviq-82: most demo citizens confirmed their phone (SMS code) or email; a few not yet.
+  sdb.prepare("UPDATE grievances SET contact_verified = ? WHERE tracking_ref = ?").run(n % 5 === 0 ? null : n % 3 === 0 ? "EMAIL" : "PHONE", j.tracking_ref);
   return sdb.prepare("SELECT id, tracking_ref FROM grievances WHERE tracking_ref = ?").get(j.tracking_ref);
 }
 const DAY = 86400000, HOUR = 3600000;

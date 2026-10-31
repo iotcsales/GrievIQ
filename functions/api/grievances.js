@@ -28,6 +28,7 @@ import { settleOverdueConfirmations, resolutionKind, awaitingStaffCheck } from "
 import { shapeResolution, parseWard, photoWarnings } from "../_shared/resolution-evidence.js";
 import { photoMedia, complaintPhotoList } from "../_shared/photo-store.js";
 import { shapeReopen } from "../_shared/reopen.js";
+import { maskPersonal } from "../_shared/misuse.js";
 import { loadRatings, shapeForRep } from "../_shared/ratings.js";
 import { officerNames } from "../_shared/dept-cases.js";
 import { dashboardOffices } from "../_shared/dept-auth.js";
@@ -252,6 +253,11 @@ export async function onRequestGet(context) {
   const chains = await Promise.all(neededUnits.map((u) => resolveChain(env, u)));
   neededUnits.forEach((u, i) => chainCache.set(u, chains[i]));
   const visible = [];
+  // grieviq-82: which cases this person's offices have already reported to GrievIQ (still open).
+  const reportedOpen = new Set();
+  try {
+    for (const r of ((await env.DB.prepare("SELECT grievance_id, office_key FROM complaint_reports WHERE status = 'OPEN' AND by_kind = 'REP'").all()).results || [])) reportedOpen.add(r.grievance_id + "|" + r.office_key);
+  } catch (e) { /* before part53 */ }
   const evidenceCtx = new Map();
 
   for (const grievance of grievanceRows) {
@@ -332,9 +338,13 @@ export async function onRequestGet(context) {
       trackingRef: grievance.tracking_ref,
       // grieviq-73: filed with help from a Community helper (never who).
       helped: !!grievance.helper_id,
-      description: grievance.description,
+      // grieviq-82: phone numbers, emails and ID numbers a citizen typed in are hidden from offices.
+      description: maskPersonal(grievance.description),
       retentionRemovedAt: grievance.retention_removed_at || null,   // item 9d
-      locationDetail: grievance.location_detail || null,
+      locationDetail: maskPersonal(grievance.location_detail) || null,
+      contactVerified: grievance.contact_verified || null,
+      reportedByOffice: reportedOpen.has(grievance.id + "|" + myMandate.tier + ":" + myMandate.id),
+      notGenuine: grievance.closure_kind === "NOT_GENUINE" ? { reason: grievance.not_genuine_reason || "", at: grievance.not_genuine_at || null, appealed: !!grievance.appeal_at } : null,
       // Where the problem is (pin saved at filing, Sept 2026). For the case's
       // representatives only -- never returned by any public/citizen endpoint.
       pin: grievance.pin_lat != null && grievance.pin_lng != null

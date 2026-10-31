@@ -20,6 +20,7 @@
 // The single-report detail ("case") keeps exactly the shape the status
 // page already used, so the tested detail view is unchanged.
 
+import { appealStatus } from "../grievances/appeal.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { loadSteps, shapeStepForCitizen } from "../../_shared/dept-steps.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
@@ -199,6 +200,9 @@ async function buildCaseDetail(env, grievance) {
       // days of closing), until when, and the reopening if there was one.
       reopen: shapeReopen(await loadReopen(env, grievance.id), "citizen"),
       reopenStatus: (({ can, code, until }) => ({ can, code, until }))(reopenStatus(grievance)),
+      // grieviq-82: closed by GrievIQ as not genuine: the reason, and the citizen's one appeal.
+      notGenuine: grievance.closure_kind === "NOT_GENUINE" ? { reason: grievance.not_genuine_reason || "", at: grievance.not_genuine_at || null,
+        appealedAt: grievance.appeal_at || null, appealDecision: grievance.appeal_decision || null, appeal: (({ can, code, until }) => ({ can, code, until }))(appealStatus(grievance)) } : null,
       currentLevelLabel: result.currentTier ? result.currentTier.label : null,
       // grieviq-57: a ward with several members: who handles it (seat letter
       // and name only), or that it is open to every member of the ward.
@@ -240,6 +244,10 @@ async function caseForEmail(env, email, trackingRef) {
   ).bind(trackingRef).first();
   if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email) {
     return { error: "Case not found for this email", status: 404 };
+  }
+  // grieviq-82: the "not genuine" closure and appeal (separately, so the page works before part53).
+  if (grievance.closure_kind === "NOT_GENUINE") {
+    try { Object.assign(grievance, await env.DB.prepare("SELECT not_genuine_reason, not_genuine_at, appeal_at, appeal_decision FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part53 */ }
   }
   const built = await buildCaseDetail(env, grievance);
   if (built.error) return { error: built.error, status: 500 };
@@ -320,6 +328,9 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare(
       "UPDATE grievance_otp SET verified = 1, verified_at = ?, otp_code = '' WHERE id = ?"
     ).bind(nowIso, row.id).run();
+    // grieviq-82: the citizen has now proved this email: their complaints show "Email confirmed" to the office.
+    try { await env.DB.prepare("UPDATE grievances SET contact_verified = 'EMAIL' WHERE LOWER(citizen_email) = ? AND contact_verified IS NULL").bind(email).run(); }
+    catch (e) { /* before part53 */ }
 
     const reports = await listReports(env, email);
     const out = { verified: true, reports };

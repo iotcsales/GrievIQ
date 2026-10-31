@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#13233F">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/theme.css?v=22">
-<script src="/demo-mode.js?v=81"></script>
+<script src="/demo-mode.js?v=82"></script>
 <script src="/theme.js?v=45"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="dd.page_title">Department dashboard — GrievIQ</title>
@@ -136,8 +136,8 @@
   .hdr-right { display: flex; align-items: center; gap: 12px; }
   #notif-slot .rn-bell { color: var(--ink); }
 </style>
-<script src="/i18n.js?v=81"></script>
-<script src="/guide-content.js?v=79"></script>
+<script src="/i18n.js?v=82"></script>
+<script src="/guide-content.js?v=82"></script>
 <script src="/guide.js?v=80"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -561,7 +561,44 @@
       "<h3>" + esc(T("dd.k_complaint")) + "</h3>" + (c.retentionRemoved ? '<p class="empty">' + esc(T("dd.removed")) + "</p>" : '<div class="desc">' + esc(c.description) + "</div>") +
       "<h3>" + esc(T("dd.k_photos")) + "</h3>" + photos +
       '<p class="note-box">' + esc(T("dd.contact_note")) + "</p></div>" +
-      form + '<div class="card"><h2>' + esc(T("dd.history_h")) + "</h2>" + steps + "</div>";
+      form + reportCard(c) + '<div class="card"><h2>' + esc(T("dd.history_h")) + "</h2>" + steps + "</div>";
+  }
+  // grieviq-82: tell GrievIQ a forwarded complaint looks false, abusive or a
+  // duplicate. Staff decide; the case and its time limits carry on meanwhile.
+  var RP_REASONS = ["FALSE", "ABUSIVE", "DUPLICATE", "OTHER"];
+  function reportCard(c) {
+    if (c.reportedByOffice) return '<div class="card"><p class="note-box" style="margin:0" id="rp-done" tabindex="-1">' + esc(T("dd.rp_waiting")) + "</p></div>";
+    if (!c.canReport) return "";
+    var p = S.rp && S.rp.id === c.id ? S.rp : null;
+    if (!p || !p.open) return '<div class="card"><p style="margin:0"><button type="button" class="linkish" id="rp-open" aria-expanded="false">' + esc(T("dd.rp_btn")) + "</button></p></div>";
+    var e = p.errors || {};
+    return '<div class="card"><h2 id="rp-h" tabindex="-1">' + esc(T("dd.rp_btn")) + '</h2><p class="hint">' + esc(T("dd.rp_intro")) + "</p>" +
+      '<form id="f-report" novalidate><fieldset aria-describedby="rp-reason-err"><legend>' + esc(T("rep.rp_q")) + "</legend>" +
+      RP_REASONS.map(function (k, i) { return '<label class="opt"><input type="radio" name="rp-reason" value="' + k + '"' + (i === 0 ? ' id="rp-first"' : "") + (p.reason === k ? " checked" : "") + "> " + esc(T("rep.rp_r_" + k)) + "</label>"; }).join("") +
+      '<div class="err" id="rp-reason-err" role="alert">' + esc(e.reason || "") + "</div></fieldset>" +
+      '<label for="rp-note">' + esc(T("rep.rp_note")) + '</label><p class="hint" id="rp-note-hint">' + esc(T("rep.rp_note_hint")) + '</p><textarea id="rp-note" maxlength="500" aria-describedby="rp-note-hint rp-note-err"' + (e.note ? ' aria-invalid="true"' : "") + ">" + esc(p.note || "") + '</textarea><div class="err" id="rp-note-err" role="alert">' + esc(e.note || "") + "</div>" +
+      '<div class="row"><button type="submit" class="primary"' + (p.busy ? " disabled" : "") + ">" + esc(T("rep.rp_send")) + '</button> <button type="button" id="rp-cancel">' + esc(T("dd.rp_cancel")) + "</button></div>" +
+      '<div class="err" id="rp-form-err" role="alert" tabindex="-1">' + esc(e.form || "") + "</div></form></div>";
+  }
+  function readReport() {
+    var p = S.rp; if (!p) return;
+    var k = document.querySelector('input[name="rp-reason"]:checked'); if (k) p.reason = k.value;
+    var n = document.getElementById("rp-note"); if (n) p.note = n.value;
+  }
+  async function sendReport(ev) {
+    ev.preventDefault(); readReport(); if (S.reply) readReply();
+    var p = S.rp, e = {}, len = (p.note || "").trim().length;
+    if (!p.reason) e.reason = T("rep.rp_err_reason");
+    if (len < 10 || len > 500) e.note = T("rep.rp_err_note");
+    p.errors = e;
+    if (Object.keys(e).length) { show(e.reason ? "rp-first" : "rp-note"); return; }
+    p.busy = true; show();
+    var res = await api("/api/dept/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: S.kase.id, reason: p.reason, note: p.note }) });
+    p.busy = false;
+    if (res.status === 401) { S.screen = "email"; show(); return; }
+    if (!res.ok) { p.errors = { form: res.status === 0 ? T("dd.e_network") : res.body.code === "ALREADY" ? T("rep.rp_err_already") : res.body.code === "CLOSED" ? T("dd.e_closed") : T("dd.e_generic") }; show("rp-form-err"); return; }
+    S.rp = null;
+    await openCase(S.kase.id, "rp-done");
   }
   function readReply() {
     var r = S.reply;
@@ -648,11 +685,14 @@
     on("f-rules", "submit", acceptRules);
     on("rules-signout", "click", signOut);
     on("rules-back", "click", function () { var from = S.rules && S.rules.from; S.rules = null; if (from) openCase(from); else { S.screen = "list"; show("h"); } });
+    on("rp-open", "click", function () { if (S.reply) readReply(); S.rp = { id: S.kase.id, open: true, reason: "", note: "", errors: {} }; show("rp-h"); });
+    on("rp-cancel", "click", function () { if (S.reply) readReply(); S.rp = null; show("rp-open"); });
+    on("f-report", "submit", sendReport);
     var fr = document.getElementById("f-reply");
     if (fr) {
       fr.addEventListener("submit", sendReply);
       fr.addEventListener("change", function (e) {
-        if (e.target.name === "kind") { readReply(); S.reply.errors = {}; show(); var c = document.querySelector('input[name="kind"]:checked'); if (c) c.focus(); }
+        if (e.target.name === "kind") { readReply(); readReport(); S.reply.errors = {}; show(); var c = document.querySelector('input[name="kind"]:checked'); if (c) c.focus(); }
         if (e.target.id === "r-photo") { readReply(); addPhoto(e.target); }
       });
       document.querySelectorAll("[data-rm-photo]").forEach(function (b) { b.addEventListener("click", function () { readReply(); S.reply.photos.splice(+b.getAttribute("data-rm-photo"), 1); show("r-photo"); }); });

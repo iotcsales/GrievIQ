@@ -1641,7 +1641,7 @@ with sync_playwright() as pw:
                     ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "The life of a complaint" in txt and "If not fixed:" in txt and "112" in txt, "citizen guide in English (grieviq-79: the life of a complaint) " + tag, txt[:200])
                 else:
                     ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and "शिकायत का पूरा सफ़र" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
-                ok(p.locator("#gq-page .gq-sop").count() == 7 and p.locator("#gq-page ol.gq-lc > li").count() == 6 and p.locator("#gq-page .gq-lc .gq-chip").count() == 8 and p.locator("#gq-page .gq-lc .gq-br").count() == 4 and p.locator("#gq-page ol.gq-flow").count() == 0, "seven guides (grieviq-72: Community helpers) and the six-stage life of a complaint, with who acts and what happens if not (grieviq-79) " + tag)
+                ok(p.locator("#gq-page .gq-sop").count() == 8 and p.locator("#gq-page ol.gq-lc > li").count() == 6 and p.locator("#gq-page .gq-lc .gq-chip").count() == 8 and p.locator("#gq-page .gq-lc .gq-br").count() == 4 and p.locator("#gq-page ol.gq-flow").count() == 0, "eight guides (grieviq-72: Community helpers; grieviq-82: Appeal) and the six-stage life of a complaint, with who acts and what happens if not (grieviq-79) " + tag)
                 ok(p.locator("#gq-page strong").count() > 5 and p.locator("#gq-page script").count() == 0, "bold words drawn, nothing else " + tag)
                 ok(no_hscroll(p), "guide page: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS); ok(not bad, "guide page contrast AA " + tag, bad[:6])
@@ -1692,7 +1692,7 @@ with sync_playwright() as pw:
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
                 p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
-                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all twelve guides " + tag, sop_ids(p))
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-report", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all thirteen guides " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
                 ok(p.locator(".gq-drawer ol.gq-lc > li").count() == 6 and p.locator(".gq-drawer .gq-rail").count() == 1, "representative Help shows the life of a complaint (grieviq-79) " + tag)
                 ok(p.locator(".gq-drawer table.gq-mx tbody tr").count() == len(sop_ids(p)) and p.locator(".gq-drawer table.gq-mx thead th").count() == 5 and p.locator(".gq-drawer nav.gq-toc ol").count() == 0 and p.locator(".gq-drawer .gq-when").count() == 0, "grieviq-80: Who does what replaces the contents list; no second time list beside the life of a complaint " + tag)
@@ -1747,7 +1747,7 @@ with sync_playwright() as pw:
         p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
         p.goto(B + "/dept"); p.wait_for_selector(".tiles")
         p.click("#guide-link"); p.wait_for_selector(".gq-drawer")
-        ok(sop_ids(p) == ["gqd-signin", "gqd-dashboard", "gqd-reply", "gqd-sentback", "gqd-fu", "gqd-officers", "gqd-performance", "gqd-billing", "gqd-notices"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
+        ok(sop_ids(p) == ["gqd-signin", "gqd-dashboard", "gqd-reply", "gqd-sentback", "gqd-report", "gqd-fu", "gqd-officers", "gqd-performance", "gqd-billing", "gqd-notices"] and p.locator(".gq-drawer ol.gq-flow li").count() == 5, "department guide with its journey " + theme, sop_ids(p))
         ok(p.locator(".gq-drawer .gq-tl > li").count() == 4 and p.locator(".gq-drawer .gq-note .gq-ic").count() >= 1 and p.locator(".gq-drawer .gq-mx").count() == 0, "grieviq-80: department Help has What happens when, symbols, and its contents list " + theme)
         bad = p.evaluate(DLG_CONTRAST); ok(not bad, "dept Help contrast AA " + theme, bad[:6])
         shot(p, "51-dept-help-" + theme, full=False)
@@ -1761,7 +1761,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 27), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 29), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -4409,6 +4409,177 @@ window.Razorpay.prototype.open = function () {
     p.goto(B + "/for-offices"); p.wait_for_timeout(800)
     ok(p.locator('a[href="/rep?demo=1"]').count() >= 1 and p.locator('a[href="/dept?demo=1"]').count() >= 1, "For offices links to both demos")
     ctx.close()
+
+    # ---------- grieviq-82: misuse controls ----------
+    import sqlite3 as _sq82, datetime as _dt82, json as _js82
+    _d82 = _sq82.connect(os.path.join(WORK, "test.db"), timeout=10)
+    _now82 = lambda m=0: (_dt82.datetime.now(_dt82.timezone.utc) + _dt82.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    _d82.execute("UPDATE admin_users SET last_seen_at = ?", (_now82(),)); _d82.commit()
+    # Admin Misuse page: every tab, both themes, laptop and phone
+    for theme in ("dark", "light"):
+        for width in (1280, 390):
+            tag = "%s %d" % (theme, width)
+            ctx, p, errs = P("super@test.in", width=width, theme=theme)
+            p.goto(B + "/admin-misuse.html"); p.wait_for_selector("#mu-tab-reports")
+            ok(p.locator(".ac-card").count() == 4 and p.locator("[data-decide]").count() >= 1, "misuse page: counts and the decision form " + tag)
+            for t in ("reports", "appeals", "restrictions", "month", "sms"):
+                p.click("#mu-tab-" + t); p.wait_for_selector("#mu-panel"); p.wait_for_timeout(150)
+                ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "misuse %s clean %s" % (t, tag), (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+                if width == 1280: shot(p, "82-misuse-%s-%s" % (t, theme))
+                if width == 390 and theme == "light" and t == "reports": shot(p, "82-misuse-reports-390")
+            ok(not errs, "misuse page no script errors " + tag, errs)
+            ctx.close()
+    # a decision with errors first; the one-click SMS switch
+    ctx, p, errs = P("super@test.in", theme="light")
+    p.goto(B + "/admin-misuse.html"); p.wait_for_selector("#mu-tab-reports")
+    p.click("#mu-tab-reports"); p.wait_for_selector("[data-decide]")
+    f = p.locator("[data-decide]").first
+    fid = f.get_attribute("data-decide")
+    f.locator("button[type=submit]").click(); p.wait_for_selector('[data-decide="%s"] .ferr' % fid)
+    ok(p.evaluate("document.activeElement.name") == "d-%s-decision" % fid and p.locator('[data-decide="%s"] .ferr' % fid).count() == 2, "decision: both errors shown, the first focused" )
+    p.check("#d-%s-decision-GENUINE" % fid); p.fill("#d-%s-note" % fid, "Checked with the office; it is a real problem.")
+    p.locator('[data-decide="%s"] button[type=submit]' % fid).click()
+    p.wait_for_function("document.querySelector('#mu-msg').innerText.indexOf('Kept as genuine') >= 0")
+    ok(_d82.execute("SELECT COUNT(*) FROM complaint_reports WHERE grievance_id = ? AND status = 'DISMISSED'", (fid,)).fetchone()[0] >= 1, "kept as genuine from the page")
+    p.click("#mu-tab-sms"); p.wait_for_selector("#sms-switch")
+    ok(p.get_attribute("#sms-switch", "aria-checked") == "false" and not p.locator("#sms-switch").is_disabled(), "SMS switch: off, ready (tested)")
+    p.click("#sms-switch"); p.wait_for_function("document.querySelector('#sms-switch') && document.querySelector('#sms-switch').getAttribute('aria-checked') === 'true'")
+    ok("SMS codes are on" in p.inner_text("#mu-msg") and p.evaluate("document.activeElement.id") == "sms-switch", "one click: on, focus kept on the switch")
+    shot(p, "82-sms-on", full=False)
+    p.click("#sms-switch"); p.wait_for_function("document.querySelector('#sms-switch').getAttribute('aria-checked') === 'false'")
+    ok(_d82.execute("SELECT value FROM app_switches WHERE key = 'SMS_FILING'").fetchone()[0] == "OFF", "one click: off again")
+    ok(not errs, "misuse actions no script errors", errs)
+    ctx.close()
+    # auditor, Hindi: reads only
+    ctx, p, errs = P("audit@test.in", theme="dark", lang="hi")
+    p.goto(B + "/admin-misuse.html"); p.wait_for_selector("#mu-tab-reports")
+    ok(p.locator("[data-decide]").count() == 0 and "दुरुपयोग" in p.inner_text("main") and not re.findall(r"adm\.mu_\w+", p.inner_text("main")) and not p.evaluate(CONTRAST_JS) and not errs, "auditor: read only, Hindi, AA", errs)
+    p.click("#mu-tab-month"); p.wait_for_selector("#mu-print")
+    ok("जनप्रतिनिधि कार्यालयों द्वारा रिपोर्ट" in p.inner_text("#mu-panel"), "monthly report in Hindi")
+    ctx.close()
+
+    # Representative: report a complaint (errors first), contact label
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+        ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/rep.html"); p.wait_for_selector(".case-row"); p.wait_for_timeout(500)
+        ok(p.locator(".cv-badge").count() >= 1, "contact label on cases " + lang)
+        b = p.locator(".rp-open").first
+        cid = b.get_attribute("data-id")
+        b.click(); p.wait_for_selector("#rp-form-" + cid)
+        ok(p.evaluate("document.activeElement.name") == "rp-reason-" + cid, "report form opens, first reason focused " + lang)
+        p.click('.rp-save[data-id="%s"]' % cid); p.wait_for_selector("#rp-reason-err-%s:not(:empty)" % cid)
+        ok(p.inner_text("#rp-note-err-" + cid).strip() != "" and p.evaluate("document.activeElement.name") == "rp-reason-" + cid, "report: errors next to each field " + lang)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('case-%s')" % cid, 1))
+        ok(not bad and no_hscroll(p), "report form AA, no sideways scroll " + lang, bad[:4])
+        if lang == "en": shot(p, "82-rep-report-form", full=False); p.locator("#rp-form-" + cid).screenshot(path=os.path.join(SHOTS, "82-rep-report-form-el.png"))
+        p.check('input[name="rp-reason-%s"][value="FALSE"]' % cid); p.fill("#rp-note-" + cid, "Team visited; the problem isn't there.")
+        p.click('.rp-save[data-id="%s"]' % cid); p.wait_for_selector("#case-%s .seat-note" % cid)
+        ok(p.locator('.rp-open[data-id="%s"]' % cid).count() == 0 and _d82.execute("SELECT COUNT(*) FROM complaint_reports WHERE grievance_id = ? AND by_kind = 'REP' AND status = 'OPEN'", (cid,)).fetchone()[0] == 1, "reported: waiting note shown, button gone " + lang)
+        ok(not errs, "rep report no script errors " + lang, errs)
+        ctx.close()
+
+    # Department officer: report a forwarded complaint
+    _off = _d82.execute("SELECT office_id FROM dept_officers WHERE email = 'ae.zone3@nic.in'").fetchone()
+    _g82 = _d82.execute("SELECT id FROM grievances WHERE status = 'OPEN' AND local_unit_id = 'lu-hazratganj' ORDER BY created_at DESC LIMIT 1").fetchone()[0]
+    _d82.execute("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, channel, actor, actor_role, created_at) VALUES (lower(hex(randomblob(8))), ?, 'FORWARDED', 'Water Supply', ?, 'Office', 'DASHBOARD', 'r1@x.in', 'REPRESENTATIVE', ?)", (_g82, _off[0], _now82()))
+    _d82.execute("DELETE FROM complaint_reports WHERE grievance_id = ? AND office_key LIKE 'DEPT:%'", (_g82,)); _d82.commit()
+    for theme, lang in (("light", "en"), ("dark", "hi")):
+        ctx = br.new_context(viewport={"width": 390 if lang == "hi" else 1280, "height": 900}, color_scheme=theme)
+        ok(dept_signin(ctx) == 200, "dept signed in " + lang)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/dept#case=" + _g82); p.wait_for_selector("#case-h")
+        if lang == "en":
+            p.click("#rp-open"); p.wait_for_selector("#f-report")
+            ok(p.evaluate("document.activeElement.id") == "rp-h" and p.locator('input[name="rp-reason"][value="OUTSIDE"]').count() == 0, "dept report form: heading focused, no 'outside' reason")
+            p.click("#f-report button[type=submit]"); p.wait_for_selector("#rp-reason-err:not(:empty)")
+            ok(p.evaluate("document.activeElement.id") == "rp-first", "dept report: errors, first reason focused")
+            bad = p.evaluate(CONTRAST_JS)
+            ok(not bad and no_hscroll(p), "dept report form AA", bad[:4])
+            shot(p, "82-dept-report-form", full=False)
+            p.check('input[name="rp-reason"][value="DUPLICATE"]'); p.fill("#rp-note", "Same drain as the complaint we fixed last week.")
+            p.click("#f-report button[type=submit]"); p.wait_for_selector("#rp-done")
+            ok(p.evaluate("document.activeElement.id") == "rp-done", "dept reported, confirmation focused")
+        else:
+            ok(p.locator("#rp-done").count() == 1 and "GrievIQ" in p.inner_text("#rp-done") and not p.evaluate(CONTRAST_JS) and no_hscroll(p), "dept: reported state in Hindi, AA, 390px")
+        ok(not errs, "dept report no script errors " + lang, errs)
+        ctx.close()
+
+    # Citizen: closed as not genuine, appeal (real API; code entry mocked)
+    _d82.execute("DELETE FROM grievances WHERE id = 'g82ng'")
+    _d82.execute("INSERT INTO grievances (id, tracking_ref, citizen_phone, citizen_email, local_unit_id, category_id, status, description, current_tier, created_at, closure_kind, closed_at, not_genuine_reason, not_genuine_at, not_genuine_by) VALUES ('g82ng', 'GRV-NG82UI', '9811182099', 'ng82@x.in', 'lu-hazratganj', 'water-sanitation', 'CLOSED', 'No water in the lane for days', 'LOCAL', ?, 'NOT_GENUINE', ?, 'The office found water supply working on 30 Oct.', ?, 'mod@test.in')", (_now82(-600), _now82(-60), _now82(-60)))
+    _d82.commit()
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        _d82.execute("UPDATE grievances SET appeal_at = NULL, appeal_note = NULL WHERE id = 'g82ng'")
+        _d82.execute("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, 'ng82@x.in', 'EMAIL', ?)", ("otp82ui" + lang + str(_dt82.datetime.now().timestamp()), _now82(10), _now82()))
+        _d82.commit()
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        real = ctx.request.post(B + "/api/otp/verify", data={"email": "ng82@x.in", "trackingRef": "GRV-NG82UI", "open": True}).json()
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        def r82(rt, _req=None, real=real):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"): rt.fulfill(status=200, body=_js82.dumps(real), headers={"content-type": "application/json"})
+            else: rt.continue_()
+        p.route("**/api/otp/**", r82)
+        p.goto(B + "/status.html?ref=GRV-NG82UI"); p.wait_for_timeout(400)
+        p.fill("#email", "ng82@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        fill_otp(p); p.click("#otp-submit"); p.wait_for_selector("#appeal-card", state="visible")
+        txt = p.inner_text("#appeal-card")
+        ok("30 Oct" in txt and p.locator("#btn-appeal").is_visible() and not p.locator("#btn-reopen").is_visible(), "status: reason shown, appeal offered, no reopen " + lang, txt[:200])
+        p.click("#btn-appeal"); p.wait_for_selector("#appeal-form", state="visible")
+        ok(p.evaluate("document.activeElement.id") == "appeal-note", "appeal: the box is focused " + lang)
+        p.click("#btn-appeal-submit"); p.wait_for_selector("#appeal-note[aria-invalid=true]")
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('appeal-card')", 1))
+        ok(not bad and no_hscroll(p), "appeal card AA, no sideways scroll " + lang, bad[:4])
+        p.locator("#appeal-card").screenshot(path=os.path.join(SHOTS, "82-appeal-%s.png" % lang))
+        p.fill("#appeal-note", "The lane still has no water; neighbours can confirm.")
+        p.click("#btn-appeal-submit"); p.wait_for_selector("#appeal-done", state="visible")
+        ok(p.evaluate("document.activeElement.id") == "appeal-done" and _d82.execute("SELECT appeal_at FROM grievances WHERE id = 'g82ng'").fetchone()[0], "appeal sent and recorded " + lang)
+        ok(not errs, "appeal no script errors " + lang, errs)
+        ctx.close()
+
+    # Filing form: the text check and the SMS code
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        def io82(rt):
+            r = rt.fetch(); j = r.json(); j["smsCode"] = True
+            rt.fulfill(response=r, body=_js82.dumps(j))
+        p.route("**/api/intake-options", io82)
+        p.goto(B + "/submit?ward=lu-hazratganj"); p.wait_for_timeout(1200)
+        ok(p.locator("#smsBox").is_visible() and p.get_attribute("#smsCode", "autocomplete") == "one-time-code", "SMS box shown when switched on " + lang)
+        p.evaluate("""() => { document.getElementById('category').value = 'water-sanitation'; document.getElementById('localUnitId').value = 'lu-hazratganj'; }""")
+        p.fill("#description", "No water for a week, you harami officials do nothing")
+        p.fill("#phone", "9811182077")
+        p.check("#consent"); p.wait_for_timeout(3100)
+        p.click("#submitBtn"); p.wait_for_timeout(300)
+        ok(p.inner_text("#smsCodeError").strip() != "", "SMS code asked for before filing " + lang)
+        p.fill("#smsCode", "123456"); p.click("#submitBtn"); p.wait_for_timeout(300)
+        vis = p.locator("#screenWarn").is_visible()
+        if vis:
+            ok(p.evaluate("document.activeElement.id") == "screenWarn" and ("polite" in p.inner_text("#screenWarn") or "शालीन" in p.inner_text("#screenWarn")), "abusive words: asked to change them, warning focused " + lang)
+            bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('screenWarn')", 1))
+            ok(not bad and no_hscroll(p), "warning AA, no sideways scroll " + lang, bad[:4])
+            p.locator("#screenWarn").screenshot(path=os.path.join(SHOTS, "82-text-warning-%s.png" % lang))
+            p.click("#screenEdit")
+            ok(p.evaluate("document.activeElement.id") == "description" and not p.locator("#screenWarn").is_visible(), "Change my words: back to the text " + lang)
+        else:
+            ok(False, "abusive words warning shown " + lang, p.inner_text("#errorMessage") if p.locator("#errorMessage").count() else "")
+        p.locator("#smsBox").screenshot(path=os.path.join(SHOTS, "82-sms-box-%s.png" % lang))
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('smsBox')", 1))
+        ok(not bad, "SMS box AA " + lang, bad[:4])
+        ok(not errs, "filing form no script errors " + lang, errs)
+        ctx.close()
 
 
     br.close()

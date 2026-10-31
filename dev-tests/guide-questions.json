@@ -676,6 +676,22 @@
   [
    "leaving checklist for someone who left",
    "staff"
+  ],
+  [
+   "block a phone number",
+   "misuse"
+  ],
+  [
+   "close as not genuine",
+   "misuse"
+  ],
+  [
+   "turn on sms",
+   "sms"
+  ],
+  [
+   "msg91 dlt template",
+   "sms"
   ]
  ],
  "rep": [
@@ -1038,6 +1054,18 @@
   [
    "razorpay payment failed",
    "billing"
+  ],
+  [
+   "fake complaint",
+   "report"
+  ],
+  [
+   "report a false complaint",
+   "report"
+  ],
+  [
+   "abusive complaint",
+   "report"
   ]
  ],
  "dept": [
@@ -1252,6 +1280,14 @@
   [
    "pay by net banking",
    "billing"
+  ],
+  [
+   "fake complaint",
+   "report"
+  ],
+  [
+   "report a false complaint",
+   "report"
   ]
  ],
  "citizen": [
@@ -1454,6 +1490,18 @@
   [
    "सहायक का पहचान कार्ड स्कैन",
    "helper"
+  ],
+  [
+   "my complaint was closed as not genuine",
+   "appeal"
+  ],
+  [
+   "how to appeal",
+   "appeal"
+  ],
+  [
+   "शिकायत झूठी बताकर बंद",
+   "appeal"
   ]
  ],
  "gov": [

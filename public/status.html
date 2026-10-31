@@ -291,8 +291,8 @@
   .reason-radio:has(input:checked) { border-color: var(--teal); color: var(--teal-dark); font-weight: 700; }
   .reason-radio input { accent-color: var(--teal); margin: 0; }
   .reopen-label { display: block; font-size: 13.5px; font-weight: 700; margin-top: 12px; }
-  textarea#reopen-note { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 90px; margin-top: 6px; }
-  textarea#reopen-note[aria-invalid="true"] { border-color: var(--brick); }
+  textarea#reopen-note, textarea#appeal-note { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 90px; margin-top: 6px; }
+  textarea#reopen-note[aria-invalid="true"], textarea#appeal-note[aria-invalid="true"] { border-color: var(--brick); }
   .field-err { color: var(--brick); font-size: 12.5px; font-weight: 600; margin-top: 4px; min-height: 0; }
   /* Citizen ratings (grieviq-30): GOV.UK's five-answer satisfaction scale */
   .rate-q { border: 0; padding: 0; margin: 16px 0 4px; }
@@ -375,7 +375,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=81"></script>
+<script src="/i18n.js?v=82"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=74" defer></script>
 </head>
@@ -522,6 +522,27 @@
         <div class="confirm-actions">
           <button type="submit" class="primary" id="btn-reopen-submit" data-i18n="status.reopen_submit">Reopen case</button>
           <button type="button" class="secondary" id="btn-reopen-cancel" data-i18n="status.reopen_cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+    <!-- grieviq-82: GrievIQ closed this complaint as not genuine; the citizen can appeal once, within 30 days. -->
+    <div id="appeal-card" class="confirm-card" style="display:none;">
+      <h2 class="section-title" id="appeal-title" data-i18n="status.ng_title">Closed by GrievIQ: not a genuine complaint</h2>
+      <p class="section-note" id="appeal-reason"></p>
+      <p class="section-note" id="appeal-lede"></p>
+      <div id="appeal-error"></div>
+      <p class="confirm-note" id="appeal-done" role="status" style="display:none;"></p>
+      <div class="confirm-actions" id="appeal-actions">
+        <button type="button" class="secondary" id="btn-appeal" data-i18n="status.ng_appeal_btn">Appeal this decision</button>
+      </div>
+      <form id="appeal-form" style="display:none;" novalidate>
+        <label for="appeal-note" class="reopen-label" data-i18n="status.ng_appeal_note">Why is your complaint genuine?</label>
+        <p class="confirm-note" id="appeal-note-hint" data-i18n="status.ng_appeal_hint">10 to 500 characters. A different GrievIQ staff member will look at it and reply by email.</p>
+        <textarea id="appeal-note" maxlength="500" aria-describedby="appeal-note-hint appeal-note-err"></textarea>
+        <div class="field-err" id="appeal-note-err" role="alert"></div>
+        <div class="confirm-actions">
+          <button type="submit" class="primary" id="btn-appeal-submit" data-i18n="status.ng_appeal_submit">Send appeal</button>
+          <button type="button" class="secondary" id="btn-appeal-cancel" data-i18n="status.reopen_cancel">Cancel</button>
         </div>
       </form>
     </div>
@@ -864,6 +885,7 @@
 
     renderResolution(c);
     renderReopen(c);
+    renderAppeal(c);
     renderRating(c);
     renderHelper(c);
 
@@ -1168,6 +1190,80 @@
       renderError(document.getElementById('reopen-error'), GIQ.t('common.network_error'));
       btnReopenSubmit.disabled = false;
       btnReopenSubmit.textContent = GIQ.t('status.reopen_submit');
+    }
+  });
+
+  // --- Appeal a "not genuine" closure (grieviq-82) ---
+  const appealCard = document.getElementById('appeal-card');
+  const appealForm = document.getElementById('appeal-form');
+  const appealActions = document.getElementById('appeal-actions');
+  const appealDone = document.getElementById('appeal-done');
+  const appealNote = document.getElementById('appeal-note');
+  const btnAppealSubmit = document.getElementById('btn-appeal-submit');
+  function renderAppeal(c) {
+    const ng = c.notGenuine;
+    appealForm.style.display = 'none';
+    appealDone.style.display = 'none';
+    renderError(document.getElementById('appeal-error'), '');
+    setFieldErr('appeal-note-err', '', appealNote);
+    if (!ng) { appealCard.style.display = 'none'; return; }
+    appealCard.style.display = 'block';
+    document.getElementById('appeal-reason').textContent = GIQ.t('status.ng_reason', { date: dayOnly(ng.at), reason: ng.reason });
+    const lede = document.getElementById('appeal-lede');
+    const a = ng.appeal || {};
+    appealActions.style.display = a.can ? 'flex' : 'none';
+    if (ng.appealDecision === 'KEEP_CLOSED') lede.textContent = GIQ.t('status.ng_kept');
+    else if (ng.appealedAt) lede.textContent = GIQ.t('status.ng_appealed', { date: dayOnly(ng.appealedAt) });
+    else if (a.can) lede.textContent = GIQ.t('status.ng_lede', { date: dayOnly(a.until) });
+    else lede.textContent = GIQ.t('status.ng_too_late');
+    btnAppealSubmit.disabled = false;
+    btnAppealSubmit.textContent = GIQ.t('status.ng_appeal_submit');
+  }
+  document.getElementById('btn-appeal').addEventListener('click', () => {
+    appealActions.style.display = 'none';
+    appealForm.style.display = 'block';
+    appealNote.focus();
+  });
+  document.getElementById('btn-appeal-cancel').addEventListener('click', () => {
+    appealForm.reset();
+    appealForm.style.display = 'none';
+    appealActions.style.display = 'flex';
+    setFieldErr('appeal-note-err', '', appealNote);
+    document.getElementById('btn-appeal').focus();
+  });
+  appealNote.addEventListener('input', () => setFieldErr('appeal-note-err', '', appealNote));
+  appealForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    renderError(document.getElementById('appeal-error'), '');
+    const note = appealNote.value.trim();
+    if (note.length < 10 || note.length > 500) { setFieldErr('appeal-note-err', GIQ.t('status.ng_err_note'), appealNote); appealNote.focus(); return; }
+    btnAppealSubmit.disabled = true;
+    btnAppealSubmit.innerHTML = '<span class="spinner"></span>' + escapeHtml(GIQ.t('status.submitting'));
+    try {
+      const res = await fetch(API_BASE + '/api/grievances/appeal', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: state.trackingRef, note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        if (data.fields && data.fields.note) setFieldErr('appeal-note-err', GIQ.t('status.ng_err_note'), appealNote);
+        else renderError(document.getElementById('appeal-error'), res.status === 401 ? GIQ.t('status.verify_again')
+          : data.code === 'ALREADY_APPEALED' ? GIQ.t('status.ng_err_already') : data.code === 'TOO_LATE' ? GIQ.t('status.ng_too_late') : GIQ.t('common.generic_error'));
+        btnAppealSubmit.disabled = false;
+        btnAppealSubmit.textContent = GIQ.t('status.ng_appeal_submit');
+        return;
+      }
+      if (lastCase && lastCase.notGenuine) { lastCase.notGenuine.appealedAt = new Date().toISOString(); lastCase.notGenuine.appeal = { can: false, code: 'ALREADY_APPEALED' }; }
+      appealForm.style.display = 'none';
+      document.getElementById('appeal-lede').textContent = '';
+      appealDone.textContent = GIQ.t('status.ng_done');
+      appealDone.style.display = 'block';
+      appealDone.setAttribute('tabindex', '-1');
+      appealDone.focus();
+    } catch (err) {
+      renderError(document.getElementById('appeal-error'), GIQ.t('common.network_error'));
+      btnAppealSubmit.disabled = false;
+      btnAppealSubmit.textContent = GIQ.t('status.ng_appeal_submit');
     }
   });
 

@@ -230,6 +230,14 @@
     box-shadow: 0 2px 8px rgba(31,74,138,0.25); margin-top: 24px;
   }
   button.submit:hover { background: var(--teal-dark); }
+  .sms-box { border: 1.5px solid var(--border); border-radius: 11px; padding: 12px 14px 4px; margin: 0 0 18px; }
+  .sms-hint { font-size: 13.5px; line-height: 1.5; margin: 0 0 10px; color: var(--ink); }
+  .sms-status { font-size: 13.5px; margin: 8px 0 10px; min-height: 0; color: var(--ink); }
+  .sms-status:empty { display: none; }
+  button.sms-send { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1.5px solid var(--teal); background: var(--card); color: var(--teal-dark); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.sms-send:disabled { opacity: .6; cursor: not-allowed; }
+  .screen-warn p { margin: 0 0 10px; }
+  .screen-acts { display: flex; flex-wrap: wrap; gap: 8px; }
   button.submit:disabled { background: var(--grey-line); cursor: not-allowed; box-shadow: none; }
 
   .status-box { display: none; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
@@ -258,9 +266,10 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=81"></script>
+<script src="/i18n.js?v=82"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
+<script src="/text-screen.js?v=82"></script>
 <script src="/site.js?v=74" defer></script>
 <script src="/site-info.js?v=39" defer></script>
 </head>
@@ -386,6 +395,15 @@
         <label for="phone" data-i18n="submit.mobile">Mobile number</label>
         <input type="tel" id="phone" required placeholder="10-digit mobile number" data-i18n-ph="submit.mobile_ph" inputmode="numeric" />
         <div class="field-error" id="phoneError" data-i18n="submit.mobile_err">Please enter a valid mobile number.</div>
+        <!-- grieviq-82: shown only when GrievIQ has switched on "SMS code before filing". -->
+        <div class="sms-box" id="smsBox" hidden>
+          <p class="sms-hint" id="smsHint" data-i18n="submit.sms_hint">Before filing, we send a 6-digit code to this number by SMS, to check the number is yours.</p>
+          <button type="button" class="sms-send" id="smsSend" data-i18n="submit.sms_send">Send code by SMS</button>
+          <p class="sms-status" id="smsStatus" role="status" aria-live="polite"></p>
+          <label for="smsCode" data-i18n="submit.sms_code">Code from the SMS</label>
+          <input type="text" id="smsCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-describedby="smsHint smsCodeError" />
+          <div class="field-error" id="smsCodeError" role="alert"></div>
+        </div>
 
         <label for="email"><span data-i18n="submit.email_label">Email address</span> <span style="font-weight:400;color:var(--ink-soft);" data-i18n="common.optional">(optional)</span></label>
         <input type="email" id="email" placeholder="you@example.com" />
@@ -434,6 +452,11 @@
         </div>
 
         <div class="limit-error" id="limitError" role="alert" hidden></div>
+        <!-- grieviq-82: abusive words or a threat: asked to change them first (can still send). -->
+        <div class="limit-error screen-warn" id="screenWarn" tabindex="-1" hidden>
+          <p id="screenWarnText"></p>
+          <div class="screen-acts"><button type="button" class="sms-send" id="screenEdit" data-i18n="submit.scr_edit">Change my words</button> <button type="button" class="sms-send" id="screenSend" data-i18n="submit.scr_send">Send as it is</button></div>
+        </div>
         <button type="submit" class="submit" id="submitBtn" data-i18n="submit.button">File complaint</button>
       </form>
 
@@ -481,6 +504,7 @@
       if (d && d.signedIn && h && h.ref && h.state && h.state.canHelp) {
         helperMode = { ref: h.ref, count: d.today ? d.today.count : 0, max: d.today ? d.today.max : 15 };
         applyHelperMode();
+        if (typeof drawSms === 'function') drawSms();
       } else {
         helperBanner('bad');
         submitBtn.disabled = true;
@@ -525,6 +549,8 @@
       });
 
       localUnitsData = data.localUnits || [];
+      smsOn = !!data.smsCode;
+      drawSms();
     } catch (err) {
       errorBox.style.display = 'block';
       document.getElementById('errorMessage').textContent =
@@ -543,6 +569,37 @@
     if (typeof drawTat === 'function') drawTat();
     if (typeof drawNext === 'function') drawNext();
   });
+
+  // grieviq-82: "SMS code before filing" (switched on by GrievIQ once SMS is set up).
+  let smsOn = false;
+  let screenOk = false;   // the citizen chose "Send as it is" for this text
+  function drawSms() { document.getElementById('smsBox').hidden = !(smsOn && !helperMode); }
+  let smsKey = null;
+  function smsSay(key, vars) { smsKey = key ? { key, vars } : null; document.getElementById('smsStatus').textContent = key ? GIQ.t(key, vars) : ''; }
+  function smsErr(key) { const el = document.getElementById('smsCodeError'), inp = document.getElementById('smsCode'); el.textContent = key ? GIQ.t(key) : ''; el.style.display = key ? 'block' : 'none'; if (key) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid'); }
+  document.getElementById('smsSend').addEventListener('click', async () => {
+    const phone = document.getElementById('phone').value.trim();
+    document.getElementById('phoneError').style.display = 'none';
+    if (!isPlausiblePhone(phone)) { document.getElementById('phoneError').style.display = 'block'; document.getElementById('phone').focus(); return; }
+    const btn = document.getElementById('smsSend');
+    btn.disabled = true; smsSay('submit.sms_sending');
+    try {
+      const res = await fetch('/api/sms-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { smsSay('submit.sms_sent', { minutes: data.minutes || 10 }); btn.textContent = GIQ.t('submit.sms_again'); document.getElementById('smsCode').focus(); }
+      else if (data.code === 'OFF') { smsOn = false; drawSms(); smsSay(''); }
+      else smsSay(data.fields && data.fields.phone ? 'submit.mobile_err' : data.code === 'TOO_MANY' ? 'submit.sms_too_many' : data.code === 'DAILY_LIMIT' ? 'submit.sms_daily' : 'submit.sms_failed');
+    } catch (err) { smsSay('common.network_error'); }
+    setTimeout(() => { btn.disabled = false; }, 30000);
+    if (!smsKey || smsKey.key !== 'submit.sms_sent') btn.disabled = false;
+  });
+  document.getElementById('smsCode').addEventListener('input', () => smsErr(''));
+  document.getElementById('description').addEventListener('input', () => { if (screenOk || !document.getElementById('screenWarn').hidden) { screenOk = false; document.getElementById('screenWarn').hidden = true; } });
+  let screenFlags = null;
+  function drawScreen() { document.getElementById('screenWarnText').textContent = screenFlags ? GIQ.t(screenFlags.indexOf('THREAT') !== -1 ? 'submit.scr_threat' : 'submit.scr_abusive') : ''; }
+  document.getElementById('screenEdit').addEventListener('click', () => { document.getElementById('screenWarn').hidden = true; const d = document.getElementById('description'); d.focus(); d.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  document.getElementById('screenSend').addEventListener('click', () => { screenOk = true; document.getElementById('screenWarn').hidden = true; form.requestSubmit ? form.requestSubmit() : document.getElementById('submitBtn').click(); });
+  document.addEventListener('giq:lang', () => { if (smsKey) smsSay(smsKey.key, smsKey.vars); if (screenFlags) drawScreen(); });
 
   function isPlausiblePhone(value) {
     const digits = value.replace(/\D/g, '');
@@ -1503,7 +1560,24 @@
       consentBox.removeAttribute('aria-invalid');
     }
 
+    let sms_code;
+    smsErr('');
+    if (smsOn && !helperMode) {
+      sms_code = document.getElementById('smsCode').value.replace(/\D/g, '');
+      if (sms_code.length !== 6) { smsErr('submit.sms_need'); if (!hasError) document.getElementById('smsCode').focus(); hasError = true; }
+    }
+
     if (hasError) return;
+
+    // grieviq-82: abusive words or a threat: ask once before sending.
+    if (!screenOk && window.GIQTextScreen) {
+      const flags = GIQTextScreen.screen(description);
+      if (flags.length) {
+        screenFlags = flags; drawScreen();
+        const w = document.getElementById('screenWarn'); w.hidden = false; w.focus();
+        return;
+      }
+    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = GIQ.t('submit.filing');
@@ -1543,6 +1617,7 @@
           lang: GIQ.lang,
           consent: true,
           seat_choice: selectedUnit && Array.isArray(selectedUnit.members) && selectedUnit.members.length >= 2 ? seatChoice : undefined,
+          sms_code,
         }),
       });
 
@@ -1568,6 +1643,22 @@
       if (!res.ok && data.code === 'DAILY_LIMIT') {
         showLimit(data.which === 'PHONE' ? 'submit.limit_phone' : 'submit.limit_device', { n: data.max });
         document.getElementById('limitError').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        submitBtn.disabled = false;
+        submitBtn.textContent = btnLabel();
+        return;
+      }
+      // grieviq-82: wrong or missing SMS code; complaints from this number or email paused.
+      if (!res.ok && data.code === 'SMS_CODE') {
+        smsErr(data.fields && data.fields.sms_code === 'WRONG' ? 'submit.sms_wrong' : 'submit.sms_need');
+        document.getElementById('smsCode').focus();
+        submitBtn.disabled = false;
+        submitBtn.textContent = btnLabel();
+        return;
+      }
+      if (!res.ok && data.code === 'RESTRICTED') {
+        errorBox.style.display = 'block';
+        document.getElementById('errorMessage').textContent = GIQ.t('submit.restricted', { date: new Date(data.until).toLocaleDateString(GIQ.locale(), { day: 'numeric', month: 'long', year: 'numeric' }) });
+        errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
         submitBtn.disabled = false;
         submitBtn.textContent = btnLabel();
         return;

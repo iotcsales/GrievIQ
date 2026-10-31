@@ -9,6 +9,7 @@
 //   createComplaint(env, ...)   saves it and tells the ward's office
 // Moved here unchanged from submit.js; see that file's header for the rules.
 
+import { activeRestriction, screenText } from "./misuse.js";
 import { notifyNewCase } from "./notify.js";
 import { checkAttachedPhotos } from "./citizen-photo-checks.js";
 import { pointInGeometry } from "./geo.js";
@@ -152,6 +153,13 @@ export async function checkComplaint(env, input) {
     : hasText(localUnit.rep_email) || localUnit.seat_status === "VACANT";   // grieviq-53: vacant seats go to the next level
   if (!wardOpen) return bad(400, { error: "This area can't take complaints yet. Please choose another area.", code: "not_open" });
 
+  // grieviq-82: a number or email GrievIQ has stopped from filing for a time (with a reason,
+  // approved by a second person). Same reply for the phone and the email.
+  const restricted = await activeRestriction(env, citizen_phone, trimmedEmail);
+  if (restricted) {
+    return bad(403, { error: "Complaints from this phone number or email can't be filed until " + restricted.ends_at.slice(0, 10) + ", because earlier complaints from it broke GrievIQ's rules. If you think this is a mistake, write to grievance@grieviq.in.", code: "RESTRICTED", until: restricted.ends_at });
+  }
+
   const pin = pinForWard(readPin(pin_lat, pin_lng), localUnit.ward_boundary_geojson);
   // Private photo ids from upload-photo.js (UUIDs only, at most 3).
   const photoIds = Array.isArray(photo_ids)
@@ -164,6 +172,7 @@ export async function checkComplaint(env, input) {
     location_detail: String(location_detail || "").trim() || null,
     lang: lang === "hi" ? "hi" : "en", pin, photoIds, suggestion,
     seat_choice: multi ? String(seat_choice || "ANY") : null,
+    textFlags: screenText(String(description) + " " + String(location_detail || "")),
   } };
 }
 
@@ -211,6 +220,19 @@ export async function createComplaint(env, v, opts) {
   }
   // grieviq-73: filed with help from a Community helper (the office sees only that).
   if (opts.helperId) await env.DB.prepare("UPDATE grievances SET helper_id = ? WHERE id = ?").bind(opts.helperId, id).run();
+
+  // grieviq-82: how the citizen's contact was confirmed, and GrievIQ's text check (flagged for
+  // staff, never blocked). Skipped quietly before part53 is run.
+  try {
+    if (opts.contactVerified) await env.DB.prepare("UPDATE grievances SET contact_verified = ? WHERE id = ?").bind(opts.contactVerified, id).run();
+    if (v.textFlags && v.textFlags.length) {
+      await env.DB.prepare("UPDATE grievances SET text_flags = ? WHERE id = ?").bind(v.textFlags.join(","), id).run();
+      for (const f of v.textFlags) {
+        await env.DB.prepare("INSERT INTO complaint_reports (id, grievance_id, by_kind, reason, note, created_at) VALUES (?, ?, 'AUTO', ?, ?, ?)")
+          .bind(crypto.randomUUID(), id, f, "Found by GrievIQ's text check when the complaint was filed.", new Date().toISOString()).run();
+      }
+    }
+  } catch (e) { if (!/no such (table|column)|no column named/i.test(String(e && e.message))) throw e; }
 
   // grieviq-57: who handles it in a ward with several members: the member
   // the citizen chose (if that member can take complaints now), or any member.

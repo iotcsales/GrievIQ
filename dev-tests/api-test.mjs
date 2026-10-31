@@ -1460,7 +1460,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("DELETE FROM subscription_events").run(); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("UPDATE subscription_events SET actor = 'x'").run(); } catch (e) { threw2 = true; }
   ok(threw && threw2, "subscription history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers (part30, part32, part41, part46, part50)");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "42 triggers (part30, part32, part41, part46, part50)");
   ok((await fetch(B + "/admin-subscriptions.html")).status === 200, "page opens: /admin-subscriptions.html");
 }
 
@@ -1539,7 +1539,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   sdb.prepare("INSERT INTO speed_samples (at, area, ms) VALUES (?, 'REP', 100)").run(new Date(Date.now() - 3 * 86400000).toISOString());
   await fetch(B + "/__test/run-speed", { method: "POST", body: "{}" });
   ok(sdb.prepare("SELECT COUNT(*) n FROM speed_samples WHERE at < ?").get(new Date(Date.now() - 2 * 86400000).toISOString()).n === 0, "raw samples deleted after 2 days");
-  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "trigger count 42 after part31, part32, part41, part46 and part50");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "trigger count 42 after part31, part32, part41, part46 and part50");
   ok((await fetch(B + "/admin-speed.html")).status === 200, "page opens: /admin-speed.html");
   // tidy: the closed cases above stay (later checks don't count them)
 }
@@ -3303,7 +3303,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   let threw = false; try { sdb.prepare("UPDATE helper_events SET action = 'X' WHERE helper_id = ?").run(h1.id); } catch (e) { threw = true; }
   let threw2 = false; try { sdb.prepare("DELETE FROM helper_events WHERE helper_id = ?").run(h1.id); } catch (e) { threw2 = true; }
   ok(threw && threw2, "the helper history can't be changed or deleted");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "42 triggers");
 
   // sign-in for helpers
   const gs = await fetch(B + "/api/auth/google/start?for=helper", { redirect: "manual" });
@@ -3465,7 +3465,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(hr.filings.expired >= 1 && frow(f6.id).status === "EXPIRED" && frow(f6.id).payload === null, "not confirmed in 7 days: dropped and deleted", hr.filings);
   r = await H(HP, C({ citizen_phone: "9123400013", citizen_email: "citizen73g@x.in", description: "Stray dogs near the primary school gate" }));
   ok((await H(HP, { action: "cancel-filing", filingId: r.body.filing.id })).status === 200 && frow(r.body.filing.id).status === "CANCELLED" && frow(r.body.filing.id).payload === null, "the helper can cancel one still waiting");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 42 triggers");
 }
 
 // ---- grieviq-74: the helper's digital ID card ----
@@ -3543,7 +3543,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const key2 = hrow(E).card_key;
   ok((await H(E, { action: "stop", confirm: true })).status === 200 && hrow(E).card_key === null && !(await T("r2-has", { key: key2 })).exists, "stopping deletes the card photo at once");
   ok((await call("", "GET", "/api/helper-verify?h=" + encodeURIComponent(h.ref) + "&t=" + encodeURIComponent(t2))).body.valid === false, "and the card no longer passes");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 42 triggers");
 }
 
 // ---- grieviq-75: new staff roles, named duties, billing for accounts staff ----
@@ -3692,7 +3692,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await st(S, { action: "left", email: "mv@test.in", lastDay: today, reason: "Contract ended for this role" });
   ok(!sdb.prepare("SELECT 1 FROM staff_duties d JOIN admin_users a ON a.id = d.admin_id WHERE a.email = 'mv@test.in' AND d.ended_at IS NULL").get(), "leaving ends their duties");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action LIKE 'staff_duty_%'").get().n >= 10, "every duty change is in the audit log");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 42 triggers");
 }
 
 // ---- grieviq-76: Accounts (GST documents) ----
@@ -3815,7 +3815,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await acp(S, Object.assign({}, set, { action: "settings", reason: "Back to the default for the tests" }));
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM admin_events WHERE action IN ('accounts_settings_changed','accounts_month_locked','accounts_month_unlocked','accounts_settlements_fetched','tax_doc_issued')").get().n >= 6, "accounts actions are in the audit log");
   ok((await ac(S)).body.nextNumbers.R.startsWith("GIQ-R/"), "next numbers shown");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "42 triggers (part50 adds 2)");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "42 triggers (part50 adds 2)");
   // later tests run without GST documents (no extra emails)
   ok(await publishGst(""), "GSTIN removed again for the rest of the tests");
 }
@@ -3986,7 +3986,7 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   await sp("sm@test.in", { action: "assign", id: L4, owner: "sx3@test.in" });
   ok((await call(O, "POST", "/api/admin/staff", { action: "change_email", email: "sx3@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200 || (await call(S, "POST", "/api/admin/staff", { action: "change_email", email: "sx3@test.in", newEmail: "sam.sales@test.in", reason: "Moved to the company address" })).status === 200, "email changed");
   ok(sdb.prepare("SELECT owner_email FROM sales_leads WHERE id = ?").get(L4).owner_email === "sam.sales@test.in" && sdb.prepare("SELECT COUNT(*) AS n FROM sales_territories WHERE email = 'sam.sales@test.in'").get().n === 1, "leads and states follow the new email");
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers (part51 adds none)");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 42 triggers (part51 adds none)");
 }
 
 // ---- grieviq-78: Staff records and access controls ----
@@ -4096,9 +4096,195 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await sr(S)).body.people.find((p) => p.email === "sam.sales@test.in").exit.open.length === 0, "checklist items done");
   // Headcount reminders
   ok((g.body.thresholds || []).includes(10), "10+ people: the POSH and ESI reminder shows", g.body.thresholds);
-  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 42, "still 42 triggers (part52 adds none)");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 42 triggers (part52 adds none)");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM staff_duties").get().n > 0 && sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'idx_staff_duty_one'").get().n === 1, "staff duties kept after the rebuild");
   sdb.prepare("UPDATE admin_users SET last_seen_at = ?").run(new Date().toISOString());
+}
+
+// ---- grieviq-82: misuse controls ----
+{
+  const fs = await import("node:fs");
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const DIR = process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests";
+  const mails = () => fs.readFileSync(DIR + "/mail.log", "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const smsLog = () => fs.readFileSync(DIR + "/sms.log", "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  let n82 = 0;
+  const file = async (extra) => {
+    n82++;
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-82-" + n82, "cf-connecting-ip": "10.82.1." + n82 },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: "lu-hazratganj", description: "Water pipe leaking near the park gate", citizen_phone: "98282" + String(10000 + n82).slice(-5), consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, body: await x.json() };
+  };
+  const gid = (ref) => sdb.prepare("SELECT id FROM grievances WHERE tracking_ref = ?").get(ref).id;
+  const mu = (w) => call(w, "GET", "/api/admin/misuse");
+  const mup = (w, b) => call(w, "POST", "/api/admin/misuse", b);
+
+  // Text check and hidden personal details
+  let r = await file({ description: "No water for 5 days, call me on 98765 43210 or a.b@mail.in, you harami officials" });
+  ok(r.status === 200, "abusive text still files (the citizen chose to send it)", r.body);
+  const abusive = gid(r.body.tracking_ref);
+  const ga = sdb.prepare("SELECT text_flags, contact_verified FROM grievances WHERE id = ?").get(abusive);
+  ok(ga.text_flags === "ABUSIVE" && ga.contact_verified === null, "flagged ABUSIVE; contact not confirmed", ga);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM complaint_reports WHERE grievance_id = ? AND by_kind = 'AUTO' AND reason = 'ABUSIVE'").get(abusive).n === 1, "goes to the staff queue by itself");
+  r = await file({ description: "Someone set the garbage on fire, aag laga di, smoke everywhere" });
+  ok(r.status === 200 && sdb.prepare("SELECT text_flags FROM grievances WHERE tracking_ref = ?").get(r.body.tracking_ref).text_flags === null, "a fire complaint isn't a threat");
+  r = await file({ description: "If this isn't fixed I will kill you all, no water for days" });
+  ok(sdb.prepare("SELECT text_flags FROM grievances WHERE tracking_ref = ?").get(r.body.tracking_ref).text_flags === "THREAT", "threat flagged");
+  const list = await call("r1@x.in", "GET", "/api/grievances");
+  const mine = (list.body.grievances || list.body.cases || []).find((c) => c.id === abusive);
+  ok(mine && !/98765|43210|a\.b@mail\.in/.test(mine.description) && /hidden/.test(mine.description), "office never sees a phone or email typed in the text", mine && mine.description);
+  ok(mine && mine.contactVerified === null && mine.reportedByOffice === false, "contact and report state shown to the office");
+
+  // Reporting
+  const rep = (w, id, b) => call(w, "POST", "/api/grievances/" + id + "/report", b);
+  r = await rep("r1@x.in", abusive, { reason: "NOPE", note: "x" });
+  ok(r.status === 400 && r.body.fields.reason && r.body.fields.note, "report needs a reason and a note", r.body);
+  ok((await rep("fw@x.in", abusive, { reason: "FALSE", note: "The lane has water, checked today" })).status === 403, "field worker can't report");
+  ok((await rep("r2@x.in", abusive, { reason: "FALSE", note: "The lane has water, checked today" })).status === 403, "another ward's office can't report");
+  r = await rep("r1@x.in", abusive, { reason: "FALSE", note: "Team visited today; the lane has water supply." });
+  ok(r.status === 200 && r.body.reported, "representative reports", r.body);
+  ok((await rep("om@x.in", abusive, { reason: "ABUSIVE", note: "Same office again, should be refused" })).body.code === "ALREADY", "one open report per office");
+  const after = (await call("r1@x.in", "GET", "/api/grievances")).body;
+  const c2 = (after.grievances || after.cases || []).find((c) => c.id === abusive);
+  ok(c2 && c2.reportedByOffice === true && c2.status === "OPEN", "reported, still open", c2 && c2.status);
+
+  // Staff queue
+  ok((await mu("nobody@test.in")).status === 403 && (await mu(D)).status === 403, "misuse page: staff roles only");
+  let g = await mu(A);
+  ok(g.status === 200 && !g.body.canManage && !g.body.canApprove, "auditor reads only", g.body);
+  const q = g.body.reports.find((x) => x.case.id === abusive);
+  ok(q && q.reports.length === 2 && q.reports.some((x) => x.byKind === "REP" && x.office && x.office.name === "Hazratganj-Ramtirth") && q.case.textFlags.includes("ABUSIVE"), "queue: the office's report (by name) and the text check", q);
+  ok((await mup(A, { action: "decide", grievanceId: abusive, decision: "NOT_GENUINE", note: "No problem at the place" })).status === 403, "auditor can't decide");
+  r = await mup(M, { action: "decide", grievanceId: abusive, decision: "NOT_GENUINE", note: "short" });
+  ok(r.status === 400 && r.body.fields.note, "decision needs a reason", r.body);
+  const m0 = mails().length;
+  r = await mup(M, { action: "decide", grievanceId: abusive, decision: "NOT_GENUINE", note: "The office visited and found water supply working; abusive language." });
+  ok(r.status === 200, "moderator closes it as not genuine", r.body);
+  const gc = sdb.prepare("SELECT status, closure_kind, not_genuine_by FROM grievances WHERE id = ?").get(abusive);
+  ok(gc.status === "CLOSED" && gc.closure_kind === "NOT_GENUINE" && gc.not_genuine_by === M, "closed, kind NOT_GENUINE, who recorded", gc);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM complaint_reports WHERE grievance_id = ? AND status = 'UPHELD'").get(abusive).n === 2, "both reports decided");
+
+  // Keep as genuine
+  r = await file({ description: "Street light not working for two weeks near the temple" });
+  const genuine = gid(r.body.tracking_ref);
+  await rep("r1@x.in", genuine, { reason: "DUPLICATE", note: "We think this is the same as another case." });
+  r = await mup(O, { action: "decide", grievanceId: genuine, decision: "GENUINE", note: "Different place from the other case; genuine." });
+  ok(r.status === 200 && sdb.prepare("SELECT status FROM grievances WHERE id = ?").get(genuine).status === "OPEN" && sdb.prepare("SELECT status FROM complaint_reports WHERE grievance_id = ?").get(genuine).status === "DISMISSED", "kept as genuine: stays open, report dismissed");
+
+  // Citizen appeal (needs an email): file one with email, close it, appeal
+  r = await file({ citizen_email: "appeal82@x.in", description: "Garbage not picked up for a week at the corner" });
+  const ap = gid(r.body.tracking_ref), apRef = r.body.tracking_ref;
+  await rep("r1@x.in", ap, { reason: "FALSE", note: "Garbage is picked up daily; photos in our records." });
+  await mup(M, { action: "decide", grievanceId: ap, decision: "NOT_GENUINE", note: "Pickup records and photos show daily collection." });
+  ok(sdb.prepare("SELECT COUNT(*) n FROM email_outbox WHERE to_email = 'appeal82@x.in' AND kind = 'CITIZEN_MISUSE_CLOSED' AND html LIKE '%not a genuine complaint%' AND html LIKE '%Pickup records%'").get().n === 1, "the citizen is told by email, with the reason");
+  const reo = await call("", "POST", "/api/grievances/reopen", { email: "appeal82@x.in", trackingRef: apRef, reason: "NOT_FIXED", note: "Still not picked up at all" });
+  ok(reo.status !== 200, "a not-genuine closure can't be reopened the usual way", reo.body);
+  ok((await call("", "POST", "/api/grievances/appeal", { email: "appeal82@x.in", trackingRef: apRef, note: "It really is not picked up" })).status === 401, "appeal needs the email code");
+  sdb.prepare("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, ?, 'EMAIL', ?)")
+    .run("otp82", new Date(Date.now() + 600000).toISOString(), "appeal82@x.in", new Date().toISOString());
+  const v = await call("", "POST", "/api/otp/verify", { email: "appeal82@x.in", trackingRef: apRef, open: true });
+  const vc = v.body.case || (v.body.cases || []).find((x) => x.trackingRef === apRef);
+  ok(vc && vc.notGenuine && vc.notGenuine.appeal && vc.notGenuine.appeal.can && /Pickup records/.test(vc.notGenuine.reason), "status page shows the reason and the appeal", vc && vc.notGenuine);
+  ok((await call("", "POST", "/api/grievances/appeal", { email: "appeal82@x.in", trackingRef: apRef, note: "short" })).status === 400, "appeal needs 10+ characters");
+  r = await call("", "POST", "/api/grievances/appeal", { email: "appeal82@x.in", trackingRef: apRef, note: "The garbage at the corner has not been collected since Monday." });
+  ok(r.status === 200 && r.body.appealed, "citizen appeals", r.body);
+  ok((await call("", "POST", "/api/grievances/appeal", { email: "appeal82@x.in", trackingRef: apRef, note: "Trying a second time here" })).body.code === "ALREADY_APPEALED", "once only");
+  g = await mu(S);
+  ok(g.body.appeals.some((x) => x.id === ap), "appeal in the queue");
+  ok((await mup(M, { action: "appeal", grievanceId: ap, decision: "REOPEN", note: "I closed it myself, should be refused" })).body.code === "SAME_PERSON", "the person who closed it can't decide the appeal");
+  r = await mup(O, { action: "appeal", grievanceId: ap, decision: "REOPEN", note: "Photos were from another lane; reopening for the office." });
+  const gr = sdb.prepare("SELECT status, closure_kind, appeal_decision FROM grievances WHERE id = ?").get(ap);
+  ok(r.status === 200 && gr.status === "OPEN" && gr.closure_kind === null && gr.appeal_decision === "REOPEN", "appeal upheld: reopened", gr);
+
+  // Restriction: two people, then filing is refused
+  const abPhone = sdb.prepare("SELECT citizen_phone FROM grievances WHERE id = ?").get(abusive).citizen_phone;
+  ok((await mup(M, { action: "restrict", trackingRef: sdb.prepare("SELECT tracking_ref FROM grievances WHERE id = ?").get(genuine).tracking_ref, kind: "PHONE", days: 30, reason: "Trying to restrict an open genuine case" })).body.code === "NOT_CLOSED", "only after a not-genuine closure");
+  const abRef = sdb.prepare("SELECT tracking_ref FROM grievances WHERE id = ?").get(abusive).tracking_ref;
+  ok((await mup(M, { action: "restrict", trackingRef: abRef, kind: "PHONE", days: 45, reason: "short" })).status === 400, "30, 90 or 365 days, and a 20+ character reason");
+  r = await mup(M, { action: "restrict", trackingRef: abRef, kind: "PHONE", days: 30, reason: "Abusive complaint closed as not genuine; office checked the site." });
+  ok(r.status === 200 && r.body.id, "proposed", r.body);
+  const rid = r.body.id;
+  const row = sdb.prepare("SELECT value_hash, hint, status FROM filing_restrictions WHERE id = ?").get(rid);
+  ok(row.status === "PENDING" && !row.value_hash.includes(abPhone.slice(-10)) && row.hint === "…" + abPhone.slice(-4), "only a check value and the last 4 digits are kept", row);
+  ok((await mup(M, { action: "approve", id: rid })).status === 403, "a data moderator can't approve");
+  ok((await file({ citizen_phone: abPhone })).status === 200, "still files while waiting for approval");
+  ok((await mup(S, { action: "restrict", trackingRef: abRef, kind: "PHONE", days: 90, reason: "Second proposal for the same number should fail" })).body.code === "ALREADY", "no second restriction on the same number");
+  r = await mup(O, { action: "approve", id: rid });
+  ok(r.status === 200 && sdb.prepare("SELECT status FROM filing_restrictions WHERE id = ?").get(rid).status === "ACTIVE", "approved by a second person", r.body);
+  r = await file({ citizen_phone: "+91 " + abPhone.slice(-10) });
+  ok(r.status === 403 && r.body.code === "RESTRICTED" && r.body.until && /grievance@grieviq\.in/.test(r.body.error), "restricted number refused, with the date and how to object", r.body);
+  ok((await mup(O, { action: "lift", id: rid, reason: "x" })).status === 400, "lifting needs a reason");
+  ok((await mup(O, { action: "lift", id: rid, reason: "Citizen apologised in writing to the office." })).status === 200 && (await file({ citizen_phone: abPhone })).status === 200, "lifted: files again");
+
+  // Monthly figures
+  g = await mu(A);
+  const mth = g.body.month;
+  ok(mth.reportedByOffices >= 3 && mth.flaggedByTextCheck >= 2 && mth.closedNotGenuine >= 1 && mth.keptAsGenuine >= 1 && mth.appeals >= 1 && mth.appealsReopened >= 1 && mth.restrictionsStarted >= 1, "monthly figures", mth);
+  ok(mth.topReporters[0] && mth.topReporters[0].office.name === "Hazratganj-Ramtirth" && mth.topReporters[0].dismissed >= 1, "offices that report most, with how many staff kept", mth.topReporters);
+
+  // Department officer reports
+  const off = sdb.prepare("SELECT o.email, o.office_id FROM dept_officers o WHERE o.status = 'ACTIVE' AND o.rules_version IS NOT NULL LIMIT 1").get();
+  if (off) {
+    r = await file({ description: "Drain overflowing on the main road since Sunday" });
+    const dg = gid(r.body.tracking_ref);
+    sdb.prepare("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, channel, actor, actor_role, created_at) VALUES (?, ?, 'FORWARDED', 'Water Supply', ?, 'Office', 'DASHBOARD', 'r1@x.in', 'REPRESENTATIVE', ?)")
+      .run("st82", dg, off.office_id, new Date().toISOString());
+    // A code made directly (asking for one would use up the officer's 3-per-15-minutes allowance the browser tests need).
+    const code = "246802", { createHash } = await import("node:crypto");
+    sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run("api82", off.email, createHash("sha256").update(off.email + ":" + code).digest("hex"), new Date(Date.now() + 600000).toISOString(), new Date().toISOString());
+    const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: off.email, code }) });
+    const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+    sdb.prepare("DELETE FROM dept_codes WHERE id = 'api82'").run();   // doesn't count against the officer's allowance
+    const dc = async (m, p, b) => { const x = await fetch(B + p, { method: m, headers: { cookie: CK, "content-type": "application/json" }, body: b ? JSON.stringify(b) : undefined }); return { status: x.status, body: await x.json().catch(() => ({})) }; };
+    let d = await dc("GET", "/api/dept/case?id=" + dg);
+    ok(d.status === 200 && d.body.case.canReport && !d.body.case.reportedByOffice, "department can report a forwarded case", d.body);
+    ok((await dc("POST", "/api/dept/report", { id: dg, reason: "OUTSIDE", note: "Not our office's work at all" })).status === 400, "department: OUTSIDE isn't offered (they use 'not ours')");
+    r = await dc("POST", "/api/dept/report", { id: dg, reason: "DUPLICATE", note: "Same drain as an earlier complaint we fixed." });
+    ok(r.status === 200, "department reports", r.body);
+    d = await dc("GET", "/api/dept/case?id=" + dg);
+    ok(d.body.case.reportedByOffice === true && (await mu(S)).body.reports.some((x) => x.case.id === dg && x.reports.some((y) => y.byKind === "DEPT")), "shown on the case and in the staff queue");
+  } else ok(false, "no department officer to test with");
+
+  // SMS code before filing
+  g = await mu(S);
+  ok(g.body.sms.configured && !g.body.sms.on && !g.body.sms.tested && g.body.sms.canSwitch, "SMS: provider set (test log), off, not tested", g.body.sms);
+  ok((await mu(O)).body.sms.canSwitch === false && (await mup(O, { action: "sms_switch", on: true })).status === 403, "only a super admin switches");
+  ok((await mup(S, { action: "sms_switch", on: true })).body.code === "NOT_TESTED", "can't switch on before a test SMS");
+  ok((await call("", "POST", "/api/sms-code", { phone: "9876501234" })).body.code === "OFF", "no codes while off");
+  ok((await call("", "GET", "/api/intake-options")).body.smsCode === false, "form told: off");
+  r = await mup(S, { action: "sms_test", phone: "98765 01234" });
+  ok(r.status === 200 && smsLog().slice(-1)[0].to.endsWith("9876501234"), "test SMS sent", r.body);
+  r = await mup(S, { action: "sms_switch", on: true });
+  ok(r.status === 200 && r.body.on, "one click: on", r.body);
+  ok((await call("", "GET", "/api/intake-options")).body.smsCode === true, "form told: on");
+  r = await file({ citizen_phone: "9876501234" });
+  ok(r.status === 400 && r.body.code === "SMS_CODE" && r.body.fields.sms_code === "REQUIRED", "filing needs the code", r.body);
+  r = await call("", "POST", "/api/sms-code", { phone: "+91 98765 01234" });
+  ok(r.status === 200 && r.body.sent, "code sent", r.body);
+  const sent = smsLog().slice(-1)[0];
+  ok(/^\d{6}$/.test(sent.code), "6-digit code in the SMS");
+  r = await file({ citizen_phone: "9876501234", sms_code: sent.code === "000000" ? "111111" : "000000" });
+  ok(r.status === 400 && r.body.fields.sms_code === "WRONG", "wrong code refused");
+  r = await file({ citizen_phone: "9876501234", sms_code: sent.code });
+  ok(r.status === 200 && sdb.prepare("SELECT contact_verified FROM grievances WHERE tracking_ref = ?").get(r.body.tracking_ref).contact_verified === "PHONE", "right code: filed, phone confirmed", r.body);
+  ok((await file({ citizen_phone: "9876501234", sms_code: sent.code })).body.code === "SMS_CODE", "a code works once");
+  await call("", "POST", "/api/sms-code", { phone: "9876501299" });
+  await call("", "POST", "/api/sms-code", { phone: "9876501299" });
+  await call("", "POST", "/api/sms-code", { phone: "9876501299" });
+  ok((await call("", "POST", "/api/sms-code", { phone: "9876501299" })).body.code === "TOO_MANY", "3 codes a number per 15 minutes");
+  r = await mup(S, { action: "sms_switch", on: false });
+  ok(r.status === 200 && (await file()).status === 200, "one click: off, filing as before");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM switch_events").get().n === 2, "every switch change recorded");
+  let threw82 = false; try { sdb.prepare("DELETE FROM switch_events").run(); } catch (e) { threw82 = true; }
+  ok(threw82, "switch records can't be deleted");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "44 triggers (part53 adds 2)");
+
+  // The browser check uses the same word lists as the server
+  const ms = await import("../functions/_shared/misuse.js");
+  const w = {}; new Function("window", fs.readFileSync(new URL("../public/text-screen.js", import.meta.url), "utf8"))(w);
+  ok(JSON.stringify(w.GIQTextScreen.ABUSIVE) === JSON.stringify(ms.ABUSIVE) && JSON.stringify(w.GIQTextScreen.THREATS) === JSON.stringify(ms.THREATS), "text-screen.js lists match the server's");
 }
 
 // ---- audit trail ----
