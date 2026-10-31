@@ -65,6 +65,7 @@
   .who { font-size: 15px; font-weight: 600; color: var(--ink); }
   .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 14px; }
   .citizen-line { font-size: 15px; }
+  .demo-line { font-size: 15px; margin: 0 0 12px; } .demo-line a { display: inline-block; padding: 4px 0; min-height: 24px; font-weight: 600; } .demo-note { color: var(--ink); font-size: 14px; }
   .trust-line { font-size: 13.5px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   .shot { margin: 0; position: relative; }
   .shot img { width: 100%; height: auto; display: block; border-radius: 14px; border: 1px solid var(--border); box-shadow: var(--shadow); }
@@ -156,7 +157,7 @@
   @media screen and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gold: #E0B860; } :root:not([data-theme="light"]) .preview-bar { background: #33291A; color: #F3E3BF; border-color: #E0B860; } :root:not([data-theme="light"]) .tag { background: #ECEAE4; color: #131518; } :root:not([data-theme="light"]) .btn.primary:hover { background: #2C5596; } }
   a.lp-pol { display: inline-block; min-height: 24px; line-height: 24px; }
 </style>
-<script src="/i18n.js?v=78"></script>
+<script src="/i18n.js?v=81"></script>
 <script src="/site.js?v=74" defer></script>
 </head>
 <body>
@@ -185,6 +186,7 @@
       <p class="lead" data-i18n="lp.hero_body">GrievIQ gives your office one place to receive citizens' complaints, assign them to your team, check the work on the ground with location-verified photos, and show what was resolved and how fast.</p>
       <p class="who" data-i18n="lp.who">For Gram Pradhans, ward councillors, the Mayor's office, MLAs, MPs and government department offices in Uttar Pradesh.</p>
       <div class="ctas"><a class="btn primary" href="#pilot" id="cta-pilot">Request a free pilot</a><a class="btn" href="#prices" data-i18n="lp.cta_prices">See prices</a></div>
+      <p class="demo-line"><span data-i18n="lp.demo_try">Try it now, no sign-in needed:</span> <a href="/rep?demo=1" data-i18n="lp.demo_rep">Representative's console demo</a> · <a href="/dept?demo=1" data-i18n="lp.demo_dept">Department dashboard demo</a>. <span class="demo-note" data-i18n="lp.demo_note">Invented places and complaints; nothing is saved.</span></p>
       <p class="citizen-line"><a href="/" data-i18n="lp.citizen_line">Have a complaint? File or track it here — always free for citizens.</a></p>
       <p class="trust-line" id="trust-line"></p>
     </div>

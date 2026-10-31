@@ -4364,6 +4364,52 @@ window.Razorpay.prototype.open = function () {
     ok("Staff records" in p.inner_text(row), "the Staff records duty can be given on the Staff page")
     ctx.close()
 
+    # ---------- grieviq-81: the public demos (representative's console, department dashboard) ----------
+    def demo_page(path, width, lang, theme):
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []; net = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.on("request", lambda r: net.append(r.method + " " + r.url) if "/api/" in r.url else None)
+        p.goto(B + path); p.wait_for_selector(".giq-demo-bar"); p.wait_for_timeout(1500)
+        return ctx, p, errs, net
+    BAR_CONTRAST = CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.giq-demo-bar')", 1)
+    for lang in ("en", "hi"):
+        for theme in ("light", "dark"):
+            for width in (1280, 375):
+                tag = "%s-%s-%d" % (lang, theme, width)
+                ctx, p, errs, net = demo_page("/rep?demo=1", width, lang, theme)
+                ok(p.locator(".giq-demo-bar[role=region]").count() == 1 and p.locator("#gd-as option").count() == 5 and ("Demo Nagar" in p.inner_text("body")), "rep demo: bar, Show me as, the invented ward " + tag)
+                ok(("Invented places" in p.inner_text(".giq-demo-bar")) if lang == "en" else ("काल्पनिक" in p.inner_text(".giq-demo-bar")), "rep demo bar in the reader's language " + tag)
+                ok(not net, "rep demo: nothing reaches GrievIQ's servers " + tag, net[:5])
+                ok(no_hscroll(p) and not p.evaluate(BAR_CONTRAST), "rep demo: no sideways scroll, bar contrast AA " + tag, p.evaluate(BAR_CONTRAST)[:4])
+                ok(not errs, "no script errors (rep demo %s)" % tag, errs)
+                if lang == "en" and theme == "light" and width == 1280:
+                    b = p.locator("button:has-text('Acknowledge')").first
+                    b.click(); p.wait_for_selector(".giq-demo-toast:not([hidden])")
+                    ok("nothing was saved" in p.inner_text(".giq-demo-toast") and p.get_attribute(".giq-demo-toast", "role") == "status" and not net, "a save is answered 'nothing was saved', and nothing is sent")
+                    p.click('.tab-btn[data-tab="overview"]'); p.wait_for_timeout(1200)
+                    ok("Received" in p.inner_text("main") and not net, "rep demo: Overview from the recording")
+                    p.select_option("#gd-as", "mla"); p.wait_for_selector(".giq-demo-bar"); p.wait_for_timeout(1500)
+                    ok("Demo Vidhan Sabha seat" in p.inner_text("body") and "as=mla" in p.url and not net, "Show me as MLA: the MLA's office and its complaints")
+                    shot(p, "81-rep-demo", full=False)
+                if lang == "hi" and theme == "dark" and width == 375: shot(p, "81-rep-demo-hi-375", full=False)
+                ctx.close()
+    for lang, theme in (("en", "dark"), ("hi", "light")):
+        ctx, p, errs, net = demo_page("/dept?demo=1", 375 if lang == "hi" else 1280, lang, theme)
+        ok("Demo Jal Sansthan" in p.inner_text("body") or "डेमो जल संस्थान" in p.inner_text("body"), "dept demo: the invented office " + lang)
+        ok(not net and not errs and no_hscroll(p) and not p.evaluate(BAR_CONTRAST), "dept demo: nothing sent, no errors, no sideways scroll, AA " + lang, (net[:3], errs[:3]))
+        p.locator("a:has-text('GRV-')").first.click(); p.wait_for_timeout(1200)
+        ok("GRV-" in p.inner_text("main") and not net, "dept demo: a case opens from the recording " + lang)
+        shot(p, "81-dept-demo-" + lang, full=False)
+        ctx.close()
+    ctx, p, errs = P("nobody@test.in")
+    p.goto(B + "/rep"); p.wait_for_timeout(1500)
+    ok(p.locator(".giq-demo-bar").count() == 0, "without demo=1 the console is the real one, with no demo bar")
+    p.goto(B + "/for-offices"); p.wait_for_timeout(800)
+    ok(p.locator('a[href="/rep?demo=1"]').count() >= 1 and p.locator('a[href="/dept?demo=1"]').count() >= 1, "For offices links to both demos")
+    ctx.close()
+
 
     br.close()
 
