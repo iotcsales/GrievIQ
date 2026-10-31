@@ -1,5 +1,6 @@
 /*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
-// public/guide.js (grieviq-40; grieviq-59: department journey uses the real reply wording)
+// public/guide.js (grieviq-40; grieviq-59: department journey uses the real reply wording;
+// grieviq-79: citizens and representatives' offices see "The life of a complaint" diagram)
 //
 // Draws the step-by-step guides in public/guide-content.js, in the language
 // the reader has chosen (English or Hindi), in two ways:
@@ -34,6 +35,54 @@
   function md(pair) { return esc(pick(pair)).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
 
   // The journey of a complaint, as each audience sees it.
+  // grieviq-79: the life of a complaint, drawn as a diagram in the citizen and
+  // representative guides (and in the printed SOP book, which reads this).
+  // Real text in an ordered list: who acts is a labelled chip, and "If late" /
+  // "If not fixed" are words, so nothing depends on colour or shape alone.
+  var LIFE = {
+    title: ["The life of a complaint", "शिकायत का पूरा सफ़र"],
+    lanes: { cit: ["Citizen", "नागरिक"], off: ["Representative's office", "जनप्रतिनिधि कार्यालय"], dep: ["Department", "विभाग"] },
+    stages: [
+      { t: ["Filed", "दर्ज"], lanes: ["cit"],
+        d: ["The citizen (or a community helper for them) files it and gets a reference number. Time limits start now.", "नागरिक (या उनके लिए सामुदायिक सहायक) शिकायत दर्ज करता है और संदर्भ संख्या पाता है। समय-सीमा अभी से शुरू होती है।"] },
+      { t: ["Acknowledged", "पावती"], lanes: ["off"],
+        d: ["The representative's office acknowledges it by the date shown on the complaint.", "जनप्रतिनिधि कार्यालय शिकायत पर दिखाई गई तारीख़ तक पावती देता है।"],
+        br: [["If late", "देर होने पर"], ["It is marked overdue and GrievIQ staff follow it up.", "यह विलंबित चिह्नित होती है और GrievIQ स्टाफ़ इस पर अनुवर्ती कार्रवाई करता है।"]] },
+      { t: ["Assigned or forwarded", "सौंपी या भेजी गई"], lanes: ["off", "dep"],
+        d: ["The office gives it to a field worker, or forwards it to the department responsible (its target is usually 7 days).", "कार्यालय इसे फ़ील्ड कर्मी को सौंपता है, या ज़िम्मेदार विभाग को भेजता है (उसका लक्ष्य आमतौर पर 7 दिन)।"],
+        br: [["If late", "देर होने पर"], ["The case shows the days late, and government dashboards count late cases by department.", "मामले पर देरी के दिन दिखते हैं, और सरकारी डैशबोर्ड विभागवार देर वाले मामले गिनते हैं।"]] },
+      { t: ["Work done and checked on site", "काम पूरा और मौके पर जाँच"], lanes: ["dep", "off"],
+        d: ["The department reports the work with site photos, and the office's team checks it on the spot, with photos.", "विभाग साइट फ़ोटो के साथ काम की जानकारी देता है, और कार्यालय की टीम मौके पर फ़ोटो सहित जाँचती है।"],
+        br: [["If not fixed", "ठीक न होने पर"], ["It is sent back to the department, and its target time starts again.", "यह विभाग को वापस भेजी जाती है, और उसका लक्ष्य समय फिर से शुरू होता है।"]] },
+      { t: ["Marked resolved", "निस्तारित"], lanes: ["off"],
+        d: ["The office approves the fix report and marks it resolved. Nobody approves their own report.", "कार्यालय समाधान रिपोर्ट स्वीकृत करके इसे निस्तारित करता है। कोई अपनी ही रिपोर्ट स्वीकृत नहीं करता।"] },
+      { t: ["Confirmed by the citizen", "नागरिक द्वारा पुष्टि"], lanes: ["cit"],
+        d: ["The citizen confirms the fix and rates the service. With no reply in 7 days, it closes as resolved, marked \"not confirmed\".", "नागरिक समाधान की पुष्टि करता है और सेवा को रेट करता है। 7 दिन में उत्तर न मिलने पर यह निस्तारित के रूप में बंद होती है, \"पुष्टि नहीं\" चिह्न के साथ।"],
+        br: [["If not fixed", "ठीक न होने पर"], ["It goes back to the office or up a level. After closing, the citizen can reopen it once within 30 days; it then goes to the next level up with a fresh time limit.", "यह कार्यालय को वापस या एक स्तर ऊपर जाती है। बंद होने के बाद नागरिक 30 दिन में एक बार इसे दोबारा खोल सकता है; तब यह नई समय-सीमा के साथ अगले स्तर पर जाती है।"]] },
+    ],
+    rail: [["At every level", "हर स्तर पर"], ["If it is not resolved within that level's time limit, it moves up to the next level by itself, for example from the ward councillor to the MLA, then the MP. A few types, such as land disputes, have no time limit and are reviewed by GrievIQ staff instead.", "यदि उस स्तर की समय-सीमा में समाधान न हो, तो यह अपने-आप अगले स्तर पर जाती है, जैसे वार्ड पार्षद से विधायक, फिर सांसद। कुछ प्रकार, जैसे भूमि विवाद, की समय-सीमा नहीं होती; उनकी समीक्षा GrievIQ स्टाफ़ करता है।"]],
+  };
+  var LANE_ICON = {
+    cit: '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8c0-3.3 3.1-6 7-6s7 2.7 7 6"/>',
+    off: '<path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6M3 20h18"/>',
+    dep: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"/>',
+  };
+  function laneIcon(k) {
+    return '<svg class="gq-ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + LANE_ICON[k] + "</svg>";
+  }
+  function lifeHtml(p) {
+    return '<figure class="gq-life"><figcaption id="' + p + 'lcap">' + md(LIFE.title) + "</figcaption>" +
+      '<ol class="gq-lc" aria-labelledby="' + p + 'lcap">' +
+      LIFE.stages.map(function (s, i) {
+        return '<li><span class="gq-n" aria-hidden="true">' + (i + 1) + '</span><div class="gq-lcb"><p class="gq-lct"><strong>' + md(s.t) + "</strong> " +
+          s.lanes.map(function (k) { return '<span class="gq-chip">' + laneIcon(k) + md(LIFE.lanes[k]) + "</span>"; }).join(" ") + "</p>" +
+          '<p class="gq-lcd">' + md(s.d) + "</p>" +
+          (s.br ? '<p class="gq-br"><span aria-hidden="true">&#8627; </span><strong>' + md(s.br[0]) + ":</strong> " + md(s.br[1]) + "</p>" : "") +
+          "</div></li>";
+      }).join("") + "</ol>" +
+      '<p class="gq-rail"><strong>' + md(LIFE.rail[0]) + ":</strong> " + md(LIFE.rail[1]) + "</p></figure>";
+  }
+
   var JOURNEYS = {
     citizen: [
       ["You report the problem", "आप समस्या दर्ज करते हैं"],
@@ -290,7 +339,8 @@
     if (opts.search !== false) out.push(searchHtml(kind, opts.roles, p, opts.query));
     out.push('<p class="gq-intro">' + md(g.intro) + "</p>");
     var steps = JOURNEYS[g.journey];
-    if (steps) {
+    if (g.life) out.push(lifeHtml(p));
+    else if (steps) {
       out.push('<figure class="gq-journey"><figcaption id="' + p + 'jcap">' + esc(t("guide.journey")) + "</figcaption>" +
         '<ol class="gq-flow" aria-labelledby="' + p + 'jcap">' +
         steps.map(function (s, i) { return '<li><span class="gq-n" aria-hidden="true">' + (i + 1) + "</span><span>" + md(s) + "</span></li>"; }).join("") +
@@ -357,6 +407,16 @@
     ".gq-root ol.gq-flow li:not(:last-child)::after{content:'';position:absolute;right:-15px;top:8px;width:8px;height:8px;border-top:2px solid var(--gq-muted);border-right:2px solid var(--gq-muted);transform:rotate(45deg)}" +
     ".gq-root .gq-n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--gq-accent);color:var(--gq-on-accent);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}" +
     "@media (max-width:560px){.gq-root ol.gq-flow{flex-direction:column}.gq-root ol.gq-flow li{flex:1 1 auto}.gq-root ol.gq-flow li:not(:last-child)::after{right:auto;left:9px;top:auto;bottom:-9px;transform:rotate(135deg)}}" +
+    // grieviq-79: the life of a complaint
+    ".gq-root figure.gq-life{margin:0 0 18px;padding:14px;border:1px solid var(--gq-border);border-radius:12px;background:var(--gq-card)}" +
+    ".gq-root ol.gq-lc{list-style:none;margin:0;padding:0}" +
+    ".gq-root ol.gq-lc>li{position:relative;display:flex;gap:10px;margin:0;padding:0 0 12px}" +
+    ".gq-root ol.gq-lc>li:not(:last-child)::before{content:'';position:absolute;left:12px;top:28px;bottom:2px;border-left:2px solid var(--gq-muted)}" +
+    ".gq-root .gq-lcb{flex:1;min-width:0}.gq-root .gq-lct{margin:2px 0 2px;line-height:1.5}.gq-root .gq-lcd{margin:0;font-size:14px;line-height:1.45;color:var(--gq-fg)}" +
+    ".gq-root .gq-chip{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:1.3;padding:1px 8px;margin:2px 0;border:1px solid var(--gq-border);border-radius:999px;background:var(--gq-bg);color:var(--gq-fg);white-space:nowrap}" +
+    ".gq-root .gq-ic{flex:0 0 auto}" +
+    ".gq-root .gq-br{margin:6px 0 0;padding:4px 0 4px 10px;border-left:3px dashed var(--gq-accent);font-size:13.5px;line-height:1.45;color:var(--gq-fg)}" +
+    ".gq-root .gq-rail{margin:4px 0 0;padding:9px 12px;border-radius:8px;background:var(--gq-note-bg);color:var(--gq-note-fg);font-size:14px;line-height:1.45}" +
     ".gq-root .gq-rules{border-left:4px solid var(--gq-accent);background:var(--gq-card);border-radius:0 10px 10px 0;padding:4px 14px 4px;margin:0 0 18px}" +
     ".gq-root .gq-rules ul,.gq-root .gq-check{margin:0 0 10px;padding-left:20px}.gq-root li{margin:0 0 6px}" +
     ".gq-root .gq-toc ol{margin:0 0 14px;padding-left:22px}.gq-root .gq-toc li{margin:0 0 2px}" +
@@ -537,5 +597,6 @@
     // for a common problem). Used by the tests' question bank.
     find: function (kind, roles, q) { return search(kind, roles, q).map(function (r) { return r.sop ? r.sop.id : "P:" + r.problem[0][0]; }); },
     journeys: JOURNEYS,
+    life: LIFE,
   };
 })();

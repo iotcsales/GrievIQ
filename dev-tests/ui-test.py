@@ -1638,10 +1638,10 @@ with sync_playwright() as pw:
                 ok(resp.status == 200, "guide page opens " + tag)
                 txt = p.inner_text("main")
                 if lang == "en":
-                    ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "How a complaint moves" in txt and "112" in txt, "citizen guide in English " + tag, txt[:200])
+                    ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "The life of a complaint" in txt and "If not fixed:" in txt and "112" in txt, "citizen guide in English (grieviq-79: the life of a complaint) " + tag, txt[:200])
                 else:
-                    ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
-                ok(p.locator("#gq-page .gq-sop").count() == 7 and p.locator("#gq-page ol.gq-flow li").count() == 5, "seven guides (grieviq-72: Community helpers) and the five-step journey " + tag)
+                    ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and "शिकायत का पूरा सफ़र" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
+                ok(p.locator("#gq-page .gq-sop").count() == 7 and p.locator("#gq-page ol.gq-lc > li").count() == 6 and p.locator("#gq-page .gq-lc .gq-chip").count() == 8 and p.locator("#gq-page .gq-lc .gq-br").count() == 4 and p.locator("#gq-page ol.gq-flow").count() == 0, "seven guides (grieviq-72: Community helpers) and the six-stage life of a complaint, with who acts and what happens if not (grieviq-79) " + tag)
                 ok(p.locator("#gq-page strong").count() > 5 and p.locator("#gq-page script").count() == 0, "bold words drawn, nothing else " + tag)
                 ok(no_hscroll(p), "guide page: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS); ok(not bad, "guide page contrast AA " + tag, bad[:6])
@@ -1694,6 +1694,7 @@ with sync_playwright() as pw:
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
                 ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all twelve guides " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
+                ok(p.locator(".gq-drawer ol.gq-lc > li").count() == 6 and p.locator(".gq-drawer .gq-rail").count() == 1, "representative Help shows the life of a complaint (grieviq-79) " + tag)
                 if lang == "hi": ok(not re.findall(r"guide\.\w+", p.inner_text(".gq-drawer")) and "सहायता" in p.inner_text("#help-btn"), "Help in Hindi " + tag)
                 ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1") and p.evaluate("(() => { const d = document.querySelector('.gq-dbody'); return d.scrollWidth <= d.clientWidth + 1; })()"), "Help panel: no sideways scroll " + tag)
                 bad = p.evaluate(DLG_CONTRAST); ok(not bad, "Help panel contrast AA " + tag, bad[:6])

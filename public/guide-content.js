@@ -19,7 +19,7 @@
       title: ["How to use GrievIQ", "GrievIQ का उपयोग कैसे करें"],
       intro: ["GrievIQ sends your civic problem to the representative responsible for your ward or village, with a time limit at every level. It is free for every citizen, always.",
         "GrievIQ आपकी नागरिक समस्या आपके वार्ड या गाँव के जिम्मेदार जनप्रतिनिधि तक भेजता है, हर स्तर पर समय-सीमा के साथ। यह हर नागरिक के लिए सदैव निःशुल्क है।"],
-      journey: "citizen",
+      journey: "citizen", life: true,
       rules: [
         ["Never share a code GrievIQ emails you. GrievIQ never asks for it by phone or message.", "GrievIQ का ईमेल किया कोड कभी साझा न करें। GrievIQ कभी फ़ोन या संदेश से कोड नहीं माँगता।"],
         ["Describe the problem truthfully; one complaint per problem.", "समस्या सच्चाई से लिखें; एक समस्या, एक शिकायत।"],
@@ -117,7 +117,7 @@
     rep: {
       title: ["Guide for representatives and their teams", "जनप्रतिनिधियों और टीम के लिए मार्गदर्शिका"],
       intro: ["Your office must acknowledge every complaint and act within the published time limit, or it moves up to the next level automatically.", "आपके कार्यालय को हर शिकायत की पावती देनी है और प्रकाशित समय-सीमा में कार्रवाई करनी है, वरना शिकायत अपने-आप अगले स्तर पर चली जाती है।"],
-      journey: "rep",
+      journey: "rep", life: true,
       rules: [
         ["Citizens' data is only for resolving complaints: never for campaigning, party work or messages.", "नागरिकों का डेटा केवल शिकायत समाधान के लिए: चुनाव प्रचार, दल के काम या संदेशों के लिए कभी नहीं।"],
         ["Mark work resolved only when it is done on the ground.", "काम धरातल पर पूरा होने पर ही निस्तारित चिह्नित करें।"],
