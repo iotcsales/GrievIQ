@@ -1,6 +1,8 @@
 /*! Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. */
 // public/guide.js (grieviq-40; grieviq-59: department journey uses the real reply wording;
-// grieviq-79: citizens and representatives' offices see "The life of a complaint" diagram)
+// grieviq-79: citizens and representatives' offices see "The life of a complaint" diagram;
+// grieviq-80: symbols on boxes, numbered steps, "Who does what" (replaces the contents list for
+// offices and staff) and "What happens when" for departments, government officials and staff)
 //
 // Draws the step-by-step guides in public/guide-content.js, in the language
 // the reader has chosen (English or Hindi), in two ways:
@@ -81,6 +83,86 @@
           "</div></li>";
       }).join("") + "</ol>" +
       '<p class="gq-rail"><strong>' + md(LIFE.rail[0]) + ":</strong> " + md(LIFE.rail[1]) + "</p></figure>";
+  }
+
+  // grieviq-80: who does what (offices and staff) and what happens when
+  // (departments, government officials, staff). The printed SOP book reads
+  // these too, so each fact is written once.
+  var ROLE_NAMES = {
+    REPRESENTATIVE: ["Representative", "जनप्रतिनिधि"], OFFICE_MANAGER: ["Office manager", "कार्यालय प्रबंधक"], FIELD_WORKER: ["Field worker", "फ़ील्ड कर्मी"], OFFICE_ASSISTANT: ["Office assistant", "कार्यालय सहायक"],
+    super_admin: ["Super admin", "सुपर एडमिन"], operations_admin: ["Operations admin", "संचालन एडमिन"], data_moderator: ["Data moderator", "डेटा मॉडरेटर"], data_entry_operator: ["Data entry operator", "डेटा एंट्री ऑपरेटर"],
+    auditor: ["Auditor", "ऑडिटर"], accounts_executive: ["Accounts executive", "अकाउंट्स एग्ज़िक्यूटिव"], accounts_manager: ["Accounts manager", "अकाउंट्स मैनेजर"], support_executive: ["Support executive", "सपोर्ट एग्ज़िक्यूटिव"],
+    sales_executive: ["Sales executive", "सेल्स एग्ज़िक्यूटिव"], sales_manager: ["Sales manager", "सेल्स मैनेजर"], management_viewer: ["Management (view only)", "प्रबंधन (केवल देखें)"],
+    helper_checker: ["Helper checker (duty)", "सहायक जाँचकर्ता (दायित्व)"], helper_approver: ["Helper approver (duty)", "सहायक स्वीकर्ता (दायित्व)"],
+  };
+  var ROLE_COLS = {
+    rep: ["REPRESENTATIVE", "OFFICE_MANAGER", "FIELD_WORKER", "OFFICE_ASSISTANT"],
+    admin: ["super_admin", "operations_admin", "data_moderator", "data_entry_operator", "auditor", "accounts_executive", "accounts_manager", "support_executive", "sales_executive", "sales_manager", "management_viewer", "helper_checker", "helper_approver"],
+  };
+  var ROLE_ABBR = { super_admin: "SA", operations_admin: "OA", data_moderator: "DM", data_entry_operator: "DE", auditor: "AU", accounts_executive: "AE", accounts_manager: "AM", support_executive: "SE", sales_executive: "SX", sales_manager: "SM", management_viewer: "MV", helper_checker: "HC", helper_approver: "HA" };
+  var WORDS = {
+    who: ["Who does what", "कौन क्या करता है"], guide: ["Guide", "मार्गदर्शिका"], yes: ["yes", "हाँ"],
+    key: ["● = this role follows the guide. Tap a guide to open it.", "● = यह भूमिका इस मार्गदर्शिका का पालन करती है। खोलने के लिए मार्गदर्शिका दबाएँ।"],
+    codes: ["Codes:", "कोड:"],
+    when: ["What happens when", "कब क्या होता है"],
+  };
+  var CODE10 = { id: "code", g: "access", w: ["10 minutes", "10 मिनट"], d: ["A sign-in code works once and expires after 10 minutes. GrievIQ never asks for a code by phone, chat or email.", "साइन-इन कोड एक बार काम करता है और 10 मिनट में समाप्त होता है। GrievIQ कभी फ़ोन, चैट या ईमेल पर कोड नहीं माँगता।"] };
+  var TIMES = {
+    dept: [
+      { id: "target", g: "work", life: true, w: ["Target date", "लक्ष्य तिथि"], d: ["Reply on a forwarded case by the target date shown on it (usually 7 days). It starts again when the case is sent back after the check on site.", "भेजे गए मामले पर उस पर दिखाई गई लक्ष्य तिथि (आमतौर पर 7 दिन) तक उत्तर दें। मौके की जाँच के बाद वापस भेजने पर यह फिर शुरू होती है।"] },
+      { id: "fu", g: "work", w: ["Reply-by date", "उत्तर-तिथि"], d: ["Answer a follow-up request by the date it gives; GrievIQ reminds you 2 days before. On that date the same figure is measured again and shown to the sender.", "अनुवर्ती अनुरोध का उत्तर उसकी दी गई तिथि तक दें; GrievIQ 2 दिन पहले याद दिलाता है। उस दिन वही आँकड़ा फिर मापा जाता है और भेजने वाले को दिखाया जाता है।"] },
+      { id: "officer", g: "work", w: ["3 working days", "3 कार्य दिवस"], d: ["Tell support@grieviq.in when an officer leaves or is transferred. GrievIQ removes their access within 1 working day.", "कोई अधिकारी जाए या स्थानांतरित हो तो support@grieviq.in को बताएँ। GrievIQ 1 कार्य दिवस में उनकी पहुँच हटाता है।"] },
+      CODE10,
+    ],
+    gov: [
+      CODE10,
+      { id: "session", g: "access", w: ["1 hour, 8 hours", "1 घंटा, 8 घंटे"], d: ["You are signed out after 1 hour without activity, or 8 hours after signing in.", "1 घंटे तक कोई गतिविधि न होने पर, या साइन इन के 8 घंटे बाद, आप साइन आउट हो जाते हैं।"] },
+      { id: "fu", g: "work", w: ["Reply-by date", "उत्तर-तिथि"], d: ["You choose 7, 15 or 30 days when you send a follow-up request. The office is reminded 2 days before; on the date, the figure is measured again for you to close the request or ask again.", "अनुवर्ती अनुरोध भेजते समय आप 7, 15 या 30 दिन चुनते हैं। कार्यालय को 2 दिन पहले याद दिलाया जाता है; उस दिन आँकड़ा फिर मापा जाता है, ताकि आप अनुरोध बंद करें या फिर से पूछें।"] },
+      { id: "govyear", g: "access", w: ["Every year", "हर साल"], d: ["Your department confirms you still need access. If this is more than 30 days late, sign-in stops until it is confirmed.", "आपका विभाग पुष्टि करता है कि आपको अभी भी पहुँच चाहिए। इसमें 30 दिन से अधिक देर होने पर पुष्टि होने तक साइन इन रुक जाता है।"] },
+    ],
+    admin: [
+      CODE10,
+      { id: "cert", g: "access", w: ["6 hours", "6 घंटे"], d: ["CERT-In expects some security incidents to be reported within 6 hours: tell the Security contact at once.", "CERT-In कुछ सुरक्षा घटनाओं की सूचना 6 घंटे में चाहता है: सुरक्षा संपर्क को तुरंत बताएँ।"] },
+      { id: "policy", g: "access", w: ["Every year", "हर साल"], d: ["Every staff member accepts the staff policies again, and again whenever a policy changes.", "हर स्टाफ़ सदस्य स्टाफ़ नीतियाँ फिर से स्वीकार करता है, और हर बार जब कोई नीति बदले।"] },
+      { id: "contract", g: "staff", w: ["14 and 3 days before", "14 और 3 दिन पहले"], d: ["The manager and super admins are reminded that a contract ends. After its last day, access pauses.", "प्रबंधक और सुपर एडमिन को अनुबंध समाप्ति की याद दिलाई जाती है। अंतिम दिन के बाद पहुँच रुक जाती है।"] },
+      { id: "idle", g: "staff", w: ["45 and 90 days", "45 और 90 दिन"], d: ["With no sign-in, an account is flagged at 45 days and its access pauses at 90 (never a super admin's).", "साइन इन न होने पर खाता 45 दिन पर चिह्नित होता है और 90 दिन पर उसकी पहुँच रुकती है (सुपर एडमिन की कभी नहीं)।"] },
+      { id: "review", g: "staff", w: ["Every quarter", "हर तिमाही"], d: ["Access review: someone else decides keep, change or remove for each person.", "पहुँच समीक्षा: हर व्यक्ति के लिए कोई दूसरा तय करता है कि रखें, बदलें या हटाएँ।"] },
+      { id: "hmonth", g: "helpers", w: ["5 days before", "5 दिन पहले"], d: ["A community helper is reminded that their month ends. After 3 days' grace, the role pauses until they pay.", "सामुदायिक सहायक को महीना समाप्त होने की याद दिलाई जाती है। 3 दिन की छूट के बाद भुगतान तक भूमिका रुक जाती है।"] },
+      { id: "hphoto", g: "helpers", w: ["30 days", "30 दिन"], d: ["A helper's ID photos are deleted 30 days after the decision on their application, and their card photo as soon as they stop being a helper.", "सहायक की पहचान फ़ोटो आवेदन पर निर्णय के 30 दिन बाद, और कार्ड फ़ोटो उनके सहायक न रहने पर तुरंत हटा दी जाती है।"] },
+      { id: "hyear", g: "helpers", w: ["Every year", "हर साल"], d: ["Each community helper's identity is checked again.", "हर सामुदायिक सहायक की पहचान फिर से जाँची जाती है।"] },
+    ],
+  };
+  var GI = {
+    check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
+    warn: '<path d="M12 3.5L2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17v.01"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
+    shield: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    people: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.6c2.6.3 4.5 2.2 4.5 5"/>',
+  };
+  function gi(k) {
+    return '<svg class="gq-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + GI[k] + "</svg>";
+  }
+  function whoHtml(kind, sops, p, h2) {
+    var cols = ROLE_COLS[kind], abbr = kind === "admin";
+    var head = cols.map(function (c) {
+      return '<th scope="col">' + (abbr ? '<abbr title="' + esc(pick(ROLE_NAMES[c])) + '">' + ROLE_ABBR[c] + "</abbr>" : md(ROLE_NAMES[c])) + "</th>";
+    }).join("");
+    var rows = sops.map(function (s) {
+      var rs = s.roles || cols;
+      return '<tr><th scope="row"><a href="#' + p + esc(s.id) + '" data-gq-jump="' + esc(s.id) + '">' + md(s.title) + "</a></th>" +
+        cols.map(function (c) { return rs.indexOf(c) >= 0 ? '<td><span aria-hidden="true">●</span><span class="gq-vh">' + esc(pick(WORDS.yes)) + "</span></td>" : "<td></td>"; }).join("") + "</tr>";
+    }).join("");
+    var key = '<p class="gq-mkey">' + esc(pick(WORDS.key)) + (abbr ? " " + esc(pick(WORDS.codes)) + " " + cols.map(function (c) { return "<strong>" + ROLE_ABBR[c] + "</strong> " + md(ROLE_NAMES[c]); }).join(" · ") : "") + "</p>";
+    return '<nav class="gq-toc gq-whot" aria-labelledby="' + p + 'toc"><' + h2 + ' id="' + p + 'toc">' + gi("people") + esc(pick(WORDS.who)) + "</" + h2 + ">" +
+      '<div class="gq-mxw" role="region" tabindex="0" aria-labelledby="' + p + 'toc"><table class="gq-mx' + (abbr ? " gq-mx-s" : "") + '"><thead><tr><th scope="col">' + esc(pick(WORDS.guide)) + "</th>" + head + "</tr></thead><tbody>" + rows + "</tbody></table></div>" + key + "</nav>";
+  }
+  function timesHtml(kind, p, h2) {
+    var list = TIMES[kind];
+    if (!list) return "";
+    return '<section class="gq-when" aria-labelledby="' + p + 'when"><' + h2 + ' id="' + p + 'when">' + gi("clock") + esc(pick(WORDS.when)) + "</" + h2 + '><ul class="gq-tl">' +
+      list.map(function (it) { return '<li><span class="gq-pill">' + md(it.w) + '</span><span class="gq-tx">' + md(it.d) + "</span></li>"; }).join("") + "</ul></section>";
   }
 
   var JOURNEYS = {
@@ -347,10 +429,12 @@
         "</ol></figure>");
     }
     if (g.rules && g.rules.length) {
-      out.push('<section class="gq-rules" aria-labelledby="' + p + 'rules"><' + h2 + ' id="' + p + 'rules">' + esc(t("guide.rules")) + "</" + h2 + "><ul>" +
+      out.push('<section class="gq-rules" aria-labelledby="' + p + 'rules"><' + h2 + ' id="' + p + 'rules">' + gi("shield") + esc(t("guide.rules")) + "</" + h2 + "><ul>" +
         g.rules.map(function (r) { return "<li>" + md(r) + "</li>"; }).join("") + "</ul></section>");
     }
-    if (sops.length > 1) {
+    out.push(timesHtml(kind, p, h2));
+    if (ROLE_COLS[kind] && sops.length > 1) out.push(whoHtml(kind, sops, p, h2));
+    else if (sops.length > 1) {
       out.push('<nav class="gq-toc" aria-labelledby="' + p + 'toc"><' + h2 + ' id="' + p + 'toc">' + esc(t("guide.contents")) + "</" + h2 + "><ol>" +
         sops.map(function (s) { return '<li><a href="#' + p + esc(s.id) + '" data-gq-jump="' + esc(s.id) + '">' + md(s.title) + "</a></li>"; }).join("") +
         "</ol></nav>");
@@ -358,19 +442,19 @@
     sops.forEach(function (s, i) {
       var who = s.who ? '<p class="gq-who"><strong>' + esc(t("guide.who")) + "</strong> " + md(s.who) + "</p>" : "";
       var what = s.what ? '<p class="gq-who"><strong>' + esc(t("guide.what")) + "</strong> " + md(s.what) + "</p>" : "";
-      var check = (s.check && s.check.length) ? "<" + h3 + ">" + esc(t("guide.check")) + "</" + h3 + '><ul class="gq-check">' +
+      var check = (s.check && s.check.length) ? "<" + h3 + ' class="gq-ich">' + gi("check") + esc(t("guide.check")) + "</" + h3 + '><ul class="gq-check">' +
         s.check.map(function (c) { return "<li>" + md(c) + "</li>"; }).join("") + "</ul>" : "";
-      var note = (s.note || []).map(function (n) { return '<p class="gq-note">' + md(n) + "</p>"; }).join("");
+      var note = (s.note || []).map(function (n) { return '<p class="gq-note">' + gi("info") + "<span>" + md(n) + "</span></p>"; }).join("");
       out.push('<section class="gq-sop" id="' + p + esc(s.id) + '" tabindex="-1" aria-labelledby="' + p + esc(s.id) + '-h">' +
         "<" + h2 + ' id="' + p + esc(s.id) + '-h"><span class="gq-sn">' + (i + 1) + ".</span> " + md(s.title) + "</" + h2 + ">" +
         what + who + "<" + h3 + ">" + esc(t("guide.steps")) + "</" + h3 + '><ol class="gq-steps">' +
         s.steps.map(function (st, i) { return '<li data-gq-i="' + i + '">' + md(st) + "</li>"; }).join("") + "</ol>" + check + note + "</section>");
     });
     if (g.problems && g.problems.length) {
-      out.push('<section class="gq-problems" aria-labelledby="' + p + 'prob"><' + h2 + ' id="' + p + 'prob">' + esc(t("guide.problems")) + "</" + h2 + "><dl>" +
+      out.push('<section class="gq-problems" aria-labelledby="' + p + 'prob"><' + h2 + ' id="' + p + 'prob">' + gi("warn") + esc(t("guide.problems")) + "</" + h2 + "><dl>" +
         g.problems.map(function (pr) { return "<dt>" + md(pr[0]) + "</dt><dd>" + md(pr[1]) + "</dd>"; }).join("") + "</dl></section>");
     }
-    if (g.contacts) out.push('<p class="gq-contacts">' + md(g.contacts) + "</p>");
+    if (g.contacts) out.push('<p class="gq-contacts">' + gi("phone") + "<span>" + md(g.contacts) + "</span></p>");
     return out.join("");
   }
 
@@ -417,6 +501,26 @@
     ".gq-root .gq-ic{flex:0 0 auto}" +
     ".gq-root .gq-br{margin:6px 0 0;padding:4px 0 4px 10px;border-left:3px dashed var(--gq-accent);font-size:13.5px;line-height:1.45;color:var(--gq-fg)}" +
     ".gq-root .gq-rail{margin:4px 0 0;padding:9px 12px;border-radius:8px;background:var(--gq-note-bg);color:var(--gq-note-fg);font-size:14px;line-height:1.45}" +
+    // grieviq-80: symbols, numbered steps, who does what, what happens when
+    ".gq-root .gq-ic{flex:0 0 auto;vertical-align:-3px;margin-right:6px}" +
+    ".gq-root .gq-rules h2,.gq-root .gq-rules h3,.gq-root .gq-problems>h2,.gq-root .gq-problems>h3,.gq-root .gq-ich,.gq-root .gq-whot>h2,.gq-root .gq-whot>h3,.gq-root .gq-when>h2,.gq-root .gq-when>h3{display:flex;align-items:center}" +
+    ".gq-root .gq-note,.gq-root .gq-contacts{display:flex;gap:2px;align-items:flex-start}.gq-root .gq-note .gq-ic,.gq-root .gq-contacts .gq-ic{margin-top:1px}" +
+    ".gq-root ol.gq-steps{list-style:none;counter-reset:gqs;padding-left:0}" +
+    ".gq-root ol.gq-steps>li{counter-increment:gqs;position:relative;padding:1px 0 1px 34px;min-height:26px}" +
+    ".gq-root ol.gq-steps>li::before{content:counter(gqs);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;background:var(--gq-accent);color:var(--gq-on-accent);font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;line-height:1}" +
+    ".gq-root .gq-mxw{overflow-x:auto;margin:0 0 6px;border:1px solid var(--gq-border);border-radius:10px}.gq-root .gq-mxw:focus-visible{outline:3px solid var(--gq-focus);outline-offset:2px}" +
+    ".gq-root table.gq-mx{border-collapse:collapse;width:100%;font-size:13.5px;line-height:1.35}" +
+    ".gq-root .gq-mx th,.gq-root .gq-mx td{border-bottom:1px solid var(--gq-border);padding:6px 8px;text-align:center;vertical-align:middle}" +
+    ".gq-root .gq-mx thead th{background:var(--gq-card);color:var(--gq-fg);font-weight:600;font-size:12.5px}" +
+    ".gq-root .gq-mx tbody th{text-align:left;font-weight:400;min-width:150px}.gq-root .gq-mx tbody tr:last-child>*{border-bottom:0}" +
+    ".gq-root .gq-mx td{color:var(--gq-fg);font-size:14px}.gq-root .gq-mx-s th,.gq-root .gq-mx-s td{padding:5px 4px}.gq-root .gq-mx-s tbody th{padding-left:8px}" +
+    ".gq-root .gq-mx abbr{text-decoration:none;cursor:help}" +
+    ".gq-root nav.gq-whot .gq-mx a,.gq-root nav.gq-whot .gq-mx a:hover{display:inline-block;padding:3px 0;min-height:24px;color:var(--gq-link);text-decoration:underline;background:none;border:0;border-radius:0;font-size:inherit;font-weight:400}" +
+    ".gq-root .gq-mkey{font-size:13px;color:var(--gq-muted);margin:0 0 16px}" +
+    ".gq-root .gq-when{margin:0 0 18px}.gq-root ul.gq-tl{list-style:none;margin:6px 0 0;padding:0 0 0 6px}" +
+    ".gq-root ul.gq-tl>li{position:relative;margin:0;padding:0 0 12px 18px;border-left:2px solid var(--gq-muted)}.gq-root ul.gq-tl>li:last-child{border-left-color:transparent;padding-bottom:2px}" +
+    ".gq-root ul.gq-tl>li::before{content:'';position:absolute;left:-7px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--gq-bg);border:2px solid var(--gq-accent)}" +
+    ".gq-root .gq-pill{display:inline-block;font-weight:600;font-size:13px;padding:1px 9px;border-radius:999px;border:1px solid var(--gq-border);background:var(--gq-card);color:var(--gq-fg);margin-bottom:3px}.gq-root .gq-tx{display:block;font-size:14px;line-height:1.45;color:var(--gq-fg)}" +
     ".gq-root .gq-rules{border-left:4px solid var(--gq-accent);background:var(--gq-card);border-radius:0 10px 10px 0;padding:4px 14px 4px;margin:0 0 18px}" +
     ".gq-root .gq-rules ul,.gq-root .gq-check{margin:0 0 10px;padding-left:20px}.gq-root li{margin:0 0 6px}" +
     ".gq-root .gq-toc ol{margin:0 0 14px;padding-left:22px}.gq-root .gq-toc li{margin:0 0 2px}" +
@@ -424,7 +528,7 @@
     ".gq-root nav.gq-toc a,.gq-root nav.gq-toc a:hover{display:inline-block;padding:4px 0;min-height:24px;color:var(--gq-link);text-decoration:underline;background:none;border:0;border-radius:0;font-size:inherit;font-weight:400}" +
     ".gq-root .gq-sop{border-top:1px solid var(--gq-border);padding-top:6px;margin-top:14px;scroll-margin-top:12px}" +
     ".gq-root .gq-sn{color:var(--gq-muted)}.gq-root .gq-who{margin:0 0 8px;color:var(--gq-fg)}.gq-root .gq-who strong{font-weight:600}" +
-    ".gq-root ol.gq-steps{padding-left:22px;margin:0 0 10px}.gq-root ol.gq-steps li{padding-left:2px;border-radius:4px;transition:background-color .3s}" +
+    ".gq-root ol.gq-steps{margin:0 0 10px}.gq-root ol.gq-steps li{border-radius:4px;transition:background-color .3s}" +
     ".gq-root ol.gq-steps li.gq-hit{background:var(--gq-note-bg);color:var(--gq-note-fg);outline:2px solid var(--gq-focus);outline-offset:2px}" +
     ".gq-root .gq-note{background:var(--gq-note-bg);color:var(--gq-note-fg);border-radius:8px;padding:9px 12px;margin:6px 0 10px;font-size:14px}" +
     ".gq-root .gq-problems dt{font-weight:600;margin-top:10px}.gq-root .gq-problems dd{margin:2px 0 0 0;color:var(--gq-fg)}" +
@@ -598,5 +702,6 @@
     find: function (kind, roles, q) { return search(kind, roles, q).map(function (r) { return r.sop ? r.sop.id : "P:" + r.problem[0][0]; }); },
     journeys: JOURNEYS,
     life: LIFE,
+    times: TIMES, roleNames: ROLE_NAMES, roleCols: ROLE_COLS, roleAbbr: ROLE_ABBR,
   };
 })();
