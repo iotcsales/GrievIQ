@@ -1761,7 +1761,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 29), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 30), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -2727,7 +2727,7 @@ with sync_playwright() as pw:
                     ok(("Demo State A" in p.inner_text("h1") or "डेमो राज्य A" in p.inner_text("h1")) and p.locator("nav.crumbs").count() == 0, "State Dashboard demo opens at a demo state, no country above it " + tag)
                 else:
                     ok(p.locator("a[data-state]").count() == 6, "National Dashboard demo opens at the demo country " + tag)
-                shot(p, "83-%s-demo-%s" % (door, tag), full=False)
+                shot(p, "ob-%s-demo-%s" % (door, tag), full=False)
             ok(not errs, "no script errors (doors %s)" % tag, errs)
             ctx.close()
     # state demo: drill to a district and back; reports link back to the State Dashboard
@@ -4581,6 +4581,127 @@ window.Razorpay.prototype.open = function () {
         ok(not errs, "filing form no script errors " + lang, errs)
         ctx.close()
 
+
+    # ---------- grieviq-83: the onboarding form ----------
+    import urllib.request as _ur83, json as _j83, sqlite3 as _sq83
+    def api83(email, path, body=None):
+        req = _ur83.Request(B + path, data=_j83.dumps(body).encode() if body is not None else None, method="POST" if body is not None else "GET",
+                            headers={"test-email": email, "content-type": "application/json"})
+        try:
+            with _ur83.urlopen(req) as r: return _j83.loads(r.read())
+        except Exception as e: return {"error": str(e)}
+    _d83 = _sq83.connect(os.path.join(WORK, "test.db"), timeout=10)
+    _d83.execute("UPDATE admin_users SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%S.000Z','now')"); _d83.commit()
+    X83, M83 = "sx83@test.in", "sm84@test.in"
+    lead83 = api83(X83, "/api/admin/sales", {"action": "create", "officeKind": "COUNCILLOR", "officeName": "Office of the Councillor, Gomti Nagar", "place": "Lucknow", "state": "09", "email": "gomti.office@example.in"})["id"]
+    url83 = B + "/admin-onboarding.html?lead=" + lead83
+    # Every section, both themes, laptop and phone: AA contrast, target sizes, no sideways scroll
+    for theme in ("dark", "light"):
+        for width in (1280, 390):
+            tag = "%s %d" % (theme, width)
+            ctx, p, errs = P(X83, width=width, theme=theme)
+            p.goto(url83); p.wait_for_selector("#ob-sec-h")
+            n = p.locator("[data-step]").count()
+            ok(n == 11, "11 steps (10 sections and the check) " + tag, n)
+            for i in range(n):
+                if width == 390 and not p.locator("#ob-steps-d").get_attribute("open") is not None: p.click("#ob-steps-d summary")
+                p.click("[data-step='%d']" % i); p.wait_for_timeout(120)
+                ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p) and p.evaluate("document.activeElement.id") == "ob-sec-h", "form step %d clean %s" % (i + 1, tag), (p.evaluate(CONTRAST_JS)[:4], p.evaluate(TARGET_JS)[:4]))
+                if theme == "light" and width == 390 and i in (0, 2, 10): shot(p, "ob-form-step%d-390" % (i + 1))
+                if theme == "dark" and width == 1280 and i in (1, 6): shot(p, "ob-form-step%d-dark" % (i + 1))
+            ok(not errs, "form no script errors " + tag, errs)
+            ctx.close()
+    # Filling on a phone: saves itself, finds the ward, warns about numbers, says when there is no network
+    ctx, p, errs = P(X83, width=390, theme="light")
+    p.goto(url83); p.wait_for_selector("#ob-sec-h")
+    ok(p.input_value("#ob-v_date") != "", "a new form starts with today's date")
+    p.fill("#ob-v_attended", "The councillor and her PA")
+    p.wait_for_function("document.querySelector('#ob-save') && document.querySelector('#ob-save').innerText.indexOf('Saved at') === 0", timeout=8000)
+    ok(_d83.execute("SELECT COUNT(*) FROM onboarding_forms f JOIN sales_leads l ON l.id = f.lead_id WHERE l.id = ?", (lead83,)).fetchone()[0] == 1, "saved itself as typed")
+    p.click("#ob-next"); p.wait_for_selector("#ob-o_record")
+    p.fill("#ob-o_record", "gomti"); p.wait_for_selector("[data-pick]")
+    p.click("[data-pick]"); p.wait_for_selector("[data-unpick='o_record']")
+    ok("Gomti Nagar" in p.inner_text(".ob-picked") and p.evaluate("document.activeElement.getAttribute('data-unpick')") == "o_record", "the ward chosen from GrievIQ's list, focus on Change")
+    p.click("#ob-next"); p.wait_for_selector("#ob-add-units")
+    p.click("#ob-add-units"); p.wait_for_selector("#ob-loc_rows-0-localities")
+    ok(p.locator(".ob-row").count() == 1 and p.locator("#ob-add-units").count() == 0, "the office's own ward added once")
+    p.fill("#ob-loc_rows-0-localities", "Gomti Nagar; Vipul Khand 98765 43210")
+    p.wait_for_selector("#ob-loc_rows-0-localities-w, #ob-loc_rows-0-localities-e", timeout=6000)
+    ok(p.locator("#ob-loc_rows-0-localities-w, #ob-loc_rows-0-localities-e").count() == 1, "a mobile number in free text: warned once")
+    p.fill("#ob-loc_rows-0-localities", "Gomti Nagar; Vipul Khand")
+    p.wait_for_function("!document.querySelector('#ob-loc_rows-0-localities-w') && !document.querySelector('#ob-loc_rows-0-localities-e')", timeout=8000)
+    ctx.set_offline(True)
+    p.fill("#ob-loc_rows-0-pins", "226010")
+    p.wait_for_selector("#ob-offline", timeout=8000)
+    ok("no network" in p.inner_text("#ob-offline"), "no network: the page says so and keeps the answers")
+    bad = p.evaluate(CONTRAST_JS)
+    ok(not bad, "offline banner AA", bad[:3])
+    shot(p, "ob-offline-390", full=False)
+    ctx.set_offline(False)
+    p.evaluate("window.dispatchEvent(new Event('online'))")
+    p.wait_for_function("!document.querySelector('#ob-offline')", timeout=8000)
+    ok("226010" in _d83.execute("SELECT answers FROM onboarding_forms WHERE lead_id = ?", (lead83,)).fetchone()[0], "saved when the network came back")
+    # The check step: what is missing, each a link to the question
+    p.click("#ob-steps-d summary"); p.click("[data-step='10']"); p.wait_for_selector("#ob-missing")
+    ok(p.locator("#ob-missing li").count() >= 2 and p.locator("#ob-submit").is_disabled(), "missing items listed; submit waits")
+    p.click("#ob-missing a[data-focus='x_outcome']"); p.wait_for_timeout(200)
+    ok(p.evaluate("document.activeElement.id").startswith("ob-x_outcome"), "a missing item takes you to its question", p.evaluate("document.activeElement.id"))
+    ok(not [e for e in errs if "ERR_INTERNET_DISCONNECTED" not in e], "filling: no script errors", errs)
+    ctx.close()
+    # Completed and submitted from the page
+    a = api83(X83, "/api/admin/onboarding?lead=" + lead83)["form"]
+    full = dict(a["answers"]); full.update({"o_holder": "Anita Singh", "o_title_area": "Councillor, Gomti Nagar, Lucknow", "o_state": "09", "o_email": "gomti.office@example.in",
+        "team_rows": [{"name": "Raju", "role": "OFFICE_MANAGER", "email": "raju.office@example.in"}], "p_plan": "councillor", "p_start": "PAID", "p_invoice_name": "Office of the Councillor",
+        "a_dpa": True, "a_rules": True, "a_price": True, "a_neutral": True, "a_hidden": True, "a_moveup": True, "a_record": True, "x_outcome": "SIGNED_PAID"})
+    s83 = api83(X83, "/api/admin/onboarding", {"action": "save", "lead": lead83, "version": a["version"], "answers": full})
+    ok(not s83.get("missing"), "complete", s83.get("missing"))
+    ctx, p, errs = P(X83, width=1280, theme="dark", lang="hi")
+    p.goto(url83); p.wait_for_selector("#ob-sec-h")
+    p.click("[data-step='10']"); p.wait_for_selector("#ob-submit:not([disabled])")
+    ok(not re.findall(r"\bob\.\w+", p.inner_text("main")), "Hindi: every string translated", re.findall(r"\bob\.\w+", p.inner_text("main"))[:5])
+    p.click("#ob-submit"); p.wait_for_function("document.querySelector('#ob-msg').innerText.length > 0")
+    ok(_d83.execute("SELECT status FROM onboarding_forms WHERE lead_id = ?", (lead83,)).fetchone()[0] == "SUBMITTED" and _d83.execute("SELECT stage FROM sales_leads WHERE id = ?", (lead83,)).fetchone()[0] == "WON", "submitted from the page: lead Won")
+    ok(p.locator("[data-p]").count() == 0 or p.locator("[data-p]:not([disabled])").count() == 0, "locked after submitting")
+    ok(not errs, "submit: no script errors", errs)
+    ctx.close()
+    # The manager checks it and sends it for setup; the checklist is ticked
+    for theme in ("light", "dark"):
+        ctx, p, errs = P(M83, width=1280, theme=theme)
+        if theme == "light":
+            p.goto(B + "/admin-sales.html"); p.wait_for_selector("#sa-app .note")
+            ok(p.locator("a[href='/admin-onboarding.html?queue=1']").count() == 1, "Sales page: forms waiting, a link to them")
+            p.goto(B + "/admin-onboarding.html?queue=1"); p.wait_for_selector("#ob-h")
+            ok("Office of the Councillor, Gomti Nagar" in p.inner_text("main") and not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS), "check queue lists it, AA", p.evaluate(CONTRAST_JS)[:3])
+            shot(p, "ob-queue")
+            p.goto(url83); p.wait_for_selector("#ob-check")
+            p.click("#ob-return button[type=submit]"); p.wait_for_selector("#ob-return-note-e")
+            ok(p.evaluate("document.activeElement.id") == "ob-return-note", "send back: a note is asked for, focused")
+            ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS), "check view AA " + theme, p.evaluate(CONTRAST_JS)[:3])
+            shot(p, "ob-check")
+            p.click("#ob-check"); p.wait_for_selector("#ob-setup-h")
+            ok(_d83.execute("SELECT status FROM onboarding_forms WHERE lead_id = ?", (lead83,)).fetchone()[0] == "SENT" and p.locator("[data-task]").count() == 5, "sent for setup: the checklist shows")
+            p.check("#ob-task-TRAINING"); p.wait_for_function("document.querySelector('#ob-msg').innerText.indexOf('Ticked') >= 0")
+            ok(p.is_checked("#ob-task-TRAINING") and p.evaluate("document.activeElement.id") == "ob-task-TRAINING", "a checklist item ticked, focus kept")
+        else:
+            p.goto(url83); p.wait_for_selector("#ob-setup-h")
+        ok(not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "setup view AA " + theme, (p.evaluate(CONTRAST_JS)[:3], p.evaluate(TARGET_JS)[:3], no_hscroll(p)))
+        shot(p, "ob-setup-" + theme)
+        ok(not errs, "manager: no script errors " + theme, errs)
+        ctx.close()
+    # Print copy and the blank forms (light page, banner, sign-off)
+    ctx, p, errs = P(X83, width=1280, theme="dark")
+    for path, name in (("/admin-onboarding.html?lead=" + lead83 + "&print=1", "print"), ("/admin-onboarding.html?blank=OFFICE", "blank-office"), ("/admin-onboarding.html?blank=DEPARTMENT", "blank-dept")):
+        p.goto(B + path); p.wait_for_selector(".ob-banner")
+        ok(p.locator(".ob-sign").count() == 1 and p.locator("#ob-print").count() == 1 and not p.evaluate(CONTRAST_JS), "%s: banner, sign-off, AA" % name, p.evaluate(CONTRAST_JS)[:3])
+        p.emulate_media(media="print"); shot(p, "ob-" + name); p.emulate_media(media="screen")
+    ok(not errs, "print: no script errors", errs)
+    ctx.close()
+    # The lead shows the form; the form links back to the lead
+    ctx, p, errs = P(X83, width=390, theme="light")
+    p.goto(B + "/admin-sales.html#lead=" + lead83); p.wait_for_selector("#sa-ob")
+    ok("Sent for setup" in p.inner_text("#sa-ob") and not p.evaluate(CONTRAST_JS), "lead: the form's state and a link", p.inner_text("#sa-ob"))
+    ok(not errs, "lead page: no script errors", errs)
+    ctx.close()
 
     br.close()
 

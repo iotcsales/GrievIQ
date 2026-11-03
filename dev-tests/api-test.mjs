@@ -1398,7 +1398,8 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "g1", department: "Health" })).body.error === "OFFICE_PAUSED", "representative can't act while paused");
   ok((await call("r1@x.in", "POST", "/api/billing", { billId: "nope", method: "UPI", utr: "612345670001", amount: 1, paidOn: today })).body.error !== "OFFICE_PAUSED", "paused office can still record a payment");
   r = await sb(S, { action: "resume", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Office asked to continue" });
-  ok(r.body.status === "ACTIVE" || r.body.status === "DUE_SOON", "resumed: back to its paid-up status", r.body);
+  // (grieviq-83) An office with no paid-up date goes back to the default pilot while it runs.
+  ok(r.body.status === "ACTIVE" || r.body.status === "DUE_SOON" || r.body.status === "PILOT", "resumed: back to its paid-up status", r.body);
   ok((await call("r1@x.in", "POST", "/api/dept-gap", { grievanceId: "nope", department: "Health" })).body.error !== "OFFICE_PAUSED", "after resume the office can act again");
   // ended: no access, reopened
   await sb(S, { action: "end", type: "REP", tier: "LOCAL", id: "lu-hazratganj", reason: "Contract ended" });
@@ -4285,6 +4286,129 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   const ms = await import("../functions/_shared/misuse.js");
   const w = {}; new Function("window", fs.readFileSync(new URL("../public/text-screen.js", import.meta.url), "utf8"))(w);
   ok(JSON.stringify(w.GIQTextScreen.ABUSIVE) === JSON.stringify(ms.ABUSIVE) && JSON.stringify(w.GIQTextScreen.THREATS) === JSON.stringify(ms.THREATS), "text-screen.js lists match the server's");
+}
+
+// ---- grieviq-83: Onboarding form ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const og = (w, q) => call(w, "GET", "/api/admin/onboarding?" + q);
+  const op = (w, b) => call(w, "POST", "/api/admin/onboarding", b);
+  const sp = (w, b) => call(w, "POST", "/api/admin/sales", b);
+  const X = "sx83@test.in", M1 = "sm83@test.in", M2 = "sm84@test.in";
+  const was83 = sdb.prepare("SELECT id, rep_name, rep_phone, rep_email, localities FROM local_units WHERE id IN ('lu-hazratganj', 'lu-tilak')").all();
+  for (const [e, role, n, id, ph] of [[X, "sales_executive", "Sita Sales", "GIQ-183", "9811000183"], [M1, "sales_manager", "Manoj Sales", "GIQ-184", "9811000184"], [M2, "sales_manager", "Meera Sales", "GIQ-185", "9811000185"]]) {
+    ok((await call(S, "POST", "/api/admin/staff", { action: "add", email: e, role, name: n, employeeId: id, phone: ph })).status === 200, "staff for the onboarding tests: " + e);
+    const aid = sdb.prepare("SELECT id FROM admin_users WHERE email = ?").get(e).id;
+    for (const x of sdb.prepare("SELECT policy, version FROM staff_policy_acceptances WHERE admin_id = (SELECT id FROM admin_users WHERE email = ?)").all(S))
+      sdb.prepare("INSERT INTO staff_policy_acceptances (id, admin_id, policy, version, accepted_at) VALUES (?, ?, ?, ?, ?)").run("t83-" + aid + "-" + x.policy, aid, x.policy, x.version, new Date().toISOString());
+    await call(e, "POST", "/api/admin/whoami", { action: "accept_sales_code", accept: true });
+  }
+  await sp(M1, { action: "territory", email: X, states: ["09"] });
+  let r = await sp(X, { action: "create", officeKind: "COUNCILLOR", officeName: "Office of the Councillor, Hazratganj", place: "Lucknow", state: "09", email: "hz.office@example.in" });
+  ok(r.status === 200, "a lead for the onboarding form", r.body);
+  const L = r.body.id, ref = r.body.ref;
+  r = await og(X, "lead=" + L);
+  ok(r.status === 200 && r.body.kind === "OFFICE" && !r.body.form && r.body.can.edit && !r.body.can.submit && r.body.sections[0] === "visit" && r.body.sections.includes("localities") && !r.body.sections.includes("officers"), "a councillor's lead gets the office form, not started", r.body.can);
+  ok(r.body.fields.every((f) => !/party|caste|relig|aadhaar|pan_|salary|bank|card_no|voter/i.test(f.k)), "no question for party, ID, bank, salary or voters");
+  r = await og(X, "find=hazrat&type=ward");
+  ok(r.body.results.length === 1 && r.body.results[0].id === "lu-hazratganj", "find the ward in GrievIQ", r.body);
+  r = await og(X, "units=mla&id=mla-c");
+  ok(r.body.results.length >= 5 && r.body.results.every((u) => u.type === "ward"), "the wards under an MLA seat", r.body.results.length);
+  ok((await og(X, "queue=1")).status === 403, "a sales executive has no check queue");
+  ok([403, 404].includes((await og("sam.sales@test.in", "lead=" + L)).status), "another sales person can't open it");
+  // Saving: unknown questions dropped, personal numbers refused
+  r = await op(X, { action: "save", lead: L, answers: { v_date: today, v_attended: "PA Sunil, call him on 98765 43210", x_questions: "Aadhaar 1234 5678 9012", party: "XYZ", o_holder: "Ramesh Gupta", o_phone: "12345" } });
+  ok(r.status === 200 && r.body.version === 1 && r.body.fields.v_attended === "PERSONAL_MOBILE" && r.body.fields.x_questions === "PERSONAL_ID" && r.body.fields.o_phone === "FORMAT", "personal numbers and bad formats refused", r.body);
+  let row = sdb.prepare("SELECT * FROM onboarding_forms WHERE lead_id = ?").get(L);
+  ok(row && row.status === "DRAFT" && !/party|98765|1234 5678/.test(row.answers) && JSON.parse(row.answers).o_holder === "Ramesh Gupta", "only clean answers stored", row && row.answers);
+  ok((await op(X, { action: "save", lead: L, version: 7, answers: {} })).body.error === "CHANGED", "an old version can't overwrite a newer one");
+  r = await op(X, { action: "submit", lead: L, version: 1 });
+  ok(r.status === 400 && r.body.missing.some((m) => m.k === "x_outcome") && r.body.missing.some((m) => m.k === "o_state"), "submit lists what is still needed", r.body);
+  const full = {
+    v_date: today, v_attended: "Councillor and her PA", v_source: "OUTREACH", v_demo: ["REP", "CITIZEN"], v_lang: "HI",
+    o_holder: "Ramesh Gupta", o_title_area: "Councillor, Ward Hazratganj, Lucknow", o_record: { type: "ward", id: "lu-hazratganj", label: "Hazratganj-Ramtirth" }, o_state: "09",
+    o_email: "hz.office@example.in", o_phone: "0522 2234567", o_decider: "PA",
+    loc_rows: [{ unit: { type: "ward", id: "lu-hazratganj", label: "Hazratganj-Ramtirth" }, localities: "Hazratganj; Ashok Marg, Lalbagh; hazratganj", pins: "226001, 226001", landmarks: "Gomti river to the north" },
+      { unit: { type: "ward", id: "lu-tilak", label: "Tilak Nagar" }, localities: "Tilak Nagar; Kundari Rakabganj" },
+      { name: "New colony (not in GrievIQ)", localities: "Sector 4" }],
+    team_rows: [{ name: "Sunil Kumar", role: "OFFICE_MANAGER", email: "sunil.office@example.in", phone_type: "ANDROID" }],
+    p_plan: "councillor", p_start: "PILOT", p_pilot_start: today, p_pilot_end: "2099-12-31", p_invoice_name: "Office of the Councillor", p_gstin: "09ABCDE1234F1Z5",
+    a_dpa: true, a_rules: true, a_price: true, a_neutral: true, a_hidden: true, a_moveup: true, a_record: true, x_outcome: "SIGNED_PILOT",
+  };
+  r = await op(X, { action: "save", lead: L, version: 1, answers: Object.assign({}, full, { loc_rows: [{ unit: full.loc_rows[0].unit, localities: "x", pins: "12" }] }) });
+  ok(r.body.fields["loc_rows.0.pins"] === "FORMAT", "PIN codes are checked", r.body.fields);
+  r = await op(X, { action: "save", lead: L, version: r.body.version, answers: full });
+  ok(r.status === 200 && Object.keys(r.body.fields).length === 0 && r.body.missing.length === 0 && r.body.answers.loc_rows[0].pins === "226001", "a complete signed form", r.body);
+  const v = r.body.version;
+  // The auditor reads with contacts hidden
+  r = await og(A, "lead=" + L);
+  ok(r.status === 200 && r.body.auditor && !r.body.can.edit && r.body.form.answers.o_email === "h***@example.in" && r.body.form.answers.team_rows[0].email === "s***@example.in", "the auditor reads, emails hidden", r.body.form && r.body.form.answers.o_email);
+  ok((await op(A, { action: "save", lead: L, version: v, answers: {} })).status === 403, "the auditor can't change it");
+  // Submit: the lead is won
+  r = await op(X, { action: "submit", lead: L, version: v });
+  ok(r.status === 200 && r.body.stage === "WON", "submitted: the lead is Won", r.body);
+  ok(sdb.prepare("SELECT stage, closed_at FROM sales_leads WHERE id = ?").get(L).stage === "WON", "lead marked Won");
+  ok((await op(X, { action: "save", lead: L, version: v + 1, answers: full })).body.error === "LOCKED", "a submitted form can't be changed");
+  ok((await op(X, { action: "check", lead: L })).status === 403, "a sales executive can't check");
+  r = await sp(M1, { action: "list" }); r = await call(M1, "GET", "/api/admin/sales");
+  ok(r.body.onboardingWaiting >= 1, "managers see forms waiting", r.body.onboardingWaiting);
+  r = await og(M1, "queue=1");
+  ok(r.status === 200 && r.body.forms.some((f) => f.ref === ref && !f.mine), "the check queue lists it", r.body);
+  ok((await call(M1, "GET", "/api/admin/sales?id=" + L)).body.onboarding.status === "SUBMITTED", "the lead shows the form's state");
+  // Sent back, fixed, submitted again
+  ok((await op(M1, { action: "return", lead: L, note: "x" })).status === 400, "a note is needed to send it back");
+  r = await op(M1, { action: "return", lead: L, note: "Add the PIN codes for Tilak Nagar" });
+  ok(r.status === 200 && r.body.status === "RETURNED", "sent back with a note");
+  r = await og(X, "lead=" + L);
+  ok(r.body.form.returnNote === "Add the PIN codes for Tilak Nagar" && r.body.can.edit, "the note shows and the form opens again");
+  full.loc_rows[1].pins = "226004";
+  r = await op(X, { action: "save", lead: L, version: r.body.form.version, answers: full });
+  r = await op(X, { action: "submit", lead: L, version: r.body.version });
+  ok(r.status === 200 && r.body.stage === "WON", "submitted again; the lead stays Won");
+  // Sent for setup: change requests, a checklist
+  r = await op(M1, { action: "check", lead: L });
+  ok(r.status === 200 && r.body.status === "SENT" && r.body.changeRequests === 2 && r.body.notes.some((n) => n.why === "NO_RECORD"), "sent for setup: 2 change requests, the new colony to do by hand", r.body);
+  ok((await op(M2, { action: "check", lead: L })).status === 409, "it can't be sent twice");
+  const crs = sdb.prepare("SELECT * FROM change_requests WHERE source = ? ORDER BY target_id").all("GrievIQ onboarding form " + ref);
+  const hz = crs.find((c) => c.target_id === "lu-hazratganj"), tl = crs.find((c) => c.target_id === "lu-tilak");
+  ok(hz && JSON.parse(hz.new_values).email === "hz.office@example.in" && JSON.parse(hz.new_values).localities === "Hazratganj; Ashok Marg; Lalbagh" && JSON.parse(hz.new_values).name === "Ramesh Gupta" && hz.requested_by === M1 && hz.status === "PENDING", "the office's contacts and localities, waiting for approval", hz);
+  ok(tl && JSON.parse(tl.new_values).localities === "Tilak Nagar; Kundari Rakabganj" && !("email" in JSON.parse(tl.new_values)), "another ward's localities", tl && tl.new_values);
+  ok(sdb.prepare("SELECT localities FROM local_units WHERE id = 'lu-hazratganj'").get().localities == null, "nothing live changed yet");
+  r = await call(O, "POST", "/api/admin/change-requests", { action: "approve", ids: [hz.id, tl.id] });
+  ok(r.status === 200, "an admin approves them", r.body);
+  const lu = sdb.prepare("SELECT rep_name, rep_email, rep_phone, localities FROM local_units WHERE id = 'lu-hazratganj'").get();
+  ok(lu.rep_email === "hz.office@example.in" && lu.localities === "Hazratganj; Ashok Marg; Lalbagh" && lu.rep_phone === "0522 2234567", "applied after approval", lu);
+  ok(sdb.prepare("SELECT localities FROM local_units WHERE id = 'lu-tilak'").get().localities === "Tilak Nagar; Kundari Rakabganj", "the other ward's localities too");
+  // Put the test wards back as they were (the browser tests sign in as their representatives).
+  for (const o of was83) sdb.prepare("UPDATE local_units SET rep_name = ?, rep_phone = ?, rep_email = ?, localities = ? WHERE id = ?").run(o.rep_name, o.rep_phone, o.rep_email, o.localities, o.id);
+  r = await og(X, "lead=" + L);
+  ok(r.body.form.status === "SENT" && r.body.changes.every((c) => c.status === "APPROVED") && r.body.form.checklist.map((t) => t.k).join() === "TEAM,PILOT,TRAINING,TEST,PUBLIC_PAGE" && r.body.can.tick, "the setup shows the approvals and the checklist", r.body.form.checklist);
+  ok((await op(X, { action: "task", lead: L, task: "NOPE", done: true })).status === 400, "unknown checklist item refused");
+  r = await op(X, { action: "task", lead: L, task: "TRAINING", done: true });
+  ok(r.status === 200 && r.body.checklist.find((t) => t.k === "TRAINING").done.by === X, "a checklist item ticked, with who");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM onboarding_events WHERE kind IN ('SUBMITTED','RETURNED','SENT','TASK_DONE')").get().n >= 5, "every step recorded");
+  // A manager who edited a form can't check it; a declined form closes the lead
+  r = await sp(M1, { action: "create", officeKind: "DEPARTMENT", officeName: "Jal Kal, Zone 3, Lucknow", state: "09", email: "jk3@example.in", owner: X });
+  const L2 = r.body.id;
+  r = await og(X, "lead=" + L2);
+  ok(r.body.kind === "DEPARTMENT" && r.body.sections.includes("officers") && !r.body.sections.includes("team"), "a department lead gets the department form");
+  r = await op(M1, { action: "save", lead: L2, answers: { v_date: today, v_attended: "Executive engineer", d_name: "Jal Kal, Zone 3", d_state: "09", d_nodal_name: "A. Verma", d_nodal_email: "ee.zone3@example.gov.in" } });
+  r = await op(X, { action: "save", lead: L2, version: r.body.version, answers: { x_outcome: "DECLINED", x_reason: "PRICE" } });
+  ok(r.body.answers.d_name === "Jal Kal, Zone 3" && r.body.answers.x_reason === "PRICE", "answers merge across people");
+  r = await op(X, { action: "submit", lead: L2, version: r.body.version });
+  ok(r.status === 200 && r.body.stage === "LOST" && sdb.prepare("SELECT lost_reason FROM sales_leads WHERE id = ?").get(L2).lost_reason === "PRICE", "declined: the lead is Lost with the reason", r.body);
+  ok((await op(M1, { action: "check", lead: L2 })).body.error === "OWN_FORM", "a manager who edited it can't check it");
+  r = await op(M2, { action: "check", lead: L2 });
+  ok(r.status === 200 && r.body.status === "CHECKED", "another manager marks it checked (nothing to set up)");
+  // Two years after the lead closed, the answers go with the contacts
+  sdb.prepare("UPDATE sales_leads SET closed_at = '2020-01-01T00:00:00.000Z' WHERE id = ?").run(L2);
+  await fetch(B + "/__test/run-sales", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  row = sdb.prepare("SELECT answers, erased_at FROM onboarding_forms WHERE lead_id = ?").get(L2);
+  ok(row.answers === "{}" && row.erased_at, "answers removed with the lead's contacts", row);
+  ok((await op(X, { action: "save", lead: L2, version: 1, answers: {} })).body.error === "ERASED", "an erased lead's form can't be changed");
+  ok((await og(X, "schema=DEPARTMENT")).body.fields.some((f) => f.k === "officer_rows"), "the blank department form");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part54 adds none)");
 }
 
 // ---- audit trail ----

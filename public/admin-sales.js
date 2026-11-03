@@ -136,6 +136,13 @@
       "<dt>" + esc(T("adm.sa_next")) + "</dt><dd>" + (l.nextDate ? esc(day(l.nextDate)) + (l.overdue ? " · " + esc(T("adm.sa_overdue")) : "") + (l.nextStep ? " · " + esc(l.nextStep) : "") : "—") + "</dd>" +
       "<dt>" + esc(T("adm.sa_source")) + "</dt><dd>" + esc(T("adm.sa_src_" + l.source)) + " · " + esc(when(l.createdAt)) + "</dd>" +
       (l.lostReason ? "<dt>" + esc(T("adm.sa_lost_reason")) + "</dt><dd>" + esc(T("adm.sa_lr_" + l.lostReason)) + "</dd>" : "") + "</dl>";
+    // grieviq-83: the onboarding form
+    var ob = d.onboarding;
+    if (ob) {
+      var obHref = "/admin-onboarding.html?lead=" + encodeURIComponent(l.id);
+      h += '<div class="hl-form" id="sa-ob"><h3>' + esc(T("ob.lead_h")) + '</h3><p class="muted-note">' + esc(ob.status ? T("ob.lead_st_" + ob.status, { when: when(ob.updatedAt) }) : T("ob.lead_none")) + "</p>" +
+        '<div class="acts"><a class="btnlink" href="' + obHref + '">' + esc(T(!ob.status ? (a.edit && !l.erased ? "ob.lead_start" : "ob.lead_view") : (ob.status === "DRAFT" || ob.status === "RETURNED") && a.edit ? "ob.lead_continue" : "ob.lead_view")) + "</a></div></div>";
+    }
     if (d.quotations.length) h += '<h3 class="sub-h">' + esc(T("adm.sa_quotes")) + '</h3><ul class="hl-ev">' + d.quotations.map(function (q) {
       return "<li>" + esc(q.ref) + " · ₹" + Number(q.total).toLocaleString("en-IN") + " · " + esc(q.approval === "PENDING" ? T("adm.qt_st_PENDING") : T("adm.qt_st_" + q.status)) + "</li>"; }).join("") + "</ul>";
     // who has it
@@ -235,6 +242,7 @@
     if (d.totalsOnly) { app.innerHTML = h + '<p class="muted-note">' + esc(T("adm.sa_totals_only")) + "</p>" + totalsTab(); return; }
     if (d.auditor) h += '<p class="muted-note">' + esc(T("adm.sa_auditor")) + "</p>";
     if (d.canWork) h += tiles();
+    if (d.onboardingWaiting) h += '<p class="ac-warn"><a href="/admin-onboarding.html?queue=1">' + esc(T("ob.waiting_link", { n: d.onboardingWaiting })) + "</a></p>";
     h += tabs() + '<div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-' + S.tab + '" class="tabpanel">';
     h += S.tab === "add" ? addTab() : S.tab === "totals" ? totalsTab() : S.tab === "territories" ? territoriesTab() : leadsTab();
     app.innerHTML = h + "</div>";
@@ -358,5 +366,8 @@
     applyTheme(next);
   });
   document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); render(); });
+  // grieviq-83: /admin-sales.html#lead=<id> opens that lead (the onboarding form links back here).
+  var m0 = /^#lead=([\w-]+)$/.exec(location.hash || "");
+  if (m0) { S.tab = "leads"; S.openId = m0[1]; try { history.replaceState(null, "", location.pathname); } catch (e) {} }
   load();
 })();

@@ -57,7 +57,13 @@ export async function onRequestGet({ request, env }) {
       const { results: q } = await env.DB.prepare("SELECT id, ref, status, approval, total, valid_until, made_at FROM quotations WHERE lead_id = ? ORDER BY made_at DESC").bind(id).all();
       quotes = (q || []).map((x) => ({ id: x.id, ref: x.ref, status: x.status === "OPEN" && x.valid_until < today ? "EXPIRED" : x.status, approval: x.approval || null, total: x.total, madeAt: x.made_at }));
     } catch (e) { quotes = []; }
-    return json({ lead: leadOut(l, { mask: auditor, today, access }), events: (ev || []).map((e) => ({ at: e.at, by: e.by_email, kind: e.kind, from: e.stage_from, to: e.stage_to, note: e.note || "" })), quotations: quotes });
+    // grieviq-83: the lead's onboarding form, if one was started.
+    let onboarding = null;
+    try {
+      const f = await env.DB.prepare("SELECT status, outcome, updated_at FROM onboarding_forms WHERE lead_id = ?").bind(id).first();
+      onboarding = f ? { status: f.status, outcome: f.outcome || null, updatedAt: f.updated_at } : { status: null };
+    } catch (e) { onboarding = null; }
+    return json({ onboarding, lead: leadOut(l, { mask: auditor, today, access }), events: (ev || []).map((e) => ({ at: e.at, by: e.by_email, kind: e.kind, from: e.stage_from, to: e.stage_to, note: e.note || "" })), quotations: quotes });
   }
 
   const base = { ready: true, today, me: auth.email, role: auth.role, canWork, canManage, totalsOnly, auditor, keepDays: KEEP_DAYS,
@@ -75,6 +81,10 @@ export async function onRequestGet({ request, env }) {
     leads,
     followups: { due: mine.filter((l) => l.due && !l.overdue).length, overdue: mine.filter((l) => l.overdue).length, open: mine.length, free: leads.filter((l) => !l.owner && OPEN_STAGES.includes(l.stage)).length },
   });
+  // grieviq-83: onboarding forms waiting for a check.
+  if (canManage || auditor) {
+    try { out.onboardingWaiting = ((await env.DB.prepare("SELECT COUNT(*) AS n FROM onboarding_forms WHERE status = 'SUBMITTED'").first()) || {}).n || 0; } catch (e) { out.onboardingWaiting = 0; }
+  }
   if (canManage || auditor) {
     out.totals = await salesTotals(env, today);
     const people = await salesPeople(env);

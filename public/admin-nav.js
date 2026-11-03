@@ -476,7 +476,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=82", "/guide.js?v=80"].forEach(function (src) {
+      ["/guide-content.js?v=83", "/guide.js?v=80"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };

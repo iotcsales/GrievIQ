@@ -231,6 +231,7 @@ export const PAGES = {
   "admin-notices": "view_notices",                 // grieviq-55
   "admin-accounts": "view_accounts",                // grieviq-76
   "admin-sales": "view_sales",                      // grieviq-77
+  "admin-onboarding": "view_sales",                 // grieviq-83 (opened from a sales lead)
   "admin-staff-records": "view_staff_records",      // grieviq-78
   "admin-misuse": "view_misuse",                    // grieviq-82
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)

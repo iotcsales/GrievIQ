@@ -12,6 +12,8 @@
 //
 // POST { action, ... }
 //   submit   (request_changes)  kind "contact": { targetType, targetId, name?, phone?, email?, reason, source? }
+//                               (grieviq-83: requests made from an onboarding form may also
+//                               carry a ward's localities; they are approved here the same way)
 //                               kind "add_unit": { mlaId, name, unitType, municipalBodyId?, repName?, repPhone?, repEmail?, localities?, reason, source? }
 //   withdraw (request_changes)  { id } -- own PENDING request only
 //   approve  (approve_changes)  { ids: [...] } -- each applied exactly as requested
@@ -33,6 +35,7 @@ import { CONTACT_TABLES, contactDef, readContact, checkNewUnit, insertUnit } fro
 import { applyDeptRequest } from "../../_shared/dept-directory.js";
 import { applyTypeRequest } from "../../_shared/dept-types.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
+import { normaliseLocalities } from "../../_shared/onboarding.js";
 
 const FIELDS = ["name", "phone", "email"];
 const MAX_IDS = 50;
@@ -288,9 +291,13 @@ async function approve(env, auth, body) {
       const def = contactDef(r.target_type, r.target_id);
       const oldValues = parse(r.old_values) || {};
       const newValues = parse(r.new_values) || {};
-      const fields = FIELDS.filter((f) => f in newValues);
+      // grieviq-83: a ward's localities may come with the contacts (from an onboarding form).
+      const fields = FIELDS.concat(def && def.localitiesCol ? ["localities"] : []).filter((f) => f in newValues);
+      const strayLocalities = "localities" in newValues && !(def && def.localitiesCol);
       // Re-check with today's rules before applying.
-      const recheck = validateContact(Object.fromEntries(fields.map((f) => [f, newValues[f] ?? ""])));
+      const recheck = strayLocalities ? { ok: false, error: "This record has no localities." }
+        : "localities" in newValues && newValues.localities != null && normaliseLocalities(newValues.localities) !== newValues.localities ? { ok: false, error: "The localities list is not valid." }
+        : validateContact(Object.fromEntries(fields.filter((f) => f !== "localities").map((f) => [f, newValues[f] ?? ""])));
       if (!def || !fields.length || !recheck.ok) {
         await markOutOfDate(env, auth, r, recheck.ok ? "Request no longer valid." : recheck.error);
         results.push({ id, result: "invalid", error: recheck.ok ? null : recheck.error });
@@ -300,7 +307,7 @@ async function approve(env, auth, body) {
         const d = await emailDomainCanReceive(newValues.email);
         if (!d.ok) { results.push({ id, result: "invalid", error: d.error }); continue; }
       }
-      const col = { name: def.nameCol, phone: def.phoneCol, email: def.emailCol };
+      const col = { name: def.nameCol, phone: def.phoneCol, email: def.emailCol, localities: def.localitiesCol };
       // One transaction: change the record only if it still holds the old
       // values, and mark the request approved only if the record now holds
       // the requested values.

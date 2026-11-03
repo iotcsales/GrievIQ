@@ -33,7 +33,8 @@ export async function areaForNewUnit(env, areaId, mlaId) {
 export const CONTACT_TABLES = {
   mp: { table: "mp_constituencies", nameCol: "mp_name", phoneCol: "mp_phone", emailCol: "mp_email", label: "MP" },
   mla: { table: "mla_constituencies", nameCol: "mla_name", phoneCol: "mla_phone", emailCol: "mla_email", label: "MLA" },
-  ward: { table: "local_units", nameCol: "rep_name", phoneCol: "rep_phone", emailCol: "rep_email", label: "Ward representative" },
+  // grieviq-83: a ward's localities can be changed through a request too.
+  ward: { table: "local_units", nameCol: "rep_name", phoneCol: "rep_phone", emailCol: "rep_email", localitiesCol: "localities", label: "Ward representative" },
   mayor: { table: "municipal_bodies", nameCol: "mayor_name", phoneCol: "mayor_phone", emailCol: "mayor_email", label: "Mayor" },
 };
 
@@ -58,12 +59,14 @@ export async function readContact(env, type, id) {
   }
   const labelCol = type === "mp" ? "name" : type === "mla" ? "name" : type === "ward" ? "name" : "name";
   const row = await env.DB.prepare(
-    `SELECT ${def.nameCol} AS name, ${def.phoneCol} AS phone, ${def.emailCol} AS email, ${labelCol} AS place
+    `SELECT ${def.nameCol} AS name, ${def.phoneCol} AS phone, ${def.emailCol} AS email, ${labelCol} AS place${def.localitiesCol ? ", " + def.localitiesCol + " AS localities" : ""}
      FROM ${def.table} WHERE id = ?`
   ).bind(id).first();
   if (!row) return null;
+  const values = { name: row.name ?? null, phone: row.phone ?? null, email: row.email ?? null };
+  if (def.localitiesCol) values.localities = row.localities ?? null;
   return {
-    values: { name: row.name ?? null, phone: row.phone ?? null, email: row.email ?? null },
+    values,
     label: def.label + " — " + (row.place || id),
   };
 }

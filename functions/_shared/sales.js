@@ -92,7 +92,8 @@ export async function importPilotRequests(env) {
   return n;
 }
 
-// 2 years after a lead closed: contact details and notes removed.
+// 2 years after a lead closed: contact details and notes removed (and the
+// onboarding form's answers, grieviq-83).
 export async function eraseOldContacts(env, nowMs) {
   const cutoff = new Date((nowMs || Date.now()) - KEEP_DAYS * 86400000).toISOString();
   const { results } = await env.DB.prepare("SELECT id FROM sales_leads WHERE closed_at IS NOT NULL AND closed_at < ? AND erased_at IS NULL LIMIT 200").bind(cutoff).all();
@@ -101,6 +102,15 @@ export async function eraseOldContacts(env, nowMs) {
     await env.DB.prepare("UPDATE sales_leads SET contact_name = NULL, designation = NULL, mobile = NULL, email = NULL, next_step = NULL, erased_at = ? WHERE id = ?").bind(now, r.id).run();
     await env.DB.prepare("UPDATE sales_lead_events SET note = NULL WHERE lead_id = ?").bind(r.id).run();
     await logLead(env, r.id, "system", "ERASED");
+    // grieviq-83: the onboarding form's answers go with the contact details.
+    try {
+      const f = await env.DB.prepare("SELECT id FROM onboarding_forms WHERE lead_id = ? AND erased_at IS NULL").bind(r.id).first();
+      if (f) {
+        await env.DB.prepare("UPDATE onboarding_forms SET answers = '{}', return_note = NULL, setup_notes = '[]', erased_at = ? WHERE id = ?").bind(now, f.id).run();
+        await env.DB.prepare("UPDATE onboarding_events SET note = NULL WHERE form_id = ?").bind(f.id).run();
+        await env.DB.prepare("INSERT INTO onboarding_events (id, form_id, at, by_email, kind) VALUES (?, ?, ?, 'system', 'ERASED')").bind(crypto.randomUUID(), f.id, now).run();
+      }
+    } catch (e) { if (!/no such table/i.test(String(e && e.message))) throw e; }
   }
   return (results || []).length;
 }
