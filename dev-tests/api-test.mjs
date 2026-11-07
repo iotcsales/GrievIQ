@@ -4410,6 +4410,23 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok((await og(X, "schema=DEPARTMENT")).body.fields.some((f) => f.k === "officer_rows"), "the blank department form");
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part54 adds none)");
 }
+// ---- grieviq-84: practice mode (same checks, nothing stored) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const op = (w, b) => call(w, "POST", "/api/admin/onboarding", b);
+  const n = () => ["onboarding_forms", "onboarding_events", "sales_leads", "change_requests", "admin_events", "email_outbox"].map((t) => sdb.prepare("SELECT COUNT(*) AS n FROM " + t).get().n).join(",");
+  const before = n();
+  let r = await op("sx83@test.in", { action: "practice", kind: "OFFICE", answers: { v_date: "2026-11-06", v_attended: "Aadhaar 1234 5678 9012", o_email: "x@", loc_rows: [{ name: "Shiv Nagar", localities: "Shiv Nagar", pins: "12345" }], x_outcome: "SIGNED_PILOT" } });
+  ok(r.status === 200 && r.body.practice && r.body.fields.v_attended === "PERSONAL_ID" && r.body.fields.o_email === "FORMAT" && r.body.fields["loc_rows.0.pins"] === "FORMAT", "practice: the same refusals as a real form", r.body);
+  ok(r.body.missing.some((m) => m.k === "team_rows") && r.body.missing.some((m) => m.k === "p_plan") && r.body.missing.some((m) => m.k === "o_holder"), "practice: the same missing answers (signed needs the team and plan)", r.body.missing);
+  ok(!("answers" in r.body), "practice: answers are not sent back");
+  r = await op("sx83@test.in", { action: "practice", kind: "DEPARTMENT", answers: { d_nodal_email: "ae@example.in" } });
+  ok(r.status === 200 && r.body.missing.some((m) => m.k === "d_name") && !r.body.missing.some((m) => m.k === "d_nodal_email"), "practice: the department form", r.body.missing);
+  r = await op("audit@test.in", { action: "practice", kind: "OFFICE", answers: {} });
+  ok(r.status === 403, "practice: the auditor can't post", r.status);
+  ok(n() === before, "practice: nothing stored, logged or sent", [before, n()]);
+}
 
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");

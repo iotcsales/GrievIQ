@@ -153,7 +153,7 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=83"></script>
+<script src="/i18n.js?v=84"></script>
 <script src="/admin-nav.js?v=r29"></script>
 <style>
   /* grieviq-72: Community helpers */
@@ -351,6 +351,21 @@
   .ob-banner .ob-tag { color: #E8B631; font-weight: 600; font-size: 14px; }
   .ob-banner .ob-site { margin-left: auto; color: #c9d3e6; font-size: 14px; }
   .ob-logo { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; }
+  /* practice mode (grieviq-84) */
+  .ob-prband { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: #3a3014; border: 2px solid #d8b54a; color: var(--admin-text); border-radius: 10px; padding: 10px 14px; margin: 8px 0 12px; font-size: 14px; }
+  .ob-prband b { font-size: 15px; }
+  .ob-prband span { flex: 1 1 260px; }
+  .ob-prband button { min-height: 40px; }
+  html.light-theme .ob-prband { background: #fff4d6; border-color: #8a6500; color: #14181f; }
+  .ob-tip { grid-column: 1 / -1; margin: 6px 0 2px; padding: 8px 12px; border-left: 4px solid var(--admin-accent); background: rgba(111,149,242,.10); border-radius: 0 8px 8px 0; font-size: 13.5px; line-height: 1.45; color: var(--admin-text); }
+  html.light-theme .ob-tip { background: #eef3ff; border-left-color: #2b55c6; }
+  .ob-tip b { display: block; margin-bottom: 2px; }
+  .ob-tip .ob-tip-k { font-weight: 600; }
+  .ob-would { margin: 6px 0 12px 20px; padding: 0; }
+  .ob-would li { margin: 4px 0; }
+  .ob-qa td.ob-note { font-size: 12.5px; color: var(--admin-muted); width: 32%; }
+  .ob-notes { margin: 6px 0 0 18px; padding: 0; font-size: 12.5px; color: var(--admin-muted); }
+  .ob-notes li { margin: 3px 0; }
   .ss-errors a { display: inline-flex; min-height: 24px; align-items: center; }
   @media (max-width: 640px) { .ob-nav button { flex: 1; min-width: 0; } .ob-banner .ob-site { display: none; } }
   @media print {
@@ -362,6 +377,9 @@
     .ac-t th { color: #000 !important; }
     .subtitle, .muted { color: #333 !important; }
     .ob-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ob-prband { background: #fff4d6 !important; color: #000 !important; border-color: #8a6500 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ob-prband button { display: none !important; }
+    .ob-qa td.ob-note, .ob-notes { color: #333 !important; }
   }
 </style>
 </head>
@@ -381,6 +399,6 @@
 <main class="ss-main" id="main" tabindex="-1">
   <div id="ob-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
 </main>
-<script src="/admin-onboarding.js?v=83"></script>
+<script src="/admin-onboarding.js?v=84"></script>
 </body>
 </html>

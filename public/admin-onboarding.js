@@ -6,6 +6,9 @@
 // and a setup checklist). Also: a copy to print, and a blank form to print
 // for places without a network. The questions come from the server
 // (functions/_shared/onboarding.js), so page and server always agree.
+// Practice mode (grieviq-84): ?practice=OFFICE|DEPARTMENT fills the same form
+// for a made-up office, with "Why we ask this" notes; the server runs the
+// same checks and stores nothing. ?practice=..&print=1 is the worked example.
 (function () {
   "use strict";
   function T(k, v) { return window.GIQ ? window.GIQ.t(k, v) : k; }
@@ -19,11 +22,13 @@
 
   var Q = new URLSearchParams(location.search);
   var S = {
-    mode: Q.get("blank") ? "blank" : Q.get("lead") ? (Q.get("print") ? "print" : "form") : "queue",
+    mode: Q.get("practice") ? (Q.get("print") ? "example" : "practice") : Q.get("blank") ? "blank" : Q.get("lead") ? (Q.get("print") ? "print" : "form") : "queue",
     lead: Q.get("lead") || "", d: null, err: null, step: 0, a: {}, fields: {}, version: 0,
     saveState: "idle", savedAt: null, dirty: false, timer: null, retry: null, conflict: false, missingShown: false,
     pick: {}, results: {}, msg: null,
+    pkind: Q.get("practice") === "DEPARTMENT" ? "DEPARTMENT" : "OFFICE",
   };
+  function isPr() { return S.mode === "practice" || S.mode === "example"; }
   // Free text that looks like an ID, card or mobile number is refused by the
   // server too (functions/_shared/onboarding.js personalIn).
   var ID_LIKE = /(^|[^\d])\d(?:[\s-]?\d){11,18}(?!\d)/, PAN = /\b[A-Z]{5}\d{4}[A-Z]\b/i, MOBILE = /(^|[^\d])(?:\+?91[\s-]?|0)?[6-9](?:[\s-]?\d){9}(?!\d)/;
@@ -41,11 +46,12 @@
 
   // ---- loading ----
   function load() {
-    var url = S.mode === "blank" ? "/api/admin/onboarding?schema=" + (Q.get("blank") === "DEPARTMENT" ? "DEPARTMENT" : "OFFICE")
+    var url = isPr() ? "/api/admin/onboarding?schema=" + S.pkind : S.mode === "blank" ? "/api/admin/onboarding?schema=" + (Q.get("blank") === "DEPARTMENT" ? "DEPARTMENT" : "OFFICE")
       : S.mode === "queue" ? "/api/admin/onboarding?queue=1" : "/api/admin/onboarding?lead=" + encodeURIComponent(S.lead);
     return fetch(url, { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); }).then(function (x) {
       if (!x.r.ok) { S.err = x.j.error === "NOT_FOUND" ? "adm.sa_e_gone" : x.j.error === "INSUFFICIENT_ROLE" || x.j.error === "NOT_ADMIN" ? "adm.no_access" : "adm.ss_e_load"; render(); return; }
       S.d = x.j; S.err = null;
+      if (isPr()) { practiceSetup(); render(); if (S.mode === "practice") { S.dirty = true; save(); } return; }
       if (S.mode === "form" || S.mode === "print") {
         S.a = x.j.form ? JSON.parse(JSON.stringify(x.j.form.answers || {})) : {};
         S.version = x.j.form ? x.j.form.version : 0;
@@ -62,6 +68,113 @@
     if (S.d.kind === "OFFICE") { if (l.state) S.a.o_state = l.state; S.a.o_title_area = l.officeName; }
     else { if (l.state) S.a.d_state = l.state; S.a.d_name = l.officeName; }
     S.a.v_date = S.d.today;
+  }
+
+  // ---- practice: a made-up office (grieviq-84) ----
+  function hi() { return !!(window.GIQ && GIQ.lang === "hi"); }
+  function addDays(iso, n) { var d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  var PR_WARDS = [
+    { type: "ward", id: "practice-12", label: ["Shiv Nagar (Ward 12), Rampur (invented)", "शिव नगर (वार्ड 12), रामपुर (काल्पनिक)"] },
+    { type: "ward", id: "practice-13", label: ["Gandhi Nagar (Ward 13), Rampur (invented)", "गांधी नगर (वार्ड 13), रामपुर (काल्पनिक)"] },
+    { type: "ward", id: "practice-14", label: ["Purana Bazar (Ward 14), Rampur (invented)", "पुराना बाज़ार (वार्ड 14), रामपुर (काल्पनिक)"] },
+  ];
+  function prWard(i) { var w = PR_WARDS[i]; return { type: w.type, id: w.id, label: w.label[hi() ? 1 : 0] }; }
+  // Every name, email and phone here is made up (example.in is reserved for examples).
+  function sample(full) {
+    var L = hi() ? 1 : 0, x = function (en, h) { return L ? h : en; }, t = S.d.today, a = {};
+    a.v_date = t; a.v_number = 1; a.v_source = "OUTREACH"; a.v_demo = ["REP", "CITIZEN"]; a.v_lang = L ? "HI" : "EN";
+    if (S.pkind === "OFFICE") {
+      a.v_attended = x("The councillor (invented) and her office manager", "पार्षद (काल्पनिक) और उनके कार्यालय प्रबंधक");
+      a.o_holder = x("Meena Sharma (invented)", "मीना शर्मा (काल्पनिक)");
+      a.o_title_area = x("Councillor, Ward 12 Shiv Nagar, Rampur (invented)", "पार्षद, वार्ड 12 शिव नगर, रामपुर (काल्पनिक)");
+      a.o_record = prWard(0); a.o_district = x("Rampur", "रामपुर"); a.o_state = "09"; a.o_units_count = 1;
+      a.o_address = x("Ward office, Station Road, Shiv Nagar, Rampur", "वार्ड कार्यालय, स्टेशन रोड, शिव नगर, रामपुर");
+      a.o_email = "ward12.office@example.in"; a.o_phone = "0595 2350012"; a.o_decider = "HOLDER";
+      a.o_setup_name = x("Anil Kumar (invented)", "अनिल कुमार (काल्पनिक)"); a.o_setup_email = "anil.office@example.in";
+      if (!full) return a;
+      a.loc_rows = [{ unit: prWard(0), localities: x("Shiv Nagar; Gandhi Colony; Purana Bazar", "शिव नगर; गांधी कॉलोनी; पुराना बाज़ार"), pins: "244901",
+        landmarks: x("Railway line to the north, Station Road to the south", "उत्तर में रेलवे लाइन, दक्षिण में स्टेशन रोड"), block: x("Zone 2", "ज़ोन 2") }];
+      a.loc_source = "OFFICE_LIST"; a.loc_copy = true; a.loc_changes = x("No change expected before the next ward count", "अगली वार्ड गणना से पहले कोई बदलाव अपेक्षित नहीं");
+      a.t_month_count = 120; a.t_channels = ["VISIT", "PHONE", "WHATSAPP"]; a.t_record = ["REGISTER", "WHATSAPP"]; a.t_staff = 2; a.t_calls_day = 15;
+      a.t_depts = ["WATER", "ROADS", "SANITATION", "STREETLIGHTS"];
+      a.t_followup = x("The office manager phones the department every few days", "कार्यालय प्रबंधक हर कुछ दिन में विभाग को फ़ोन करते हैं");
+      a.t_frustration = x("Residents come back again and again about the same drain, and no one can say whether it was passed on", "लोग एक ही नाली के लिए बार-बार आते हैं, और कोई नहीं बता पाता कि शिकायत आगे भेजी गई या नहीं");
+      a.t_show_work = x("A monthly ward meeting", "हर महीने वार्ड बैठक");
+      a.team_rows = [{ name: x("Anil Kumar (invented)", "अनिल कुमार (काल्पनिक)"), role: "OFFICE_MANAGER", areas: x("Whole ward", "पूरा वार्ड"), email: "anil.office@example.in", phone_type: "ANDROID" },
+        { name: x("Pooja Singh (invented)", "पूजा सिंह (काल्पनिक)"), role: "FIELD_WORKER", areas: x("Gandhi Colony, Purana Bazar", "गांधी कॉलोनी, पुराना बाज़ार"), email: "pooja.field@example.in", phone_type: "ANDROID" }];
+      a.dept_rows = [{ office: x("Jal Kal (water works), Zone 2", "जल कल (जल कार्य), ज़ोन 2"), contact: "KNOWN", intro: "YES" },
+        { office: x("Municipal sanitation, Zone 2", "नगर सफ़ाई, ज़ोन 2"), contact: "TO_FIND", intro: "MAYBE" }];
+      a.p_plan = "councillor"; a.p_start = "PILOT"; a.p_pilot_start = t; a.p_pilot_end = addDays(t, 60); a.p_billing = "MONTHLY"; a.p_paid_from = "OFFICE";
+      a.p_invoice_name = x("Office of the Councillor, Ward 12 (invented)", "पार्षद कार्यालय, वार्ड 12 (काल्पनिक)"); a.p_pay_method = "UPI";
+      ["a_dpa", "a_rules", "a_price", "a_neutral", "a_hidden", "a_moveup", "a_record", "tr_signed_in", "tr_alerts", "tr_test", "tr_page", "tr_support"].forEach(function (k) { a[k] = true; });
+      a.tr_date = t;
+    } else {
+      a.v_attended = x("The Executive Engineer (invented) and the Assistant Engineer (invented)", "अधिशासी अभियंता (काल्पनिक) और सहायक अभियंता (काल्पनिक)");
+      a.d_name = x("Jal Kal (water works), Zone 2, Rampur (invented)", "जल कल (जल कार्य), ज़ोन 2, रामपुर (काल्पनिक)"); a.d_level = "ZONE";
+      a.d_district = x("Rampur", "रामपुर"); a.d_state = "09"; a.d_address = x("Zone 2 office, Civil Lines, Rampur", "ज़ोन 2 कार्यालय, सिविल लाइन्स, रामपुर");
+      a.d_email = "jalkal.zone2@example.in"; a.d_phone = "0595 2350020";
+      a.d_nodal_name = x("R. K. Verma (invented)", "आर. के. वर्मा (काल्पनिक)"); a.d_nodal_desig = x("Assistant Engineer", "सहायक अभियंता"); a.d_nodal_email = "ae.zone2@example.in";
+      if (!full) return a;
+      a.d_signer_name = x("S. P. Gupta (invented)", "एस. पी. गुप्ता (काल्पनिक)"); a.d_signer_desig = x("Executive Engineer", "अधिशासी अभियंता");
+      a.loc_rows = [{ name: x("Zone 2 (wards 10 to 18)", "ज़ोन 2 (वार्ड 10 से 18)"), localities: x("Shiv Nagar; Gandhi Colony; Purana Bazar; Civil Lines", "शिव नगर; गांधी कॉलोनी; पुराना बाज़ार; सिविल लाइन्स"), pins: "244901",
+        landmarks: x("Railway line to the north, the river to the east", "उत्तर में रेलवे लाइन, पूर्व में नदी"), block: x("Zone 2", "ज़ोन 2") }];
+      a.loc_source = "NOTIFICATION"; a.loc_copy = true;
+      a.dt_month_count = 300; a.dt_sources = ["REP", "IGRS", "WALKIN", "PHONE"]; a.dt_dupes = "OFTEN"; a.dt_no_location = "SOMETIMES"; a.dt_calls_week = 40;
+      a.dt_record = x("A complaint register at the zone office", "ज़ोन कार्यालय में शिकायत रजिस्टर"); a.dt_reviews = x("A weekly review by the Executive Engineer", "अधिशासी अभियंता द्वारा साप्ताहिक समीक्षा");
+      a.dt_frustration = x("The same leak is reported again and again by different people, often without the exact place", "एक ही लीकेज की शिकायत अलग-अलग लोग बार-बार करते हैं, अक्सर सही जगह बताए बिना");
+      a.officer_rows = [{ name: x("R. K. Verma (invented)", "आर. के. वर्मा (काल्पनिक)"), desig: x("Assistant Engineer", "सहायक अभियंता"), areas: x("Whole zone", "पूरा ज़ोन"), email: "ae.zone2@example.in" },
+        { name: x("M. Ali (invented)", "एम. अली (काल्पनिक)"), desig: x("Junior Engineer", "कनिष्ठ अभियंता"), areas: x("Wards 10 to 13", "वार्ड 10 से 13"), email: "je.zone2a@example.in" }];
+      a.di_issues = x("Water supply, leaks, low pressure, dirty water", "पानी की आपूर्ति, लीकेज, कम दबाव, गंदा पानी"); a.di_not_issues = x("Electricity, roads", "बिजली, सड़कें");
+      a.di_target_days = 14; a.di_shutdowns = x("Planned shutdowns are announced a day before", "नियोजित बंदी की सूचना एक दिन पहले दी जाती है");
+      a.dp_pilot_start = t; a.dp_pilot_end = addDays(t, 90); a.dp_plan = "ONE_OFFICE"; a.dp_route = "DIRECT";
+      a.dp_invoice_name = x("Executive Engineer, Jal Kal Zone 2 (invented)", "अधिशासी अभियंता, जल कल ज़ोन 2 (काल्पनिक)");
+      ["da_agreement", "da_rules", "da_hidden", "da_report", "da_transfer", "da_training", "da_test"].forEach(function (k) { a[k] = true; });
+    }
+    a.x_outcome = "SIGNED_PILOT";
+    a.x_questions = x("How quickly will departments see a new complaint?", "विभाग को नई शिकायत कितनी जल्दी दिखेगी?");
+    a.x_liked = x("Seeing every complaint and where it stands, in one place", "हर शिकायत और उसकी स्थिति एक ही जगह दिखना");
+    a.x_promised = x("Training for the field worker on the first day of the pilot", "पायलट के पहले दिन फ़ील्ड कर्मचारी का प्रशिक्षण");
+    return a;
+  }
+  function practiceSetup() {
+    var office = S.pkind === "OFFICE";
+    S.d.practice = true;
+    S.d.lead = { id: "", ref: T("ob.pr_ref"), officeKind: office ? "COUNCILLOR" : "DEPARTMENT", officeName: T(office ? "ob.pr_office_o" : "ob.pr_office_d"), state: "09" };
+    S.d.officeType = office ? "ward" : null;
+    S.d.form = { status: "DRAFT", answers: {}, version: 0, editors: [], checklist: [], setupNotes: [] };
+    S.d.can = { edit: true, submit: true };
+    S.d.missingNow = S.mode === "example" ? [] : null;
+    S.a = sample(S.mode === "example"); S.fields = {}; S.step = 0; S.pick = {}; S.results = {}; S.prDone = false; S.missingShown = false;
+  }
+  function tipHtml(k) {
+    if (!isPr() || !has("ob.tip_" + k + "_why")) return "";
+    return '<div class="ob-tip" role="note"><b>' + esc(T("ob.tip_h")) + "</b>" + esc(T("ob.tip_" + k + "_why")) +
+      (has("ob.tip_" + k + "_good") ? '<br><span class="ob-tip-k">' + esc(T("ob.tip_good")) + "</span> " + esc(T("ob.tip_" + k + "_good")) : "") +
+      (has("ob.tip_" + k + "_avoid") ? '<br><span class="ob-tip-k">' + esc(T("ob.tip_avoid")) + "</span> " + esc(T("ob.tip_" + k + "_avoid")) : "") + "</div>";
+  }
+  // What submitting would do, for the answers given so far.
+  function wouldList() {
+    var a = S.a, o = a.x_outcome, signed = o === "SIGNED_PILOT" || o === "SIGNED_PAID", items = [];
+    items.push(!o ? T("ob.pr_w_lead_NONE") : signed ? T("ob.pr_w_lead_WON", { outcome: optName("x_outcome", o) }) : o === "DECLINED" ? T("ob.pr_w_lead_LOST") : T("ob.pr_w_lead_LATER", { date: a.x_next_date ? day(a.x_next_date) : "—" }));
+    items.push(T("ob.pr_w_lock"));
+    if (signed) {
+      items.push(T(S.pkind === "OFFICE" ? "ob.pr_w_changes_o" : "ob.pr_w_changes_d", { n: (a.loc_rows || []).length }));
+      var tasks = S.pkind === "DEPARTMENT" ? ["DEPT_OFFICE", "AGREEMENT", "OFFICERS", "PILOT", "TRAINING", "TEST"] : ["TEAM", a.p_start === "PAID" ? "PLAN" : "PILOT", "TRAINING", "TEST", "PUBLIC_PAGE"];
+      items.push(T("ob.pr_w_checklist", { list: tasks.map(function (k) { return T("ob.task_" + k); }).join("; ") }));
+    } else if (o) items.push(T("ob.pr_w_close"));
+    return items;
+  }
+  function prBand() {
+    return '<div class="ob-prband" role="note" id="ob-prband"><b>' + esc(T("ob.pr_band")) + "</b><span>" + esc(T(S.mode === "example" ? "ob.pr_band_ex" : "ob.pr_band_sub", { name: T(S.pkind === "OFFICE" ? "ob.pr_office_o" : "ob.pr_office_d") })) + "</span>" +
+      (S.mode === "practice" ? '<button type="button" data-restart="1">' + esc(T("ob.pr_restart")) + "</button>" : "") + "</div>";
+  }
+  function prHeader() {
+    var l = S.d.lead;
+    var h = '<div class="acts"><a class="btnlink" href="/admin-sales.html">' + esc(T("ob.back_sales")) + '</a><a class="btnlink" href="/admin-onboarding.html?practice=' + S.pkind + '&print=1">' + esc(T("ob.pr_example")) + "</a>" +
+      '<a class="btnlink" href="/admin-onboarding.html?practice=' + (S.pkind === "OFFICE" ? "DEPARTMENT" : "OFFICE") + '">' + esc(T(S.pkind === "OFFICE" ? "ob.pr_try_d" : "ob.pr_try_o")) + "</a></div>";
+    h += prBand() + '<h1 id="ob-h" tabindex="-1">' + esc(T("ob.pr_title")) + '</h1><p class="subtitle">' + esc(T(S.pkind === "OFFICE" ? "ob.pr_office_o" : "ob.pr_office_d")) + " · " + esc(T("adm.sa_k_" + l.officeKind)) + ' <span class="sa-badge">' + esc(T("ob.pr_badge")) + "</span></p>";
+    h += '<div class="note ob-rule">' + esc(T("ob.never")) + "</div>";
+    return h;
   }
 
   // ---- labels ----
@@ -91,7 +204,14 @@
   function describe(id, hint, err) { var d = [hint ? id + "-h" : "", err ? id + "-e" : ""].filter(Boolean).join(" "); return (err ? ' aria-invalid="true"' : "") + (d ? ' aria-describedby="' + d + '"' : ""); }
 
   // ---- one field ----
+  // In practice, a "Why we ask this" note sits under the key questions (once, on the first row of a table).
   function control(f, id, val, path, ro) {
+    var h = control0(f, id, val, path, ro);
+    if (!isPr() || /\.[1-9]\d*\./.test(path)) return h;
+    var tip = tipHtml(f.k);
+    return tip ? h.replace(/<\/(div|fieldset)>$/, tip + "</$1>") : h;
+  }
+  function control0(f, id, val, path, ro) {
     var err = errFor(path), hintKey = "ob.h_" + f.k, hint = has(hintKey) ? T(hintKey) : "";
     var dis = ro ? " disabled" : "";
     var req = reqWhen(f) ? ' <span class="req">' + esc(T("ob.required")) + "</span>" : "";
@@ -175,6 +295,7 @@
     }).join("") + "</ol></nav></details>";
   }
   function saveLine() {
+    if (isPr()) return '<p class="ob-save" id="ob-save" role="status">' + esc(T("ob.pr_save")) + "</p>" + (S.saveState === "offline" ? '<div class="ob-offline" role="alert" id="ob-offline"><b>' + esc(T("ob.offline_h")) + "</b> " + esc(T("ob.pr_offline")) + "</div>" : "");
     if (!editable()) return "";
     var t = S.saveState === "saving" ? T("ob.saving") : S.saveState === "offline" ? "" : S.saveState === "error" ? T("ob.save_failed") : S.savedAt ? T("ob.saved_at", { t: clock(S.savedAt) }) : S.d.form ? T("ob.saved_before") : T("ob.not_started");
     var h = '<p class="ob-save" id="ob-save" role="status">' + esc(t) + "</p>";
@@ -197,7 +318,7 @@
   }
   function formView() {
     var st = steps(), cur = st[S.step], last = S.step === st.length - 1;
-    var h = header() + saveLine() + '<p class="ob-progress-l" id="ob-progress-l">' + esc(T("ob.step_of", { n: S.step + 1, of: st.length, name: cur === "review" ? T("ob.s_review") : secName(cur) })) + "</p>" +
+    var h = (isPr() ? prHeader() : header()) + saveLine() + '<p class="ob-progress-l" id="ob-progress-l">' + esc(T("ob.step_of", { n: S.step + 1, of: st.length, name: cur === "review" ? T("ob.s_review") : secName(cur) })) + "</p>" +
       '<progress class="ob-progress" max="' + st.length + '" value="' + (S.step + 1) + '" aria-labelledby="ob-progress-l"></progress>' + stepNav();
     h += '<section class="panel ob-sec" aria-labelledby="ob-sec-h"><h2 id="ob-sec-h" tabindex="-1">' + esc(cur === "review" ? T("ob.s_review") : secName(cur)) + "</h2>";
     h += cur === "review" ? reviewHtml() : sectionHtml(cur, !editable());
@@ -208,6 +329,10 @@
   function missingNow() { return S.d.missingNow || []; }
   function reviewHtml() {
     var miss = missingNow(), h = "";
+    if (isPr() && S.prDone) {
+      return '<p class="st-msg success" id="ob-prdone" tabindex="-1">' + esc(T("ob.pr_done")) + '</p><h3 class="sub-h">' + esc(T("ob.pr_would_h")) + '</h3><ul class="ob-would">' + wouldList().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        '<div class="acts"><button type="button" class="primary" data-restart="1">' + esc(T("ob.pr_restart")) + '</button><a class="btnlink" href="/admin-sales.html">' + esc(T("ob.back_sales")) + "</a></div>";
+    }
     if (!S.d.form) h += '<p class="muted-note">' + esc(T("ob.fill_first")) + "</p>";
     else if (miss.length) {
       h += '<div class="ss-errors" id="ob-missing" tabindex="-1"><h3 class="sub-h">' + esc(T("ob.missing_h", { n: miss.length })) + "</h3><ul>" + miss.map(function (m) {
@@ -217,6 +342,10 @@
       }).join("") + "</ul></div>";
     } else h += '<p class="st-msg success">' + esc(T("ob.ready_submit")) + "</p>";
     if (S.saveState === "offline" || S.dirty) h += '<p class="muted-note">' + esc(T("ob.wait_save")) + "</p>";
+    if (isPr()) {
+      h += '<h3 class="sub-h">' + esc(T("ob.pr_would_h")) + '</h3><ul class="ob-would">' + wouldList().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>";
+      return h + '<div class="acts"><button type="button" class="primary" id="ob-submit"' + (miss.length || S.dirty || S.saveState === "offline" || !S.d.missingNow ? " disabled" : "") + ">" + esc(T("ob.pr_submit")) + '</button><button type="button" data-restart="1">' + esc(T("ob.pr_restart")) + "</button></div>";
+    }
     h += '<p class="muted-note">' + esc(T("ob.submit_what")) + "</p>";
     h += '<div class="acts"><button type="button" class="primary" id="ob-submit"' + (!editable() || miss.length || S.dirty || S.saveState === "offline" || !S.d.form ? " disabled" : "") + ">" + esc(T("ob.submit")) + "</button></div>";
     return h;
@@ -236,7 +365,9 @@
   function summaryHtml(blank) {
     return S.d.sections.map(function (sec) {
       var h = '<section class="ob-print-sec"><h2>' + esc(secName(sec)) + "</h2>", plain = [];
-      var flush = function () { if (plain.length) { h += '<table class="ac-t ob-qa"><thead><tr><th scope="col">' + esc(T("ob.q")) + '</th><th scope="col">' + esc(T("ob.ans")) + "</th></tr></thead><tbody>" + plain.join("") + "</tbody></table>"; plain = []; } };
+      var ex = S.mode === "example";
+      var flush = function () { if (plain.length) { h += '<table class="ac-t ob-qa"><thead><tr><th scope="col">' + esc(T("ob.q")) + '</th><th scope="col">' + esc(T("ob.ans")) + "</th>" + (ex ? '<th scope="col">' + esc(T("ob.pr_notes")) + "</th>" : "") + "</tr></thead><tbody>" + plain.join("") + "</tbody></table>"; plain = []; } };
+      var note = function (k) { return has("ob.tip_" + k + "_why") ? T("ob.tip_" + k + "_why") + (has("ob.tip_" + k + "_good") ? " " + T("ob.tip_good") + " " + T("ob.tip_" + k + "_good") : "") : ""; };
       fieldsOf(sec).forEach(function (f) {
         if (f.t === "rows") {
           flush();
@@ -244,11 +375,13 @@
           h += '<h3 class="sub-h">' + esc(lbl(f.k)) + '</h3><div class="ac-table-wrap"><table class="ac-t ob-grid"><thead><tr>' + f.cols.map(function (c) { return '<th scope="col">' + esc(lbl(f.k + "_" + c.k)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
             (rows.length ? rows.map(function (r) { return "<tr>" + f.cols.map(function (c) { return "<td>" + (blank ? "&nbsp;" : esc(answerText(Object.assign({}, c, { k: f.k + "_" + c.k }), r[c.k]))) + "</td>"; }).join("") + "</tr>"; }).join("")
               : '<tr><td colspan="' + f.cols.length + '" class="muted">' + esc(T("ob.none_given")) + "</td></tr>") + "</tbody></table></div>";
+          if (ex) { var ns = f.cols.filter(function (c) { return note(f.k + "_" + c.k); }); if (ns.length) h += '<ul class="ob-notes">' + ns.map(function (c) { return "<li><b>" + esc(lbl(f.k + "_" + c.k)) + ":</b> " + esc(note(f.k + "_" + c.k)) + "</li>"; }).join("") + "</ul>"; }
           return;
         }
         var shown = blank ? (f.t === "bool" ? "☐" : f.t === "enum" || f.t === "multi" ? f.opts.map(function (o) { return "☐ " + optName(f.k, o); }).join("   ") : "") : answerText(f, S.a[f.k]);
         if (!blank && !shown) shown = "";
-        plain.push('<tr><th scope="row">' + esc(lbl(f.k)) + "</th><td>" + (shown ? esc(shown) : blank ? "&nbsp;" : '<span class="muted">—</span>') + "</td></tr>");
+        if (ex && !shown) return;
+        plain.push('<tr><th scope="row">' + esc(lbl(f.k)) + "</th><td>" + (shown ? esc(shown) : blank ? "&nbsp;" : '<span class="muted">—</span>') + "</td>" + (ex ? '<td class="ob-note">' + esc(note(f.k)) + "</td>" : "") + "</tr>");
       });
       flush();
       return h + "</section>";
@@ -260,6 +393,12 @@
   }
   function banner() {
     return '<div class="ob-banner"><span class="ob-logo" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></span><span><b>GrievIQ</b><br><span class="ob-tag">' + esc(T("ob.tagline")) + '</span></span><span class="ob-site">grieviq.in</span></div>';
+  }
+  function exampleView() {
+    var h = '<div class="acts no-print"><a class="btnlink" href="/admin-onboarding.html?practice=' + S.pkind + '">' + esc(T("ob.pr_back")) + '</a><a class="btnlink" href="/admin-onboarding.html?practice=' + (S.pkind === "OFFICE" ? "DEPARTMENT" : "OFFICE") + '&print=1">' + esc(T(S.pkind === "OFFICE" ? "ob.pr_ex_d" : "ob.pr_ex_o")) + "</a>" +
+      '<button type="button" class="primary" id="ob-print">' + esc(T("ob.print")) + "</button></div>" + banner();
+    h += '<h1 id="ob-h" tabindex="-1">' + esc(T(S.pkind === "OFFICE" ? "ob.pr_ex_title_o" : "ob.pr_ex_title_d")) + '</h1><p class="subtitle">' + esc(T(S.pkind === "OFFICE" ? "ob.pr_office_o" : "ob.pr_office_d")) + " · " + esc(T("adm.sa_k_" + S.d.lead.officeKind)) + "</p>" + prBand();
+    return h + '<p>' + esc(T("ob.pr_ex_sub")) + '</p><div class="note ob-rule">' + esc(T("ob.never")) + "</div>" + summaryHtml(false);
   }
   function printView(blank) {
     var d = S.d, l = d.lead || null, f = d.form || null;
@@ -278,12 +417,18 @@
       return "<li><b>" + esc(what) + "</b>" + (e.kind === "RETURNED" && e.note ? ": " + esc(e.note) : "") + ' <span class="muted">· ' + esc(when(e.at)) + " · " + esc(e.by === "system" ? T("adm.sa_system") : e.by) + "</span></li>";
     }).join("") + "</ol>";
   }
+  // A change request's label is stored in English ("Ward representative — Aishbagh"): shown in the page language.
+  function crLabel(lbl) {
+    lbl = String(lbl || ""); var i = lbl.indexOf(" — "); if (i < 0) return lbl;
+    var k = { "MP": "adm.c_lbl_mp", "MLA": "adm.c_lbl_mla", "Ward representative": "adm.c_lbl_ward", "Ward member": "adm.c_lbl_ward", "Mayor": "adm.c_lbl_mayor" }[lbl.slice(0, i)];
+    return k && has(k) ? T(k) + " — " + lbl.slice(i + 3) : lbl;
+  }
   var TASK_LINK = { PILOT: "/admin-subscriptions.html", PLAN: "/admin-subscriptions.html", DEPT_OFFICE: "/admin-departments.html", AGREEMENT: "/admin-departments.html", OFFICERS: "/admin-departments.html" };
   function setupHtml() {
     var d = S.d, f = d.form;
     var h = '<section class="panel" aria-labelledby="ob-setup-h"><h2 id="ob-setup-h">' + esc(T("ob.setup_h")) + "</h2>";
     h += '<h3 class="sub-h">' + esc(T("ob.changes_h")) + "</h3>";
-    h += d.changes.length ? '<ul class="hl-ev">' + d.changes.map(function (c) { return "<li>" + esc(c.label) + ' · <span class="sa-badge">' + esc(T("adm.c_st_" + c.status)) + "</span>" + (c.note ? ' <span class="muted">' + esc(c.note) + "</span>" : "") + "</li>"; }).join("") + '</ul><p><a href="/admin-change-requests.html">' + esc(T("ob.changes_open")) + "</a></p>" : '<p class="muted">' + esc(T("ob.changes_none")) + "</p>";
+    h += d.changes.length ? '<ul class="hl-ev">' + d.changes.map(function (c) { return "<li>" + esc(crLabel(c.label)) + ' · <span class="sa-badge">' + esc(T("adm.c_st_" + c.status)) + "</span>" + (c.note ? ' <span class="muted">' + esc(c.note) + "</span>" : "") + "</li>"; }).join("") + '</ul><p><a href="/admin-change-requests.html">' + esc(T("ob.changes_open")) + "</a></p>" : '<p class="muted">' + esc(T("ob.changes_none")) + "</p>";
     if (f.setupNotes.length) h += '<h3 class="sub-h">' + esc(T("ob.by_hand_h")) + '</h3><ul class="hl-ev">' + f.setupNotes.map(function (n) { return "<li>" + esc(T("ob.what_" + n.what.kind, { label: n.what.label })) + " — " + esc(T("ob.why_note_" + n.why)) + "</li>"; }).join("") + "</ul>";
     h += '<h3 class="sub-h">' + esc(T("ob.checklist_h")) + '</h3><div class="ob-tasks">' + f.checklist.map(function (t) {
       var id = "ob-task-" + t.k;
@@ -330,6 +475,8 @@
     try { if (active && document.activeElement.selectionStart != null) pos = document.activeElement.selectionStart; } catch (e) {}
     var h;
     if (S.mode === "queue") h = queueView();
+    else if (S.mode === "example") h = exampleView();
+    else if (S.mode === "practice") h = formView();
     else if (S.mode === "blank") h = printView(true);
     else if (S.mode === "print") h = printView(false);
     else if (d.form && ["SUBMITTED", "CHECKED", "SENT"].indexOf(d.form.status) >= 0) h = lockedView();
@@ -337,7 +484,7 @@
     else if (!d.can.edit) h = lockedView();
     else h = formView();
     app.innerHTML = '<div id="ob-msg" class="hl-msg" role="status" aria-live="polite" tabindex="-1">' + (S.msg ? '<p class="st-msg ' + (S.msg.bad ? "error" : "success") + '">' + esc(S.msg.text) + "</p>" : "") + "</div>" + h;
-    document.title = T("ob.page_title");
+    document.title = T(S.mode === "practice" ? "ob.pr_title" : S.mode === "example" ? (S.pkind === "OFFICE" ? "ob.pr_ex_title_o" : "ob.pr_ex_title_d") : "ob.page_title");
     wire();
     if (active && $(active)) { var el = $(active); el.focus(); if (pos != null) try { el.setSelectionRange(pos, pos); } catch (e) {} }
   }
@@ -354,15 +501,29 @@
     S.dirty = true; S.saveState = "pending";
     clearTimeout(S.timer); S.timer = setTimeout(save, 1200);
     if (rerender) render();
-    else { var sv = $("ob-save"); if (sv) sv.textContent = T("ob.unsaved"); }
+    else if (!isPr()) { var sv = $("ob-save"); if (sv) sv.textContent = T("ob.unsaved"); }
   }
   function save() {
     clearTimeout(S.timer);
     if (!S.dirty || !editable() || S.saving) return Promise.resolve();
     S.saving = true; S.saveState = "saving"; var sv = $("ob-save"); if (sv) sv.textContent = T("ob.saving");
     var sent = JSON.stringify(S.a);
-    return api({ action: "save", lead: S.lead, version: S.version, answers: JSON.parse(sent) }).then(function (x) {
+    var body = isPr() ? { action: "practice", kind: S.pkind, answers: JSON.parse(sent) } : { action: "save", lead: S.lead, version: S.version, answers: JSON.parse(sent) };
+    if (isPr()) { var sv2 = $("ob-save"); if (sv2) sv2.textContent = T("ob.pr_save"); }
+    return api(body).then(function (x) {
       S.saving = false;
+      if (isPr()) {
+        if (!x.r.ok) { S.saveState = "error"; render(); msg(errText(x.j), true); return; }
+        S.fields = x.j.fields || {}; S.d.missingNow = x.j.missing || [];
+        S.dirty = JSON.stringify(S.a) !== sent; S.saveState = S.dirty ? "pending" : "saved";
+        clearInterval(S.retry); S.retry = null;
+        if (S.dirty) { clearTimeout(S.timer); S.timer = setTimeout(save, 800); }
+        render();
+        var bad = Object.keys(S.fields).length;
+        if (bad && !S.errAnnounced) { S.errAnnounced = true; msg(T("ob.pr_refused"), true); }
+        if (!bad) S.errAnnounced = false;
+        return;
+      }
       if (x.r.status === 409 && x.j.error === "CHANGED") { S.conflict = true; S.saveState = "error"; render(); return; }
       if (!x.r.ok) { S.saveState = "error"; render(); msg(errText(x.j), true); return; }
       S.version = x.j.version; S.fields = x.j.fields || {}; S.d.missingNow = x.j.missing || [];
@@ -381,7 +542,7 @@
     });
   }
   window.addEventListener("online", function () { if (S.saveState === "offline") save(); });
-  window.addEventListener("beforeunload", function (e) { if (S.dirty && editable()) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("beforeunload", function (e) { if (S.dirty && editable() && !isPr()) { e.preventDefault(); e.returnValue = ""; } });
 
   function readControl(el) {
     var t = el.getAttribute("data-t"), path = el.getAttribute("data-p");
@@ -452,6 +613,11 @@
         var path = inp.getAttribute("data-find"), q = inp.value.trim(); S.pick[path] = inp.value;
         clearTimeout(findTimer);
         if (q.length < 2) { S.results[path] = null; var r0 = $(inp.id + "-r"); if (r0) r0.innerHTML = ""; return; }
+        if (isPr()) {
+          var ql = q.toLowerCase();
+          S.results[path] = PR_WARDS.map(function (w, i) { return prWard(i); }).filter(function (w) { return w.label.toLowerCase().indexOf(ql) >= 0; });
+          findTimer = setTimeout(render, 250); return;
+        }
         findTimer = setTimeout(function () {
           fetch("/api/admin/onboarding?find=" + encodeURIComponent(q) + "&type=" + inp.getAttribute("data-type"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { S.results[path] = j.results || []; render(); })
             .catch(function () { var r1 = $(inp.id + "-r"); if (r1) r1.textContent = T("ob.find_offline"); });
@@ -471,6 +637,11 @@
     var au = $("ob-add-units");
     if (au) au.addEventListener("click", function () {
       var rec = S.a.o_record;
+      if (isPr()) {
+        var haveP = (S.a.loc_rows || []).some(function (r) { return r.unit && r.unit.id === rec.id; });
+        if (!haveP) S.a.loc_rows = (S.a.loc_rows || []).concat([{ unit: { type: rec.type, id: rec.id, label: rec.label } }]);
+        changed(true); msg(T("ob.units_added", { n: haveP ? 0 : 1 })); return;
+      }
       fetch("/api/admin/onboarding?units=" + rec.type + "&id=" + encodeURIComponent(rec.id), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
         var have = (S.a.loc_rows || []).map(function (r) { return r.unit && r.unit.id; }), added = 0;
         (j.results || []).forEach(function (u) { if (have.indexOf(u.id) < 0) { S.a.loc_rows = (S.a.loc_rows || []).concat([{ unit: u }]); added++; } });
@@ -478,7 +649,11 @@
       }).catch(function () { msg(T("ob.find_offline"), true); });
     });
     var sb = $("ob-submit");
-    if (sb) sb.addEventListener("click", function () {
+    if (sb && isPr()) sb.addEventListener("click", function () {
+      if (S.d.missingNow && S.d.missingNow.length) { var m0 = $("ob-missing"); if (m0) m0.focus(); return; }
+      S.prDone = true; render(); var dn = $("ob-prdone"); if (dn) dn.focus();
+    });
+    else if (sb) sb.addEventListener("click", function () {
       sb.disabled = true;
       api({ action: "submit", lead: S.lead, version: S.version }).then(function (x) {
         if (x.r.status === 400 && x.j.missing) { S.d.missingNow = x.j.missing; render(); var m = $("ob-missing"); if (m) m.focus(); return; }
@@ -518,6 +693,12 @@
         }).catch(function () { c.checked = !c.checked; msg(T("adm.ss_e_net"), true); });
       });
     });
+    app.querySelectorAll("[data-restart]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        clearTimeout(S.timer); practiceSetup(); S.dirty = true; S.msg = { text: T("ob.pr_restarted"), bad: false }; render(); save();
+        var hh = $("ob-h"); if (hh) hh.focus();
+      });
+    });
     var pr = $("ob-print"); if (pr) pr.addEventListener("click", function () { window.print(); });
     var rl = $("ob-reload"); if (rl) rl.addEventListener("click", function () { S.dirty = false; clearTimeout(S.timer); load(); });
   }
@@ -531,6 +712,6 @@
     var next = cur === "light" ? "dark" : "light"; try { localStorage.setItem("griq-admin-theme", next); } catch (e) {}
     applyTheme(next);
   });
-  document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); render(); });
+  document.addEventListener("giq:lang", function () { var th = "dark"; try { th = localStorage.getItem("griq-admin-theme") || "dark"; } catch (e) {} applyTheme(th); if (S.mode === "example" && S.d && S.d.practice) practiceSetup(); render(); });
   load();
 })();

@@ -15,6 +15,8 @@
 //   check   { lead }                     manage_sales, not someone who edited it: signed forms are
 //                                        sent for setup (change requests + a checklist), others closed
 //   task    { lead, task, done }         a checklist item ticked or unticked
+//   practice { kind, answers }           (grieviq-84) practice mode: the same checks as save and
+//                                        submit, on a made-up office; nothing is read or written
 
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
 import { needsSalesCode } from "../../_shared/sales-code.js";
@@ -150,6 +152,13 @@ export async function onRequestPost({ request, env }) {
   if (await needsSalesCode(env, auth)) return json({ error: "CODE_NOT_ACCEPTED" }, 403);
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: "Invalid request body." }, 400); }
+  // Practice: the same checks as a real form, and nothing is stored, sent or logged.
+  if (b.action === "practice") {
+    const kind = b.kind === "DEPARTMENT" ? "DEPARTMENT" : "OFFICE";
+    if (JSON.stringify(b.answers || {}).length > 120000) return json({ error: "TOO_BIG" }, 413);
+    const { answers, fields } = cleanAnswers(kind, b.answers, {});
+    return json({ ok: true, practice: true, fields, missing: missing(kind, answers) });
+  }
   const canManage = allows(auth, "manage_sales");
   const now = new Date().toISOString();
   const myStates = await statesOf(env, auth.email);

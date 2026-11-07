@@ -4703,6 +4703,72 @@ window.Razorpay.prototype.open = function () {
     ok(not errs, "lead page: no script errors", errs)
     ctx.close()
 
+    # ---------- grieviq-84: practice mode for the onboarding form ----------
+    def counts84():
+        return tuple(_d83.execute(q).fetchone()[0] for q in ("SELECT COUNT(*) FROM onboarding_forms", "SELECT COUNT(*) FROM onboarding_events", "SELECT COUNT(*) FROM sales_leads", "SELECT COUNT(*) FROM change_requests", "SELECT COUNT(*) FROM email_outbox", "SELECT COUNT(*) FROM admin_events"))
+    before84 = counts84()
+    # The server checks practice answers like a real form, and stores nothing
+    r84 = api83(X83, "/api/admin/onboarding", {"action": "practice", "kind": "OFFICE", "answers": {"v_date": "2026-11-06", "v_attended": "call 9876543210", "o_email": "bad", "loc_rows": [{"name": "X", "pins": "1234"}]}})
+    ok(r84.get("practice") and r84["fields"].get("v_attended") == "PERSONAL_MOBILE" and r84["fields"].get("o_email") == "FORMAT" and r84["fields"].get("loc_rows.0.pins") == "FORMAT", "practice: same refusals as a real form", r84)
+    ok(any(m["k"] == "o_holder" for m in r84["missing"]) and any(m["k"] == "loc_rows.0" for m in r84["missing"]), "practice: same missing answers", r84.get("missing"))
+    rD = api83(X83, "/api/admin/onboarding", {"action": "practice", "kind": "DEPARTMENT", "answers": {}})
+    ok(any(m["k"] == "d_nodal_email" for m in rD.get("missing", [])), "practice: department checks", rD)
+    ok("403" in str(api83("audit@test.in", "/api/admin/onboarding", {"action": "practice", "kind": "OFFICE", "answers": {}}).get("error")), "practice: the auditor cannot post")
+    for theme, lang in (("light", "en"), ("dark", "hi")):
+        for width in (390, 1280):
+            tag = "%s %s %d" % (theme, lang, width)
+            ctx, p, errs = P(X83, width=width, theme=theme, lang=lang)
+            p.goto(B + "/admin-sales.html"); p.wait_for_selector(".sa-practice")
+            ok(p.locator(".sa-practice a").count() == 3 and not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS), "Sales page: practice box " + tag, (p.evaluate(CONTRAST_JS)[:3], p.evaluate(TARGET_JS)[:3]))
+            p.goto(B + "/admin-onboarding.html?practice=OFFICE"); p.wait_for_selector("#ob-prband"); p.wait_for_timeout(1200)
+            n = p.locator("[data-step]").count()
+            for i in range(n):
+                if width == 390 and p.locator("#ob-steps-d").get_attribute("open") is None: p.click("#ob-steps-d summary")
+                p.click("[data-step='%d']" % i); p.wait_for_timeout(150)
+                ok(p.locator("#ob-prband").count() == 1 and not p.evaluate(CONTRAST_JS) and not p.evaluate(TARGET_JS) and no_hscroll(p), "practice step %d: band, AA %s" % (i + 1, tag), (p.evaluate(CONTRAST_JS)[:3], p.evaluate(TARGET_JS)[:3]))
+            if width == 390:
+                p.click("#ob-steps-d summary") if p.locator("#ob-steps-d").get_attribute("open") is None else None
+                p.click("[data-step='2']"); p.wait_for_selector("#ob-add-units")
+                p.click("#ob-add-units"); p.wait_for_selector("#ob-loc_rows-0-localities")
+                ok(p.locator(".ob-tip").count() >= 3, "practice: 'Why we ask this' notes " + tag, p.locator(".ob-tip").count())
+                p.fill("#ob-loc_rows-0-pins", "24490"); p.wait_for_selector("#ob-loc_rows-0-pins-e", timeout=8000)
+                ok(p.get_attribute("#ob-loc_rows-0-pins", "aria-invalid") == "true", "practice: a wrong PIN is refused " + tag)
+                p.fill("#ob-loc_rows-0-pins", "244901"); p.fill("#ob-loc_rows-0-localities", "Shiv Nagar; Gandhi Colony"); p.wait_for_timeout(2500)
+                def to_step84(i):
+                    if p.locator("#ob-steps-d").get_attribute("open") is None: p.click("#ob-steps-d summary")
+                    p.click("[data-step='%d']" % i); p.wait_for_timeout(200)
+                to_step84(n - 1)
+                p.wait_for_selector("#ob-missing"); ok(p.is_disabled("#ob-submit"), "practice: submit waits for the missing answers " + tag)
+                if theme == "light": shot(p, "pr-review-390")
+                # The outcome: not now, with the next step and date; then submit (practice)
+                p.click("#ob-missing a"); p.wait_for_selector("#ob-x_outcome-3")
+                p.check("#ob-x_outcome-3"); p.wait_for_selector("#ob-x_next_step")
+                p.fill("#ob-x_next_step", "Call the office again"); p.fill("#ob-x_next_date", _dt.date.today().replace(year=_dt.date.today().year + 1).isoformat()); p.wait_for_timeout(2500)
+                to_step84(n - 1)
+                p.wait_for_function("document.querySelector('#ob-submit') && !document.querySelector('#ob-submit').disabled", timeout=10000)
+                ok(p.locator(".ob-would li").count() == 3, "practice: what submitting would do " + tag, p.locator(".ob-would li").count())
+                p.click("#ob-submit"); p.wait_for_selector("#ob-prdone")
+                ok(p.evaluate("document.activeElement.id") == "ob-prdone" and not p.evaluate(CONTRAST_JS), "practice: finished, nothing sent " + tag)
+                p.click("button[data-restart]"); p.wait_for_selector("#ob-sec-h")
+                ok(not p.locator("#ob-loc_rows-0-localities").count() and p.evaluate("document.activeElement.id") == "ob-h", "practice: start again " + tag)
+            ok(not errs, "practice: no script errors " + tag, errs)
+            ctx.close()
+    # Department practice and the worked examples
+    ctx, p, errs = P(X83, width=1280, theme="light")
+    p.goto(B + "/admin-onboarding.html?practice=DEPARTMENT"); p.wait_for_selector("#ob-prband"); p.wait_for_timeout(1000)
+    ok(p.locator(".ob-tip").count() >= 1 and "invented" in p.inner_text("#ob-prband"), "department practice: band and notes")
+    for kind in ("OFFICE", "DEPARTMENT"):
+        p.goto(B + "/admin-onboarding.html?practice=%s&print=1" % kind); p.wait_for_selector(".ob-qa")
+        ok(p.locator("td.ob-note").count() >= 3 and p.locator(".ob-banner").count() == 1 and not p.evaluate(CONTRAST_JS), "worked example %s: notes, banner, AA" % kind, p.evaluate(CONTRAST_JS)[:3])
+        p.emulate_media(media="print"); shot(p, "pr-example-" + kind.lower()); p.emulate_media(media="screen")
+    ok(not errs, "worked example: no script errors", errs)
+    ctx.close()
+    ctx, p, errs = P("audit@test.in", width=1280, theme="dark")
+    p.goto(B + "/admin-onboarding.html?practice=OFFICE&print=1"); p.wait_for_selector(".ob-qa")
+    ok(not p.evaluate(CONTRAST_JS), "auditor: reads the worked example")
+    ctx.close()
+    ok(counts84() == before84, "practice changed nothing in the database", (before84, counts84()))
+
     br.close()
 
 print("\n%d passed, %d failed" % (passed, failed))

@@ -242,6 +242,9 @@
     if (d.totalsOnly) { app.innerHTML = h + '<p class="muted-note">' + esc(T("adm.sa_totals_only")) + "</p>" + totalsTab(); return; }
     if (d.auditor) h += '<p class="muted-note">' + esc(T("adm.sa_auditor")) + "</p>";
     if (d.canWork) h += tiles();
+    // Practice for the onboarding form (grieviq-84): a made-up office, nothing saved.
+    if (d.canWork && d.onboardingReady !== false) h += '<section class="panel sa-practice" aria-labelledby="sa-pr-h"><h2 id="sa-pr-h" class="sub-h">' + esc(T("adm.sa_pr_h")) + "</h2><p>" + esc(T("adm.sa_pr_p")) + '</p><div class="acts">' +
+      '<a class="btnlink" href="/admin-onboarding.html?practice=OFFICE">' + esc(T("adm.sa_pr_o")) + '</a><a class="btnlink" href="/admin-onboarding.html?practice=DEPARTMENT">' + esc(T("adm.sa_pr_d")) + '</a><a href="/admin-onboarding.html?practice=OFFICE&amp;print=1">' + esc(T("adm.sa_pr_ex")) + "</a></div></section>";
     if (d.onboardingWaiting) h += '<p class="ac-warn"><a href="/admin-onboarding.html?queue=1">' + esc(T("ob.waiting_link", { n: d.onboardingWaiting })) + "</a></p>";
     h += tabs() + '<div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-' + S.tab + '" class="tabpanel">';
     h += S.tab === "add" ? addTab() : S.tab === "totals" ? totalsTab() : S.tab === "territories" ? territoriesTab() : leadsTab();
