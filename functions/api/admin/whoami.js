@@ -20,7 +20,7 @@ export async function onRequestGet({ request, env }) {
   const auth = await getVerifiedAdmin(request, env);
   if (!auth.ok) return Response.json({ error: auth.error, leaveUntil: auth.leaveUntil || null, why: auth.why || null }, { status: auth.status });
   const need = await policiesNeeded(env, auth.adminId);
-  return new Response(JSON.stringify({ email: auth.email, role: auth.role, roles: auth.roles || [auth.role], name: auth.name || null, employeeId: auth.employeeId || null,
+  return new Response(JSON.stringify({ email: auth.email, role: auth.role, roles: auth.roles || [auth.role], name: auth.name || null, employeeId: auth.employeeId || null, designation: auth.designation || null,
     covering: auth.covering || [], duties: auth.duties || [], pages: pagesFor(auth.roles || auth.role),
     salesCode: (await needsSalesCode(env, auth)) ? { needed: true, version: SALES_CODE_VERSION } : null,
     policies: need.length ? { need, versions: POLICY_VERSIONS } : null }), {

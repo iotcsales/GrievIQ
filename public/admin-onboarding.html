@@ -153,8 +153,8 @@
   header .lang-toggle { background: none; border: 1px solid var(--admin-border); color: var(--admin-muted); border-radius: 6px; font: inherit; font-size: 13px; padding: 5px 10px; margin-left: 20px; cursor: pointer; min-height: 30px; }
   header .lang-toggle:hover, header .lang-toggle:focus-visible { color: var(--admin-text); border-color: var(--admin-text); outline: none; }
 </style>
-<script src="/i18n.js?v=84"></script>
-<script src="/admin-nav.js?v=r29"></script>
+<script src="/i18n.js?v=85"></script>
+<script src="/admin-nav.js?v=r85"></script>
 <style>
   /* grieviq-72: Community helpers */
   /* grieviq-75: who checks and approves, by area; payments only for accounts staff */
@@ -351,6 +351,25 @@
   .ob-banner .ob-tag { color: #E8B631; font-weight: 600; font-size: 14px; }
   .ob-banner .ob-site { margin-left: auto; color: #c9d3e6; font-size: 14px; }
   .ob-logo { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; }
+  /* check report (grieviq-85) */
+  .rp-res { border-radius: 10px; padding: 12px 14px; margin: 8px 0 14px; border: 2px solid #d99a3c; background: #3a2a12; color: var(--admin-text); line-height: 1.45; }
+  .rp-res b { font-size: 17px; display: block; margin-bottom: 2px; }
+  .rp-res.rp-REFUSED { border-color: #e06c6c; background: #3a1616; }
+  .rp-res.rp-APPROVE { border-color: #4cae6e; background: #12301d; }
+  html.light-theme .rp-res { background: #fff7e6; border-color: #b45309; color: #14181f; }
+  html.light-theme .rp-res.rp-REFUSED { background: #fdecec; border-color: #b42318; }
+  html.light-theme .rp-res.rp-APPROVE { background: #e8f6ed; border-color: #1f7a3d; }
+  .rp-g { margin: 14px 0 6px; font-size: 16px; }
+  .rp-none { margin: 4px 0; color: var(--admin-muted); }
+  .rp-list { list-style: none; margin: 0; padding: 0; }
+  .rp-list li { border: 1px solid var(--admin-border); border-left: 5px solid #d99a3c; border-radius: 8px; padding: 10px 12px; margin: 8px 0; line-height: 1.45; background: var(--admin-panel); }
+  html.light-theme .rp-list li { border-left-color: #b45309; background: #fff; }
+  .rp-list li a { display: inline-flex; align-items: center; min-height: 36px; font-weight: 600; }
+  .rp-list.rp-ok li { border-left-color: #4cae6e; }
+  html.light-theme .rp-list.rp-ok li { border-left-color: #1f7a3d; }
+  .rp-list.rp-ok li::before { content: "\2713  "; color: #4cae6e; font-weight: 700; }
+  html.light-theme .rp-list.rp-ok li::before { color: #1f7a3d; }
+  .rp-adv { margin: 4px 0 10px; }
   /* practice mode (grieviq-84) */
   .ob-prband { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: #3a3014; border: 2px solid #d8b54a; color: var(--admin-text); border-radius: 10px; padding: 10px 14px; margin: 8px 0 12px; font-size: 14px; }
   .ob-prband b { font-size: 15px; }
@@ -399,6 +418,6 @@
 <main class="ss-main" id="main" tabindex="-1">
   <div id="ob-app"><p class="muted" data-i18n="adm.it_loading">Loading...</p></div>
 </main>
-<script src="/admin-onboarding.js?v=84"></script>
+<script src="/admin-onboarding.js?v=85"></script>
 </body>
 </html>

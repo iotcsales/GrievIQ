@@ -338,7 +338,7 @@ export async function resolveAdmin(env, email, permission) {
   let admin = null, extended = true;
   try {
     admin = await env.DB.prepare(
-      "SELECT id, role, name, employee_id, status, leave_until, access_paused FROM admin_users WHERE LOWER(email) = ?"
+      "SELECT id, role, name, employee_id, designation, status, leave_until, access_paused FROM admin_users WHERE LOWER(email) = ?"
     ).bind(email).first();
   } catch (e) {
     extended = false;   // item 10 columns not added yet
@@ -400,5 +400,5 @@ export async function resolveAdmin(env, email, permission) {
     }
   }
 
-  return { ok: true, email, role: admin.role, roles, duties, adminId: admin.id, name: admin.name || null, employeeId: admin.employee_id || null, covering, coverFor: covering.map((c) => c.email), myEmails, coverAliases };
+  return { ok: true, email, role: admin.role, roles, duties, adminId: admin.id, name: admin.name || null, employeeId: admin.employee_id || null, designation: admin.designation || null, covering, coverFor: covering.map((c) => c.email), myEmails, coverAliases };
 }

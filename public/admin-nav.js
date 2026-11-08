@@ -461,7 +461,8 @@
       box = document.createElement("div"); box.id = "adm-acct"; box.className = "adm-acct";
       if (tools) tools.appendChild(box); else nav.parentNode.insertBefore(box, nav.nextSibling);
     }
-    var who = info ? (info.name ? info.name + (info.employeeId ? " (" + info.employeeId + ")" : "") : info.email) : "";
+    // grieviq-85: name (employee ID) · designation, or the role when no designation is recorded.
+    var who = info ? (info.name ? info.name + (info.employeeId ? " (" + info.employeeId + ")" : "") : info.email) + " · " + (info.designation || roleName(info.role)) : "";
     box.innerHTML = (who ? '<span class="adm-who">' + esc(t("adm.nav_signed_in_as", { who: who })) + "</span> " : "") +
       '<button type="button" class="adm-signout adm-help" id="adm-help">' + esc(t("guide.help")) + "</button>" +
       '<button type="button" class="adm-signout" id="adm-signout">' + esc(t("adm.nav_signout")) + "</button>";
@@ -476,7 +477,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=84", "/guide.js?v=80"].forEach(function (src) {
+      ["/guide-content.js?v=85", "/guide.js?v=80"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };

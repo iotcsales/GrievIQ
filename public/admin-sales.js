@@ -243,13 +243,42 @@
     if (d.auditor) h += '<p class="muted-note">' + esc(T("adm.sa_auditor")) + "</p>";
     if (d.canWork) h += tiles();
     // Practice for the onboarding form (grieviq-84): a made-up office, nothing saved.
-    if (d.canWork && d.onboardingReady !== false) h += '<section class="panel sa-practice" aria-labelledby="sa-pr-h"><h2 id="sa-pr-h" class="sub-h">' + esc(T("adm.sa_pr_h")) + "</h2><p>" + esc(T("adm.sa_pr_p")) + '</p><div class="acts">' +
-      '<a class="btnlink" href="/admin-onboarding.html?practice=OFFICE">' + esc(T("adm.sa_pr_o")) + '</a><a class="btnlink" href="/admin-onboarding.html?practice=DEPARTMENT">' + esc(T("adm.sa_pr_d")) + '</a><a href="/admin-onboarding.html?practice=OFFICE&amp;print=1">' + esc(T("adm.sa_pr_ex")) + "</a></div></section>";
+    // grieviq-85: each person's own practice line, and the practice record for managers and the auditor.
+    var logHere = (d.canManage || d.auditor) && d.onboardingReady !== false;
+    if (d.canWork && d.onboardingReady !== false) h += '<section class="panel sa-practice" aria-labelledby="sa-pr-h"><h2 id="sa-pr-h" class="sub-h">' + esc(T("adm.sa_pr_h")) + "</h2><p>" + esc(T("adm.sa_pr_p")) + '</p><p id="sa-pr-mine" class="sa-pr-mine"></p><div class="acts">' +
+      '<a class="btnlink" href="/admin-onboarding.html?practice=OFFICE">' + esc(T("adm.sa_pr_o")) + '</a><a class="btnlink" href="/admin-onboarding.html?practice=DEPARTMENT">' + esc(T("adm.sa_pr_d")) + '</a><a href="/admin-onboarding.html?practice=OFFICE&amp;print=1">' + esc(T("adm.sa_pr_ex")) + "</a></div>" +
+      (logHere ? '<div id="sa-pr-log"></div>' : "") + "</section>";
+    else if (logHere) h += '<section class="panel sa-practice" aria-labelledby="sa-prl-h"><div id="sa-pr-log"></div></section>';
     if (d.onboardingWaiting) h += '<p class="ac-warn"><a href="/admin-onboarding.html?queue=1">' + esc(T("ob.waiting_link", { n: d.onboardingWaiting })) + "</a></p>";
     h += tabs() + '<div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-' + S.tab + '" class="tabpanel">';
     h += S.tab === "add" ? addTab() : S.tab === "totals" ? totalsTab() : S.tab === "territories" ? territoriesTab() : leadsTab();
     app.innerHTML = h + "</div>";
     wire();
+    fillPractice();
+  }
+  // The practice line and record are filled in place, so focus is never lost.
+  var PR = { mine: undefined, log: undefined };
+  function resultText(x) { return x ? T("adm.sa_prr_" + x.result, { n: x.toFix }) : "—"; }
+  function fillPractice() {
+    var m = $("sa-pr-mine"), g = $("sa-pr-log");
+    if (m) {
+      if (PR.mine === undefined) { PR.mine = null; fetch("/api/admin/onboarding?practiceMine=1", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { PR.mine = j; fillPractice(); }).catch(function () {}); }
+      else if (PR.mine && PR.mine.ready) m.innerHTML = "<b>" + esc(PR.mine.count ? T("adm.sa_pr_mine", { n: PR.mine.count, date: day(PR.mine.last.at), result: resultText(PR.mine.last) }) : T("adm.sa_pr_mine_none")) + "</b>";
+    }
+    if (g) {
+      if (PR.log === undefined) { PR.log = null; fetch("/api/admin/onboarding?practiceLog=1", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { PR.log = j; fillPractice(); }).catch(function () {}); }
+      else if (PR.log && PR.log.ready) {
+        var rows = PR.log.people || [];
+        g.innerHTML = '<h3 class="sub-h" id="sa-prl-h">' + esc(T("adm.sa_prl_h")) + "</h3><p>" + esc(T("adm.sa_prl_p")) + "</p>" +
+          (rows.length ? '<div class="ac-table-wrap"><table class="ac-t sa-prl"><caption class="sr-only">' + esc(T("adm.sa_prl_h")) + "</caption><thead><tr>" +
+            ["adm.sa_prl_name", "adm.sa_prl_count", "adm.sa_prl_last", "adm.sa_prl_result", "adm.sa_prl_kind"].map(function (k) { return '<th scope="col">' + esc(T(k)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+            rows.map(function (p) {
+              var who = (p.name || p.email || "—") + (p.employeeId ? " (" + p.employeeId + ")" : "");
+              return '<tr><th scope="row">' + esc(who) + "</th><td>" + (p.count || "—") + "</td><td>" + esc(p.last ? day(p.last.at) : T("adm.sa_prl_not_yet")) + "</td><td>" + esc(resultText(p.last)) + "</td><td>" +
+                esc(p.last ? T(p.last.kind === "DEPARTMENT" ? "adm.sa_pr_d" : "adm.sa_pr_o") : "—") + "</td></tr>";
+            }).join("") + "</tbody></table></div>" : '<p class="muted-note">' + esc(T("adm.sa_prl_empty")) + "</p>");
+      }
+    }
   }
   function setTab(t, focus) {
     S.tab = t; S.openId = null; S.det = null;

@@ -333,6 +333,67 @@ export function missing(formKind, a) {
   return out;
 }
 
+// ---- advice (grieviq-85): what a sales manager would usually send back ----
+// Answers that pass every check above but break the selling rules. Shown in
+// practice as a check report, and to a manager checking a real form as advice
+// only (it never blocks). Returns { issues: [{ k, code, row? }], good: [code] }.
+const PERSONAL_DOMAINS = /@(gmail|googlemail|yahoo|ymail|rediffmail|hotmail|outlook|live|icloud|aol|proton|protonmail)\./i;
+const VAGUE = /\b(whole|entire|all)\s+(area|ward|zone|village|constituency|city)\b|\bas per (the )?records?\b|\bsee (the )?list\b|पूरा क्षेत्र|पूरा वार्ड|सम्पूर्ण|संपूर्ण|रिकॉर्ड के अनुसार|सूची देखें/i;
+const PROMISE = /\bvotes?\b|\bvoters?\b|\belections?\b|\bguarantee|\bwithin \d+ (days?|hours?)\b|वोट|मतदाता|चुनाव|गारंटी/i;
+// Hindi words are matched between spaces or punctuation (\b only knows English letters).
+const PARTY = /\b(bjp|congress|samajwadi|bsp|aap|rld|apna dal|nishad|suheldev|ncp|tmc|dmk|shiv sena|rjd|jdu|cpi|cpm)\b|\bpolitical part(y|ies)\b|\bparty (office|worker|leader|member)s?\b|\bopposition\b|(^|[\s,.;:("'])(भाजपा|कांग्रेस|सपा|बसपा|पार्टी|विपक्ष)(?=$|[\s,.;:)"'।])/i;
+const DISCOUNT = /\bdiscount|\bspecial (price|rate|offer)|\bconcession|\bcheaper\b|\bcommission\b|छूट|रियायत|विशेष (कीमत|दर|ऑफ़र)|कमीशन/i;
+export function reviewAdvice(formKind, a, officeKind) {
+  a = a || {};
+  const issues = [], good = [];
+  const rows = a.loc_rows || [];
+  const add = (k, code, row) => { if (!issues.some((x) => x.k === k && x.code === code)) issues.push(row == null ? { k, code } : { k, code, row }); };
+  // Localities
+  let allListed = rows.length > 0, allLand = rows.length > 0;
+  rows.forEach((r, i) => {
+    const t = String(r.localities || "");
+    if (!t) { allListed = false; return; }
+    if (VAGUE.test(t)) { add("loc_rows." + i + ".localities", "VAGUE_LOCALITIES", i); allListed = false; }
+    else if (normaliseLocalities(t).length < 2) { add("loc_rows." + i + ".localities", "FEW_LOCALITIES", i); allListed = false; }
+    if (!String(r.landmarks || "").trim()) { add("loc_rows." + i + ".landmarks", "NO_LANDMARKS", i); allLand = false; }
+  });
+  if (allListed) good.push("LOCALITIES_LISTED");
+  if (allLand) good.push("LANDMARKS");
+  if (formKind === "OFFICE") {
+    if (!a.o_record) add("o_record", "NO_RECORD"); else good.push("OFFICE_LISTED");
+    const many = officeKind === "MLA" || officeKind === "MP" || officeKind === "MAYOR";
+    if (many && Number(a.o_units_count) > 0 && rows.length < Number(a.o_units_count)) add("loc_rows", "FEWER_WARDS");
+    if (a.o_email && PERSONAL_DOMAINS.test(a.o_email)) add("o_email", "PERSONAL_EMAIL"); else if (a.o_email) good.push("OFFICIAL_EMAIL");
+  } else {
+    if (a.d_nodal_email && PERSONAL_DOMAINS.test(a.d_nodal_email)) add("d_nodal_email", "PERSONAL_EMAIL"); else if (a.d_nodal_email) good.push("OFFICIAL_EMAIL");
+  }
+  // Every person their own email
+  const people = formKind === "OFFICE" ? "team_rows" : "officer_rows";
+  const seen = {};
+  let dup = false;
+  (a[people] || []).forEach((r, i) => { const e = String(r.email || "").toLowerCase(); if (!e) return; if (seen[e] != null) { add(people + "." + i + ".email", "SHARED_EMAIL", i); dup = true; } else seen[e] = i; });
+  if ((a[people] || []).length && !dup) good.push("OWN_EMAILS");
+  // Free text: promises, parties, discounts
+  const texts = [];
+  for (const def of fieldsFor(formKind)) {
+    if ((def.t === "text" || def.t === "area") && a[def.k]) texts.push([def.k, String(a[def.k])]);
+    if (def.t === "rows") (a[def.k] || []).forEach((r, i) => (def.cols || []).forEach((c) => { if ((c.t === "text" || c.t === "area") && r[c.k]) texts.push([def.k + "." + i + "." + c.k, String(r[c.k])]); }));
+  }
+  let clean = true;
+  for (const [k, t] of texts) {
+    if (PROMISE.test(t)) { add(k, "PROMISE"); clean = false; }
+    if (PARTY.test(t)) { add(k, "PARTY"); clean = false; }
+    if (DISCOUNT.test(t)) { add(k, "DISCOUNT"); clean = false; }
+  }
+  if (clean && texts.length) good.push("NEUTRAL");
+  return { issues, good };
+}
+// The overall result of a practice: what a sales manager would do.
+export function practiceResult(miss, fields, advice) {
+  const refused = (miss || []).length + Object.keys(fields || {}).length;
+  return refused ? "REFUSED" : (advice.issues || []).length ? "RETURN" : "APPROVE";
+}
+
 // What an auditor sees: emails and phones partly hidden.
 export function maskAnswers(a) {
   const m = JSON.parse(JSON.stringify(a || {}));

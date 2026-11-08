@@ -144,7 +144,7 @@
     S.d.form = { status: "DRAFT", answers: {}, version: 0, editors: [], checklist: [], setupNotes: [] };
     S.d.can = { edit: true, submit: true };
     S.d.missingNow = S.mode === "example" ? [] : null;
-    S.a = sample(S.mode === "example"); S.fields = {}; S.step = 0; S.pick = {}; S.results = {}; S.prDone = false; S.missingShown = false;
+    S.a = sample(S.mode === "example"); S.fields = {}; S.step = 0; S.pick = {}; S.results = {}; S.prReport = null; S.missingShown = false;
   }
   function tipHtml(k) {
     if (!isPr() || !has("ob.tip_" + k + "_why")) return "";
@@ -329,10 +329,7 @@
   function missingNow() { return S.d.missingNow || []; }
   function reviewHtml() {
     var miss = missingNow(), h = "";
-    if (isPr() && S.prDone) {
-      return '<p class="st-msg success" id="ob-prdone" tabindex="-1">' + esc(T("ob.pr_done")) + '</p><h3 class="sub-h">' + esc(T("ob.pr_would_h")) + '</h3><ul class="ob-would">' + wouldList().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
-        '<div class="acts"><button type="button" class="primary" data-restart="1">' + esc(T("ob.pr_restart")) + '</button><a class="btnlink" href="/admin-sales.html">' + esc(T("ob.back_sales")) + "</a></div>";
-    }
+    if (isPr() && S.prReport) return reportHtml();
     if (!S.d.form) h += '<p class="muted-note">' + esc(T("ob.fill_first")) + "</p>";
     else if (miss.length) {
       h += '<div class="ss-errors" id="ob-missing" tabindex="-1"><h3 class="sub-h">' + esc(T("ob.missing_h", { n: miss.length })) + "</h3><ul>" + miss.map(function (m) {
@@ -344,11 +341,46 @@
     if (S.saveState === "offline" || S.dirty) h += '<p class="muted-note">' + esc(T("ob.wait_save")) + "</p>";
     if (isPr()) {
       h += '<h3 class="sub-h">' + esc(T("ob.pr_would_h")) + '</h3><ul class="ob-would">' + wouldList().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>";
-      return h + '<div class="acts"><button type="button" class="primary" id="ob-submit"' + (miss.length || S.dirty || S.saveState === "offline" || !S.d.missingNow ? " disabled" : "") + ">" + esc(T("ob.pr_submit")) + '</button><button type="button" data-restart="1">' + esc(T("ob.pr_restart")) + "</button></div>";
+      return h + '<p class="muted-note">' + esc(T("ob.rp_submit_any")) + '</p><div class="acts"><button type="button" class="primary" id="ob-submit"' + (S.saveState === "offline" || S.prBusy ? " disabled" : "") + ">" + esc(T("ob.pr_submit")) + '</button><button type="button" data-restart="1">' + esc(T("ob.pr_restart")) + "</button></div>";
     }
     h += '<p class="muted-note">' + esc(T("ob.submit_what")) + "</p>";
     h += '<div class="acts"><button type="button" class="primary" id="ob-submit"' + (!editable() || miss.length || S.dirty || S.saveState === "offline" || !S.d.form ? " disabled" : "") + ">" + esc(T("ob.submit")) + "</button></div>";
     return h;
+  }
+
+  // ---- check report (grieviq-85): what a sales manager would do ----
+  function whereOf(k) {
+    var p = k.split("."), f = def(p[0]) || {};
+    if (p.length === 1) return lbl(p[0]);
+    var row = (S.a[p[0]] || [])[+p[1]] || {};
+    var name = (row.unit && row.unit.label) || row.name || T("ob.row_" + p[0], { n: +p[1] + 1 });
+    return p.length > 2 ? name + " · " + lbl(p[0] + "_" + p[2]) : name;
+  }
+  function issueLi(k, text, link) {
+    var sec = (def(k.split(".")[0]) || {}).s;
+    return '<li><b>' + esc(secName(sec) + " · " + whereOf(k)) + ":</b> " + esc(text) + (link ? '<br><a href="#" data-goto="' + esc(sec) + '" data-focus="' + esc(k) + '">' + esc(T("ob.rp_fix")) + "</a>" : "") + "</li>";
+  }
+  function adviceList(issues, link) {
+    return '<ul class="rp-list">' + issues.map(function (x) { return issueLi(x.k, T("ob.adv_" + x.code), link); }).join("") + "</ul>";
+  }
+  function reportHtml() {
+    var r = S.prReport, miss = r.missing || [], flds = Object.keys(r.fields || {}), adv = r.advice || { issues: [], good: [] };
+    var nRef = miss.length + flds.length, n = r.result === "REFUSED" ? nRef : adv.issues.length;
+    var h = '<h2 class="sub-h" id="rp-h" tabindex="-1">' + esc(T("ob.rp_h")) + "</h2>";
+    h += '<div class="rp-res rp-' + r.result + '" role="status"><b>' + esc(T("ob.rp_res_" + r.result, { n: n })) + "</b>" + esc(T(r.result === "APPROVE" ? "ob.rp_sub_ok" : "ob.rp_sub_fix")) + "</div>";
+    h += '<h3 class="rp-g">' + esc(T("ob.rp_g_refused", { n: nRef })) + "</h3>";
+    if (!nRef) h += '<p class="rp-none">' + esc(T("ob.rp_none_refused")) + "</p>";
+    else h += '<ul class="rp-list">' + miss.map(function (m) {
+      var base = m.k.split(".")[0];
+      var text = m.k.indexOf(".") > 0 ? T("ob.row_incomplete_" + base) : T("ob.why_" + m.why);
+      return issueLi(m.k, text, true);
+    }).join("") + flds.map(function (k) { return issueLi(k, T("ob.e_" + r.fields[k]), true); }).join("") + "</ul>";
+    h += '<h3 class="rp-g">' + esc(T("ob.rp_g_back", { n: adv.issues.length })) + "</h3>";
+    h += adv.issues.length ? adviceList(adv.issues, true) : '<p class="rp-none">' + esc(T("ob.rp_none_back")) + "</p>";
+    if (adv.good.length) h += '<h3 class="rp-g">' + esc(T("ob.rp_g_good", { n: adv.good.length })) + '</h3><ul class="rp-list rp-ok">' + adv.good.map(function (g) { return "<li>" + esc(T("ob.good_" + g)) + "</li>"; }).join("") + "</ul>";
+    if (r.result === "APPROVE") h += '<h3 class="rp-g">' + esc(T("ob.pr_would_h")) + '</h3><ul class="ob-would">' + wouldList().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>";
+    h += '<p class="muted-note">' + esc(T("ob.rp_kept")) + "</p>";
+    return h + '<div class="acts"><button type="button" class="primary" id="ob-submit"' + (S.saveState === "offline" || S.prBusy ? " disabled" : "") + ">" + esc(T("ob.rp_again")) + '</button><button type="button" data-restart="1">' + esc(T("ob.pr_restart")) + '</button><a class="btnlink" href="/admin-sales.html">' + esc(T("ob.back_sales")) + "</a></div>";
   }
 
   // ---- read-only: the whole form, for checking, setup and printing ----
@@ -444,6 +476,7 @@
     if (d.can.check) {
       var signed = f.outcome === "SIGNED_PILOT" || f.outcome === "SIGNED_PAID";
       h += '<section class="panel" aria-labelledby="ob-check-h"><h2 id="ob-check-h">' + esc(T("ob.check_h")) + "</h2><p>" + esc(T(signed ? "ob.check_p_signed" : "ob.check_p_other", { who: f.submittedBy, when: when(f.submittedAt) })) + "</p>" +
+        (d.advice && d.advice.issues.length ? '<div class="rp-adv"><h3 class="rp-g">' + esc(T("ob.adv_h", { n: d.advice.issues.length })) + "</h3><p class=\"rp-none\">" + esc(T("ob.adv_p")) + "</p>" + adviceList(d.advice.issues, false) + "</div>" : "") +
         '<div class="acts"><button type="button" class="primary" id="ob-check">' + esc(T(signed ? "ob.check_send" : "ob.check_close")) + "</button></div>" +
         '<form id="ob-return" class="hl-form" novalidate><div class="fld"><label for="ob-return-note">' + esc(T("ob.return_note")) + '</label><span class="hint" id="ob-return-note-h">' + esc(T("ob.return_hint")) + "</span><textarea id=\"ob-return-note\" maxlength=\"300\" rows=\"2\" aria-describedby=\"ob-return-note-h" + (S.retErr ? " ob-return-note-e" : "") + '"' + (S.retErr ? ' aria-invalid="true"' : "") + ">" + esc(S.retNote || "") + "</textarea>" +
         (S.retErr ? '<span class="ferr" id="ob-return-note-e">' + esc(T("ob.e_note")) + "</span>" : "") + '</div><div class="acts"><button type="submit">' + esc(T("ob.return_btn")) + "</button></div></form></section>";
@@ -498,6 +531,7 @@
   }
   function getPath(path) { var p = path.split("."); if (p.length === 1) return S.a[p[0]]; var r = (S.a[p[0]] || [])[+p[1]]; return r ? r[p[2]] : null; }
   function changed(rerender) {
+    if (S.prReport) { S.prReport = null; rerender = true; }
     S.dirty = true; S.saveState = "pending";
     clearTimeout(S.timer); S.timer = setTimeout(save, 1200);
     if (rerender) render();
@@ -589,7 +623,8 @@
       a.addEventListener("click", function (e) {
         e.preventDefault();
         var sec = a.getAttribute("data-goto"), k = a.getAttribute("data-focus"), parts = k.split(".");
-        var id = parts.length > 1 ? "ob-" + parts[0] + "-" + parts[1] : (def(k) && def(k).t === "rows" ? "ob-" + k : "ob-" + k);
+        var id = parts.length > 2 ? "ob-" + parts.join("-") : parts.length > 1 ? "ob-" + parts[0] + "-" + parts[1] : "ob-" + k;
+        if (isPr() && S.prReport) S.prReport = null;
         goStep(S.d.sections.indexOf(sec), id);
       });
     });
@@ -650,8 +685,14 @@
     });
     var sb = $("ob-submit");
     if (sb && isPr()) sb.addEventListener("click", function () {
-      if (S.d.missingNow && S.d.missingNow.length) { var m0 = $("ob-missing"); if (m0) m0.focus(); return; }
-      S.prDone = true; render(); var dn = $("ob-prdone"); if (dn) dn.focus();
+      clearTimeout(S.timer); S.prBusy = true; sb.disabled = true;
+      api({ action: "practice", kind: S.pkind, answers: JSON.parse(JSON.stringify(S.a)), submit: true }).then(function (x) {
+        S.prBusy = false;
+        if (!x.r.ok) { render(); msg(errText(x.j), true); return; }
+        S.fields = x.j.fields || {}; S.d.missingNow = x.j.missing || []; S.dirty = false; S.saveState = "saved";
+        S.prReport = x.j; S.msg = null; render();
+        var rh = $("rp-h"); if (rh) { rh.focus(); rh.scrollIntoView({ block: "start" }); }
+      }).catch(function () { S.prBusy = false; render(); msg(T("adm.ss_e_net"), true); });
     });
     else if (sb) sb.addEventListener("click", function () {
       sb.disabled = true;

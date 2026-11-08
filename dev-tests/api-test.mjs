@@ -4427,6 +4427,44 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(r.status === 403, "practice: the auditor can't post", r.status);
   ok(n() === before, "practice: nothing stored, logged or sent", [before, n()]);
 }
+// ---- grieviq-85: check report, practice record, advice for the check ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const op = (w, b) => call(w, "POST", "/api/admin/onboarding", b);
+  const rows = () => sdb.prepare("SELECT COUNT(*) AS n FROM onboarding_practice WHERE email = 'sx83@test.in'").get().n;
+  const r0 = rows();
+  let r = await op("sx83@test.in", { action: "practice", kind: "OFFICE", answers: { v_date: "2026-11-08" }, submit: true });
+  ok(r.status === 200 && r.body.result === "REFUSED" && r.body.toFix === r.body.missing.length && r.body.recorded === true && rows() === r0 + 1, "practice submit: refused, recorded once", r.body);
+  const good = { v_date: "2026-11-08", v_attended: "The councillor and her office manager", o_holder: "Meena Sharma", o_title_area: "Councillor, Ward 12", o_state: "09", o_record: { type: "ward", id: "practice-12", label: "Ward 12" },
+    o_email: "ward12.office@example.in", x_outcome: "NOT_NOW", x_next_step: "Call again", x_next_date: "2099-01-01", loc_rows: [{ name: "Ward 12", localities: "Shiv Nagar; Gandhi Colony", landmarks: "Railway line" }] };
+  r = await op("sx83@test.in", { action: "practice", kind: "OFFICE", answers: good, submit: true });
+  ok(r.body.result === "APPROVE" && r.body.advice.issues.length === 0 && r.body.advice.good.includes("LOCALITIES_LISTED") && r.body.advice.good.includes("OFFICIAL_EMAIL") && r.body.recorded === false && rows() === r0 + 1, "practice submit: would approve; a second line within 10 seconds is not recorded", r.body);
+  const bad = Object.assign({}, good, { o_email: "ward12@gmail.com", x_promised: "Votes at the next election", t_frustration: "The BJP office never answers", loc_rows: [{ name: "Ward 12", localities: "Whole ward" }] });
+  r = await op("sx83@test.in", { action: "practice", kind: "OFFICE", answers: bad, submit: true });
+  const codes = r.body.advice.issues.map((x) => x.code).sort();
+  ok(r.body.result === "RETURN" && ["NO_LANDMARKS", "PARTY", "PERSONAL_EMAIL", "PROMISE", "VAGUE_LOCALITIES"].every((c) => codes.includes(c)) && r.body.toFix === r.body.advice.issues.length, "practice submit: what a manager would send back", codes);
+  r = await op("sx83@test.in", { action: "practice", kind: "OFFICE", answers: { t_frustration: "बदलाव नहीं हुआ, सपाट सड़क" } });
+  ok(!("advice" in r.body), "practice checks while typing give no report");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('onboarding_practice') WHERE name IN ('answers', 'data', 'detail')").get().n === 0, "the practice record has no column for answers");
+  // Old lines go after 12 months
+  sdb.prepare("INSERT INTO onboarding_practice (id, email, form_kind, result, to_fix, created_at) VALUES ('old85', 'sx83@test.in', 'OFFICE', 'APPROVE', 0, '2020-01-01T00:00:00.000Z')").run();
+  await new Promise((res) => setTimeout(res, 10500));
+  await op("sx83@test.in", { action: "practice", kind: "DEPARTMENT", answers: {}, submit: true });
+  ok(!sdb.prepare("SELECT 1 FROM onboarding_practice WHERE id = 'old85'").get(), "practice lines older than 12 months are deleted");
+  r = await call("sm84@test.in", "GET", "/api/admin/onboarding?practiceLog=1");
+  const me = (r.body.people || []).find((x) => x.email === "sx83@test.in");
+  ok(r.status === 200 && me && me.count >= 2 && me.last.kind === "DEPARTMENT" && me.last.result === "REFUSED", "practice record: managers see each person's count and last result", me);
+  r = await call("audit@test.in", "GET", "/api/admin/onboarding?practiceLog=1");
+  ok(r.status === 200 && r.body.people.length && r.body.people.every((x) => x.email === null), "practice record: the auditor reads it without emails");
+  r = await call("sx83@test.in", "GET", "/api/admin/onboarding?practiceLog=1");
+  ok(r.status === 403, "practice record: not for sales executives", r.status);
+  r = await call("sx83@test.in", "GET", "/api/admin/onboarding?practiceMine=1");
+  ok(r.body.count >= 2 && r.body.last.result === "REFUSED", "practice: your own line", r.body);
+  r = await call("sx83@test.in", "GET", "/api/admin/whoami");
+  ok("designation" in r.body, "whoami gives the designation for the top bar");
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part55 adds none)");
+}
 
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
