@@ -35,6 +35,7 @@
 
 import { computeEscalation } from "./escalation.js";
 import { timeLimitStatus, toUtcMs } from "./time-limits.js";
+import { effectiveCategory } from "./case-tools.js";
 import { resolutionKind } from "./confirmation.js";
 
 const DAY = 86400000;
@@ -83,7 +84,10 @@ export function caseFacts(g, category, chain, nowMs) {
   const resolvedMs = g.resolved_at && fixedStatuses.includes(g.status) ? toUtcMs(g.resolved_at) : NaN;
   const pending = !fixedStatuses.includes(g.status);
   const ageDays = Math.floor((now - created) / DAY);
-  const ackDueMs = category.ack_sla_hours ? created + category.ack_sla_hours * HOUR : NaN;
+  // grieviq-86: priority limits, and a case sent here from another ward is due from then.
+  const eff = effectiveCategory(g, category);
+  const ackFrom = g.transferred_at ? toUtcMs(g.transferred_at) : created;
+  const ackDueMs = eff.ack_sla_hours ? ackFrom + eff.ack_sla_hours * HOUR : NaN;
   const ackMs = g.acknowledged_at ? toUtcMs(g.acknowledged_at) : NaN;
   const kind = resolutionKind(g);
   return {

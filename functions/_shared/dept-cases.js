@@ -15,6 +15,7 @@
 //     do); who did what is shown as a role, not a person, except the
 //     department's own officers.
 
+import { isPriority } from "./case-tools.js";
 import { maskPersonal } from "./misuse.js";
 import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "./photo-store.js";
@@ -89,7 +90,7 @@ export async function officeCaseList(env, officer, nowMs, closedWanted) {
   const cutoff = new Date(now - (RECENT_CLOSED_DAYS + 1) * 86400000).toISOString().slice(0, 10);
   const { results } = await env.DB.prepare(
     `SELECT g.id, g.tracking_ref, g.status, g.description, g.created_at, g.resolved_at, g.closed_at, g.updated_at, g.retention_removed_at,
-            g.category_id, g.local_unit_id, lu.name AS ward_name, c.name AS category_name
+            g.category_id, g.local_unit_id, g.priority, g.priority_off_at, lu.name AS ward_name, c.name AS category_name
      FROM grievances g LEFT JOIN local_units lu ON lu.id = g.local_unit_id LEFT JOIN grievance_categories c ON c.id = g.category_id
      WHERE g.id IN (SELECT value FROM json_each(?))
        AND (g.status IN ('OPEN', 'ACKNOWLEDGED', 'PENDING_CONFIRMATION') OR COALESCE(g.closed_at, g.resolved_at, g.updated_at) >= ?)`
@@ -118,7 +119,7 @@ export async function officeCaseList(env, officer, nowMs, closedWanted) {
     } else bucket = "OTHER";   // can't do / not ours: shown, nothing to do
     if (g.status === "PENDING_CONFIRMATION" && bucket !== "CLOSED") { bucket = "CLOSED"; tiles.closed++; }
     cases.push({
-      id: g.id, trackingRef: g.tracking_ref, status: g.status, bucket,
+      id: g.id, trackingRef: g.tracking_ref, status: g.status, bucket, priority: isPriority(g),   // grieviq-86
       category: { id: g.category_id, name: g.category_name || "" }, ward: { id: g.local_unit_id, name: g.ward_name || "" },
       summary: g.retention_removed_at ? "" : String(maskPersonal(g.description) || "").slice(0, 160),
       createdAt: g.created_at, forwardedAt: (steps.filter((x) => x.kind === STEP.FORWARDED).pop() || {}).created_at || null,
@@ -156,7 +157,7 @@ export async function officeCaseDetail(env, officer, g, nowMs) {
   const open = g.status === "OPEN" || g.status === "ACKNOWLEDGED";
   const last = steps[steps.length - 1] || null;
   return {
-    id: g.id, trackingRef: g.tracking_ref, status: g.status,
+    id: g.id, trackingRef: g.tracking_ref, status: g.status, priority: isPriority(g),   // grieviq-86
     category: { id: g.category_id, name: g.category_name || "" }, ward: { id: g.local_unit_id, name: g.ward_name || "" },
     description: g.retention_removed_at ? "" : (maskPersonal(g.description) || ""), retentionRemoved: !!g.retention_removed_at,
     locationDetail: g.retention_removed_at ? "" : (maskPersonal(g.location_detail) || ""),

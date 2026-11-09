@@ -145,6 +145,14 @@ export async function anonymiseStatements(env, g, runId, now) {
     const { results } = await DB.prepare("SELECT id FROM case_dept_steps WHERE grievance_id = ? AND note IS NOT NULL").bind(g.id).all();
     for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_dept_steps SET note = NULL WHERE id = ?").bind(x.id)); fields++; }
   } catch (e) { /* before part23 */ }
+  // grieviq-86: the citizen's answers to the office's questions, and the
+  // emails of people who followed the complaint.
+  try {
+    const { results } = await DB.prepare("SELECT id FROM case_updates WHERE grievance_id = ? AND answer IS NOT NULL").bind(g.id).all();
+    for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_updates SET answer = '' WHERE id = ?").bind(x.id)); fields++; }
+    const f = await DB.prepare("SELECT COUNT(*) AS n FROM case_supporters WHERE grievance_id = ?").bind(g.id).first();
+    if (f && Number(f.n)) { stmts.push(DB.prepare("DELETE FROM case_supporters WHERE grievance_id = ?").bind(g.id)); fields += Number(f.n); }
+  } catch (e) { /* before part56 */ }
   try {
     const { results } = await DB.prepare("SELECT id FROM case_ratings WHERE grievance_id = ? AND (comment IS NOT NULL OR follow_up_note IS NOT NULL)").bind(g.id).all();
     for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_ratings SET comment = NULL, follow_up_note = NULL WHERE id = ?").bind(x.id)); fields++; }

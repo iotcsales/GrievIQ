@@ -728,6 +728,14 @@
   [
    "where is add this office's ward",
    "onboarding"
+  ],
+  [
+   "move a complaint to another ward",
+   "move"
+  ],
+  [
+   "office asks to transfer a complaint after 48 hours",
+   "move"
   ]
  ],
  "rep": [
@@ -1102,6 +1110,42 @@
   [
    "abusive complaint",
    "report"
+  ],
+  [
+   "I need more details from the citizen",
+   "ask"
+  ],
+  [
+   "how do I get the citizen's phone number",
+   "ask"
+  ],
+  [
+   "citizen did not answer my question",
+   "ask"
+  ],
+  [
+   "work needs a tender, need more time",
+   "interim"
+  ],
+  [
+   "extend the time limit",
+   "interim"
+  ],
+  [
+   "complaint is not in our ward",
+   "move"
+  ],
+  [
+   "send complaint to another ward",
+   "move"
+  ],
+  [
+   "what is a priority complaint",
+   "priority"
+  ],
+  [
+   "take priority off a complaint",
+   "priority"
   ]
  ],
  "dept": [
@@ -1538,6 +1582,42 @@
   [
    "शिकायत झूठी बताकर बंद",
    "appeal"
+  ],
+  [
+   "the office asked me a question",
+   "question"
+  ],
+  [
+   "how do I answer the office's question",
+   "question"
+  ],
+  [
+   "my complaint was closed for not enough information",
+   "question"
+  ],
+  [
+   "office says it will take longer",
+   "question"
+  ],
+  [
+   "my complaint was sent to another ward",
+   "question"
+  ],
+  [
+   "my neighbour already filed the same problem",
+   "metoo"
+  ],
+  [
+   "this is my problem too",
+   "metoo"
+  ],
+  [
+   "how to follow a complaint someone else filed",
+   "metoo"
+  ],
+  [
+   "live wire danger complaint",
+   "file"
   ]
  ],
  "gov": [

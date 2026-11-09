@@ -47,6 +47,9 @@ export const PERMISSIONS = {
   // Item 7d: reopen a resolved case for a citizen who gave no email (and so
   // can't use the status page), e.g. after they phone support. Logged.
   reopen_cases: ["super_admin", "operations_admin"],
+  // grieviq-86: send a complaint to the right ward or village after the
+  // office's own 48 hours (or a second time). Reason required; logged.
+  move_cases: ["super_admin", "operations_admin"],
   // Item 9a: audit (IIA Global Internal Audit Standards 2024). The auditor
   // stays independent (Standard 7): only the auditor raises, issues,
   // verifies and closes findings; the super admin sees everything and

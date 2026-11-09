@@ -103,9 +103,16 @@ export async function onRequestPost(context) {
        VALUES (?, '', ?, ?, 'STATUS_CHECK', 'EMAIL', 0, ?, ?)`
     ).bind(crypto.randomUUID(), email, code, expiresAt, nowIso).run();
 
-    const has = await env.DB.prepare(
+    // grieviq-86: someone following a complaint ("this is my problem too")
+    // tracks it the same way; the follow step itself (follow: true) needs a
+    // code whether or not the email has used GrievIQ before.
+    const follow = body.follow === true;
+    let has = follow || await env.DB.prepare(
       "SELECT 1 AS ok FROM grievances WHERE LOWER(citizen_email) = ? LIMIT 1"
     ).bind(email).first();
+    if (!has) {
+      try { has = await env.DB.prepare("SELECT 1 AS ok FROM case_supporters WHERE email = ? LIMIT 1").bind(email).first(); } catch (e) { has = null; }
+    }
 
     if (has) {
       const send = fetch("https://api.resend.com/emails", {
@@ -119,11 +126,11 @@ export async function onRequestPost(context) {
           to: [email],
           subject: lang === "hi" ? `आपका GrievIQ कोड: ${code}` : `Your GrievIQ code: ${code}`,
           html: lang === "hi"
-            ? `<p>GrievIQ पर अपनी शिकायतें देखने के लिए यह कोड प्रयोग करें:</p>` +
+            ? (follow ? `<p>GrievIQ पर किसी शिकायत को "यह मेरी भी समस्या है" के रूप में जोड़ने के लिए यह कोड प्रयोग करें:</p>` : `<p>GrievIQ पर अपनी शिकायतें देखने के लिए यह कोड प्रयोग करें:</p>`) +
               `<h2 style="letter-spacing:4px">${code}</h2>` +
               `<p>यह ${CODE_TTL_MINUTES} मिनट में समाप्त हो जाएगा और केवल एक बार प्रयोग किया जा सकता है।</p>` +
               `<p>यदि आपने यह कोड नहीं माँगा है, तो इस ईमेल को अनदेखा करें।</p>`
-            : `<p>Use this code to see your GrievIQ reports:</p>` +
+            : (follow ? `<p>Use this code to follow a complaint on GrievIQ ("this is my problem too"):</p>` : `<p>Use this code to see your GrievIQ reports:</p>`) +
               `<h2 style="letter-spacing:4px">${code}</h2>` +
               `<p>It expires in ${CODE_TTL_MINUTES} minutes and can be used once.</p>` +
               `<p>If you didn't ask for this code, you can ignore this email.</p>`,

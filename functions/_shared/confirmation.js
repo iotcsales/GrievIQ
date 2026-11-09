@@ -48,6 +48,7 @@ export function confirmDeadline(resolvedAt) {
 // null while it is open or waiting.
 export function resolutionKind(g) {
   if (!g || (g.status !== "RESOLVED" && g.status !== "CLOSED")) return null;
+  if (g.closure_kind === "NO_INFO") return "NO_INFO";   // grieviq-86
   if (Number(g.citizen_confirmed) === 1) return "CONFIRMED";
   if (g.closure_kind === "STAFF_VERIFIED") return "VERIFIED_BY_GRIEVIQ";
   if (g.closure_kind === "STAFF_NOT_CHECKED") return "NOT_VERIFIED";

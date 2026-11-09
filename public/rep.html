@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="GrievIQ Rep">
 <meta name="theme-color" content="#13233F">
 <link rel="stylesheet" href="/theme.css?v=22">
-<script src="/demo-mode.js?v=82"></script>
+<script src="/demo-mode.js?v=86"></script>
 <script src="/theme.js?v=45"></script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,8 +22,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=85"></script>
-<script src="/guide-content.js?v=85"></script>
+<script src="/i18n.js?v=86"></script>
+<script src="/guide-content.js?v=86"></script>
 <script src="/guide.js?v=80"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -319,6 +319,13 @@
   .rp-form .field-err { font-size: 12.5px; color: var(--red-strong, var(--red)); margin-top: 4px; font-weight: 600; }
   .rp-form .field-err:empty { display: none; }
   .rp-row { margin: 10px 0 0; } .rp-row .linkish { min-height: 24px; font-size: 13px; }
+  /* grieviq-86: case tools */
+  .ct-row { line-height: 2; }
+  .ct-form-h { font-size: 14px; margin: 0 0 6px; }
+  .ct-hist { margin: 10px 0 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; line-height: 1.5; max-width: 60ch; }
+  .ct-hist-h { font-size: 13px; margin: 0 0 4px; color: var(--steel); }
+  .ct-hist ul { margin: 0; padding-left: 18px; } .ct-hist li { margin: 0 0 6px; overflow-wrap: anywhere; }
+  .ct-prio { font-weight: 700; }
   /* Item 9c: Audit tab */
   .tab-count { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 6px; border-radius: 10px; background: var(--gold-tint); color: #6b5210; font-size: 12px; font-weight: 700; text-align: center; }
   .tab-count.late { background: var(--red); color: #fff; }
@@ -1568,6 +1575,7 @@ function renderCase(c) {
     badge += ' <span class="badge escalated">' + esc(T('rep.badge_reopened')) + '</span>';
   }
   badge += renderContactBadge(c);
+  badge += renderPriorityBadge(c);   // grieviq-86
   var locationLine = c.locationDetail
     ? '<p class="location-detail">' + esc(c.locationDetail) + '</p>'
     : '';
@@ -1585,6 +1593,7 @@ function renderCase(c) {
       renderCitizenRating(c) +
       renderReopenNote(c) + renderDisputeNote(c) + renderStaffCheckNote(c) + renderNudgeNote(c) + renderMisuseNote(c) +
       renderTeamNotes(c) +
+      renderFollowers(c) + renderCaseUpdates(c) +   // grieviq-86
       // Actions sit beside the details on a laptop, below them on a phone.
       renderSeatNote(c) +
       (c.helped ? '<p class="seat-note">' + esc(T('rep.helped')) + '</p>' : '') +
@@ -1593,7 +1602,7 @@ function renderCase(c) {
         renderAssignControl(c) +
         renderFollowupControl(c) +
         renderAcknowledgeControl(c) +
-        renderResolveControl(c) + renderSeatReturn(c) + renderReportControl(c)) +
+        renderResolveControl(c) + renderSeatReturn(c) + renderCaseTools(c) + renderReportControl(c)) +
       '</div>' +
     '</div>' +
     '<div class="case-meta">' +
@@ -4117,6 +4126,215 @@ document.addEventListener('click', async function(e) {
     delete rpDraft[id];
     await init();
     say(T('rep.rp_sent'));
+    var row = document.getElementById('case-' + id); if (row) { row.setAttribute('tabindex', '-1'); row.focus(); }
+  } catch (err) { d.busy = false; d.errors.form = T('common.network_error'); renderContent(); }
+});
+// ================= grieviq-86: five tools on a case =================
+// Ask the citizen (answered on their Track page; the office never sees their
+// phone or email), interim reply ("this will take longer"), send to the right
+// ward or village (within 48 hours), priority (danger to life or health) and
+// how many people follow the case ("this is my problem too").
+var CT_INTERIM = ['TENDER', 'DEPARTMENT', 'MATERIAL', 'WEATHER', 'LEGAL', 'OTHER'];
+var ctDraft = {};   // case id -> { open: 'ask' | 'interim' | 'move' | 'prio', ...fields, errors, busy }
+function ctDay(offset) { var d = new Date(Date.now() + offset * 86400000 + 5.5 * 3600000); return d.toISOString().slice(0, 10); }
+function renderPriorityBadge(c) {
+  if (!c.priority) return '';
+  if (!c.priority.on) return ' <span class="badge neutral">' + esc(T('rep.ct_prio_off_badge')) + '</span>';
+  return ' <span class="badge escalated ct-prio">' + esc(T('rep.ct_prio_badge', { what: T('ct.pk_' + c.priority.kind) })) + '</span>';
+}
+function renderFollowers(c) {
+  if (!c.followers) return '';
+  return '<p class="seat-note ct-fol">' + esc(T(c.followers === 1 ? 'rep.ct_fol_one' : 'rep.ct_fol_many', { n: c.followers })) + '</p>';
+}
+function ctLevel(c, tier) {
+  if (tier === 'LOCAL') return T(c.localUnit && c.localUnit.type === 'RURAL' ? 'level.pradhan' : 'level.corporator');
+  return T({ MAYOR: 'level.mayor', MLA: 'level.mla', MP: 'level.mp' }[tier] || 'rep.tier_local');
+}
+function renderCaseUpdates(c) {
+  var list = c.updates || [];
+  if (!list.length) return '';
+  return '<div class="ct-hist"><h4 class="ct-hist-h">' + esc(T('rep.ct_hist_h')) + '</h4><ul>' + list.map(function(u) {
+    var when = '<span class="muted-inline">' + esc(formatDate(u.at)) + '</span>';
+    if (u.kind === 'QUESTION') {
+      return '<li><b>' + esc(T('rep.ct_h_q', { level: ctLevel(c, u.tier) })) + '</b> ' + when + '<br>"' + esc(u.text) + '"<br>' +
+        (u.answeredAt ? '<b>' + esc(T('rep.ct_h_a')) + '</b> <span class="muted-inline">' + esc(formatDate(u.answeredAt)) + '</span><br>"' + esc(u.answer) + '"'
+          : '<span class="muted-inline">' + esc(T('rep.ct_h_noans')) + '</span>') + '</li>';
+    }
+    if (u.kind === 'INTERIM') return '<li><b>' + esc(T('rep.ct_h_int', { level: ctLevel(c, u.tier), date: formatDateOnly(u.expectedBy) })) + '</b> ' + when + '<br>' + esc(T('ct.ir_' + u.reason)) + ': "' + esc(u.text) + '"</li>';
+    if (u.kind === 'TRANSFER') return '<li><b>' + esc(T(u.by === 'STAFF' ? 'rep.ct_h_tr_staff' : 'rep.ct_h_tr', { from: u.from || '', to: u.to || '' })) + '</b> ' + when + '<br>"' + esc(u.text) + '"</li>';
+    if (u.kind === 'PRIORITY_OFF') return '<li><b>' + esc(T('rep.ct_h_prio')) + '</b> ' + when + '<br>"' + esc(u.text) + '"</li>';
+    if (u.kind === 'NO_INFO') return '<li><b>' + esc(T('rep.ct_h_noinfo')) + '</b> ' + when + '</li>';
+    return '';
+  }).join('') + '</ul></div>';
+}
+function renderCaseTools(c) {
+  var open = c.status === 'OPEN' || c.status === 'ACKNOWLEDGED';
+  if (!open || c.viewOnly || (c.seat && c.seat.pool)) return '';
+  var id = esc(c.id), d = ctDraft[c.id] || {}, e = d.errors || {};
+  var manage = c.myRole === 'REPRESENTATIVE' || c.myRole === 'OFFICE_MANAGER';
+  var q = c.questions || {};
+  var h = '';
+  if (q.why === 'WAITING') h += '<p class="seat-note">' + esc(T('rep.ct_waiting')) + (q.canCloseNoInfo ? '' : ' ' + esc(T('rep.ct_close_from', { date: formatDateOnly(q.closeFrom) }))) + '</p>';
+  if (c.interimHere) h += '<p class="seat-note">' + esc(T('rep.ct_int_given', { date: formatDateOnly(c.interimHere) })) + '</p>';
+  if (d.open === 'ask') {
+    h += '<div class="ds-form rp-form" id="ct-form-' + id + '"><h4 class="ct-form-h">' + esc(T('rep.ct_ask')) + '</h4>' +
+      '<label for="ct-q-' + id + '">' + esc(T('rep.ct_q_label')) + '</label>' +
+      '<p class="hint" id="ct-q-hint-' + id + '">' + esc(T('rep.ct_q_hint', { n: q.left })) + '</p>' +
+      '<textarea id="ct-q-' + id + '" class="ct-q" data-id="' + id + '" maxlength="500" aria-describedby="ct-q-hint-' + id + ' ct-q-err-' + id + '"' + (e.question ? ' aria-invalid="true"' : '') + '>' + esc(d.question || '') + '</textarea>' +
+      '<div class="field-err" id="ct-q-err-' + id + '" role="alert">' + esc(e.question || '') + '</div>' +
+      '<p class="hint">' + esc(T('rep.ct_q_clock')) + '</p>' +
+      '<div class="actions"><button type="button" class="resolve-btn ct-send" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ct_q_send')) + '</button>' +
+      '<button type="button" class="resolve-btn ct-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+      '<div class="resolve-error" id="ct-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+  } else if (d.open === 'interim') {
+    h += '<div class="ds-form rp-form" id="ct-form-' + id + '"><h4 class="ct-form-h">' + esc(T('rep.ct_int')) + '</h4>' +
+      '<label for="ct-r-' + id + '">' + esc(T('rep.ct_int_why')) + '</label>' +
+      '<select id="ct-r-' + id + '" class="ct-r" data-id="' + id + '" aria-describedby="ct-r-err-' + id + '"' + (e.reason ? ' aria-invalid="true"' : '') + '><option value="">' + esc(T('rep.ct_choose')) + '</option>' +
+      CT_INTERIM.map(function(k) { return '<option value="' + k + '"' + (d.reason === k ? ' selected' : '') + '>' + esc(T('ct.ir_' + k)) + '</option>'; }).join('') + '</select>' +
+      '<div class="field-err" id="ct-r-err-' + id + '" role="alert">' + esc(e.reason || '') + '</div>' +
+      '<label for="ct-d-' + id + '">' + esc(T('rep.ct_int_date')) + '</label>' +
+      '<p class="hint" id="ct-d-hint-' + id + '">' + esc(T('rep.ct_int_date_hint')) + '</p>' +
+      '<input type="date" id="ct-d-' + id + '" class="ct-d" data-id="' + id + '" min="' + ctDay(1) + '" max="' + ctDay(60) + '" value="' + esc(d.date || '') + '" aria-describedby="ct-d-hint-' + id + ' ct-d-err-' + id + '"' + (e.date ? ' aria-invalid="true"' : '') + '>' +
+      '<div class="field-err" id="ct-d-err-' + id + '" role="alert">' + esc(e.date || '') + '</div>' +
+      '<label for="ct-n-' + id + '">' + esc(T('rep.ct_int_note')) + '</label>' +
+      '<p class="hint" id="ct-n-hint-' + id + '">' + esc(T('rep.ct_int_note_hint')) + '</p>' +
+      '<textarea id="ct-n-' + id + '" class="ct-n" data-id="' + id + '" maxlength="500" aria-describedby="ct-n-hint-' + id + ' ct-n-err-' + id + '"' + (e.note ? ' aria-invalid="true"' : '') + '>' + esc(d.note || '') + '</textarea>' +
+      '<div class="field-err" id="ct-n-err-' + id + '" role="alert">' + esc(e.note || '') + '</div>' +
+      '<p class="hint">' + esc(T('rep.ct_int_rule')) + '</p>' +
+      '<div class="actions"><button type="button" class="resolve-btn ct-send" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ct_int_send')) + '</button>' +
+      '<button type="button" class="resolve-btn ct-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+      '<div class="resolve-error" id="ct-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+  } else if (d.open === 'move') {
+    var opts = d.options || [];
+    h += '<div class="ds-form rp-form" id="ct-form-' + id + '"><h4 class="ct-form-h">' + esc(T('rep.ct_move')) + '</h4>' +
+      (d.loading ? '<p class="hint" role="status">' + esc(T('rep.ct_loading')) + '</p>' :
+      '<label for="ct-to-' + id + '">' + esc(T('rep.ct_move_to')) + '</label>' +
+      '<select id="ct-to-' + id + '" class="ct-to" data-id="' + id + '" aria-describedby="ct-to-err-' + id + '"' + (e.to ? ' aria-invalid="true"' : '') + '><option value="">' + esc(T('rep.ct_choose')) + '</option>' +
+      opts.map(function(o) { return '<option value="' + esc(o.id) + '"' + (d.to === String(o.id) ? ' selected' : '') + '>' + esc(o.name) + (o.num != null ? ' (' + esc(T(o.rural ? 'rep.ct_village' : 'rep.ct_ward_n', { n: o.num })) + ')' : '') + '</option>'; }).join('') + '</select>' +
+      '<div class="field-err" id="ct-to-err-' + id + '" role="alert">' + esc(e.to || '') + '</div>' +
+      '<label for="ct-mr-' + id + '">' + esc(T('rep.ct_move_why')) + '</label>' +
+      '<p class="hint" id="ct-mr-hint-' + id + '">' + esc(T('rep.ct_move_why_hint')) + '</p>' +
+      '<textarea id="ct-mr-' + id + '" class="ct-mr" data-id="' + id + '" maxlength="300" aria-describedby="ct-mr-hint-' + id + ' ct-mr-err-' + id + '"' + (e.reason ? ' aria-invalid="true"' : '') + '>' + esc(d.reason || '') + '</textarea>' +
+      '<div class="field-err" id="ct-mr-err-' + id + '" role="alert">' + esc(e.reason || '') + '</div>' +
+      '<p class="hint">' + esc(T('rep.ct_move_rule', { date: formatDate(c.transfer && c.transfer.until) })) + '</p>' +
+      '<div class="actions"><button type="button" class="resolve-btn ct-send" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ct_move_send')) + '</button>' +
+      '<button type="button" class="resolve-btn ct-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>') +
+      '<div class="resolve-error" id="ct-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+  } else if (d.open === 'prio') {
+    h += '<div class="ds-form rp-form" id="ct-form-' + id + '"><h4 class="ct-form-h">' + esc(T('rep.ct_prio')) + '</h4>' +
+      '<label for="ct-pr-' + id + '">' + esc(T('rep.ct_prio_why')) + '</label>' +
+      '<p class="hint" id="ct-pr-hint-' + id + '">' + esc(T('rep.ct_prio_hint')) + '</p>' +
+      '<textarea id="ct-pr-' + id + '" class="ct-pr" data-id="' + id + '" maxlength="300" aria-describedby="ct-pr-hint-' + id + ' ct-pr-err-' + id + '"' + (e.reason ? ' aria-invalid="true"' : '') + '>' + esc(d.reason || '') + '</textarea>' +
+      '<div class="field-err" id="ct-pr-err-' + id + '" role="alert">' + esc(e.reason || '') + '</div>' +
+      '<div class="actions"><button type="button" class="resolve-btn ct-send" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ct_prio_send')) + '</button>' +
+      '<button type="button" class="resolve-btn ct-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+      '<div class="resolve-error" id="ct-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+  } else {
+    var links = [];
+    if (q.canAsk) links.push('<button type="button" class="linkish ct-open" data-id="' + id + '" data-tool="ask" aria-expanded="false">' + esc(T('rep.ct_ask')) + '</button>');
+    else if (q.why === 'NO_EMAIL') links.push('<span class="muted-inline">' + esc(T('rep.ct_no_email')) + '</span>');
+    if (q.canCloseNoInfo && manage) links.push('<button type="button" class="linkish ct-noinfo" data-id="' + id + '">' + esc(T('rep.ct_noinfo')) + '</button>');
+    if (c.canInterim) links.push('<button type="button" class="linkish ct-open" data-id="' + id + '" data-tool="interim" aria-expanded="false">' + esc(T('rep.ct_int')) + '</button>');
+    if (c.transfer && c.transfer.can) links.push('<button type="button" class="linkish ct-open" data-id="' + id + '" data-tool="move" aria-expanded="false">' + esc(T('rep.ct_move')) + '</button>');
+    if (c.priority && c.priority.on && manage) links.push('<button type="button" class="linkish ct-open" data-id="' + id + '" data-tool="prio" aria-expanded="false">' + esc(T('rep.ct_prio')) + '</button>');
+    if (d.confirmNoInfo) {
+      h += '<div class="rp-form" role="group" aria-labelledby="ct-ni-h-' + id + '"><p id="ct-ni-h-' + id + '"><b>' + esc(T('rep.ct_noinfo_q')) + '</b></p><p class="hint">' + esc(T('rep.ct_noinfo_hint')) + '</p>' +
+        '<div class="actions"><button type="button" class="resolve-btn ct-noinfo-yes" data-id="' + id + '"' + (d.busy ? ' disabled' : '') + '>' + esc(T('rep.ct_noinfo_yes')) + '</button>' +
+        '<button type="button" class="resolve-btn ct-cancel" data-id="' + id + '">' + esc(T('rep.r_cancel')) + '</button></div>' +
+        '<div class="resolve-error" id="ct-err-' + id + '" role="alert">' + esc(e.form || '') + '</div></div>';
+    } else if (links.length) h += '<p class="rp-row ct-row">' + links.join(' <span aria-hidden="true">·</span> ') + '</p>';
+  }
+  return h;
+}
+function ctRead(id) {
+  var d = ctDraft[id]; if (!d) return;
+  var v = function(cls) { var el = document.querySelector('.' + cls + '[data-id="' + cssId(id) + '"]'); return el ? el.value : undefined; };
+  if (d.open === 'ask') d.question = v('ct-q');
+  if (d.open === 'interim') { d.reason = v('ct-r'); d.date = v('ct-d'); d.note = v('ct-n'); }
+  if (d.open === 'move') { if (v('ct-to') !== undefined) d.to = v('ct-to'); if (v('ct-mr') !== undefined) d.reason = v('ct-mr'); }
+  if (d.open === 'prio') d.reason = v('ct-pr');
+}
+function ctFocus(sel) { var el = document.querySelector(sel); if (el) el.focus(); }
+function ctErr(data) {
+  var f = (data && data.fields) || {}, out = {};
+  if (f.question) out.question = T(f.question === 'CONTACT' ? 'rep.ct_err_contact' : 'rep.ct_err_q');
+  if (f.note) out.note = T(f.note === 'CONTACT' ? 'rep.ct_err_contact' : 'rep.ct_err_note');
+  if (f.reason) out.reason = T(f.reason === 'CONTACT' ? 'rep.ct_err_contact' : f.reason === 'REQUIRED' ? 'rep.ct_err_choose' : 'rep.ct_err_reason');
+  if (f.expectedBy) out.date = T('rep.ct_err_date');
+  if (f.to) out.to = T('rep.ct_err_choose');
+  return out;
+}
+document.addEventListener('click', async function(e) {
+  var b = e.target.closest && e.target.closest('.ct-open, .ct-cancel, .ct-send, .ct-noinfo, .ct-noinfo-yes');
+  if (!b) return;
+  var id = b.getAttribute('data-id');
+  var c = (currentCases || []).filter(function(x) { return x.id === id; })[0];
+  if (b.classList.contains('ct-open')) {
+    var tool = b.getAttribute('data-tool');
+    ctDraft[id] = { open: tool, errors: {}, loading: tool === 'move' };
+    renderContent();
+    if (tool === 'move') {
+      try {
+        var r = await fetch('/api/grievances/' + encodeURIComponent(id) + '/transfer');
+        var dt = await r.json().catch(function() { return {}; });
+        ctDraft[id].loading = false; ctDraft[id].options = dt.options || [];
+        if (!r.ok) ctDraft[id].errors.form = errText(dt.error);
+      } catch (err) { ctDraft[id].loading = false; ctDraft[id].errors.form = T('common.network_error'); }
+      renderContent();
+    }
+    ctFocus({ ask: '#ct-q-', interim: '#ct-r-', move: '#ct-to-', prio: '#ct-pr-' }[tool] + cssId(id));
+    return;
+  }
+  if (b.classList.contains('ct-cancel')) {
+    var was = (ctDraft[id] || {}).open;
+    delete ctDraft[id]; renderContent();
+    ctFocus(was ? '.ct-open[data-id="' + cssId(id) + '"][data-tool="' + was + '"]' : '.ct-noinfo[data-id="' + cssId(id) + '"]');
+    return;
+  }
+  if (b.classList.contains('ct-noinfo')) { ctDraft[id] = { confirmNoInfo: true, errors: {} }; renderContent(); ctFocus('.ct-noinfo-yes[data-id="' + cssId(id) + '"]'); return; }
+  var d = ctDraft[id]; if (!d) return;
+  var url, body, done;
+  if (b.classList.contains('ct-noinfo-yes')) { url = 'close-no-info'; body = {}; done = 'rep.ct_noinfo_done'; }
+  else {
+    ctRead(id); d.errors = {};
+    if (d.open === 'ask') {
+      var ql = (d.question || '').trim().length;
+      if (ql < 20 || ql > 500) d.errors.question = T('rep.ct_err_q');
+      url = 'ask'; body = { question: d.question }; done = 'rep.ct_q_done';
+    } else if (d.open === 'interim') {
+      if (!d.reason) d.errors.reason = T('rep.ct_err_choose');
+      if (!d.date || d.date < ctDay(1) || d.date > ctDay(60)) d.errors.date = T('rep.ct_err_date');
+      var nl = (d.note || '').trim().length; if (nl < 20 || nl > 500) d.errors.note = T('rep.ct_err_note');
+      url = 'interim'; body = { reason: d.reason, expectedBy: d.date, note: d.note }; done = 'rep.ct_int_done';
+    } else if (d.open === 'move') {
+      if (!d.to) d.errors.to = T('rep.ct_err_choose');
+      var ml = (d.reason || '').trim().length; if (ml < 10 || ml > 300) d.errors.reason = T('rep.ct_err_reason');
+      url = 'transfer'; body = { to: d.to, reason: d.reason }; done = 'rep.ct_move_done';
+    } else if (d.open === 'prio') {
+      var pl = (d.reason || '').trim().length; if (pl < 10 || pl > 300) d.errors.reason = T('rep.ct_err_reason');
+      url = 'priority'; body = { reason: d.reason }; done = 'rep.ct_prio_done';
+    }
+    var first = ['question', 'reason', 'date', 'note', 'to'].filter(function(k) { return d.errors[k]; })[0];
+    if (first) {
+      renderContent();
+      ctFocus({ question: '#ct-q-', reason: d.open === 'interim' ? '#ct-r-' : d.open === 'move' ? '#ct-mr-' : '#ct-pr-', date: '#ct-d-', note: '#ct-n-', to: '#ct-to-' }[first] + cssId(id));
+      return;
+    }
+  }
+  d.busy = true; renderContent();
+  try {
+    var res = await fetch('/api/grievances/' + encodeURIComponent(id) + '/' + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var data = await res.json().catch(function() { return {}; });
+    d.busy = false;
+    if (!res.ok) {
+      d.errors = ctErr(data);
+      if (!Object.keys(d.errors).length) d.errors.form = errText(data.error);
+      renderContent(); var fe = document.getElementById('ct-err-' + id); if (fe && d.errors.form) { fe.setAttribute('tabindex', '-1'); fe.focus(); }
+      return;
+    }
+    delete ctDraft[id];
+    await init();
+    say(T(done, { to: data.to || '' }));
     var row = document.getElementById('case-' + id); if (row) { row.setAttribute('tabindex', '-1'); row.focus(); }
   } catch (err) { d.busy = false; d.errors.form = T('common.network_error'); renderContent(); }
 });

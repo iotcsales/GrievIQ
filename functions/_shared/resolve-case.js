@@ -9,6 +9,7 @@
 
 import { CONFIRM_DAYS, confirmDeadline } from "./confirmation.js";
 import { pushCitizen } from "./citizen-push.js";
+import { emailCaseUpdate } from "./notify.js";
 
 function escHtml(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -45,6 +46,11 @@ export async function finalizeResolution(env, request, grievance, currentTier, n
 
   // Citizen phone updates (Oct 2026), if the citizen turned them on.
   await pushCitizen(env, grievance, "FIXED", { hasEmail }, "FIX:" + grievanceId + ":" + now);
+  // grieviq-86: people following it hear that it is marked fixed.
+  try {
+    const w = await env.DB.prepare("SELECT lu.name AS ward, c.id AS cid, c.name AS cname FROM local_units lu, grievance_categories c WHERE lu.id = ? AND c.id = ?").bind(grievance.local_unit_id, grievance.category_id).first();
+    await emailCaseUpdate(env, new URL(request.url).origin, grievance, "FIXED", { wardName: w && w.ward, category: w && { id: w.cid, name: w.cname }, stamp: now });
+  } catch (e) { /* ignore */ }
 
   if (hasEmail) {
     const statusUrl = new URL(request.url).origin + "/status?ref=" + encodeURIComponent(grievance.tracking_ref);

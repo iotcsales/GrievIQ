@@ -58,6 +58,15 @@ export function citizenText(kind, ref, data, lang) {
       : { title: "A ward member took your complaint", body: ref + ": the office of Seat " + (d.seat || "") + (d.name ? " (" + d.name + ")" : "") + " in your ward has taken it and will handle it." };
     case "BACK_TO_WARD": return hi ? { title: "शिकायत फिर से वार्ड के सभी सदस्यों के लिए खुली", body: ref + ": जिस सदस्य के पास यह थी वह अब कार्यवाही नहीं कर सकता, इसलिए आपके वार्ड का कोई भी सदस्य इसे ले सकता है। समय-सीमा वही रहती है।" }
       : { title: "Your complaint is open to all ward members again", body: ref + ": the member who had it can't act on it now, so any member of your ward can take it. The time limits stay the same." };
+    // grieviq-86
+    case "QUESTION": return hi ? { title: "आपके लिए एक प्रश्न", body: ref + ": कार्यालय ने एक प्रश्न पूछा है। उत्तर देने के लिए खोलें।" }
+      : { title: "A question for you", body: ref + ": the office has asked you a question. Open it to answer." };
+    case "INTERIM": return hi ? { title: "अधिक समय लगेगा", body: ref + ": कार्यालय ने कारण और अनुमानित तारीख " + (d.dateHi || d.date || "") + " बताई है।" }
+      : { title: "It will take longer", body: ref + ": the office gave a reason and an expected date, " + (d.date || "") + "." };
+    case "TRANSFER": return hi ? { title: "सही कार्यालय को भेजी गई", body: ref + " अब " + (d.to || "") + " के कार्यालय को भेज दी गई है।" }
+      : { title: "Sent to the right office", body: ref + " has been sent to the office for " + (d.to || "") + "." };
+    case "NO_INFO": return hi ? { title: "बंद: पर्याप्त जानकारी नहीं", body: ref + ": प्रश्न का उत्तर नहीं मिला। 30 दिन के भीतर उत्तर देकर इसे फिर खोल सकते हैं।" }
+      : { title: "Closed: not enough information", body: ref + ": the question had no answer. Answer within 30 days to reopen it." };
     case "ON": return hi ? { title: "अपडेट चालू हैं", body: ref + " के बारे में अपडेट इस डिवाइस पर आएँगे।" }
       : { title: "Updates are on", body: "Updates about " + ref + " will appear on this device." };
     default: return { title: "GrievIQ", body: ref };

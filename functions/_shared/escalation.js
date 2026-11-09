@@ -25,6 +25,10 @@
 // that drives escalation.
 
 import { toUtcMs } from "./time-limits.js";
+// grieviq-86: priority (shorter limits), interim replies (a level's limit
+// moves to the expected date) and transfers (the clock starts again at the
+// new ward) all come from one place.
+import { effectiveCategory, levelEnds } from "./case-tools.js";
 
 // grieviq-53: a VACANT seat has nobody to act, so a case never waits there:
 // it goes on to the next level that has someone (the top level keeps it if
@@ -38,22 +42,28 @@ export function skipVacant(chainTiers, index) {
 
 // Where the escalation clock starts: filing at the first level, or (for a
 // reopened case) the reopening at the level it was sent to.
+// grieviq-86: a case sent to the right ward starts again at its first level
+// from the moment it was sent (unless it was reopened later than that).
 export function clockStart(grievance, chainTiers) {
+  const moved = grievance.transferred_at ? toUtcMs(grievance.transferred_at) : NaN;
   if (grievance.reopened_at && grievance.reopen_start_tier) {
     const ms = toUtcMs(grievance.reopened_at);
     const index = chainTiers.findIndex((t) => t.tier === grievance.reopen_start_tier);
-    if (!isNaN(ms)) return { ms, index: Math.max(0, index), reopened: true };
+    if (!isNaN(ms) && (isNaN(moved) || ms >= moved)) return { ms, index: Math.max(0, index), reopened: true };
   }
+  if (!isNaN(moved)) return { ms: moved, index: 0, reopened: false, transferred: true };
   return { ms: toUtcMs(grievance.created_at), index: 0, reopened: false };
 }
 
-export function computeEscalation(grievance, category, chainTiers) {
+export function computeEscalation(grievance, categoryIn, chainTiers) {
+  const category = effectiveCategory(grievance, categoryIn);
   const createdAtMs = toUtcMs(grievance.created_at);
   const nowMs = Date.now();
   const elapsedHours = (nowMs - createdAtMs) / (1000 * 60 * 60);
   const start = clockStart(grievance, chainTiers);
   const clockHours = (nowMs - start.ms) / (1000 * 60 * 60);
-  const base = { elapsedHours, clockHours, clockStartMs: start.ms, startIndex: start.index, reopened: start.reopened };
+  const ends = levelEnds(grievance, category, chainTiers, start);
+  const base = { elapsedHours, clockHours, clockStartMs: start.ms, startIndex: start.index, reopened: start.reopened, levelEnds: ends, priority: !!category.priority };
 
   // Clock A: acknowledgment overdue check — independent of tier escalation.
   const ackOverdue =
@@ -94,10 +104,11 @@ export function computeEscalation(grievance, category, chainTiers) {
     };
   }
 
-  // One level up per full resolution limit on the clock, from its start level.
+  // One level up each time a level's time to act ends (one resolution
+  // limit per level, or the expected date of an interim reply).
   let tierIndex = start.index;
   for (let i = start.index + 1; i < chainTiers.length; i++) {
-    if (clockHours >= category.resolution_sla_hours * (i - start.index)) {
+    if (ends[i - 1] != null && nowMs >= ends[i - 1]) {
       tierIndex = i;
     }
   }

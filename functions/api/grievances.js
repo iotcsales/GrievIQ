@@ -34,6 +34,8 @@ import { officerNames } from "../_shared/dept-cases.js";
 import { dashboardOffices } from "../_shared/dept-auth.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 import { seatsReady, letterOf } from "../_shared/seats.js";
+import { loadUpdates, supporterCounts, questionStatus, transferStatus, isPriority, readInterims, shapeUpdatesForOffice, unitNamesFor } from "../_shared/case-tools.js";
+import { clockStart } from "../_shared/escalation.js";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -407,6 +409,15 @@ export async function onRequestGet(context) {
         ? (({ outcome, method, note, checked_at }) => ({ outcome, method, note: note || null, at: checked_at }))(checkByGrievance.get(grievance.id))
         : null,
       acknowledgedAt: grievance.acknowledged_at || null,
+      // grieviq-86: priority, interim reply at this level, sending to the right ward.
+      priority: grievance.priority ? { kind: grievance.priority, on: isPriority(grievance), offAt: grievance.priority_off_at || null } : null,
+      priorityLimits: result.priority || false,
+      interimHere: (() => { const x = readInterims(grievance)[myTier]; return x && Number(x.clock) === clockStart(grievance, chain.tiers).ms ? x.until : null; })(),
+      canInterim: isUnresolved && grievance.status !== "PENDING_CONFIRMATION" && !!grievance.acknowledged_at && canManageCases(myRole) && !result.needsLegalReview &&
+        result.currentTier.tier === myTier && !(readInterims(grievance)[myTier] && Number(readInterims(grievance)[myTier].clock) === clockStart(grievance, chain.tiers).ms),
+      transfer: canManageCases(myRole) ? transferStatus(grievance) : null,
+      hasCitizenEmail: !!(grievance.citizen_email && String(grievance.citizen_email).includes("@")),
+      _g: grievance,
       // grieviq-57: a ward with several members. For a member's office: whether
       // the case is still open to every member (take it first) or its own, and
       // whether it may give it back. For the levels above: who handles it.
@@ -506,6 +517,18 @@ export async function onRequestGet(context) {
       }
       c.deptSteps.push(sh);
     }
+  }
+  // grieviq-86: questions, interim replies, transfers and priority changes;
+  // and how many people follow each case ("this is my problem too").
+  const ids86 = visible.map((c) => c.id);
+  const [updatesBy, followersBy] = await Promise.all([loadUpdates(env, ids86), supporterCounts(env, ids86)]);
+  const unitNames86 = await unitNamesFor(env, Array.from(updatesBy.values()).flat());
+  for (const c of visible) {
+    const rows = updatesBy.get(c.id) || [];
+    c.updates = shapeUpdatesForOffice(rows, unitNames86);
+    c.questions = questionStatus(c._g, rows);
+    c.followers = followersBy.get(c.id) || 0;
+    delete c._g;
   }
   // Citizen ratings (grieviq-30): the representative and office managers see
   // the citizen's rating on a closed case; field workers and office

@@ -107,6 +107,26 @@
   .seat-opt input { width: 20px; height: 20px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--teal); }
   .seat-opt label { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
   .seat-opt .seat-sub { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-soft); }
+  /* grieviq-86: priority and "this is my problem too" */
+  .prio-box { border: 2px solid var(--brick); border-radius: 12px; padding: 12px 14px; margin: 0 0 18px; background: var(--card); }
+  .prio-box .seat-opt label { color: var(--ink); }
+  .prio-kinds { margin: 6px 0 0 30px; border: 0; padding: 0; }
+  .prio-kinds legend { font-size: 13px; font-weight: 700; padding: 0; margin: 0 0 4px; color: var(--ink); }
+  .prio-kinds .seat-opt { padding: 4px 0; min-height: 36px; }
+  .prio-112 { font-size: 13px; margin: 8px 0 0; line-height: 1.5; color: var(--ink); }
+  .prio-err { color: var(--brick); font-size: 12.5px; font-weight: 600; margin: 4px 0 0 30px; }
+  .prio-err:empty { display: none; }
+  .sim-list { margin: -10px 0 18px; padding: 0; list-style: none; }
+  .sim-list:empty { display: none; }
+  .sim-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #C9D6EC; border-top: 0; background: var(--card); font-size: 13px; line-height: 1.45; }
+  .sim-item:last-child { border-radius: 0 0 10px 10px; }
+  .sim-item .sim-sub { display: block; color: var(--ink-soft); font-size: 12.5px; }
+  .sim-follow { border: 1px solid #C9D6EC; border-top: 0; padding: 12px; background: var(--card); border-radius: 0 0 10px 10px; font-size: 13px; }
+  .sim-follow label { margin-top: 6px; }
+  .sim-follow .sms-send { margin-top: 6px; }
+  .sim-ok { border-left: 4px solid #1f7a3d; padding: 8px 12px; background: var(--card); font-size: 13.5px; line-height: 1.5; }
+  .sim-err { color: var(--brick); font-size: 12.5px; font-weight: 600; margin: 4px 0 0; }
+  .sim-err:empty { display: none; }
   .seat-consent { font-size: 12.5px; color: var(--ink-soft); margin: -8px 0 16px 30px; line-height: 1.5; }
   .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
   .chip {
@@ -266,7 +286,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=85"></script>
+<script src="/i18n.js?v=86"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/photo-tools.js?v=7c"></script>
 <script src="/text-screen.js?v=82"></script>
@@ -329,6 +349,17 @@
         <textarea id="description" required minlength="15" placeholder="For example: There has been no water supply in our lane for the past 5 days..." data-i18n-ph="submit.describe_ph"></textarea>
         <div class="field-error" id="descriptionError" data-i18n="submit.describe_err">Please write at least 15 characters.</div>
 
+        <!-- grieviq-86: a danger to life or health right now: shorter time limits, the office is alerted at once. -->
+        <div class="prio-box" id="prioBox">
+          <div class="seat-opt"><input type="checkbox" id="prioOn" aria-describedby="prioHint prio112"><label for="prioOn"><span data-i18n="submit.prio_label">This is a danger to life or health right now</span><span class="seat-sub" id="prioHint" data-i18n="submit.prio_hint">For example a live wire, an open manhole, a wall or tree about to fall, or sewage in drinking water. The office must acknowledge it within 24 hours and act within 3 days.</span></label></div>
+          <fieldset class="prio-kinds" id="prioKinds" hidden aria-describedby="prioErr">
+            <legend data-i18n="submit.prio_which">Which danger?</legend>
+            <div id="prioKindList"></div>
+          </fieldset>
+          <div class="prio-err" id="prioErr" role="alert"></div>
+          <p class="prio-112" id="prio112" data-i18n-html="submit.prio_112">Someone hurt or in danger now? <strong>Call 112 first.</strong> GrievIQ is not an emergency service.</p>
+        </div>
+
         <h2 class="section-title" data-i18n="submit.sec_where">Where is this happening?</h2>
 
         <div id="whereSearch">
@@ -362,6 +393,7 @@
         </div>
         <div class="pin-status" id="pinStatus" role="status" aria-live="polite"></div>
         <div class="similar-note" id="similarNote" role="status" aria-live="polite"></div>
+        <ul class="sim-list" id="similarList"></ul>
         <div class="field-error" id="areaError" data-i18n="submit.area_err">Please select your area from the list.</div>
         <div class="area-open-error" id="areaOpenError" role="alert"></div>
 
@@ -1022,16 +1054,108 @@
     const key = d.open === 1 ? 'submit.similar_one' : 'submit.similar_many';
     box.textContent = GIQ.t(key, { n: d.open, kind: kind, area: selectedUnit.name }) + ' ' +
       (d.oldestDays === 1 ? GIQ.t('submit.similar_oldest_one') + ' ' : d.oldestDays > 1 ? GIQ.t('submit.similar_oldest', { days: d.oldestDays }) + ' ' : '') +
-      GIQ.t('submit.similar_still');
+      GIQ.t(d.cases && d.cases.length && !helperMode ? 'submit.similar_follow' : 'submit.similar_still');
+    drawFollowList();
   }
+  // grieviq-86: "This is my problem too": follow an open complaint nearby
+  // instead of filing the same problem again (email confirmed with a code).
+  let follow = null;   // { k, step: 'email' | 'code' | 'done', email, busy, err, ref, n }
+  function simEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+  function drawFollowList() {
+    const ul = document.getElementById('similarList');
+    const d = similarData;
+    if (!d || !d.cases || !d.cases.length || !selectedUnit || helperMode) { ul.innerHTML = ''; return; }
+    if (follow && follow.step === 'done') {
+      ul.innerHTML = '<li class="sim-ok" tabindex="-1" id="simDone">' + simEsc(GIQ.t('submit.fol_done', { ref: follow.ref })) + ' ' + simEsc(GIQ.t(follow.n > 1 ? 'submit.fol_count' : 'submit.fol_count_one', { n: follow.n })) +
+        ' <a href="/status?ref=' + encodeURIComponent(follow.ref) + '">' + simEsc(GIQ.t('submit.fol_track')) + '</a><br>' + simEsc(GIQ.t('submit.fol_only')) + '</li>';
+      return;
+    }
+    ul.innerHTML = d.cases.map((c, i) => {
+      const where = c.dist != null ? GIQ.t('submit.sim_dist', { dist: GIQ.distance ? GIQ.distance(c.dist) : c.dist + ' m' }) : GIQ.t('submit.sim_same_ward');
+      const age = c.days === 0 ? GIQ.t('submit.sim_today') : c.days === 1 ? GIQ.t('submit.sim_day') : GIQ.t('submit.sim_days', { n: c.days });
+      const open = follow && follow.k === c.k;
+      let html = '<li class="sim-item"><span>' + simEsc(GIQ.t('submit.sim_item', { n: i + 1 })) + ' · ' + simEsc(where) + '<span class="sim-sub">' + simEsc(age) + ' · ' + simEsc(GIQ.t(c.ack ? 'submit.sim_ack' : 'submit.sim_new')) + '</span></span>' +
+        '<button type="button" class="sms-send sim-btn" data-k="' + simEsc(c.k) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' + simEsc(GIQ.t('submit.sim_mine')) + '</button></li>';
+      if (open) {
+        html += '<li class="sim-follow"><p>' + simEsc(GIQ.t('submit.fol_intro')) + '</p>' +
+          '<label for="folEmail">' + simEsc(GIQ.t('submit.fol_email')) + '</label>' +
+          '<input type="email" id="folEmail" autocomplete="email" value="' + simEsc(follow.email || '') + '"' + (follow.step === 'code' ? ' readonly' : '') + ' aria-describedby="folErr">' +
+          (follow.step === 'code'
+            ? '<label for="folCode">' + simEsc(GIQ.t('submit.fol_code')) + '</label><input type="text" id="folCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-describedby="folErr">' +
+              '<button type="button" class="sms-send" id="folGo"' + (follow.busy ? ' disabled' : '') + '>' + simEsc(GIQ.t('submit.fol_go')) + '</button>'
+            : '<button type="button" class="sms-send" id="folSend"' + (follow.busy ? ' disabled' : '') + '>' + simEsc(GIQ.t('submit.fol_send')) + '</button>') +
+          ' <button type="button" class="sms-send" id="folCancel">' + simEsc(GIQ.t('submit.fol_cancel')) + '</button>' +
+          '<p class="sim-err" id="folErr" role="alert">' + simEsc(follow.err ? GIQ.t(follow.err) : '') + '</p></li>';
+      }
+      return html;
+    }).join('');
+  }
+  document.addEventListener('giq:lang', () => { drawSimilar(); });
+  document.getElementById('similarList').addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const focus = (id) => { const el = document.getElementById(id); if (el) el.focus(); };
+    if (b.classList.contains('sim-btn')) {
+      const k = b.getAttribute('data-k');
+      follow = follow && follow.k === k ? null : { k, step: 'email', email: document.getElementById('email').value.trim() };
+      drawFollowList();
+      if (follow) focus('folEmail'); else { const again = document.querySelector('.sim-btn[data-k="' + k + '"]'); if (again) again.focus(); }
+      return;
+    }
+    if (!follow) return;
+    if (b.id === 'folCancel') { const k = follow.k; follow = null; drawFollowList(); const again = document.querySelector('.sim-btn[data-k="' + k + '"]'); if (again) again.focus(); return; }
+    if (b.id === 'folSend') {
+      follow.email = document.getElementById('folEmail').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(follow.email)) { follow.err = 'submit.fol_err_email'; drawFollowList(); focus('folEmail'); return; }
+      follow.busy = true; follow.err = null; drawFollowList();
+      try {
+        const r = await fetch('/api/otp/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: follow.email, lang: GIQ.lang, follow: true }) });
+        follow.busy = false;
+        if (!r.ok) { follow.err = r.status === 429 ? 'submit.fol_err_many' : 'submit.fol_err'; drawFollowList(); focus('folSend'); return; }
+        follow.step = 'code'; drawFollowList(); focus('folCode');
+      } catch (err) { follow.busy = false; follow.err = 'submit.fol_err'; drawFollowList(); }
+      return;
+    }
+    if (b.id === 'folGo') {
+      const code = document.getElementById('folCode').value.replace(/\D/g, '');
+      if (code.length !== 6) { follow.err = 'submit.fol_err_code'; drawFollowList(); focus('folCode'); return; }
+      follow.busy = true; follow.err = null; drawFollowList();
+      try {
+        const v = await fetch('/api/otp/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: follow.email, code }) });
+        if (!v.ok) { follow.busy = false; follow.err = 'submit.fol_err_code'; drawFollowList(); focus('folCode'); return; }
+        const r = await fetch('/api/grievances/support', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: follow.email, unit: localUnitIdField.value, category: document.getElementById('category').value, k: follow.k, lang: GIQ.lang }) });
+        const d = await r.json().catch(() => ({}));
+        follow.busy = false;
+        if (!r.ok) { follow.err = { OWN: 'submit.fol_err_own', GONE: 'submit.fol_err_gone', LIMIT: 'submit.fol_err_many' }[d.code] || 'submit.fol_err'; drawFollowList(); return; }
+        follow.step = 'done'; follow.ref = d.trackingRef; follow.n = d.followers;
+        drawFollowList(); focus('simDone');
+      } catch (err) { follow.busy = false; follow.err = 'submit.fol_err'; drawFollowList(); }
+    }
+  });
+  // grieviq-86: priority: which danger (shown once the box is ticked).
+  const PRIO_KINDS = ['LIVE_WIRE', 'OPEN_MANHOLE', 'COLLAPSE', 'SEWAGE_WATER', 'OTHER_DANGER'];
+  function drawPrioKinds() {
+    const chosen = (document.querySelector('input[name="prioKind"]:checked') || {}).value;
+    document.getElementById('prioKindList').innerHTML = PRIO_KINDS.map((k) => '<div class="seat-opt"><input type="radio" name="prioKind" id="pk-' + k + '" value="' + k + '"' + (chosen === k ? ' checked' : '') + '><label for="pk-' + k + '">' + simEsc(GIQ.t('ct.pk_' + k)) + '</label></div>').join('');
+  }
+  let prioKey = '';
+  function prioErr(key) { prioKey = key; document.getElementById('prioErr').textContent = key ? GIQ.t(key) : ''; }
+  document.getElementById('prioOn').addEventListener('change', (e) => {
+    document.getElementById('prioKinds').hidden = !e.target.checked;
+    if (e.target.checked) drawPrioKinds(); else prioErr('');
+  });
+  document.getElementById('prioKindList').addEventListener('change', () => prioErr(''));
+  document.addEventListener('giq:lang', () => { if (!document.getElementById('prioKinds').hidden) drawPrioKinds(); if (prioKey) prioErr(prioKey); });
   async function checkSimilar() {
     const unitId = localUnitIdField.value;
     const cat = document.getElementById('category').value;
     const seq = ++similarSeq;
-    similarData = null; drawSimilar();
+    similarData = null; follow = null; drawSimilar();
     if (!unitId || !cat) return;
     try {
-      const r = await fetch('/api/similar?unit=' + encodeURIComponent(unitId) + '&category=' + encodeURIComponent(cat));
+      const here = pin && pin.wardId === unitId ? '&lat=' + pin.lat + '&lng=' + pin.lng : '';
+      const r = await fetch('/api/similar?unit=' + encodeURIComponent(unitId) + '&category=' + encodeURIComponent(cat) + here);
       if (!r.ok || seq !== similarSeq) return;
       similarData = await r.json();
       drawSimilar();
@@ -1503,6 +1627,14 @@
       document.getElementById('descriptionError').style.display = 'block';
       hasError = true;
     }
+    // grieviq-86: priority needs the kind of danger.
+    const priority = document.getElementById('prioOn').checked ? (document.querySelector('input[name="prioKind"]:checked') || {}).value || '' : '';
+    prioErr('');
+    if (document.getElementById('prioOn').checked && !priority) {
+      prioErr('submit.prio_err');
+      if (!hasError) { const f = document.querySelector('input[name="prioKind"]'); if (f) f.focus(); }
+      hasError = true;
+    }
     if (!isPlausiblePhone(phone)) {
       document.getElementById('phoneError').style.display = 'block';
       hasError = true;
@@ -1618,6 +1750,7 @@
           consent: true,
           seat_choice: selectedUnit && Array.isArray(selectedUnit.members) && selectedUnit.members.length >= 2 ? seatChoice : undefined,
           sms_code,
+          priority: priority || undefined,
         }),
       });
 

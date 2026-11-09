@@ -34,6 +34,7 @@ import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shar
 import { reopenStatus, loadReopen, shapeReopen } from "../../_shared/reopen.js";
 import { ratingsReady, loadRatings, ratingStatus, departmentFor, shapeForCitizen } from "../../_shared/ratings.js";
 import { seatsReady } from "../../_shared/seats.js";
+import { loadUpdates, supporterCounts, openQuestion, shapeUpdatesForCitizen, unitNamesFor, isPriority, ANSWER_REOPEN_DAYS } from "../../_shared/case-tools.js";
 
 const MAX_WRONG_GUESSES = 5;
 const VERIFIED_WINDOW_MINUTES = 15;
@@ -62,7 +63,7 @@ async function listReports(env, email) {
      WHERE LOWER(g.citizen_email) = ?
      ORDER BY g.created_at DESC`
   ).bind(email).all();
-  return results.map((r) => ({
+  const own = results.map((r) => ({
     trackingRef: r.tracking_ref,
     status: r.status,
     resolutionKind: resolutionKind(r),
@@ -72,6 +73,23 @@ async function listReports(env, email) {
     categoryId: r.category_id || "",
     createdAt: r.created_at,
   }));
+  // grieviq-86: complaints this email follows ("this is my problem too"):
+  // no description (someone else wrote it).
+  let followed = [];
+  try {
+    followed = ((await env.DB.prepare(
+      `SELECT g.tracking_ref, g.status, g.created_at, g.category_id, g.citizen_confirmed, g.citizen_email, g.closure_kind,
+              lu.name AS ward_name, c.name AS category_name, s.created_at AS followed_at
+       FROM case_supporters s JOIN grievances g ON g.id = s.grievance_id
+       LEFT JOIN local_units lu ON lu.id = g.local_unit_id
+       LEFT JOIN grievance_categories c ON c.id = g.category_id
+       WHERE s.email = ? ORDER BY s.created_at DESC`
+    ).bind(email).all()).results || []).map((r) => ({
+      trackingRef: r.tracking_ref, status: r.status, resolutionKind: resolutionKind(r), description: "", wardName: r.ward_name || "",
+      category: r.category_name || "", categoryId: r.category_id || "", createdAt: r.created_at, following: true, followedAt: r.followed_at,
+    }));
+  } catch (e) { /* before part56 */ }
+  return own.concat(followed.filter((f) => !own.some((o) => o.trackingRef === f.trackingRef)));
 }
 
 // Unchanged from the previous verify.js, moved into a function.
@@ -177,8 +195,25 @@ async function buildCaseDetail(env, grievance) {
     if (hr && hr.helper_id) helper = { ref: hr.ref || null, removed: !!hr.helper_removed_at, removedAt: hr.helper_removed_at || null };
   } catch (e) { /* before part47 */ }
 
+  // grieviq-86: questions, interim replies, transfers and priority; how many
+  // others follow it; the open question and, after "not enough information",
+  // until when answering reopens it.
+  let updates = [], question = null, followers = 0, noInfo = null;
+  try {
+    const rows = (await loadUpdates(env, [grievance.id])).get(grievance.id) || [];
+    updates = shapeUpdatesForCitizen(rows, await unitNamesFor(env, rows), false);
+    const oq = openQuestion(rows);
+    if (oq) question = { id: oq.id, text: oq.text, at: oq.created_at };
+    followers = (await supporterCounts(env, [grievance.id])).get(grievance.id) || 0;
+    if (grievance.closure_kind === "NO_INFO" && grievance.closed_at) {
+      const until = toMs(grievance.closed_at) + ANSWER_REOPEN_DAYS * 86400000;
+      noInfo = { at: grievance.closed_at, until: new Date(until).toISOString(), canAnswer: !!oq && Date.now() <= until };
+    }
+  } catch (e) { /* before part56 */ }
   return {
     case: {
+      updates, question, followers, noInfo,
+      priority: grievance.priority ? { kind: grievance.priority, on: isPriority(grievance), offAt: grievance.priority_off_at || null } : null,
       helper,
       rating,
       ratingStatus: rateStatus,
@@ -242,15 +277,30 @@ async function caseForEmail(env, email, trackingRef) {
             closed_at, citizen_confirmed_at, updated_at, reopened_at, reopen_start_tier, reopen_count
      FROM grievances WHERE tracking_ref = ?`
   ).bind(trackingRef).first();
-  if (!grievance || !grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email) {
+  // grieviq-86: someone who follows this complaint sees how it is going,
+  // never what the person who filed it wrote, their photos or their buttons.
+  let follower = false;
+  if (grievance && (!grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email)) {
+    try { follower = !!(await env.DB.prepare("SELECT id FROM case_supporters WHERE grievance_id = ? AND email = ?").bind(grievance.id, email).first()); } catch (e) { follower = false; }
+  }
+  if (!grievance || (!follower && (!grievance.citizen_email || grievance.citizen_email.toLowerCase() !== email))) {
     return { error: "Case not found for this email", status: 404 };
   }
+  // grieviq-86: priority, interim replies and transfers (separately, so the page works before part56).
+  try { Object.assign(grievance, await env.DB.prepare("SELECT priority, priority_off_at, interims, transferred_at, transfer_count FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part56 */ }
   // grieviq-82: the "not genuine" closure and appeal (separately, so the page works before part53).
   if (grievance.closure_kind === "NOT_GENUINE") {
     try { Object.assign(grievance, await env.DB.prepare("SELECT not_genuine_reason, not_genuine_at, appeal_at, appeal_decision FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part53 */ }
   }
   const built = await buildCaseDetail(env, grievance);
   if (built.error) return { error: built.error, status: 500 };
+  if (follower) {
+    const c = built.case;
+    Object.assign(c, { following: true, description: "", beforePhotos: [], helper: null, rating: null, ratingStatus: null, ratingDept: null, notGenuine: null,
+      reopenStatus: { can: false, code: "FOLLOWER", until: null }, reopen: null, question: null, noInfo: null, confirmBy: null,
+      resolution: c.resolution ? Object.assign({}, c.resolution, { photos: [], warningCount: 0 }) : null });
+    c.updates = (c.updates || []).filter((u) => u.kind !== "QUESTION").map((u) => Object.assign({}, u, { answer: null }));
+  }
   return built;
 }
 

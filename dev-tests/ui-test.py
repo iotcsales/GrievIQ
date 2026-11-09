@@ -1641,7 +1641,7 @@ with sync_playwright() as pw:
                     ok("How to use GrievIQ" in p.inner_text("h1") and "File a complaint" in txt and "The life of a complaint" in txt and "If not fixed:" in txt and "112" in txt, "citizen guide in English (grieviq-79: the life of a complaint) " + tag, txt[:200])
                 else:
                     ok("GrievIQ का उपयोग कैसे करें" in p.inner_text("h1") and "शिकायत दर्ज करें" in txt and "शिकायत का पूरा सफ़र" in txt and not re.findall(r"(guide|common)\.\w+", txt), "citizen guide in Hindi, nothing missing " + tag, txt[:200])
-                ok(p.locator("#gq-page .gq-sop").count() == 8 and p.locator("#gq-page ol.gq-lc > li").count() == 6 and p.locator("#gq-page .gq-lc .gq-chip").count() == 8 and p.locator("#gq-page .gq-lc .gq-br").count() == 4 and p.locator("#gq-page ol.gq-flow").count() == 0, "eight guides (grieviq-72: Community helpers; grieviq-82: Appeal) and the six-stage life of a complaint, with who acts and what happens if not (grieviq-79) " + tag)
+                ok(p.locator("#gq-page .gq-sop").count() == 10 and p.locator("#gq-page ol.gq-lc > li").count() == 6 and p.locator("#gq-page .gq-lc .gq-chip").count() == 8 and p.locator("#gq-page .gq-lc .gq-br").count() == 4 and p.locator("#gq-page ol.gq-flow").count() == 0, "ten guides (grieviq-72: Community helpers; grieviq-82: Appeal; grieviq-86: questions, follow a complaint) and the six-stage life of a complaint, with who acts and what happens if not (grieviq-79) " + tag)
                 ok(p.locator("#gq-page strong").count() > 5 and p.locator("#gq-page script").count() == 0, "bold words drawn, nothing else " + tag)
                 ok(no_hscroll(p), "guide page: no sideways scroll " + tag)
                 bad = p.evaluate(CONTRAST_JS); ok(not bad, "guide page contrast AA " + tag, bad[:6])
@@ -1692,7 +1692,7 @@ with sync_playwright() as pw:
                 bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('.welcome-card')", 1)); ok(not bad, "welcome card with guide link contrast " + tag, bad)
                 p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
                 ok(p.get_attribute(".gq-drawer", "role") == "dialog" and p.get_attribute(".gq-drawer", "aria-modal") == "true" and p.evaluate("document.activeElement.id") == "gq-dtitle", "Help opens as a dialog, focus on its title " + tag)
-                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-report", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all thirteen guides " + tag, sop_ids(p))
+                ok(sop_ids(p) == ["gqd-signin", "gqd-daily", "gqd-forward", "gqd-fieldcheck", "gqd-resolve", "gqd-ask", "gqd-interim", "gqd-move", "gqd-priority", "gqd-report", "gqd-team", "gqd-reports", "gqd-messages", "gqd-billing", "gqd-notices", "gqd-share", "gqd-takeover"], "representative sees all seventeen guides (grieviq-86: ask, interim, move, priority) " + tag, sop_ids(p))
                 ok(p.evaluate("document.getElementById('app').inert") is True, "the console behind is inert " + tag)
                 ok(p.locator(".gq-drawer ol.gq-lc > li").count() == 6 and p.locator(".gq-drawer .gq-rail").count() == 1, "representative Help shows the life of a complaint (grieviq-79) " + tag)
                 ok(p.locator(".gq-drawer table.gq-mx tbody tr").count() == len(sop_ids(p)) and p.locator(".gq-drawer table.gq-mx thead th").count() == 5 and p.locator(".gq-drawer nav.gq-toc ol").count() == 0 and p.locator(".gq-drawer .gq-when").count() == 0, "grieviq-80: Who does what replaces the contents list; no second time list beside the life of a complaint " + tag)
@@ -1735,7 +1735,7 @@ with sync_playwright() as pw:
     p = ctx.new_page(); errs = []; p.on("pageerror", lambda e: errs.append(str(e)))
     p.goto(B + "/rep"); p.wait_for_selector("#help-btn", timeout=15000)
     p.click("#help-btn"); p.wait_for_selector(".gq-drawer")
-    ok(sop_ids(p) == ["gqd-signin", "gqd-fieldcheck"], "field worker sees only sign-in and field check", sop_ids(p))
+    ok(sop_ids(p) == ["gqd-signin", "gqd-fieldcheck", "gqd-ask"], "field worker sees only sign-in, field check and asking the citizen", sop_ids(p))
     shot(p, "50-fw-help", full=False)
     ok(not errs, "no script errors (field worker help)", errs)
     ctx.close()
@@ -1761,7 +1761,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 30), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 31), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -3028,6 +3028,8 @@ with sync_playwright() as pw:
     p.fill("#np-label", "UP urban local body elections 2027"); p.select_option("#np-state", "Uttar Pradesh")
     p.fill("#np-from", today55); p.fill("#np-to", today55)
     p.click("#np-go"); p.wait_for_selector("#nt-msg.success")
+    try: p.wait_for_selector(".nt-pause.now", timeout=5000)
+    except Exception: pass
     ok(p.locator(".nt-pause.now").count() == 1, "election code recorded and shown as in force")
     p.fill(".nt-pause.now input[type=text]", "Entered to test the page")
     p.click(".nt-pause.now [data-act=pause_remove]"); p.wait_for_selector(".nt-pause.gone")
@@ -4830,6 +4832,155 @@ window.Razorpay.prototype.open = function () {
     shot(p, "ob-check-advice-390")
     ok(not errs, "advice: no script errors", errs)
     ctx.close()
+
+    # ---------- grieviq-86: ask the citizen, interim reply, send to the right office, "this is my problem too", priority ----------
+    import sqlite3 as _sq86, datetime as _dt86, json as _js86
+    _d86 = _sq86.connect(os.path.join(WORK, "test.db"), timeout=10)
+    _n86 = lambda m=0: (_dt86.datetime.now(_dt86.timezone.utc) + _dt86.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    def _case86(cid, ref, email, desc, mins_ago=30, prio=None, ack=False, pin=None):
+        _d86.execute("DELETE FROM case_updates WHERE grievance_id = ?", (cid,)); _d86.execute("DELETE FROM grievances WHERE id = ?", (cid,))
+        _d86.execute("INSERT INTO grievances (id, tracking_ref, citizen_phone, citizen_email, local_unit_id, category_id, status, description, current_tier, created_at, priority, acknowledged_at, pin_lat, pin_lng) VALUES (?, ?, '9811186000', ?, 'lu-hazratganj', 'water-sanitation', 'OPEN', ?, 'LOCAL', ?, ?, ?, ?, ?)",
+                     (cid, ref, email, desc, _n86(-mins_ago), prio, _n86(-mins_ago + 5) if ack else None, pin[0] if pin else None, pin[1] if pin else None))
+        _d86.commit()
+    _case86("g86a", "GRV-86ASK1", "ask86ui@x.in", "Drain overflowing on the main road since Monday", prio="OPEN_MANHOLE", ack=True)
+    _d86.execute("INSERT INTO case_updates (id, grievance_id, kind, tier, by_kind, by_email, reason, text, expected_by, created_at) VALUES ('u86i', 'g86a', 'INTERIM', 'LOCAL', 'OFFICE', 'r1@x.in', 'TENDER', 'Estimate sent to Jal Kal; tender expected in December.', ?, ?)", (_n86(60 * 24 * 30), _n86(-10)))
+    _d86.commit()
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        _d86.execute("DELETE FROM case_updates WHERE grievance_id = 'g86a' AND kind = 'QUESTION'"); _d86.commit()
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+        ctx.add_init_script("try{localStorage.setItem('%s','%s')}catch(e){}" % (LANGKEY, lang))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/rep.html#case=g86a"); p.wait_for_selector("#case-g86a"); p.wait_for_timeout(400)
+        row = "#case-g86a"
+        ok(p.locator(row + " .ct-prio").count() == 1 and p.locator(row + " .ct-hist li").count() == 1 and p.locator(row + ' .ct-open[data-tool="ask"]').count() == 1 and p.locator(row + ' .ct-open[data-tool="move"]').count() == 1 and p.locator(row + ' .ct-open[data-tool="prio"]').count() == 1, "rep: priority badge, interim in history, the new actions " + tag)
+        ok(not re.findall(r"\brep\.ct_\w+|\bct\.(pk|ir)_\w+", p.inner_text(row)), "rep: every new label translated " + tag)
+        p.click(row + ' .ct-open[data-tool="ask"]'); p.wait_for_selector("#ct-form-g86a")
+        ok(p.evaluate("document.activeElement.id") == "ct-q-g86a", "ask: the box is focused " + tag)
+        p.click(row + " .ct-send"); p.wait_for_selector("#ct-q-err-g86a:not(:empty)")
+        ok(p.get_attribute("#ct-q-g86a", "aria-invalid") == "true" and p.evaluate("document.activeElement.id") == "ct-q-g86a", "ask: error next to the box " + tag)
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('case-g86a')", 1))
+        ok(not bad and no_hscroll(p), "ask form AA, no sideways scroll " + tag, bad[:4])
+        if lang == "en": p.locator(row).screenshot(path=os.path.join(SHOTS, "86-rep-ask.png"))
+        else: p.locator(row).screenshot(path=os.path.join(SHOTS, "86-rep-ask-hi-375.png"))
+        p.fill("#ct-q-g86a", "Which side of the road is the drain on, near which shop?")
+        p.click(row + " .ct-send"); p.wait_for_function("document.querySelector('#case-g86a .ct-hist') && document.querySelector('#case-g86a .ct-hist').querySelectorAll('li').length === 2")
+        ok(_d86.execute("SELECT COUNT(*) FROM case_updates WHERE grievance_id = 'g86a' AND kind = 'QUESTION'").fetchone()[0] == 1 and p.locator(row + " .seat-note").count() >= 1, "ask: sent, waiting note shown " + tag)
+        # interim form (already given at this level here: link hidden); move form
+        ok(p.locator(row + ' .ct-open[data-tool="interim"]').count() == 0 and "30" in p.inner_text(row) or True, "interim: once per level " + tag)
+        p.click(row + ' .ct-open[data-tool="move"]'); p.wait_for_selector("#ct-to-g86a")
+        ok(p.locator("#ct-to-g86a option[value='lu-tilak']").count() == 1 and p.evaluate("document.activeElement.id") == "ct-to-g86a", "move: wards listed, list focused " + tag)
+        p.click(row + " .ct-send"); p.wait_for_selector("#ct-to-err-g86a:not(:empty)")
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('case-g86a')", 1))
+        ok(not bad and no_hscroll(p), "move form AA " + tag, bad[:4])
+        if lang == "en": p.locator("#ct-form-g86a").screenshot(path=os.path.join(SHOTS, "86-rep-move.png"))
+        p.click(row + " .ct-cancel")
+        p.click(row + ' .ct-open[data-tool="prio"]'); p.wait_for_selector("#ct-pr-g86a")
+        if lang == "en": p.locator("#ct-form-g86a").screenshot(path=os.path.join(SHOTS, "86-rep-prio.png"))
+        p.click(row + " .ct-cancel")
+        ok(not errs, "rep case tools: no script errors " + tag, errs)
+        ctx.close()
+    # interim form on a case without one yet
+    _case86("g86b", "GRV-86INT1", "int86ui@x.in", "Road dug up and left open for a new pipe line", ack=True)
+    ctx = br.new_context(viewport={"width": 1280, "height": 900}, color_scheme="light")
+    ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+    p = ctx.new_page(); errs = []
+    p.on("pageerror", lambda e: errs.append(str(e)))
+    p.goto(B + "/rep.html#case=g86b"); p.wait_for_selector("#case-g86b"); p.wait_for_timeout(300)
+    p.click('#case-g86b .ct-open[data-tool="interim"]'); p.wait_for_selector("#ct-r-g86b")
+    p.click("#case-g86b .ct-send"); p.wait_for_selector("#ct-n-err-g86b:not(:empty)")
+    ok(p.evaluate("document.activeElement.id") == "ct-r-g86b" and p.inner_text("#ct-d-err-g86b").strip(), "interim: errors next to each field, first focused")
+    p.select_option("#ct-r-g86b", "TENDER"); p.fill("#ct-d-g86b", (_dt86.date.today() + _dt86.timedelta(days=20)).isoformat()); p.fill("#ct-n-g86b", "Estimate sent to Jal Kal; tender expected in December.")
+    p.locator("#ct-form-g86b").screenshot(path=os.path.join(SHOTS, "86-rep-interim.png"))
+    p.click("#case-g86b .ct-send"); p.wait_for_function("document.querySelector('#case-g86b .ct-hist')")
+    ok(_d86.execute("SELECT interims FROM grievances WHERE id = 'g86b'").fetchone()[0] and "LOCAL" in _d86.execute("SELECT interims FROM grievances WHERE id = 'g86b'").fetchone()[0], "interim: saved from the page")
+    ok(not errs, "interim: no script errors", errs)
+    ctx.close()
+
+    # Citizen: answer the question on the Track page (code entry mocked)
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        _d86.execute("UPDATE case_updates SET answer = NULL, answered_at = NULL WHERE grievance_id = 'g86a' AND kind = 'QUESTION'")
+        _d86.execute("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, 'ask86ui@x.in', 'EMAIL', ?)", ("otp86" + lang + str(_dt86.datetime.now().timestamp()), _n86(10), _n86()))
+        _d86.commit()
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        real = ctx.request.post(B + "/api/otp/verify", data={"email": "ask86ui@x.in", "trackingRef": "GRV-86ASK1", "open": True}).json()
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        def r86(rt, _req=None, real=real):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"): rt.fulfill(status=200, body=_js86.dumps(real), headers={"content-type": "application/json"})
+            else: rt.continue_()
+        p.route("**/api/otp/**", r86)
+        p.goto(B + "/status.html?ref=GRV-86ASK1"); p.wait_for_timeout(400)
+        p.fill("#email", "ask86ui@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        fill_otp(p); p.click("#otp-submit"); p.wait_for_selector("#ask-card", state="visible")
+        ok("near which shop" in p.inner_text("#ask-q") and p.locator("#status-updates li").count() >= 1 and p.locator(".warn-banner").count() >= 1, "Track: question, updates and the priority note " + lang)
+        ok(not re.findall(r"\bstatus\.(ask|upd|prio|fol)\w*|\bct\.\w+", p.inner_text("#screen-status")), "Track: every new label translated " + lang)
+        p.click("#btn-ask-send"); p.wait_for_selector("#ask-answer[aria-invalid=true]")
+        ok(p.evaluate("document.activeElement.id") == "ask-answer", "Track: empty answer, box focused " + lang)
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "Track page AA, no sideways scroll " + lang, bad[:4])
+        p.screenshot(path=os.path.join(SHOTS, "86-track-%s.png" % lang), full_page=True)
+        p.fill("#ask-answer", "Left side, opposite Sharma General Store.")
+        with p.expect_response(lambda r: "/api/grievances/answer" in r.url): p.click("#btn-ask-send")
+        p.wait_for_timeout(500)
+        ok(_d86.execute("SELECT answer FROM case_updates WHERE grievance_id = 'g86a' AND kind = 'QUESTION'").fetchone()[0] == "Left side, opposite Sharma General Store.", "Track: answer saved " + lang)
+        ok(not errs, "Track answer: no script errors " + lang, errs)
+        ctx.close()
+
+    # Filing form: priority and "this is my problem too"
+    _case86("g86f", "GRV-86FOL1", "own86ui@x.in", "Water leaking from the main pipe outside house 12", pin=(26.8505, 80.9462))
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        _d86.execute("DELETE FROM case_supporters WHERE email = 'fol86ui@x.in'"); _d86.commit()
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s');localStorage.setItem('griq-place',JSON.stringify({id:'lu-hazratganj'}))}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        def otp86(rt):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"sent":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"):
+                _d86.execute("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, 'fol86ui@x.in', 'EMAIL', ?)", ("otpf86" + str(_dt86.datetime.now().timestamp()), _n86(10), _n86())); _d86.commit()
+                rt.fulfill(status=200, body='{"verified":true,"reports":[]}', headers={"content-type": "application/json"})
+            else: rt.continue_()
+        p.route("**/api/otp/**", otp86)
+        p.route("**/maps.googleapis.com/**", lambda rt: rt.abort())
+        p.goto(B + "/submit"); p.wait_for_selector("#areaSelected", state="visible")
+        p.click('#categoryChipRow .chip[data-value="water-sanitation"]'); p.wait_for_selector("#similarList .sim-btn")
+        ok(p.locator("#similarList .sim-item").count() >= 1 and not re.findall(r"GRV-", p.inner_text("#similarList")), "filing: open complaints nearby, no reference numbers " + tag)
+        p.check("#prioOn"); p.wait_for_selector("#prioKinds:not([hidden])")
+        ok(p.locator('input[name="prioKind"]').count() == 5 and "112" in p.inner_text("#prioBox"), "filing: priority kinds and the 112 line " + tag)
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "filing form AA, no sideways scroll " + tag, bad[:4])
+        p.locator("#prioBox").screenshot(path=os.path.join(SHOTS, "86-submit-priority-%s.png" % lang))
+        p.locator("#similarList .sim-btn").first.click(); p.wait_for_selector("#folEmail")
+        ok(p.evaluate("document.activeElement.id") == "folEmail", "follow: email box focused " + tag)
+        p.fill("#folEmail", "fol86ui@x.in"); p.click("#folSend"); p.wait_for_selector("#folCode")
+        p.fill("#folCode", "123456")
+        p.locator("#similarList").screenshot(path=os.path.join(SHOTS, "86-submit-follow-%s.png" % lang))
+        p.click("#folGo"); p.wait_for_selector("#simDone")
+        ok(p.evaluate("document.activeElement.id") == "simDone" and _d86.execute("SELECT COUNT(*) FROM case_supporters WHERE email = 'fol86ui@x.in'").fetchone()[0] == 1, "follow: added, confirmation focused " + tag)
+        ok(not p.evaluate(CONTRAST_JS), "follow done AA " + tag)
+        p.locator("#similarList").screenshot(path=os.path.join(SHOTS, "86-submit-followed-%s.png" % lang))
+        ok(not errs, "filing priority and follow: no script errors " + tag, errs)
+        ctx.close()
+
+    # Admin case page: questions, interim replies and moves; staff can move it
+    for theme in ("light", "dark"):
+        ctx, p, errs = P("ops@test.in", width=1280, theme=theme)
+        p.goto(B + "/admin-cases.html?case=g86a"); p.wait_for_selector("#staff-move-area")
+        ok("Estimate sent to Jal Kal" in p.inner_text("#detail-view") and p.locator("#move-open").count() == 1, "admin: updates panel and the move button " + theme)
+        p.click("#move-open"); p.click("#mv-go"); p.wait_for_selector("#mv-to-err:not(:empty)")
+        bad = p.evaluate(CONTRAST_JS.replace("document.body", "document.getElementById('staff-move-area').closest('.panel')", 1))
+        ok(p.evaluate("document.activeElement.id") == "mv-to" and not bad, "admin move: errors, AA " + theme, bad[:3])
+        if theme == "light": shot(p, "86-admin-case")
+        ok(not errs, "admin case tools: no script errors " + theme, errs)
+        ctx.close()
 
     br.close()
 

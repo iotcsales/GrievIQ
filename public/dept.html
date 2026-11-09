@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#13233F">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/theme.css?v=22">
-<script src="/demo-mode.js?v=82"></script>
+<script src="/demo-mode.js?v=86"></script>
 <script src="/theme.js?v=45"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="dd.page_title">Department dashboard — GrievIQ</title>
@@ -135,9 +135,11 @@
   .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .hdr-right { display: flex; align-items: center; gap: 12px; }
   #notif-slot .rn-bell { color: var(--ink); }
+  /* grieviq-86 */
+  .prio { display: inline-block; margin: 4px 0; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--brick-dim); color: var(--brick); }
 </style>
-<script src="/i18n.js?v=85"></script>
-<script src="/guide-content.js?v=85"></script>
+<script src="/i18n.js?v=86"></script>
+<script src="/guide-content.js?v=86"></script>
 <script src="/guide.js?v=80"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -435,7 +437,7 @@
     var BK = { NEW: "dd.b_new", SENT_BACK: "dd.b_sent_back", WITH_US: "dd.b_with_us", WAITING_CHECK: "dd.b_waiting_check", OTHER: "dd.b_other", CLOSED: "dd.b_closed" };
     var list = rows.length ? '<ul class="list">' + rows.map(function (c) {
       var s = stateLine(c.state, c.bucket);
-      return '<li class="case' + (c.state.overdue && c.bucket !== "CLOSED" ? " late" : "") + (c.bucket === "CLOSED" ? " closed" : "") + '"><h3><a href="#case=' + encodeURIComponent(c.id) + '" data-open="' + esc(c.id) + '">' + esc(c.trackingRef) + "</a> · " + esc(cat(c.category)) + "</h3>" +
+      return '<li class="case' + (c.state.overdue && c.bucket !== "CLOSED" ? " late" : "") + (c.bucket === "CLOSED" ? " closed" : "") + '"><h3><a href="#case=' + encodeURIComponent(c.id) + '" data-open="' + esc(c.id) + '">' + esc(c.trackingRef) + "</a> · " + esc(cat(c.category)) + "</h3>" + (c.priority ? '<p class="prio">' + esc(T("dd.priority")) + "</p>" : "") +
         '<div class="meta">' + esc(c.ward.name) + " · " + esc(T("dd.forwarded_on", { date: day(c.forwardedAt) })) + "</div>" +
         (c.summary ? '<p class="sum">' + esc(c.summary) + (c.summary.length >= 160 ? "…" : "") + "</p>" : "") +
         '<span class="pill' + (s.cls ? " " + s.cls : "") + '">' + esc(T(BK[c.bucket])) + "</span><span class=\"meta\">" + esc(s.t) + "</span></li>";
@@ -554,7 +556,7 @@
       form = '<div class="card"><p class="empty" style="margin:0">' + esc(T(c.officePaused ? "dd.plan_case_paused" : c.status === "OPEN" || c.status === "ACKNOWLEDGED" ? "dd.no_reply_reforward" : "dd.no_reply_closed")) + "</p></div>";
     }
     return '<p><button type="button" class="linkish" id="back">' + esc(T("dd.back")) + "</button></p>" + (S.msg && !c.canReply ? msgHtml() : "") +
-      '<div class="card"><h1 id="case-h" tabindex="-1">' + esc(c.trackingRef) + " · " + esc(cat(c.category)) + "</h1>" +
+      '<div class="card"><h1 id="case-h" tabindex="-1">' + esc(c.trackingRef) + " · " + esc(cat(c.category)) + "</h1>" + (c.priority ? '<p class="prio">' + esc(T("dd.priority")) + "</p>" : "") +
       '<p class="state' + (s.cls === "late" ? " late" : "") + '">' + esc(s.t) + "</p>" +
       '<dl class="facts"><dt>' + esc(T("dd.k_ward")) + "</dt><dd>" + esc(c.ward.name) + "</dd><dt>" + esc(T("dd.k_place")) + "</dt><dd>" + (c.locationDetail ? esc(c.locationDetail) + "<br>" : "") + map + "</dd>" +
       "<dt>" + esc(T("dd.k_filed")) + "</dt><dd>" + esc(day(c.createdAt)) + "</dd></dl>" +

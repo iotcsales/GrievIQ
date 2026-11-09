@@ -21,6 +21,7 @@
     --admin-accent: #6f95f2;
     --admin-accent-fill: #3d6be0;
     --admin-danger: #e2564f;
+    --admin-danger-text: #ff8f86;
     --admin-danger-bg: #3a2323;
     --admin-success: #7fce8f;
     --admin-success-bg: #233a2b;
@@ -203,6 +204,7 @@
     --admin-accent: #3563d8;
     --admin-accent-fill: #3563d8;
     --admin-danger: #c9463c;
+    --admin-danger-text: #b03a31;
     --admin-danger-bg: #fbe7e5;
     --admin-success: #2e7d45;
     --admin-success-bg: #e6f4ea;
@@ -310,7 +312,7 @@
   .access-note { font-size: 12.5px; color: var(--admin-muted); margin-top: 20px; line-height: 1.5; }
   @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
-<script src="/i18n.js?v=85"></script>
+<script src="/i18n.js?v=86"></script>
 <script src="/admin-nav.js?v=r85"></script>
 </head>
 <body>
@@ -388,7 +390,7 @@
   const ROLE_LABELS = { super_admin: "adm.role_super_admin", operations_admin: "adm.role_operations_admin", data_moderator: "adm.role_data_moderator", auditor: "adm.role_auditor" };
   const STATUS_LABELS = { OPEN: "adm.cs_st_OPEN", PENDING_CONFIRMATION: "adm.cs_st_PENDING_CONFIRMATION", RESOLVED: "adm.cs_st_RESOLVED", CLOSED: "adm.cs_st_CLOSED" };
   // How a resolved case was resolved (item 7a).
-  const KIND_LABELS = { CONFIRMED: "adm.cs_kind_CONFIRMED", NOT_CONFIRMED: "adm.cs_kind_NOT_CONFIRMED", NO_EMAIL: "adm.cs_kind_NO_EMAIL",
+  const KIND_LABELS = { NO_INFO: "adm.cs_kind_NO_INFO", CONFIRMED: "adm.cs_kind_CONFIRMED", NOT_CONFIRMED: "adm.cs_kind_NOT_CONFIRMED", NO_EMAIL: "adm.cs_kind_NO_EMAIL",
     VERIFIED_BY_GRIEVIQ: "adm.cs_kind_VERIFIED_BY_GRIEVIQ", NOT_VERIFIED: "adm.cs_kind_NOT_VERIFIED" };
   const CHECK_LABELS = { VERIFIED: "adm.cs_chk_VERIFIED", NOT_FIXED: "adm.cs_chk_NOT_FIXED", CANT_TELL: "adm.cs_chk_CANT_TELL", NO_ANSWER: "adm.cs_chk_NO_ANSWER" };
   const CONFIRM_DAYS = 7;
@@ -813,6 +815,7 @@
       renderResolutionPanel(c) +
       renderRatingPanel(c) +
       renderReopenPanel(body) +
+      renderToolsPanel(c) +
       '<div class="panel" style="margin-top:20px">' +
         '<h2 style="margin-bottom:16px">' + escapeHtml(T("adm.cs_history")) + '</h2>' +
         '<ol class="timeline">' + timelineItems(c).map((it) =>
@@ -834,6 +837,80 @@
     if (!keepState || !reopenState) reopenState = { open: false, reason: "", note: "", staffReason: "", errors: {}, busy: false };
     if (body.canReveal && c.citizen.phone) renderReveal(c.id, revealState);
     if (body.canStaffReopen) renderStaffReopen(c.id, reopenState);
+    if (!keepState || !moveState) moveState = { open: false, to: "", reason: "", errors: {}, busy: false };
+    if (c.moveOptions) renderStaffMove(c, moveState);
+  }
+
+  // grieviq-86: priority, followers, questions, interim replies and moves;
+  // and moving an open case to the right ward (Super admin / Operations admin).
+  const CT_REASONS = ["TENDER", "DEPARTMENT", "MATERIAL", "WEATHER", "LEGAL", "OTHER"];
+  let moveState = null;
+  function renderToolsPanel(c) {
+    const ups = c.updates || [];
+    if (!ups.length && !c.priority && !c.followers && !c.moveOptions) return "";
+    const line = (u) => {
+      const when = '<span class="muted"> · ' + escapeHtml(dateTime(u.at)) + (u.byEmail ? ' · ' + escapeHtml(u.byEmail) : '') + '</span>';
+      if (u.kind === "QUESTION") return '<li><b>' + escapeHtml(T("adm.ct_q", { level: lbl(TIER_NAMES, u.tier) })) + '</b>' + when + '<br>' + escapeHtml(u.text) +
+        (u.answeredAt ? '<br><b>' + escapeHtml(T("adm.ct_a")) + '</b> <span class="muted">' + escapeHtml(dateTime(u.answeredAt)) + '</span><br>' + escapeHtml(u.answer || "") : '<br><span class="muted">' + escapeHtml(T("adm.ct_noans")) + '</span>') + '</li>';
+      if (u.kind === "INTERIM") return '<li><b>' + escapeHtml(T("adm.ct_int", { level: lbl(TIER_NAMES, u.tier), date: dateOnly(u.expectedBy) })) + '</b>' + when + '<br>' + escapeHtml(T("ct.ir_" + (CT_REASONS.includes(u.reason) ? u.reason : "OTHER"))) + ': ' + escapeHtml(u.text) + '</li>';
+      if (u.kind === "TRANSFER") return '<li><b>' + escapeHtml(T(u.by === "STAFF" ? "adm.ct_tr_staff" : "adm.ct_tr", { from: u.from || "", to: u.to || "" })) + '</b>' + when + '<br>' + escapeHtml(u.text || "") + '</li>';
+      if (u.kind === "PRIORITY_OFF") return '<li><b>' + escapeHtml(T("adm.ct_prio_off")) + '</b>' + when + '<br>' + escapeHtml(u.text || "") + '</li>';
+      if (u.kind === "NO_INFO") return '<li><b>' + escapeHtml(T("adm.ct_noinfo")) + '</b>' + when + '</li>';
+      return "";
+    };
+    return '<div class="panel" style="margin-top:20px"><h2 style="margin-bottom:10px">' + escapeHtml(T("adm.ct_h")) + '</h2>' +
+      (c.priority ? '<p class="section-sub">' + escapeHtml(T(c.priority.on ? "adm.ct_prio_on" : "adm.ct_prio_was", { what: T("ct.pk_" + c.priority.kind) })) + '</p>' : '') +
+      (c.followers ? '<p class="section-sub">' + escapeHtml(T(c.followers === 1 ? "adm.ct_fol_one" : "adm.ct_fol_many", { n: c.followers })) + '</p>' : '') +
+      (ups.length ? '<ul style="margin:6px 0 0;padding-left:18px;line-height:1.6;font-size:14px">' + ups.map(line).join("") + '</ul>' : '') +
+      '<div id="staff-move-area"></div></div>';
+  }
+  function renderStaffMove(c, f) {
+    const area = document.getElementById("staff-move-area");
+    if (!area) return;
+    if (f.done) {
+      area.innerHTML = '<div class="notice ok" role="status" tabindex="-1" id="move-done" style="margin-top:12px">' + escapeHtml(T("adm.ct_move_done", { to: f.done })) + ' ' + escapeHtml(T("adm.cs_reloading")) + '</div>';
+      if (!redrawing) document.getElementById("move-done").focus();
+      return;
+    }
+    if (!f.open) {
+      area.innerHTML = '<p class="mask-note" style="margin-top:10px">' + escapeHtml(T("adm.ct_move_note")) + '</p><button type="button" class="small" id="move-open">' + escapeHtml(T("adm.ct_move_open")) + '</button>';
+      document.getElementById("move-open").addEventListener("click", () => { f.open = true; renderStaffMove(c, f); document.getElementById("mv-to").focus(); });
+      return;
+    }
+    const err = (k) => '<div id="mv-' + k + '-err" role="alert" style="color:var(--admin-danger-text);font-size:13px;font-weight:600;margin-top:4px">' + escapeHtml(f.errors[k] ? T(f.errors[k]) : "") + '</div>';
+    const lab = (id, t) => '<label for="' + id + '" style="display:block;font-size:13px;font-weight:600;color:var(--admin-muted);margin:12px 0 5px">' + escapeHtml(t) + '</label>';
+    area.innerHTML =
+      lab("mv-to", T("adm.ct_move_to")) +
+      '<select id="mv-to" aria-describedby="mv-to-err"' + (f.errors.to ? ' aria-invalid="true"' : '') + '><option value="">' + escapeHtml(T("adm.cs_choose")) + '</option>' +
+        (c.moveOptions || []).map((o) => '<option value="' + escapeHtml(o.id) + '"' + (f.to === String(o.id) ? ' selected' : '') + '>' + escapeHtml(o.name) + (o.num != null ? ' (' + escapeHtml(String(o.num)) + ')' : '') + '</option>').join("") + '</select>' + err("to") +
+      lab("mv-reason", T("adm.ct_move_why")) +
+      '<textarea id="mv-reason" maxlength="300" style="width:100%;min-height:60px" aria-describedby="mv-reason-err"' + (f.errors.reason ? ' aria-invalid="true"' : '') + '>' + escapeHtml(f.reason) + '</textarea>' + err("reason") +
+      '<div role="alert" id="mv-err" style="color:var(--admin-danger-text);font-size:13px;font-weight:600;margin-top:6px">' + escapeHtml(f.errors.form ? (typeof f.errors.form === "string" ? T(f.errors.form) : f.errors.form.text) : "") + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="primary small" id="mv-go"' + (f.busy ? ' disabled' : '') + '>' + escapeHtml(T("adm.ct_move_go")) + '</button><button type="button" class="small" id="mv-cancel">' + escapeHtml(T("adm.cancel")) + '</button></div>';
+    const read = () => { f.to = document.getElementById("mv-to").value; f.reason = document.getElementById("mv-reason").value; };
+    document.getElementById("mv-cancel").addEventListener("click", () => { f.open = false; f.errors = {}; renderStaffMove(c, f); document.getElementById("move-open").focus(); });
+    document.getElementById("mv-go").addEventListener("click", async () => {
+      read(); f.errors = {};
+      if (!f.to) f.errors.to = "adm.ct_e_to";
+      const n = f.reason.trim().length; if (n < 10 || n > 300) f.errors.reason = "adm.ct_e_reason";
+      const first = f.errors.to ? "mv-to" : f.errors.reason ? "mv-reason" : null;
+      if (first) { renderStaffMove(c, f); document.getElementById(first).focus(); return; }
+      f.busy = true; renderStaffMove(c, f);
+      try {
+        const res = await fetch("/api/admin/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "move", id: c.id, to: f.to, reason: f.reason.trim() }) });
+        const b = await res.json().catch(() => ({}));
+        f.busy = false;
+        if (!res.ok) {
+          const fl = b.fields || {};
+          if (fl.to) f.errors.to = "adm.ct_e_to";
+          if (fl.reason) f.errors.reason = "adm.ct_e_reason";
+          if (!fl.to && !fl.reason) f.errors.form = { text: b.error || T("adm.cs_e_network") };
+          renderStaffMove(c, f); return;
+        }
+        f.done = b.to; renderStaffMove(c, f);
+        setTimeout(() => initDetail(c.id), 1200);
+      } catch (e) { f.busy = false; f.errors.form = "adm.cs_e_network"; renderStaffMove(c, f); }
+    });
   }
 
   // Item 7d: the reopening, and whether the case can still be reopened.

@@ -4466,6 +4466,173 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part55 adds none)");
 }
 
+// ---- grieviq-86: ask the citizen, interim reply, send to the right office, "this is my problem too", priority ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  let n86 = 0;
+  const file = async (extra) => {
+    n86++;
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-86-" + n86, "cf-connecting-ip": "10.86.1." + n86 },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: "lu-hazratganj", description: "Water pipe burst near the school gate", citizen_phone: "98686" + String(10000 + n86).slice(-5), consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, body: await x.json() };
+  };
+  const gid = (ref) => sdb.prepare("SELECT id FROM grievances WHERE tracking_ref = ?").get(ref).id;
+  const list = async (w) => { const b = (await call(w, "GET", "/api/grievances")).body; return b.grievances || []; };
+  const one = async (w, id) => (await list(w)).find((c) => c.id === id);
+  const act = (w, id, what, b) => call(w, "POST", "/api/grievances/" + id + "/" + what, b || {});
+  const H = 3600000, near = (iso, ms, tol) => Math.abs(Date.parse(iso) - ms) < (tol || 120000);
+  const otp = (email) => sdb.prepare("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, ?, 'EMAIL', ?)")
+    .run("otp86-" + Math.random(), new Date(Date.now() + 600000).toISOString(), email, new Date().toISOString());
+  const outbox = (to, kind) => sdb.prepare("SELECT * FROM email_outbox WHERE to_email = ? AND kind = ? ORDER BY created_at").all(to, kind);
+  const ago = (id, hours) => sdb.prepare("UPDATE grievances SET created_at = ? WHERE id = ?").run(new Date(Date.now() - hours * H).toISOString(), id);
+
+  // ---- Priority ----
+  let r = await file({ priority: "LIVE_WIRE", description: "Live wire hanging over the lane near the school" });
+  const p1 = gid(r.body.tracking_ref);
+  ok(r.status === 200 && r.body.priority === true && near(r.body.next.ackBy, Date.now() + 24 * H) && near(r.body.next.actBy, Date.now() + 72 * H), "priority: filed with 24-hour and 3-day limits", r.body);
+  ok(sdb.prepare("SELECT priority FROM grievances WHERE id = ?").get(p1).priority === "LIVE_WIRE", "priority kind saved");
+  let c = await one("r1@x.in", p1);
+  ok(c && c.priority && c.priority.on && c.priority.kind === "LIVE_WIRE" && near(c.ackDueAt, Date.now() + 24 * H) && near(c.respondDueAt, Date.now() + 72 * H), "office sees priority and the shorter limits", c && [c.priority, c.ackDueAt, c.respondDueAt]);
+  const pe = outbox("r1@x.in", "PRIORITY_ALERT");
+  ok(pe.length === 1 && !pe[0].html.includes(r.body.tracking_ref) && /priority complaint/i.test(pe[0].subject), "priority: the office gets an email at once, with no details", pe.map((x) => x.subject));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'NEW_CASE' AND data LIKE '%\"priority\":true%'").get(p1).n >= 1, "priority: the alert says priority");
+  r = await file({ priority: "NOT_A_KIND" });
+  ok(r.status === 200 && sdb.prepare("SELECT priority FROM grievances WHERE tracking_ref = ?").get(r.body.tracking_ref).priority === null, "an unknown priority kind is ignored");
+  ok((await act("fw@x.in", p1, "priority", { reason: "Checked, the wire is a telephone cable" })).status === 403, "field worker can't take priority off");
+  ok((await act("r1@x.in", p1, "priority", { reason: "short" })).status === 400, "taking priority off needs a reason");
+  r = await act("r1@x.in", p1, "priority", { reason: "Checked on site: it is a telephone cable, not a power line." });
+  c = await one("r1@x.in", p1);
+  ok(r.status === 200 && c.priority && !c.priority.on && near(c.respondDueAt, Date.now() + 168 * H) && c.updates.some((u) => u.kind === "PRIORITY_OFF"), "priority taken off: normal limits, recorded", c && [c.priority, c.respondDueAt]);
+  ok((await act("r1@x.in", p1, "priority", { reason: "Checked on site again today please" })).body.code === "NOT_PRIORITY", "priority can't be taken off twice");
+
+  // ---- Ask the citizen ----
+  r = await file({ citizen_email: "ask86@x.in", description: "Drain overflowing on the main road since Monday" });
+  const q1 = gid(r.body.tracking_ref), q1Ref = r.body.tracking_ref;
+  c = await one("r1@x.in", q1);
+  ok(c.questions && c.questions.canAsk && c.questions.left === 3 && c.hasCitizenEmail === true && !("citizenEmail" in c), "office can ask (never sees the email)", c.questions);
+  ok((await act("r2@x.in", q1, "ask", { question: "Which side of the road is the drain on?" })).status === 403, "another ward's office can't ask");
+  ok((await act("r1@x.in", q1, "ask", { question: "Which side?" })).body.fields.question === "LENGTH", "question needs 20+ characters");
+  ok((await act("r1@x.in", q1, "ask", { question: "Please call us on 98765 43210 about the drain" })).body.fields.question === "CONTACT", "no phone numbers in a question");
+  r = await act("r1@x.in", q1, "ask", { question: "Which side of the road is the drain on, near which shop?" });
+  ok(r.status === 200 && r.body.asked, "office asks", r.body);
+  ok(outbox("ask86@x.in", "CITIZEN_QUESTION").length === 1, "the citizen is emailed about the question");
+  ok((await act("r1@x.in", q1, "ask", { question: "Another question while the first is waiting" })).body.code === "WAITING", "one open question at a time");
+  r = await file({ description: "No email given on this complaint about the drain" });
+  ok((await one("r1@x.in", gid(r.body.tracking_ref))).questions.why === "NO_EMAIL", "no email: can't be asked");
+  ok((await call("", "POST", "/api/grievances/answer", { email: "ask86@x.in", trackingRef: q1Ref, answer: "Left side" })).status === 401, "answering needs the email code");
+  otp("ask86@x.in");
+  let v = await call("", "POST", "/api/otp/verify", { email: "ask86@x.in", trackingRef: q1Ref, open: true });
+  ok(v.body.case && v.body.case.question && /near which shop/.test(v.body.case.question.text), "Track page shows the question", v.body.case && v.body.case.question);
+  r = await call("", "POST", "/api/grievances/answer", { email: "ask86@x.in", trackingRef: q1Ref, answer: "Left side, opposite Sharma Store. Call me 98765 43210" });
+  ok(r.status === 200 && r.body.answered && !r.body.reopened, "citizen answers", r.body);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'ANSWER' AND recipient = 'r1@x.in'").get(q1).n === 1, "the office is told the citizen answered");
+  c = await one("r1@x.in", q1);
+  const qa = c.updates.find((u) => u.kind === "QUESTION");
+  ok(qa && /Sharma Store/.test(qa.answer) && !/98765/.test(qa.answer), "office reads the answer, with the phone number hidden", qa && qa.answer);
+  ok((await act("r1@x.in", q1, "close-no-info")).body.code === "NOT_YET", "can't close for no information without an unanswered question");
+  await act("r1@x.in", q1, "ask", { question: "Is the overflow still there after the rain stopped?" });
+  ok((await act("r1@x.in", q1, "close-no-info")).body.code === "NOT_YET", "can't close before 7 days");
+  sdb.prepare("UPDATE case_updates SET created_at = ? WHERE grievance_id = ? AND answered_at IS NOT NULL").run(new Date(Date.now() - 9 * 86400000).toISOString(), q1);
+  sdb.prepare("UPDATE case_updates SET created_at = ? WHERE grievance_id = ? AND answered_at IS NULL").run(new Date(Date.now() - 8 * 86400000).toISOString(), q1);
+  ok((await act("fw@x.in", q1, "close-no-info")).status === 403, "field worker can't close it");
+  r = await act("r1@x.in", q1, "close-no-info");
+  const gq = sdb.prepare("SELECT status, closure_kind, closed_at FROM grievances WHERE id = ?").get(q1);
+  ok(r.status === 200 && gq.status === "CLOSED" && gq.closure_kind === "NO_INFO", "closed: not enough information", gq);
+  ok(outbox("ask86@x.in", "CITIZEN_NO_INFO").length === 1, "the citizen is emailed");
+  v = await call("", "POST", "/api/otp/verify", { email: "ask86@x.in", trackingRef: q1Ref, open: true });
+  ok(v.body.case.resolutionKind === "NO_INFO" && v.body.case.noInfo && v.body.case.noInfo.canAnswer && v.body.case.reopenStatus.code === "NO_INFO", "Track page: closed for no information, answer to reopen", v.body.case.noInfo);
+  r = await call("", "POST", "/api/grievances/answer", { email: "ask86@x.in", trackingRef: q1Ref, answer: "Yes, still overflowing every morning" });
+  const gr = sdb.prepare("SELECT status, closure_kind, reopened_at, reopen_count FROM grievances WHERE id = ?").get(q1);
+  ok(r.status === 200 && r.body.reopened && gr.status === "OPEN" && gr.closure_kind === null && gr.reopened_at && gr.reopen_count === 0, "answering opens it again (not counted as a reopening)", gr);
+  await act("r1@x.in", q1, "ask", { question: "Third question: is it the same drain as last week?" });
+  sdb.prepare("UPDATE case_updates SET answered_at = ?, answer = 'yes' WHERE grievance_id = ? AND answered_at IS NULL").run(new Date().toISOString(), q1);
+  ok((await act("r1@x.in", q1, "ask", { question: "A fourth question should not be allowed now" })).body.code === "LIMIT", "at most 3 questions");
+
+  // ---- Interim reply ----
+  r = await file({ citizen_email: "int86@x.in", description: "Road dug up and left open for a new pipe line" });
+  const i1 = gid(r.body.tracking_ref);
+  const day = (n) => new Date(Date.now() + n * 86400000 + 5.5 * H).toISOString().slice(0, 10);
+  ok((await act("r1@x.in", i1, "interim", { reason: "TENDER", note: "Estimate sent to Jal Kal; tender expected in December.", expectedBy: day(30) })).body.code === "NOT_ACK", "interim reply needs acknowledgement first");
+  await act("r1@x.in", i1, "acknowledge");
+  r = await act("r1@x.in", i1, "interim", { reason: "NOPE", note: "short", expectedBy: day(90) });
+  ok(r.status === 400 && r.body.fields.reason && r.body.fields.note && r.body.fields.expectedBy, "interim: reason, note and date checked", r.body);
+  ok((await act("fw@x.in", i1, "interim", { reason: "TENDER", note: "Estimate sent to Jal Kal; tender expected in December.", expectedBy: day(30) })).status === 403, "field worker can't give an interim reply");
+  r = await act("r1@x.in", i1, "interim", { reason: "TENDER", note: "Estimate sent to Jal Kal; tender expected in December.", expectedBy: day(30) });
+  c = await one("r1@x.in", i1);
+  ok(r.status === 200 && c.respondDueAt === day(30) + "T18:29:00.000Z" && c.interimHere && !c.canInterim, "interim: the time limit moves to the expected date", c && c.respondDueAt);
+  ok((await act("r1@x.in", i1, "interim", { reason: "TENDER", note: "Trying to give a second interim reply here.", expectedBy: day(40) })).body.code === "ALREADY", "once per level");
+  ok(outbox("int86@x.in", "CITIZEN_INTERIM").length === 1 && /Expected by/.test(outbox("int86@x.in", "CITIZEN_INTERIM")[0].html), "the citizen is emailed the reason and date");
+  // Ten days later (past the normal 7 days): still with the ward, not late.
+  const tenAgo = Date.now() - 10 * 86400000;
+  sdb.prepare("UPDATE grievances SET created_at = ?, acknowledged_at = ?, interims = ? WHERE id = ?").run(new Date(tenAgo).toISOString(), new Date(tenAgo + H).toISOString(),
+    JSON.stringify({ LOCAL: { until: day(30) + "T18:29:00.000Z", clock: tenAgo } }), i1);
+  c = await one("r1@x.in", i1);
+  ok(c && !c.hasEscalatedPastMyTier && !c.isLate && c.currentTopTier === "LOCAL", "with an interim reply it stays with the ward until the expected date", c && [c.currentTopTier, c.isLate]);
+  sdb.prepare("UPDATE grievances SET interims = ? WHERE id = ?").run(JSON.stringify({ LOCAL: { until: new Date(Date.now() - H).toISOString(), clock: tenAgo } }), i1);
+  c = await one("r1@x.in", i1);
+  ok(c && c.hasEscalatedPastMyTier && c.isLate, "after the expected date it moves up at once", c && [c.currentTopTier, c.isLate]);
+
+  // ---- Send to the right office ----
+  r = await file({ citizen_email: "tr86@x.in", description: "Garbage heap on the corner of Station Road" });
+  const t1 = gid(r.body.tracking_ref), t1Ref = r.body.tracking_ref;
+  ok((await call("r2@x.in", "GET", "/api/grievances/" + t1 + "/transfer")).status === 403, "another ward can't move it");
+  let o = await call("r1@x.in", "GET", "/api/grievances/" + t1 + "/transfer");
+  ok(o.status === 200 && o.body.status.can && o.body.options.some((x) => x.id === "lu-tilak") && !o.body.options.some((x) => x.id === "lu-aishbagh" || x.id === "lu-hazratganj"), "options: wards of the same area that take complaints", o.body.options);
+  ok((await act("r1@x.in", t1, "transfer", { to: "lu-aishbagh", reason: "The place is in Aishbagh ward" })).body.fields.to, "a ward that can't take complaints is refused");
+  ok((await act("r1@x.in", t1, "transfer", { to: "lu-tilak", reason: "short" })).body.fields.reason, "moving needs a reason");
+  await act("r1@x.in", t1, "acknowledge");
+  r = await act("r1@x.in", t1, "transfer", { to: "lu-tilak", reason: "Station Road corner is on the Tilak Nagar side." });
+  const gt = sdb.prepare("SELECT local_unit_id, transferred_at, acknowledged_at, transfer_count FROM grievances WHERE id = ?").get(t1);
+  ok(r.status === 200 && gt.local_unit_id === "lu-tilak" && gt.transferred_at && gt.acknowledged_at === null && gt.transfer_count === 1, "moved: new ward, acknowledgement cleared", gt);
+  ok(!(await one("r1@x.in", t1)), "it leaves the old office's list");
+  c = await one("r2@x.in", t1);
+  ok(c && near(c.ackDueAt, Date.now() + 48 * H) && c.updates.some((u) => u.kind === "TRANSFER" && u.from === "Hazratganj-Ramtirth"), "the new office has it, with fresh time limits", c && c.ackDueAt);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'NEW_CASE' AND recipient = 'r2@x.in' AND data LIKE '%\"moved\":true%'").get(t1).n === 1, "the new office is alerted");
+  ok(outbox("tr86@x.in", "CITIZEN_TRANSFER").length === 1, "the citizen is emailed");
+  ok((await act("r2@x.in", t1, "transfer", { to: "lu-hazratganj", reason: "Sending it back to the first ward again" })).body.code === "ALREADY_MOVED", "the office can move it once only");
+  ok((await call(A, "POST", "/api/admin/cases", { action: "move", id: t1, to: "lu-hazratganj", reason: "Checked the map: Hazratganj side." })).status === 403, "auditor can't move cases");
+  r = await call(O, "POST", "/api/admin/cases", { action: "move", id: t1, to: "lu-hazratganj", reason: "Checked the map: it is on the Hazratganj side." });
+  ok(r.status === 200 && sdb.prepare("SELECT local_unit_id FROM grievances WHERE id = ?").get(t1).local_unit_id === "lu-hazratganj", "GrievIQ staff can move it again", r.body);
+  const ad = await call(O, "GET", "/api/admin/cases?id=" + t1);
+  ok(ad.body.case && ad.body.case.updates.filter((u) => u.kind === "TRANSFER").length === 2 && ad.body.case.moveOptions, "staff see the moves", ad.body.case && ad.body.case.updates);
+  c = await one("r1@x.in", t1);
+  ok(c && c.updates.find((u) => u.by === "STAFF").byEmail === null, "offices never see a staff member's email");
+  r = await file({ description: "Old complaint filed three days ago about garbage" });
+  const t2 = gid(r.body.tracking_ref); ago(t2, 72);
+  ok((await act("r1@x.in", t2, "transfer", { to: "lu-tilak", reason: "The place is in Tilak Nagar ward." })).body.code === "TOO_LATE", "after 48 hours the office can't move it");
+
+  // ---- This is my problem too ----
+  r = await file({ citizen_email: "own86@x.in", description: "Water leaking from the main pipe outside house 12", pin_lat: 26.8505, pin_lng: 80.9462 });
+  const f1 = gid(r.body.tracking_ref), f1Ref = r.body.tracking_ref;
+  const sim = await call("", "GET", "/api/similar?unit=lu-hazratganj&category=water-sanitation&lat=26.8510&lng=80.9462");
+  const raw = JSON.stringify(sim.body);
+  const kk = sim.body.cases.find((x) => x.dist != null);
+  ok(sim.status === 200 && sim.body.cases.length >= 1 && sim.body.cases.length <= 5 && /^[0-9a-f]{16}$/.test(sim.body.cases[0].k) && !/GRV-|lu-hazratganj/.test(raw.replace(/"unit"/g, "")) && !raw.includes(f1), "nearby list: a short code, never a reference or id", sim.body);
+  ok(kk && kk.dist >= 40 && kk.dist <= 80, "about how far away", kk);
+  const k1 = sim.body.cases.find((x) => x.dist != null).k;
+  ok((await call("", "POST", "/api/grievances/support", { email: "fol86@x.in", unit: "lu-hazratganj", category: "water-sanitation", k: k1 })).status === 401, "following needs the email code");
+  const m0 = sdb.prepare("SELECT COUNT(*) n FROM grievance_otp WHERE email = 'newbie86@x.in'").get().n;
+  await call("", "POST", "/api/otp/request", { email: "newbie86@x.in", follow: true });
+  ok(sdb.prepare("SELECT COUNT(*) n FROM grievance_otp WHERE email = 'newbie86@x.in'").get().n === m0 + 1, "a code can be sent to a new email to follow");
+  otp("fol86@x.in");
+  r = await call("", "POST", "/api/grievances/support", { email: "fol86@x.in", unit: "lu-hazratganj", category: "water-sanitation", k: k1, lang: "hi" });
+  ok(r.status === 200 && r.body.following && !r.body.already && r.body.trackingRef === f1Ref && r.body.followers === 1, "follows it", r.body);
+  ok((await call("", "POST", "/api/grievances/support", { email: "fol86@x.in", unit: "lu-hazratganj", category: "water-sanitation", k: k1 })).body.already === true, "following twice counts once");
+  otp("own86@x.in");
+  ok((await call("", "POST", "/api/grievances/support", { email: "own86@x.in", unit: "lu-hazratganj", category: "water-sanitation", k: k1 })).body.code === "OWN", "can't follow your own complaint");
+  ok((await call("", "POST", "/api/grievances/support", { email: "fol86@x.in", unit: "lu-hazratganj", category: "water-sanitation", k: "0000000000000000" })).body.code === "GONE", "unknown code refused");
+  c = await one("r1@x.in", f1);
+  ok(c.followers === 1 && !JSON.stringify(c).includes("fol86@x.in"), "office sees how many, never who", c.followers);
+  v = await call("", "POST", "/api/otp/verify", { email: "fol86@x.in", trackingRef: f1Ref, open: true });
+  ok(v.status === 200 && v.body.case.following && v.body.case.description === "" && !v.body.case.beforePhotos.length && v.body.case.question === null && !v.body.case.reopenStatus.can, "the follower sees progress, never what the filer wrote", v.body.case && v.body.case.following);
+  await act("r1@x.in", f1, "acknowledge");
+  await act("r1@x.in", f1, "interim", { reason: "MATERIAL", note: "Pipe ordered from the store; fitting next week.", expectedBy: day(10) });
+  const fm = outbox("fol86@x.in", "FOLLOWER_INTERIM");
+  ok(fm.length === 1 && /अधिक समय/.test(fm[0].subject) && /आपकी भी समस्या/.test(fm[0].html), "followers get the update by email, in their language", fm.map((x) => x.subject));
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part56 adds none)");
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

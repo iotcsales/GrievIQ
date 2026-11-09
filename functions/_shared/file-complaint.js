@@ -15,6 +15,7 @@ import { checkAttachedPhotos } from "./citizen-photo-checks.js";
 import { pointInGeometry } from "./geo.js";
 import { liveJoin } from "./areas.js";
 import { isMulti, seatsOfUnit, choosableSeats, seatsReady } from "./seats.js";
+import { PRIORITY_KINDS } from "./case-tools.js";
 
 // 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
 // so "byte % 32" picks every character with equal chance (no bias).
@@ -91,7 +92,7 @@ const bad = (status, body) => ({ ok: false, status, body });
 export async function checkComplaint(env, input) {
   const {
     category_id, local_unit_id, description, citizen_phone, location_detail, citizen_email, photo_ids,
-    rep_suggestion, pin_lat, pin_lng, lang, consent, seat_choice,
+    rep_suggestion, pin_lat, pin_lng, lang, consent, seat_choice, priority,
   } = input || {};
   const errors = [];
   if (!category_id) errors.push("Category is required.");
@@ -172,6 +173,8 @@ export async function checkComplaint(env, input) {
     location_detail: String(location_detail || "").trim() || null,
     lang: lang === "hi" ? "hi" : "en", pin, photoIds, suggestion,
     seat_choice: multi ? String(seat_choice || "ANY") : null,
+    // grieviq-86: a danger to life or health right now (one of the listed kinds).
+    priority: PRIORITY_KINDS.includes(String(priority || "")) ? String(priority) : null,
     textFlags: screenText(String(description) + " " + String(location_detail || "")),
   } };
 }
@@ -181,7 +184,7 @@ export async function checkComplaint(env, input) {
 export function heldPayload(v) {
   return { category_id: v.category_id, local_unit_id: v.local_unit_id, description: v.description, citizen_phone: v.phone, citizen_email: v.email || "",
     location_detail: v.location_detail || "", photo_ids: v.photoIds, rep_suggestion: v.suggestion, pin_lat: v.pin ? v.pin.lat : null, pin_lng: v.pin ? v.pin.lng : null,
-    lang: v.lang, consent: true, seat_choice: v.seat_choice || undefined };
+    lang: v.lang, consent: true, seat_choice: v.seat_choice || undefined, priority: v.priority || undefined };
 }
 
 // Saves a checked complaint and tells the ward's office (and the citizen,
@@ -217,6 +220,11 @@ export async function createComplaint(env, v, opts) {
         (id, tracking_ref, citizen_phone, description, category_id, local_unit_id, status, current_tier, photo_url, location_detail, citizen_email, lang, pin_lat, pin_lng)
        VALUES (?, ?, ?, ?, ?, ?, 'OPEN', 'LOCAL', NULL, ?, ?, ?, ?, ?)`
     ).bind(...values).run();
+  }
+  // grieviq-86: priority (shorter time limits, alert at once). Skipped before part56.
+  if (v.priority) {
+    try { await env.DB.prepare("UPDATE grievances SET priority = ? WHERE id = ?").bind(v.priority, id).run(); }
+    catch (e) { if (!/no such column/i.test(String(e && e.message))) throw e; v.priority = null; }
   }
   // grieviq-73: filed with help from a Community helper (the office sees only that).
   if (opts.helperId) await env.DB.prepare("UPDATE grievances SET helper_id = ? WHERE id = ?").bind(opts.helperId, id).run();
@@ -282,7 +290,7 @@ export async function createComplaint(env, v, opts) {
   const told = notifyNewCase(env, opts.origin, {
     id, tracking_ref: trackingRef, category_id: v.category_id, local_unit_id: v.local_unit_id, created_at: new Date().toISOString(),
     citizen_email: v.email || null, lang: v.lang, status: "OPEN",
-    seat_choice: v.multi ? (seatOwner || "ANY") : null, seat_owner: seatOwner,
+    seat_choice: v.multi ? (seatOwner || "ANY") : null, seat_owner: seatOwner, priority: v.priority || null,
   });
   if (typeof opts.waitUntil === "function") opts.waitUntil(told); else await told;
   return { id, trackingRef, seatFallback };

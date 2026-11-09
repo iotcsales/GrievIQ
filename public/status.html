@@ -177,6 +177,14 @@
   .warn-banner strong { color: var(--brick); }
   .review-banner { background: var(--teal-tint); color: var(--ink); border: 1px solid var(--teal); }
   .review-banner strong { color: var(--teal-dark); }
+  /* grieviq-86 */
+  .warn-banner.prio strong { color: var(--ink); }
+  .ask-q { margin: 8px 0 12px; padding: 10px 14px; border-left: 4px solid var(--teal); background: var(--teal-tint); border-radius: 0 10px 10px 0; color: var(--ink); overflow-wrap: anywhere; }
+  #ask-answer { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--border); border-radius: 11px; resize: vertical; min-height: 90px; margin-top: 6px; }
+  #ask-answer[aria-invalid="true"] { border-color: var(--brick); }
+  .upd-list { margin: 6px 0 0; padding-left: 18px; } .upd-list li { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; }
+  .upd-when { color: var(--ink-soft, #5b6470); font-size: 13px; }
+  .ri-follow { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--teal-tint); color: var(--teal-dark); margin-left: 6px; }
 
   .followup-section {
     background: var(--teal-tint);
@@ -375,7 +383,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=85"></script>
+<script src="/i18n.js?v=86"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=74" defer></script>
 </head>
@@ -462,6 +470,21 @@
     <div id="cu-slot"></div>
     <!-- grieviq-73: filed with help from a Community helper; the citizen can remove them. -->
     <section id="helper-card" class="confirm-card" hidden aria-labelledby="helper-title"></section>
+    <!-- grieviq-86: a question from the office (answered here; the office never sees the citizen's phone or email). -->
+    <section id="ask-card" class="confirm-card" hidden aria-labelledby="ask-title">
+      <h2 class="section-title" id="ask-title"></h2>
+      <p class="section-note" id="ask-lede"></p>
+      <blockquote class="ask-q" id="ask-q"></blockquote>
+      <div id="ask-error"></div>
+      <p class="confirm-note" id="ask-done" role="status" hidden></p>
+      <form id="ask-form" novalidate>
+        <label for="ask-answer" class="reopen-label" data-i18n="status.ask_label">Your answer</label>
+        <p class="confirm-note" id="ask-hint" data-i18n="status.ask_hint">Only the office working on your complaint reads it. Phone numbers and emails you type are hidden from them.</p>
+        <textarea id="ask-answer" maxlength="1000" aria-describedby="ask-hint ask-err"></textarea>
+        <div class="field-err" id="ask-err" role="alert"></div>
+        <div class="confirm-actions"><button type="submit" class="primary" id="btn-ask-send" data-i18n="status.ask_send">Send my answer</button></div>
+      </form>
+    </section>
     <div id="confirm-card" class="confirm-card" style="display:none;">
       <h2 class="section-title" data-i18n="status.confirm_title">Has this been fixed?</h2>
       <p class="section-note" data-i18n="status.confirm_lede">The representative handling this case marked it resolved. Let us know if that's right.</p>
@@ -493,6 +516,8 @@
 
     <div id="status-banners"></div>
     <div id="status-followup" class="followup-section" style="display:none;"></div>
+    <!-- grieviq-86: interim replies, moves to the right office, priority changes, questions. -->
+    <section id="status-updates" class="followup-section" hidden aria-labelledby="upd-title"></section>
 
     <section id="status-resolution" class="res-section" hidden aria-labelledby="res-title"></section>
 
@@ -794,8 +819,8 @@
     const ul = document.getElementById('report-list');
     ul.innerHTML = state.reports.map(r => `
       <li><button type="button" class="report-item" data-ref="${escapeHtml(r.trackingRef)}">
-        <div class="ri-top"><span class="ri-ref">${escapeHtml(r.trackingRef)}</span><span class="${pillClass(r.status)}">${escapeHtml(statusLabel(r.status))}</span></div>
-        <div class="ri-desc">${escapeHtml(r.description)}</div>
+        <div class="ri-top"><span class="ri-ref">${escapeHtml(r.trackingRef)}${r.following ? `<span class="ri-follow">${escapeHtml(GIQ.t('status.following_tag'))}</span>` : ''}</span><span class="${pillClass(r.status)}">${escapeHtml(statusLabel(r.status))}</span></div>
+        <div class="ri-desc">${escapeHtml(r.following ? GIQ.t('status.following_desc') : r.description)}</div>
         <div class="ri-meta">${escapeHtml([GIQ.category(r.categoryId, r.category), r.wardName, GIQ.t('status.filed', { when: filedDate(r.createdAt) })].filter(Boolean).join(' · '))}</div>
       </button></li>`).join('');
     ul.querySelectorAll('.report-item').forEach(btn => {
@@ -858,7 +883,7 @@
 
   function renderStatus(c) {
     document.getElementById('status-ref').textContent = c.trackingRef;
-    document.getElementById('status-desc').textContent = c.description;
+    document.getElementById('status-desc').textContent = c.following ? GIQ.t('status.following_desc') : c.description;
     document.getElementById('status-meta').textContent =
       `${c.localUnitName} · ${GIQ.t('status.filed', { when: formatFiled(c.createdAt) })}`;
     // grieviq-57: in a ward with several members, who handles it.
@@ -874,16 +899,19 @@
     pill.textContent = statusLabel(resolved ? 'RESOLVED' : c.status);
     pill.className = 'status-pill' + (resolved ? ' resolved' : '');
 
-    showConfirmCard(c.status === 'PENDING_CONFIRMATION');
-    document.getElementById('confirm-see-below').hidden = !(c.status === 'PENDING_CONFIRMATION' && c.resolution);
+    showConfirmCard(c.status === 'PENDING_CONFIRMATION' && !c.following);
+    document.getElementById('confirm-see-below').hidden = !(c.status === 'PENDING_CONFIRMATION' && c.resolution && !c.following);
     renderNext(c);
     // Optional phone updates for this complaint (signed in with the email code).
-    if (window.GIQU) window.GIQU.mount(document.getElementById('cu-slot'), { ref: c.trackingRef, email: state.email, hasEmail: true, closed: resolved });
+    if (window.GIQU && c.following) document.getElementById('cu-slot').innerHTML = '';
+    else if (window.GIQU) window.GIQU.mount(document.getElementById('cu-slot'), { ref: c.trackingRef, email: state.email, hasEmail: true, closed: resolved });
     // Item 7a: when the case closes if the citizen doesn't reply.
     document.getElementById('confirm-deadline').textContent =
       c.status === 'PENDING_CONFIRMATION' && c.confirmBy ? GIQ.t('status.confirm_by', { date: formatDue(c.confirmBy) }) : '';
 
     renderResolution(c);
+    renderAsk(c);
+    renderUpdates(c);
     renderReopen(c);
     renderAppeal(c);
     renderRating(c);
@@ -892,13 +920,17 @@
     const banners = document.getElementById('status-banners');
     banners.innerHTML = '';
     // How a closed case was resolved.
-    const OUTCOME_KEYS = { CONFIRMED: 'status.outcome_confirmed', NOT_CONFIRMED: 'status.outcome_not_confirmed', NO_EMAIL: 'status.outcome_no_email' };
+    const OUTCOME_KEYS = { CONFIRMED: 'status.outcome_confirmed', NOT_CONFIRMED: 'status.outcome_not_confirmed', NO_EMAIL: 'status.outcome_no_email', NO_INFO: 'status.outcome_no_info' };
     if (resolved && OUTCOME_KEYS[c.resolutionKind]) {
       banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t(OUTCOME_KEYS[c.resolutionKind]))}</div>`;
     }
     if (c.needsLegalReview) {
       banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.legal_banner'))}</div>`;
     }
+    // grieviq-86: following someone else's complaint; priority; how many follow it.
+    if (c.following) banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.following_banner'))}</div>`;
+    if (c.priority && c.priority.on && !resolved) banners.innerHTML += `<div class="warn-banner prio">${boldFirst(GIQ.t('status.prio_banner'))}</div>`;
+    if (c.followers) banners.innerHTML += `<div class="review-banner">${escapeHtml(GIQ.t(c.followers === 1 ? 'status.fol_one' : 'status.fol_many', { n: c.followers }))}</div>`;
     if (c.ackOverdue && !resolved) {
       banners.innerHTML += `<div class="warn-banner">${boldFirst(GIQ.t('status.ack_overdue_banner'))}</div>`;
     }
@@ -959,6 +991,74 @@
       `;
       ladder.appendChild(li);
     });
+  }
+
+  // grieviq-86: the office's question, answered here. After "not enough
+  // information", answering within 30 days opens the complaint again.
+  const askCard = document.getElementById('ask-card');
+  const askForm = document.getElementById('ask-form');
+  const askAnswer = document.getElementById('ask-answer');
+  function renderAsk(c) {
+    renderError(document.getElementById('ask-error'), '');
+    setFieldErr('ask-err', '', askAnswer);
+    document.getElementById('ask-done').hidden = true;
+    const q = c.question;
+    const ni = c.noInfo;
+    const live = c.status === 'OPEN' || c.status === 'ACKNOWLEDGED';
+    if (!q || c.following || (!live && !(ni && ni.canAnswer))) { askCard.hidden = true; return; }
+    askCard.hidden = false;
+    askForm.hidden = false;
+    document.getElementById('ask-title').textContent = GIQ.t(ni ? 'status.ask_title_closed' : 'status.ask_title');
+    document.getElementById('ask-lede').textContent = ni ? GIQ.t('status.ask_lede_closed', { date: formatDue(ni.until) }) : GIQ.t('status.ask_lede', { date: dayOnly(q.at) });
+    document.getElementById('ask-q').textContent = q.text;
+  }
+  askAnswer.addEventListener('input', () => setFieldErr('ask-err', '', askAnswer));
+  askForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    renderError(document.getElementById('ask-error'), '');
+    const answer = askAnswer.value.trim();
+    if (answer.length < 2 || answer.length > 1000) { setFieldErr('ask-err', GIQ.t('status.ask_err'), askAnswer); askAnswer.focus(); return; }
+    const btn = document.getElementById('btn-ask-send');
+    btn.disabled = true;
+    try {
+      const res = await fetch(API_BASE + '/api/grievances/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, trackingRef: lastCase.trackingRef, questionId: lastCase.question && lastCase.question.id, answer }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        renderError(document.getElementById('ask-error'), res.status === 401 ? GIQ.t('status.verify_again') : data.code === 'TOO_LATE' ? GIQ.t('status.ask_too_late') : messageFrom(data, GIQ.t('common.generic_error')));
+        return;
+      }
+      askForm.reset();
+      await loadCase(lastCase.trackingRef);
+      const done = document.getElementById('status-updates');
+      say(GIQ.t(data.reopened ? 'status.ask_done_reopened' : 'status.ask_done'));
+      if (done) { done.setAttribute('tabindex', '-1'); done.focus(); }
+    } catch (err) {
+      renderError(document.getElementById('ask-error'), GIQ.t('common.network_error'));
+    } finally { btn.disabled = false; }
+  });
+  function say(text) {
+    let live = document.getElementById('upd-live');
+    if (!live) { live = document.createElement('p'); live.id = 'upd-live'; live.className = 'visually-hidden'; live.setAttribute('role', 'status'); document.body.appendChild(live); }
+    live.textContent = ''; setTimeout(() => { live.textContent = text; }, 50);
+  }
+  const INTERIM_KEYS = ['TENDER', 'DEPARTMENT', 'MATERIAL', 'WEATHER', 'LEGAL', 'OTHER'];
+  function renderUpdates(c) {
+    const box = document.getElementById('status-updates');
+    const list = c.updates || [];
+    if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    const items = list.slice().reverse().map((u) => {
+      const when = `<span class="upd-when">${escapeHtml(dayOnly(u.at))}</span>`;
+      if (u.kind === 'INTERIM') return `<li><strong>${escapeHtml(GIQ.t('status.upd_interim', { level: GIQ.level(levelLabel(c, u.tier)), date: dayOnly(u.expectedBy) }))}</strong> ${when}<br>${escapeHtml(GIQ.t('ct.ir_' + (INTERIM_KEYS.includes(u.reason) ? u.reason : 'OTHER')))}: “${escapeHtml(u.text)}”</li>`;
+      if (u.kind === 'TRANSFER') return `<li><strong>${escapeHtml(GIQ.t(u.by === 'STAFF' ? 'status.upd_moved_staff' : 'status.upd_moved', { to: u.to || '' }))}</strong> ${when}${u.text ? '<br>“' + escapeHtml(u.text) + '”' : ''}</li>`;
+      if (u.kind === 'PRIORITY_OFF') return `<li><strong>${escapeHtml(GIQ.t('status.upd_prio_off'))}</strong> ${when}<br>“${escapeHtml(u.text)}”</li>`;
+      if (u.kind === 'NO_INFO') return `<li><strong>${escapeHtml(GIQ.t('status.upd_no_info'))}</strong> ${when}</li>`;
+      if (u.kind === 'QUESTION') return `<li><strong>${escapeHtml(GIQ.t('status.upd_q'))}</strong> ${when}<br>“${escapeHtml(u.text)}”` +
+        (u.answeredAt ? `<br><strong>${escapeHtml(GIQ.t('status.upd_a'))}</strong> <span class="upd-when">${escapeHtml(dayOnly(u.answeredAt))}</span><br>“${escapeHtml(u.answer || '')}”` : '') + '</li>';
+      return '';
+    }).join('');
+    box.innerHTML = `<h3 class="ds-h" id="upd-title">${escapeHtml(GIQ.t('status.upd_title'))}</h3><ul class="upd-list">${items}</ul>`;
+    box.hidden = false;
   }
 
   // What the representative says was done, with "before" (the citizen's own)

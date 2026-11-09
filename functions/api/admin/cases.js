@@ -31,6 +31,8 @@ import { photoMedia, complaintPhotoList, loadComplaintPhotos } from "../../_shar
 import { loadSteps, shapeStepForRep } from "../../_shared/dept-steps.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { reopenStatus, readReopenInput, reopenCase, loadReopen, shapeReopen, STAFF_REASON_MIN } from "../../_shared/reopen.js";
+import { loadUpdates, supporterCounts, shapeUpdatesForOffice, unitNamesFor, isPriority } from "../../_shared/case-tools.js";
+import { transferOptions, transferCase } from "../../_shared/case-actions.js";
 
 function toMs(s) {
   if (!s) return NaN;
@@ -203,6 +205,9 @@ async function caseDetail(env, auth, id) {
 
   // Access log -- written before the data is returned.
   await logEvent(env, auth.email, "case_viewed", g.id, { trackingRef: g.tracking_ref, role: auth.role });
+  // grieviq-86: questions, interim replies, transfers, priority, followers; and moving it.
+  const upd = (await loadUpdates(env, [g.id])).get(g.id) || [];
+  const canMove = (auth.roles || [auth.role]).some((r) => (PERMISSIONS.move_cases || []).includes(r)) && (g.status === "OPEN" || g.status === "ACKNOWLEDGED");
 
   return Response.json({
     case: {
@@ -237,6 +242,10 @@ async function caseDetail(env, auth, id) {
       daysOpen: daysBetween(g.created_at, finished ? g.resolved_at : null),
       flags: ex ? ex.flags : [],
       level,
+      updates: shapeUpdatesForOffice(upd, await unitNamesFor(env, upd)).map((u) => Object.assign(u, { byEmail: (upd.find((r) => r.id === u.id) || {}).by_email || null })),
+      followers: (await supporterCounts(env, [g.id])).get(g.id) || 0,
+      priority: g.priority ? { kind: g.priority, on: isPriority(g), offAt: g.priority_off_at || null } : null,
+      moveOptions: canMove ? await transferOptions(env, g) : null,
       citizen: {
         phone: maskPhone(g.citizen_phone),
         email: maskEmail(g.citizen_email),
@@ -280,6 +289,7 @@ export async function onRequestPost({ request, env }) {
   try { body = await request.json(); } catch (e) { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
   const action = String(body.action || "");
   if (action === "reopen") return staffReopen(request, env, body);
+  if (action === "move") return staffMove(request, env, body);
   const auth = await getVerifiedAdmin(request, env, "reveal_citizen_phone");
   if (!auth.ok) {
     return Response.json({ error: auth.error }, { status: auth.status });
@@ -328,4 +338,20 @@ async function staffReopen(request, env, body) {
   if (!done.ok) return Response.json({ error: "This case can't be reopened now. Refresh the page.", code: done.code }, { status: 409 });
   await logEvent(env, auth.email, "case_reopened_for_citizen", g.id, { trackingRef: g.tracking_ref, reason: input.reason, staffReason, fromTier: done.fromTier, toTier: done.toTier, role: auth.role });
   return Response.json({ ok: true, toTier: done.toTier, toLabel: done.toLabel, atTop: done.atTop });
+}
+
+// POST { action: "move", id, to, reason } -- grieviq-86. Super admin /
+// Operations admin: send an open complaint to the right ward or village
+// (after the office's own 48 hours, or a second time). Same checks as the
+// office's own move; the time limits start again; logged.
+async function staffMove(request, env, body) {
+  const auth = await getVerifiedAdmin(request, env, "move_cases");
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
+  const g = await env.DB.prepare("SELECT * FROM grievances WHERE id = ?").bind(String(body.id || "")).first();
+  if (!g) return Response.json({ error: "Case not found." }, { status: 404 });
+  if (g.status !== "OPEN" && g.status !== "ACKNOWLEDGED") return Response.json({ error: "Only an open case can be moved.", code: "CLOSED" }, { status: 409 });
+  const r = await transferCase(env, new URL(request.url).origin, g, body.to, body.reason, { kind: "STAFF", email: auth.email, tier: null });
+  if (!r.ok) return Response.json({ error: r.error, code: r.code, fields: r.fields }, { status: r.status });
+  await logEvent(env, auth.email, "case_moved_to_ward", g.id, { trackingRef: g.tracking_ref, from: g.local_unit_id, to: r.to.id, role: auth.role });
+  return Response.json({ ok: true, to: r.to.name });
 }

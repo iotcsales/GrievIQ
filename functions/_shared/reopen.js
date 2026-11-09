@@ -58,6 +58,8 @@ export function reopenStatus(g, nowMs) {
   if (!isClosed(g)) return { can: false, code: "NOT_CLOSED", until: null };
   // grieviq-82: a complaint GrievIQ closed as not genuine is appealed instead (grievances/appeal.js).
   if (g.closure_kind === "NOT_GENUINE") return { can: false, code: "NOT_GENUINE", until: null };
+  // grieviq-86: closed for not enough information: reopened by answering the question instead.
+  if (g.closure_kind === "NO_INFO") return { can: false, code: "NO_INFO", until: null };
   if (Number(g.reopen_count || 0) >= REOPEN_LIMIT) return { can: false, code: "ALREADY_REOPENED", until: null };
   const closed = closedAtMs(g);
   if (isNaN(closed)) return { can: false, code: "TOO_LATE", until: null };

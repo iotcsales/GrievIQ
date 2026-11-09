@@ -38,6 +38,7 @@ import { loadSteps, deptState, targetDaysByType, STEP } from "./dept-steps.js";
 import { DEPT_HI } from "./departments.js";
 import { officeCaseList } from "./dept-cases.js";
 import { officerRecipient } from "./dept-auth.js";
+import { effectiveCategory, isPriority } from "./case-tools.js";
 import { caseLocalOffices, isMulti, seatsOfUnits, wardLevelStatus, seatsReady } from "./seats.js";
 
 export const KIND = {
@@ -51,11 +52,12 @@ export const KIND = {
   DEPT_O_LATE: "DEPT_O_LATE",     // their office is past the target time on a case
   WARD_OPEN: "WARD_OPEN",         // grieviq-57: a case came back open to every member of the ward
   DEPT_O_FU: "DEPT_O_FU",         // grieviq-65: a follow-up request for their office (new, reminder, overdue)
+  ANSWER: "ANSWER",               // grieviq-86: the citizen answered the office's question
 };
 const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE, KIND.DEPT_O_FU]);
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
-const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.WARD_OPEN, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY]);
+const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.WARD_OPEN, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY, KIND.ANSWER]);
 
 export const SUMMARY_HOUR_IST = 9;          // daily summary at 9:00 am India time
 export const NEW_CASE_CATCHUP_HOURS = 6;
@@ -102,11 +104,10 @@ export function chainOffices(chain) {
 // When a level's time to act ends: from the clock start, one resolution
 // limit per level above the starting one.
 export function levelDueMs(g, category, chainTiers, index) {
-  if (!category || !category.resolution_sla_hours) return null;
-  const start = g.reopened_at && g.reopen_start_tier
-    ? { ms: toUtcMs(g.reopened_at), index: Math.max(0, chainTiers.findIndex((t) => t.tier === g.reopen_start_tier)) }
-    : { ms: toUtcMs(g.created_at), index: 0 };
-  return start.ms + category.resolution_sla_hours * 3600000 * (index - start.index + 1);
+  // grieviq-86: from the same clock as escalation (priority limits, interim
+  // replies and transfers included).
+  const ends = computeEscalation(g, category, chainTiers).levelEnds || [];
+  return ends[index] != null ? ends[index] : null;
 }
 
 // The office's representative plus its office managers covering this ward.
@@ -141,10 +142,13 @@ export function noticeText(n, lang) {
   const ack = d.ackDue ? istWhen(toUtcMs(d.ackDue), lang) : "";
   switch (n.kind) {
     case KIND.NEW_CASE:
-      return { title: hi ? "नई शिकायत " + n.tracking_ref : "New complaint " + n.tracking_ref,
-        body: wt + (hi ? "। " : ". ") + (d.pool ? (hi ? "वार्ड के सभी सदस्यों के लिए खुली: जो सदस्य इसे सँभालेगा वह इसे ले। " : "Open to every member of the ward: take it if your office will handle it. ") : "") +
+      return { title: (d.priority ? (hi ? "प्राथमिकता: " : "Priority: ") : "") + (d.moved ? (hi ? "दूसरे वार्ड से भेजी गई शिकायत " : "Complaint sent from another ward ") : (hi ? "नई शिकायत " : "New complaint ")) + n.tracking_ref,
+        body: wt + (hi ? "। " : ". ") + (d.priority ? (hi ? "जान या स्वास्थ्य को अभी ख़तरा। " : "Danger to life or health right now. ") : "") + (d.pool ? (hi ? "वार्ड के सभी सदस्यों के लिए खुली: जो सदस्य इसे सँभालेगा वह इसे ले। " : "Open to every member of the ward: take it if your office will handle it. ") : "") +
           (ack ? (hi ? ack + " तक स्वीकार करें" : "Acknowledge by " + ack) : "") +
           (due ? (hi ? ", " + due + " तक कार्यवाही करें।" : ", act by " + due + ".") : (hi ? "। पहले अलग से समीक्षा होगी।" : ". Reviewed separately first.")) };
+    case KIND.ANSWER:
+      return { title: hi ? "नागरिक ने आपके प्रश्न का उत्तर दिया: " + n.tracking_ref : "The citizen answered your question: " + n.tracking_ref,
+        body: wt + (d.reopened ? (hi ? "। उत्तर के साथ शिकायत फिर खुल गई है।" : ". The complaint is open again with the answer.") : (hi ? "। उत्तर पढ़ने के लिए खोलें।" : ". Open it to read the answer.")) };
     case KIND.WARD_OPEN:
       return { title: hi ? "वार्ड के लिए फिर खुली: " + n.tracking_ref : "Open for your ward again: " + n.tracking_ref,
         body: wt + (hi ? "। जिस सदस्य के पास यह थी वह अब कार्यवाही नहीं कर सकता। जो सदस्य इसे सँभालेगा वह इसे ले।" : ". The member who had it can't act on it now. Take it if your office will handle it.") };
@@ -263,6 +267,22 @@ export async function reminderEmail(env, origin, recipient, count) {
     subject: (n === 1 ? "GrievIQ: a message is waiting for you" : "GrievIQ: " + n + " messages are waiting for you") + " · " + (n === 1 ? "आपके लिए एक संदेश प्रतीक्षा में है" : n + " संदेश प्रतीक्षा में हैं"),
     html,
   };
+}
+
+// grieviq-86: a priority complaint (danger to life or health) reached the
+// office: both languages, no details at all (not even the reference).
+export async function priorityEmail(env, origin, recipient) {
+  const url = origin + "/rep#bell";
+  const who = await recipientName(env, recipient);
+  const html = greetingHtml(who) +
+    "<p><strong>A priority complaint has come to your office on GrievIQ.</strong> The citizen says it is a danger to life or health right now. Please open GrievIQ, see it and acknowledge it within 24 hours.</p>" +
+    `<p><a href="${esc(url)}">Open GrievIQ</a></p>` +
+    "<p>For security, GrievIQ never puts details in emails. " + SAFETY_LINE + "</p>" +
+    "<hr><p>" + (who ? "प्रिय " + esc(who.name) + (who.id ? " (" + esc(who.id) + ")" : "") : "प्रिय सहयोगी") + ",</p>" +
+    "<p><strong>आपके कार्यालय में GrievIQ पर एक प्राथमिकता वाली शिकायत आई है।</strong> नागरिक के अनुसार इससे अभी जान या स्वास्थ्य को ख़तरा है। कृपया GrievIQ खोलें, इसे देखें और 24 घंटे के भीतर स्वीकार करें।</p>" +
+    `<p><a href="${esc(url)}">GrievIQ खोलें</a></p>` +
+    "<p>सुरक्षा के लिए GrievIQ ईमेल में कोई विवरण नहीं भेजता। GrievIQ कभी भी ईमेल या फ़ोन पर आपका साइन-इन कोड नहीं माँगता।</p>";
+  return { subject: "GrievIQ: a priority complaint has come to your office · आपके कार्यालय में प्राथमिकता वाली शिकायत", html };
 }
 
 // The hourly job: one reminder per person for notices still unseen after
@@ -445,6 +465,61 @@ async function emailCitizen(env, origin, kind, g, info) {
   await queueEmail(env, to, "CITIZEN_" + kind, "CIT:" + kind + ":" + g.id + ":" + (info.indexKey || "0"), m.subject, m.html, null);
 }
 
+// grieviq-86: updates for the citizen and for people who follow the
+// complaint ("this is my problem too"). kind: QUESTION (citizen only),
+// INTERIM, TRANSFER, NO_INFO, and for followers only MOVED_UP and FIXED
+// (the citizen has their own emails for those). info: { wardName, category,
+// reason, text, expectedMs, label, toName }. Never throws.
+const INTERIM_EN = { TENDER: "it needs a tender or budget approval", DEPARTMENT: "it is waiting for a department or another agency", MATERIAL: "it is waiting for material or equipment",
+  WEATHER: "the weather or season does not allow the work now", LEGAL: "there is a court case or legal issue", OTHER: "of another reason" };
+const INTERIM_HI = { TENDER: "इसके लिए टेंडर या बजट की मंज़ूरी चाहिए", DEPARTMENT: "यह किसी विभाग या दूसरी एजेंसी की प्रतीक्षा में है", MATERIAL: "यह सामग्री या उपकरण की प्रतीक्षा में है",
+  WEATHER: "मौसम के कारण अभी काम नहीं हो सकता", LEGAL: "कोई अदालती मामला या क़ानूनी अड़चन है", OTHER: "किसी अन्य कारण से" };
+function updateEmail(kind, g, info, origin, lang, follower) {
+  const hi = lang === "hi";
+  const url = origin + "/status?ref=" + encodeURIComponent(g.tracking_ref);
+  const type = catName(info.category && info.category.id, info.category && info.category.name, lang);
+  const head = `<strong>${esc(g.tracking_ref)}</strong> (${esc(info.wardName || "")} · ${esc(type)})`;
+  const date = info.expectedMs ? istWhen(info.expectedMs, lang).split(",")[0] : "";
+  const lvl = hi ? (LEVEL_HI[info.label] || info.label || "") : (LEVEL_EN[info.label] || info.label || "");
+  const foot = hi ? `<p>स्थिति देखें: <a href="${esc(url)}">${esc(url)}</a></p>` + (follower ? "<p>आपको यह ईमेल इसलिए मिला क्योंकि आपने कहा था कि यह आपकी भी समस्या है।</p>" : "") + "<p>GrievIQ कभी भी आपसे पैसे या OTP नहीं माँगता।</p>"
+    : `<p>Track it: <a href="${esc(url)}">${esc(url)}</a></p>` + (follower ? "<p>You get this email because you said this is your problem too.</p>" : "") + "<p>GrievIQ never asks you for money or for a code.</p>";
+  const subjHead = follower ? (hi ? "जिस शिकायत को आप देख रहे हैं: " : "A complaint you follow: ") : (hi ? "आपकी शिकायत " : "Your complaint ");
+  switch (kind) {
+    case "QUESTION": return hi ? { subject: `आपकी शिकायत ${g.tracking_ref} के बारे में एक प्रश्न`, html: `<p>आपकी शिकायत ${head} पर काम कर रहे कार्यालय ने आपसे एक प्रश्न पूछा है।</p><p>उत्तर देने के लिए GrievIQ पर अपनी शिकायतें खोलें और अपने ईमेल पर आया कोड डालें। आपका फ़ोन नंबर और ईमेल कार्यालय को नहीं दिखता।</p><p>यदि 7 दिन में उत्तर नहीं मिला, तो कार्यालय इसे "पर्याप्त जानकारी नहीं" कहकर बंद कर सकता है; तब भी आप 30 दिन के भीतर उत्तर देकर इसे फिर खोल सकते हैं।</p>` + foot }
+      : { subject: `A question about your complaint ${g.tracking_ref}`, html: `<p>The office working on your complaint ${head} has asked you a question.</p><p>To answer, open your complaints on GrievIQ and enter the code sent to your email. The office never sees your phone number or email.</p><p>If there is no answer in 7 days, the office may close it as "not enough information"; you can still reopen it within 30 days by answering.</p>` + foot };
+    case "INTERIM": return hi ? { subject: subjHead + `${g.tracking_ref}: अधिक समय लगेगा`, html: `<p>शिकायत ${head} पर ${esc(lvl ? "आपके " + lvl : "कार्यालय")} ने बताया है कि इसमें अधिक समय लगेगा, क्योंकि ${esc(INTERIM_HI[info.reason] || INTERIM_HI.OTHER)}।</p><p><strong>अनुमानित तारीख:</strong> ${esc(date)}</p>${info.text ? `<p>"${esc(info.text)}"</p>` : ""}<p>यदि तब तक काम नहीं हुआ, तो यह अपने-आप अगले स्तर पर चली जाएगी।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} will take longer`, html: `<p>On the complaint ${head}, ${esc(lvl ? "your " + lvl : "the office")} says it will take longer, because ${esc(INTERIM_EN[info.reason] || INTERIM_EN.OTHER)}.</p><p><strong>Expected by:</strong> ${esc(date)}</p>${info.text ? `<p>"${esc(info.text)}"</p>` : ""}<p>If it is not done by then, it moves up to the next level automatically.</p>` + foot };
+    case "TRANSFER": return hi ? { subject: subjHead + `${g.tracking_ref} सही कार्यालय को भेजी गई`, html: `<p>शिकायत <strong>${esc(g.tracking_ref)}</strong> (${esc(type)}) अब <strong>${esc(info.toName || "")}</strong> के कार्यालय को भेज दी गई है, क्योंकि यह स्थान उनके क्षेत्र में है।</p>${info.text ? `<p>कारण: "${esc(info.text)}"</p>` : ""}<p>नए कार्यालय की समय-सीमा अभी से शुरू होती है।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} was sent to the right office`, html: `<p>The complaint <strong>${esc(g.tracking_ref)}</strong> (${esc(type)}) has been sent to the office for <strong>${esc(info.toName || "")}</strong>, because the place is in their area.</p>${info.text ? `<p>Why: "${esc(info.text)}"</p>` : ""}<p>The new office's time limits start now.</p>` + foot };
+    case "NO_INFO": return hi ? { subject: subjHead + `${g.tracking_ref} बंद: पर्याप्त जानकारी नहीं`, html: `<p>शिकायत ${head} बंद कर दी गई है, क्योंकि कार्यालय के प्रश्न का 7 दिन में उत्तर नहीं मिला।</p>` + (follower ? "<p>यदि समस्या अब भी है, तो आप इसे नई शिकायत के रूप में दर्ज कर सकते हैं।</p>" : "<p>आप 30 दिन के भीतर अपनी शिकायतें पृष्ठ पर प्रश्न का उत्तर देकर इसे फिर खोल सकते हैं।</p>") + foot }
+      : { subject: subjHead + `${g.tracking_ref} closed: not enough information`, html: `<p>The complaint ${head} was closed because the office's question had no answer for 7 days.</p>` + (follower ? "<p>If the problem is still there, you can file it as a new complaint.</p>" : "<p>You can reopen it within 30 days by answering the question on the Track page.</p>") + foot };
+    case "MOVED_UP": return hi ? { subject: subjHead + `${g.tracking_ref} आगे बढ़ी`, html: `<p>शिकायत ${head} अब ${esc(lvl)} को भेज दी गई है।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} has moved up`, html: `<p>The complaint ${head} has now gone to the ${esc(lvl)}.</p>` + foot };
+    case "FIXED": return hi ? { subject: subjHead + `${g.tracking_ref} निस्तारित बताई गई`, html: `<p>कार्यालय ने शिकायत ${head} को निस्तारित बताया है। जिस व्यक्ति ने इसे दर्ज किया था, वह पुष्टि करेगा कि यह ठीक हुई या नहीं।</p><p>यदि यह आपके लिए अब भी ठीक नहीं है, तो इसे नई शिकायत के रूप में दर्ज करें।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} is marked fixed`, html: `<p>The office has marked the complaint ${head} fixed. The person who filed it will confirm whether it really is.</p><p>If it is still not fixed for you, file it as a new complaint.</p>` + foot };
+    default: return null;
+  }
+}
+export async function emailCaseUpdate(env, origin, g, kind, info) {
+  try {
+    const stamp = info.stamp || Date.now();
+    if (kind !== "MOVED_UP" && kind !== "FIXED") {
+      const to = low(g.citizen_email);
+      const m = to && to.includes("@") ? updateEmail(kind, g, info, origin, g.lang === "hi" ? "hi" : "en", false) : null;
+      if (m) await queueEmail(env, to, "CITIZEN_" + kind, "CIT:" + kind + ":" + g.id + ":" + stamp, m.subject, m.html, null);
+    }
+    if (kind !== "QUESTION") {
+      let fol = [];
+      try { fol = (await env.DB.prepare("SELECT email, lang FROM case_supporters WHERE grievance_id = ?").bind(g.id).all()).results || []; } catch (e) { fol = []; }
+      for (const f of fol) {
+        const m = updateEmail(kind, g, info, origin, f.lang === "hi" ? "hi" : "en", true);
+        if (m) await queueEmail(env, f.email, "FOLLOWER_" + kind, "FOL:" + kind + ":" + g.id + ":" + low(f.email) + ":" + stamp, m.subject, m.html, null);
+      }
+    }
+    await flushOutbox(env, 10);
+  } catch (e) { /* ignore */ }
+}
+
 async function setState(env, gid, index, marker) {
   try {
     await env.DB.prepare(
@@ -506,8 +581,10 @@ export async function notifyNewCase(env, origin, g, preload) {
     // grieviq-53: a vacant seat is skipped; the complaint starts with the next level.
     const startIdx = skipVacant(chain.tiers, 0);
     const first = offices[startIdx];
-    const created = toUtcMs(g.created_at) || Date.now();
-    const ackMs = category.ack_sla_hours ? created + category.ack_sla_hours * 3600000 : null;
+    // grieviq-86: priority limits; a case sent here from another ward starts its clock then.
+    const eff = effectiveCategory(g, category);
+    const created = toUtcMs(g.transferred_at || g.created_at) || Date.now();
+    const ackMs = eff.ack_sla_hours ? created + eff.ack_sla_hours * 3600000 : null;
     const dueMs = levelDueMs(g, category, chain.tiers, startIdx);
     // grieviq-57: in a ward with several members, the member the citizen
     // chose, or every member who can take it.
@@ -517,10 +594,17 @@ export async function notifyNewCase(env, origin, g, preload) {
     for (const o of targets) {
       const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
       await createNotices(env, origin, people, {
-        kind: KIND.NEW_CASE, key: "NEW:" + g.id + (seatsMode ? ":" + o.id : ""), officeTier: o.tier, officeId: o.id, g, category,
-        wardName: chain.localUnit.name, dueMs, data: Object.assign(ackMs ? { ackDue: new Date(ackMs).toISOString() } : {}, seatsMode && !g.seat_owner ? { pool: true } : {}),
+        kind: KIND.NEW_CASE, key: "NEW:" + g.id + (seatsMode ? ":" + o.id : "") + (g.transferred_at ? ":" + g.transferred_at : ""), officeTier: o.tier, officeId: o.id, g, category,
+        wardName: chain.localUnit.name, dueMs, data: Object.assign(ackMs ? { ackDue: new Date(ackMs).toISOString() } : {}, seatsMode && !g.seat_owner ? { pool: true } : {},
+          isPriority(g) ? { priority: true } : {}, g.transferred_at ? { moved: true } : {}),
       });
+      // grieviq-86: a priority complaint also gets an email at once (no details in it).
+      if (isPriority(g)) for (const p of people) {
+        const m = await priorityEmail(env, origin, p);
+        await queueEmail(env, p, "PRIORITY_ALERT", "PRI:" + g.id + ":" + (g.transferred_at || "") + ":" + p, m.subject, m.html, null);
+      }
     }
+    if (g.transferred_at) { await setState(env, g.id, startIdx, g.reopened_at || ""); await flushOutbox(env, 10); return; }
     const who = seatsMode ? wardWords(chain, g) : {};
     await emailCitizen(env, origin, "RECEIVED", g, Object.assign({ category, wardName: chain.localUnit.name, label: first.label, ackMs, dueMs }, who));
     await setState(env, g.id, startIdx, "");
@@ -535,12 +619,13 @@ export async function notifyMovedUp(env, origin, g, chain, category, index, reas
   if (!o) return;
   const dueMs = levelDueMs(g, category, chain.tiers, index);
   const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
-  const marker = g.reopened_at || "";
+  const marker = (g.reopened_at || "") + (g.transferred_at ? "|" + g.transferred_at : "");
   await createNotices(env, origin, people, {
     kind: KIND.MOVED_UP, key: "UP:" + g.id + ":" + index + ":" + marker, officeTier: o.tier, officeId: o.id, g, category,
     wardName: chain.localUnit.name, dueMs, data: { reason, level: o.tier },
   });
   await emailCitizen(env, origin, "MOVED_UP", g, { category, wardName: chain.localUnit.name, label: o.label, dueMs, reason, indexKey: index + ":" + marker });
+  await emailCaseUpdate(env, origin, g, "MOVED_UP", { category, wardName: chain.localUnit.name, label: o.label, stamp: index + ":" + marker });
   await pushCitizen(env, g, "MOVED_UP", { label: o.label }, "UP:" + g.id + ":" + index + ":" + marker);
 }
 

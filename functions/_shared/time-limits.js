@@ -34,6 +34,7 @@
 // `result` is the output of computeEscalation() for the same case.
 
 import { confirmDeadline } from "./confirmation.js";
+import { effectiveCategory } from "./case-tools.js";
 
 const HOUR = 3600000;
 
@@ -47,7 +48,11 @@ export function toUtcMs(value) {
     : new Date(s.replace(" ", "T") + "Z").getTime();
 }
 
-export function timeLimitStatus(grievance, category, chainTiers, result) {
+export function timeLimitStatus(grievance, categoryIn, chainTiers, result) {
+  // grieviq-86: priority cases have shorter limits; an interim reply moves a
+  // level's deadline (result.levelEnds, from computeEscalation).
+  const category = effectiveCategory(grievance, categoryIn);
+  const ends = result && result.levelEnds ? result.levelEnds : null;
   const awaitingCitizen = grievance.status === "PENDING_CONFIRMATION";
   const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED" && !awaitingCitizen;
   const createdMs = result && result.clockStartMs != null && !isNaN(result.clockStartMs) ? result.clockStartMs : toUtcMs(grievance.created_at);
@@ -64,7 +69,7 @@ export function timeLimitStatus(grievance, category, chainTiers, result) {
   // own time has run out (resolution limit x number of levels).
   const lastLevelOverdue = Boolean(isUnresolved && slaHours &&
     result.currentTierIndex === lastIndex &&
-    clockHours >= slaHours * (chainTiers.length - startIndex));
+    (ends && ends[lastIndex] != null ? Date.now() >= ends[lastIndex] : clockHours >= slaHours * (chainTiers.length - startIndex)));
 
   const tiers = chainTiers.map((t, i) => {
     const isCurrent = i === result.currentTierIndex;
@@ -76,7 +81,7 @@ export function timeLimitStatus(grievance, category, chainTiers, result) {
         (isCurrent && lastLevelOverdue)
       ),
       dueAt: isCurrent && isUnresolved && slaHours && !isNaN(createdMs)
-        ? new Date(createdMs + slaHours * (i - startIndex + 1) * HOUR).toISOString()
+        ? new Date(ends && ends[i] != null ? ends[i] : createdMs + slaHours * (i - startIndex + 1) * HOUR).toISOString()
         : null,
     };
   });
