@@ -21,6 +21,7 @@
 // Public endpoint — no Cloudflare Access check. Citizens are not
 // logged in when they submit a grievance.
 
+import { assistedFiling } from "../_shared/assisted.js";
 import { pointInGeometry } from "../_shared/geo.js";
 import { liveJoin } from "../_shared/areas.js";
 import { isMulti, seatsOfUnit, seatsReady } from "../_shared/seats.js";
@@ -60,8 +61,16 @@ export async function onRequestPost({ request, env }) {
       // grieviq-57: a ward with several members is open when any seat has an email.
       let open = (row.rep_email != null && String(row.rep_email).trim() !== "") || row.seat_status === "VACANT";
       if (isMulti(row) && await seatsReady(env)) open = (await seatsOfUnit(env, row)).some((x) => x.email && x.status !== "VACANT");
+      // grieviq-88: a ward in a GrievIQ-assisted pilot (its office hasn't joined).
+      let assisted = null;
+      if (!open) {
+        const af = await assistedFiling(env, row.id, Date.now()).catch(() => null);
+        if (af && af.open) { open = true; assisted = { full: af.full }; }
+      }
       return Response.json({
         matched: true,
+        assisted: assisted ? true : undefined,
+        assisted_full: assisted && assisted.full ? true : undefined,
         local_unit_id: row.id,
         local_unit_name: row.name,
         localities: row.localities || null,

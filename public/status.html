@@ -383,7 +383,7 @@
   .guide-link { margin: 0 0 14px; font-size: 14px; }
   .guide-link a { display: inline-block; padding: 4px 0; min-height: 24px; color: var(--teal-dark); }
 </style>
-<script src="/i18n.js?v=86"></script>
+<script src="/i18n.js?v=88"></script>
 <script src="/citizen-updates.js?v=20b"></script>
 <script src="/site.js?v=74" defer></script>
 </head>
@@ -930,6 +930,8 @@
     // grieviq-86: following someone else's complaint; priority; how many follow it.
     if (c.following) banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.following_banner'))}</div>`;
     if (c.priority && c.priority.on && !resolved) banners.innerHTML += `<div class="warn-banner prio">${boldFirst(GIQ.t('status.prio_banner'))}</div>`;
+    // grieviq-88: GrievIQ's team handles it (the ward's office hadn't joined).
+    if (c.assisted && !c.assisted.handedAt && !resolved && c.status !== 'PENDING_CONFIRMATION') banners.innerHTML += `<div class="review-banner">${boldFirst(GIQ.t('status.as_banner'))}</div>`;
     if (c.followers) banners.innerHTML += `<div class="review-banner">${escapeHtml(GIQ.t(c.followers === 1 ? 'status.fol_one' : 'status.fol_many', { n: c.followers }))}</div>`;
     if (c.ackOverdue && !resolved) {
       banners.innerHTML += `<div class="warn-banner">${boldFirst(GIQ.t('status.ack_overdue_banner'))}</div>`;
@@ -969,6 +971,7 @@
       else if (waiting && t.visible) statusText = GIQ.t(i === c.currentTierIndex ? 'status.tier_waiting' : 'status.tier_handled');
       else if (t.visible) statusText = finished ? GIQ.t('status.tier_handled') : GIQ.t('status.tier_current');
       else statusText = GIQ.t('status.tier_not_yet');
+      if (c.assisted && !c.assisted.handedAt && t.current && !finished && !waiting) statusText = GIQ.t('status.tier_assisted');
       // grieviq-53: a vacant seat is skipped (not late); an administrator holds some seats.
       if (t.seat === 'VACANT' && !t.current) statusText = GIQ.t('status.tier_vacant');
       const seatNote = t.seat === 'ADMINISTRATOR' ? `<div class="tier-seat">${escapeHtml(GIQ.t('status.seat_admin'))}</div>` : (t.seat === 'VACANT' && t.current ? `<div class="tier-seat">${escapeHtml(GIQ.t('status.seat_vacant_top'))}</div>` : '');
@@ -1045,10 +1048,20 @@
   const INTERIM_KEYS = ['TENDER', 'DEPARTMENT', 'MATERIAL', 'WEATHER', 'LEGAL', 'OTHER'];
   function renderUpdates(c) {
     const box = document.getElementById('status-updates');
-    const list = c.updates || [];
+    // grieviq-88: steps by GrievIQ's team on an assisted case, in the same list.
+    const list = (c.updates || []).concat(((c.assisted && c.assisted.steps) || []).map((x) => Object.assign({ as: true }, x)))
+      .sort((a, b) => String(a.at).localeCompare(String(b.at)));
     if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
     const items = list.slice().reverse().map((u) => {
       const when = `<span class="upd-when">${escapeHtml(dayOnly(u.at))}</span>`;
+      if (u.as) {
+        if (u.kind === 'FORWARD') return `<li><strong>${escapeHtml(GIQ.t('status.as_fw', { to: GIQ.officeName(u.targetName) }))}</strong> ${when}</li>`;
+        if (u.kind === 'FOLLOWUP') return `<li><strong>${escapeHtml(GIQ.t('status.as_fu', { to: GIQ.officeName(u.targetName) }))}</strong> ${when}</li>`;
+        if (u.kind === 'REPLY') return `<li><strong>${escapeHtml(GIQ.t('status.as_reply', { to: GIQ.officeName(u.targetName), kind: GIQ.t('as.rk_' + u.replyKind) }))}</strong> ${when}` +
+          (u.expectedBy ? `<br>${escapeHtml(GIQ.t('as.expected', { d: dayOnly(u.expectedBy) }))}` : '') + (u.text ? `<br>“${escapeHtml(u.text)}”` : '') + '</li>';
+        if (u.kind === 'HANDOVER') return `<li><strong>${escapeHtml(GIQ.t('status.as_handover'))}</strong> ${when}</li>`;
+        return '';
+      }
       if (u.kind === 'INTERIM') return `<li><strong>${escapeHtml(GIQ.t('status.upd_interim', { level: GIQ.level(levelLabel(c, u.tier)), date: dayOnly(u.expectedBy) }))}</strong> ${when}<br>${escapeHtml(GIQ.t('ct.ir_' + (INTERIM_KEYS.includes(u.reason) ? u.reason : 'OTHER')))}: “${escapeHtml(u.text)}”</li>`;
       if (u.kind === 'TRANSFER') return `<li><strong>${escapeHtml(GIQ.t(u.by === 'STAFF' ? 'status.upd_moved_staff' : 'status.upd_moved', { to: u.to || '' }))}</strong> ${when}${u.text ? '<br>“' + escapeHtml(u.text) + '”' : ''}</li>`;
       if (u.kind === 'PRIORITY_OFF') return `<li><strong>${escapeHtml(GIQ.t('status.upd_prio_off'))}</strong> ${when}<br>“${escapeHtml(u.text)}”</li>`;
@@ -1140,6 +1153,7 @@
         }
       }
     }
+    if (!finished && c.status !== 'PENDING_CONFIRMATION' && c.assisted && !c.assisted.handedAt) text = GIQ.t('status.as_next');
     // Acknowledged (Oct 2026): say so at the start, for every open case
     // (including ones under legal review), instead of the acknowledge-by
     // sentence just disappearing.

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+<link rel="stylesheet" href="/theme.css?v=22">
+<script src="/theme.js?v=45"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="or.page_title">Reply to a complaint — GrievIQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
+    --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7;
+    --border: #E7E4DC; --radius: 14px;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .trust-strip {
+    background: var(--ink); color: #C7C2B8; font-size: 11px; padding: 7px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-shell { max-width: 560px; margin: 0 auto; padding: 20px 20px 60px; min-height: 100vh; }
+  .app-card {
+    background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); padding: 28px 24px 26px; margin-top: 20px;
+  }
+  header.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  header.brand .logo-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: #13233F;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  header.brand .logo-mark svg { width: 24px; height: 24px; }
+  header.brand span.brand-name { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; }
+  .back-link { display: inline-block; font-size: 12.5px; color: var(--teal-dark); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+  h1 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 23px; line-height: 1.3; margin: 18px 0 8px; }
+  h2 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
+  p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 14px; }
+  .note-box {
+    background: var(--teal-tint); border-radius: 12px; padding: 14px 16px;
+    font-size: 13px; color: var(--teal-dark); margin: 18px 0;
+  }
+  .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: 11.5px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+  ul.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 6px; }
+  p a, li a { color: var(--teal-dark); }
+  .or-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--ink); color: var(--ink); }
+  .or-tag.hot { border-color: #b42318; color: #8f1d1d; }
+  .or-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); font-size: 15px; line-height: 1.6; border-left: 3px solid var(--border); padding: 4px 12px; margin: 6px 0 12px; }
+  dl.or-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 14px; margin: 8px 0 14px; }
+  dl.or-dl dt { color: var(--ink-soft); } dl.or-dl dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+  .or-photos { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 14px; }
+  .or-photos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: #fff; }
+  .or-photos a:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; border-radius: 10px; }
+  ol.or-hist { padding-left: 20px; margin: 6px 0 14px; } ol.or-hist li { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0 0 8px; }
+  form.or-form fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+  form.or-form legend, form.or-form label.l { display: block; font-weight: 600; font-size: 14px; color: var(--ink); margin: 0 0 6px; }
+  .or-opt { display: flex; gap: 10px; align-items: center; min-height: 44px; padding: 4px 0; font-size: 15px; color: var(--ink); }
+  .or-opt input { width: 22px; height: 22px; margin: 0; accent-color: var(--teal); flex: 0 0 22px; }
+  .or-field { margin: 0 0 14px; }
+  .or-field textarea, .or-field input[type=text], .or-field input[type=date] { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--card); border: 1.5px solid #8a8478; border-radius: 10px; padding: 10px 12px; min-height: 46px; }
+  .or-field textarea { min-height: 120px; resize: vertical; }
+  .or-field textarea[aria-invalid=true], .or-field input[aria-invalid=true] { border: 2px solid #b42318; }
+  html[data-theme=dark] .or-field textarea[aria-invalid=true], html[data-theme=dark] .or-field input[aria-invalid=true] { border-color: #ffb4ab; }
+  .or-hint { display: block; font-size: 13px; color: var(--ink-soft); margin: 0 0 6px; }
+  .or-err { display: block; font-size: 13.5px; font-weight: 600; color: #8f1d1d; border-left: 3px solid #b42318; padding-left: 8px; margin: 6px 0 0; }
+  .or-btn { font: inherit; font-size: 16px; font-weight: 600; min-height: 48px; padding: 10px 22px; border-radius: 12px; border: 0; background: var(--teal); color: #fff; cursor: pointer; }
+  .or-btn:focus-visible, .or-field :focus-visible, .or-opt input:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
+  .or-ok { background: #e8f6ed; border-left: 4px solid #1f7a3d; border-radius: 0 10px 10px 0; padding: 12px 14px; color: #14381f; font-size: 15px; margin: 12px 0; }
+  .or-bad { background: #fdecec; border-left: 4px solid #b42318; border-radius: 0 10px 10px 0; padding: 12px 14px; color: #5c1414; font-size: 15px; margin: 12px 0; }
+  .or-small { font-size: 12.5px; color: var(--ink-soft); }
+  html[data-theme=dark] .or-text { color: var(--ink); }
+  html[data-theme=dark] .or-tag.hot { color: #ffb4ab; border-color: #ffb4ab; }
+  html[data-theme=dark] .or-ok { background: #173323; color: #d7f5df; }
+  html[data-theme=dark] .or-bad { background: #3a1a1a; color: #ffd9d4; }
+  html[data-theme=dark] .or-err { color: #ffb4ab; border-left-color: #ffb4ab; }
+  html[data-theme=dark] .or-field textarea, html[data-theme=dark] .or-field input { border-color: #9a9488; }
+  @media (max-width: 520px) { dl.or-dl { grid-template-columns: 1fr; } dl.or-dl dt { margin-top: 6px; } }
+  .brand-text { display: flex; flex-direction: column; } .brand-tag { font-size: 12px; color: var(--ink-soft); }
+</style>
+<script src="/i18n.js?v=88"></script>
+<script src="/site.js?v=74" defer></script>
+</head>
+<body>
+<div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
+  <div class="card-shell">
+    <main class="app-card" id="main" tabindex="-1">
+      <header class="brand">
+        <div class="logo-mark"><svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></svg></div>
+        <span class="brand-text"><span class="brand-name">GrievIQ</span><span class="brand-tag" data-i18n="common.tagline">From complaint to resolution.</span></span>
+      </header>
+      <h1 data-i18n="or.title">A citizen's complaint sent to your office</h1>
+      <div id="or-app" aria-live="polite"><p data-i18n="rf.loading">Loading…</p></div>
+      <div class="footer-block">
+        <div class="footer-links"></div>
+        <div class="footer-note" data-i18n="common.footer_note">An independent civic-tech platform helping citizens route grievances to their elected representatives' public contact details.</div>
+      </div>
+    </main>
+  </div>
+<script>
+// grieviq-88: the private reply link GrievIQ emails to an office that hasn't
+// joined (GrievIQ-assisted wards). The link is the only permission; the
+// page never shows the citizen's name, phone number or email.
+(function () {
+  "use strict";
+  function T(k, v) { return window.GIQ ? window.GIQ.t(k, v) : k; }
+  function hi() { return window.GIQ && window.GIQ.lang === "hi"; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function day(s, time) { if (!s) return ""; var d = new Date(s.length === 10 ? s + "T00:00:00+05:30" : s); return isNaN(d) ? s : d.toLocaleString(hi() ? "hi-IN" : "en-IN", time ? { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" } : { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
+  var box = document.getElementById("or-app");
+  var t = new URLSearchParams(location.search).get("t") || "";
+  // Keep the token out of the address bar's history and out of any link the page opens.
+  var data = null, err = null, done = false, fields = {}, draft = {};
+  function today() { return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10); }
+  function render() {
+    if (err) { box.innerHTML = '<div class="or-bad" role="alert">' + esc(err) + "</div>"; return; }
+    if (!data) return;
+    var c = data.case;
+    document.title = T("or.page_title");
+    var h = '<p>' + esc(T("or.to", { to: GIQ.officeName(data.to) })) + "</p>" +
+      '<dl class="or-dl"><dt>' + esc(T("or.ref")) + "</dt><dd><b>" + esc(c.ref) + "</b>" + (c.priority ? ' <span class="or-tag hot">' + esc(T("or.priority")) + "</span>" : "") + "</dd>" +
+      "<dt>" + esc(T("or.type")) + "</dt><dd>" + esc(GIQ.category ? GIQ.category(c.categoryId, c.category) : c.category) + "</dd>" +
+      "<dt>" + esc(T("or.ward")) + "</dt><dd>" + esc(c.ward) + "</dd>" +
+      "<dt>" + esc(T("or.filed")) + "</dt><dd>" + esc(day(c.createdAt, true)) + "</dd>" +
+      (c.locationDetail ? "<dt>" + esc(T("or.place")) + "</dt><dd>" + esc(c.locationDetail) + "</dd>" : "") +
+      (c.pin ? "<dt>" + esc(T("or.pin")) + '</dt><dd><a href="https://www.openstreetmap.org/?mlat=' + encodeURIComponent(c.pin.lat) + "&mlon=" + encodeURIComponent(c.pin.lng) + '#map=18/' + encodeURIComponent(c.pin.lat) + "/" + encodeURIComponent(c.pin.lng) + '" target="_blank" rel="noopener noreferrer">' + esc(T("or.map")) + "</a></dd>" : "") +
+      "</dl>" +
+      "<h2>" + esc(T("or.what")) + '</h2><div class="or-text">' + esc(c.description) + "</div>" +
+      (c.photos.length ? "<h2>" + esc(T("or.photos")) + '</h2><div class="or-photos">' + c.photos.map(function (p, i) {
+        return '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer"><img src="' + esc(p.thumbUrl) + '" alt="' + esc(T("or.photo", { n: i + 1 })) + '"></a>'; }).join("") + "</div>" : "") +
+      '<p class="or-small">' + esc(T("or.private")) + "</p>";
+    if (data.history.length) {
+      h += "<h2>" + esc(T("or.hist")) + '</h2><ol class="or-hist">' + data.history.map(function (s) {
+        return "<li><b>" + esc(day(s.at, true)) + ":</b> " + esc(T("or.h_" + s.kind)) + (s.replyKind ? " (" + esc(T("as.rk_" + s.replyKind)) + ")" : "") +
+          (s.expectedBy ? " · " + esc(T("as.expected", { d: day(s.expectedBy) })) : "") + (s.text ? '<br>"' + esc(s.text) + '"' : "") + "</li>"; }).join("") + "</ol>";
+    }
+    if (done) h += '<div class="or-ok" role="status" tabindex="-1" id="or-done">' + esc(T("or.thanks")) + "</div>";
+    if (!c.open) h += '<div class="or-bad">' + esc(T("or.closed")) + "</div>";
+    else if (data.repliesLeft <= 0) h += '<div class="or-bad">' + esc(T("or.limit")) + "</div>";
+    else h += formHtml();
+    h += '<p class="or-small">' + esc(T("or.until", { d: day(data.expiresAt) })) + " " + esc(T("or.not_order")) + "</p>";
+    box.innerHTML = h;
+    var f = document.getElementById("or-form");
+    if (f) {
+      f.addEventListener("submit", send);
+      f.addEventListener("input", function (e) { if (e.target.id) draft[e.target.id] = e.target.value; });
+      f.addEventListener("change", function (e) { if (e.target.name === "rk") draft.rk = e.target.value; });
+    }
+  }
+  function err1(k) { return fields[k] ? '<span class="or-err" id="or-e-' + k + '">' + esc(T("or.e_" + k)) + "</span>" : ""; }
+  function inv(k) { return fields[k] ? ' aria-invalid="true" aria-describedby="or-e-' + k + '"' : ""; }
+  function formHtml() {
+    var kinds = ["PLANNED", "IN_PROGRESS", "DONE", "NOT_OURS", "CANT_DO", "OTHER"];
+    return "<h2>" + esc(T("or.reply_h")) + '</h2><form id="or-form" class="or-form" novalidate>' +
+      '<fieldset' + (fields.replyKind ? ' aria-invalid="true" aria-describedby="or-e-replyKind"' : "") + '><legend>' + esc(T("or.kind")) + ' <span aria-hidden="true">*</span></legend>' +
+      kinds.map(function (k, i) { return '<label class="or-opt"><input type="radio" name="rk" value="' + k + '"' + (draft.rk === k ? " checked" : "") + (i === 0 ? ' aria-required="true"' : "") + "> " + esc(T("as.rk_" + k)) + "</label>"; }).join("") + err1("replyKind") + "</fieldset>" +
+      '<div class="or-field"><label class="l" for="or-text">' + esc(T("or.text")) + ' <span aria-hidden="true">*</span></label><span class="or-hint" id="or-text-h">' + esc(T("or.text_h")) + "</span>" +
+      '<textarea id="or-text" maxlength="1000" aria-required="true"' + (fields.text ? ' aria-invalid="true" aria-describedby="or-text-h or-e-text"' : ' aria-describedby="or-text-h"') + ">" + esc(draft["or-text"] || "") + "</textarea>" + err1("text") + "</div>" +
+      '<div class="or-field"><label class="l" for="or-date">' + esc(T("or.date")) + '</label><span class="or-hint" id="or-date-h">' + esc(T("or.date_h")) + "</span>" +
+      '<input type="date" id="or-date" min="' + today() + '" value="' + esc(draft["or-date"] || "") + '"' + (fields.expectedBy ? ' aria-invalid="true" aria-describedby="or-date-h or-e-expectedBy"' : ' aria-describedby="or-date-h"') + ">" + err1("expectedBy") + "</div>" +
+      '<div class="or-field"><label class="l" for="or-who">' + esc(T("or.who")) + ' <span aria-hidden="true">*</span></label><span class="or-hint" id="or-who-h">' + esc(T("or.who_h")) + "</span>" +
+      '<input type="text" id="or-who" maxlength="120" autocomplete="name" aria-required="true" value="' + esc(draft["or-who"] || "") + '"' + (fields.repliedBy ? ' aria-invalid="true" aria-describedby="or-who-h or-e-repliedBy"' : ' aria-describedby="or-who-h"') + ">" + err1("repliedBy") + "</div>" +
+      '<button type="submit" class="or-btn">' + esc(T("or.send")) + "</button></form>";
+  }
+  function send(e) {
+    e.preventDefault();
+    var rk = document.querySelector('input[name=rk]:checked');
+    var body = { t: t, replyKind: rk ? rk.value : "", text: document.getElementById("or-text").value, expectedBy: document.getElementById("or-date").value || null, repliedBy: document.getElementById("or-who").value };
+    var b = e.target.querySelector("button"); b.disabled = true;
+    fetch("/api/office-reply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        b.disabled = false;
+        if (!x.ok) {
+          fields = x.j.fields || {};
+          if (!x.j.fields) { err = x.j.error || T("or.e_send"); render(); return; }
+          render();
+          var order = ["replyKind", "text", "expectedBy", "repliedBy"], ids = { replyKind: "input[name=rk]", text: "#or-text", expectedBy: "#or-date", repliedBy: "#or-who" };
+          for (var i = 0; i < order.length; i++) if (fields[order[i]]) { var el = document.querySelector(ids[order[i]]); if (el) el.focus(); break; }
+          return;
+        }
+        fields = {}; draft = {}; done = true; load(true);
+      }).catch(function () { b.disabled = false; err = T("or.e_send"); render(); });
+  }
+  function load(focusDone) {
+    fetch("/api/office-reply?t=" + encodeURIComponent(t), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { err = x.j.code ? T("or.e_" + x.j.code) : (x.j.error || T("or.e_load")); render(); return; }
+        data = x.j; render();
+        if (focusDone) { var d = document.getElementById("or-done"); if (d) d.focus(); }
+      }).catch(function () { err = T("or.e_load"); render(); });
+  }
+  if (!t) { err = T("or.e_NOT_FOUND"); render(); } else load();
+  document.addEventListener("giq:lang", render);
+})();
+</script>
+</body>
+</html>

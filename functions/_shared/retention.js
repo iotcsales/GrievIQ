@@ -153,6 +153,11 @@ export async function anonymiseStatements(env, g, runId, now) {
     const f = await DB.prepare("SELECT COUNT(*) AS n FROM case_supporters WHERE grievance_id = ?").bind(g.id).first();
     if (f && Number(f.n)) { stmts.push(DB.prepare("DELETE FROM case_supporters WHERE grievance_id = ?").bind(g.id)); fields += Number(f.n); }
   } catch (e) { /* before part56 */ }
+  // grieviq-88: replies and notes on an assisted case, and who replied.
+  try {
+    const { results } = await DB.prepare("SELECT id FROM assisted_steps WHERE grievance_id = ? AND (text IS NOT NULL OR replied_by IS NOT NULL)").bind(g.id).all();
+    for (const x of results || []) { stmts.push(DB.prepare("UPDATE assisted_steps SET text = NULL, replied_by = NULL WHERE id = ?").bind(x.id)); fields++; }
+  } catch (e) { /* before part57 */ }
   try {
     const { results } = await DB.prepare("SELECT id FROM case_ratings WHERE grievance_id = ? AND (comment IS NOT NULL OR follow_up_note IS NOT NULL)").bind(g.id).all();
     for (const x of results || []) { stmts.push(DB.prepare("UPDATE case_ratings SET comment = NULL, follow_up_note = NULL WHERE id = ?").bind(x.id)); fields++; }

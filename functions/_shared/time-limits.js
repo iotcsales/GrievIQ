@@ -54,6 +54,11 @@ export function timeLimitStatus(grievance, categoryIn, chainTiers, result) {
   const category = effectiveCategory(grievance, categoryIn);
   const ends = result && result.levelEnds ? result.levelEnds : null;
   const awaitingCitizen = grievance.status === "PENDING_CONFIRMATION";
+  // grieviq-88: handled by GrievIQ staff for a ward whose office hasn't joined: no time limits.
+  if (result && result.assisted && !awaitingCitizen) {
+    return { isUnresolved: true, awaitingCitizen: false, confirmBy: null, ackDueAt: null, assisted: true,
+      tiers: chainTiers.map((t, i) => ({ current: i === 0, slaBreached: false, dueAt: null })) };
+  }
   const isUnresolved = grievance.status !== "RESOLVED" && grievance.status !== "CLOSED" && !awaitingCitizen;
   const createdMs = result && result.clockStartMs != null && !isNaN(result.clockStartMs) ? result.clockStartMs : toUtcMs(grievance.created_at);
   const startIndex = result && result.startIndex ? result.startIndex : 0;

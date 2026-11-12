@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 IOTC (Indus Overseas Trading Corporation). All rights reserved. GrievIQ: proprietary and confidential. Unauthorised copying, use or distribution is prohibited. See LICENSE.txt. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#13233F">
+<link rel="stylesheet" href="/theme.css?v=22">
+<script src="/theme.js?v=45"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="ar.page_title">Complaints report — GrievIQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1; --card: #FFFFFF; --ink: #22201C; --ink-soft: #746E63;
+    --teal: #1F4A8A; --teal-dark: #13233F; --teal-tint: #E9EEF7;
+    --border: #E7E4DC; --radius: 14px;
+    --shadow: 0 2px 4px rgba(34,32,28,0.04), 0 8px 24px rgba(34,32,28,0.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .trust-strip {
+    background: var(--ink); color: #C7C2B8; font-size: 11px; padding: 7px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-shell { max-width: 560px; margin: 0 auto; padding: 20px 20px 60px; min-height: 100vh; }
+  .app-card {
+    background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); padding: 28px 24px 26px; margin-top: 20px;
+  }
+  header.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  header.brand .logo-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: #13233F;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  header.brand .logo-mark svg { width: 24px; height: 24px; }
+  header.brand span.brand-name { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 17px; }
+  .back-link { display: inline-block; font-size: 12.5px; color: var(--teal-dark); text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+  h1 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 23px; line-height: 1.3; margin: 18px 0 8px; }
+  h2 { font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
+  p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 14px; }
+  .note-box {
+    background: var(--teal-tint); border-radius: 12px; padding: 14px 16px;
+    font-size: 13px; color: var(--teal-dark); margin: 18px 0;
+  }
+  .footer-block { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: 11.5px; color: var(--teal-dark); margin-bottom: 8px; }
+  .footer-links a { color: inherit; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-note { font-size: 10.5px; color: var(--ink-soft); line-height: 1.5; max-width: 340px; margin: 0 auto; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--ink); }
+  ul.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 6px; }
+  p a, li a { color: var(--teal-dark); }
+  .or-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--ink); color: var(--ink); }
+  .or-tag.hot { border-color: #b42318; color: #8f1d1d; }
+  .or-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); font-size: 15px; line-height: 1.6; border-left: 3px solid var(--border); padding: 4px 12px; margin: 6px 0 12px; }
+  dl.or-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 14px; margin: 8px 0 14px; }
+  dl.or-dl dt { color: var(--ink-soft); } dl.or-dl dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+  .or-photos { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 14px; }
+  .or-photos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: #fff; }
+  .or-photos a:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; border-radius: 10px; }
+  ol.or-hist { padding-left: 20px; margin: 6px 0 14px; } ol.or-hist li { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0 0 8px; }
+  form.or-form fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+  form.or-form legend, form.or-form label.l { display: block; font-weight: 600; font-size: 14px; color: var(--ink); margin: 0 0 6px; }
+  .or-opt { display: flex; gap: 10px; align-items: center; min-height: 44px; padding: 4px 0; font-size: 15px; color: var(--ink); }
+  .or-opt input { width: 22px; height: 22px; margin: 0; accent-color: var(--teal); flex: 0 0 22px; }
+  .or-field { margin: 0 0 14px; }
+  .or-field textarea, .or-field input[type=text], .or-field input[type=date] { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--card); border: 1.5px solid #8a8478; border-radius: 10px; padding: 10px 12px; min-height: 46px; }
+  .or-field textarea { min-height: 120px; resize: vertical; }
+  .or-field textarea[aria-invalid=true], .or-field input[aria-invalid=true] { border: 2px solid #b42318; }
+  html[data-theme=dark] .or-field textarea[aria-invalid=true], html[data-theme=dark] .or-field input[aria-invalid=true] { border-color: #ffb4ab; }
+  .or-hint { display: block; font-size: 13px; color: var(--ink-soft); margin: 0 0 6px; }
+  .or-err { display: block; font-size: 13.5px; font-weight: 600; color: #8f1d1d; border-left: 3px solid #b42318; padding-left: 8px; margin: 6px 0 0; }
+  .or-btn { font: inherit; font-size: 16px; font-weight: 600; min-height: 48px; padding: 10px 22px; border-radius: 12px; border: 0; background: var(--teal); color: #fff; cursor: pointer; }
+  .or-btn:focus-visible, .or-field :focus-visible, .or-opt input:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
+  .or-ok { background: #e8f6ed; border-left: 4px solid #1f7a3d; border-radius: 0 10px 10px 0; padding: 12px 14px; color: #14381f; font-size: 15px; margin: 12px 0; }
+  .or-bad { background: #fdecec; border-left: 4px solid #b42318; border-radius: 0 10px 10px 0; padding: 12px 14px; color: #5c1414; font-size: 15px; margin: 12px 0; }
+  .or-small { font-size: 12.5px; color: var(--ink-soft); }
+  html[data-theme=dark] .or-text { color: var(--ink); }
+  html[data-theme=dark] .or-tag.hot { color: #ffb4ab; border-color: #ffb4ab; }
+  html[data-theme=dark] .or-ok { background: #173323; color: #d7f5df; }
+  html[data-theme=dark] .or-bad { background: #3a1a1a; color: #ffd9d4; }
+  html[data-theme=dark] .or-err { color: #ffb4ab; border-left-color: #ffb4ab; }
+  html[data-theme=dark] .or-field textarea, html[data-theme=dark] .or-field input { border-color: #9a9488; }
+  @media (max-width: 520px) { dl.or-dl { grid-template-columns: 1fr; } dl.or-dl dt { margin-top: 6px; } }
+  .card-shell { max-width: 820px; }
+  .bp-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 16px; }
+  .bp-btn { font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 8px 18px; border-radius: 10px; border: 1px solid var(--teal); background: var(--teal); color: #fff; cursor: pointer; }
+  .bp-btn:focus-visible, .bp-tools a:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
+  .bp-doc { background: #fff; color: #1b1f24; border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+  .bp-top { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-bottom: 2px solid #13233F; padding-bottom: 14px; }
+  .bp-brand { display: flex; align-items: center; gap: 10px; font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 22px; color: #13233F; }
+  .bp-brand .iq { color: #9a6f0c; }
+  .bp-kind { text-align: right; }
+  .bp-kind h1 { margin: 0; font-size: 22px; color: #13233F; }
+  .bp-kind .sub { font-size: 12.5px; color: #4a5360; margin-top: 4px; }
+  .bp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 18px 0; }
+  .bp-two h2 { font-family: inherit; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #4a5360; margin: 0 0 6px; }
+  .bp-two p { color: #1b1f24; margin: 0; font-size: 14px; line-height: 1.55; }
+  table.bp-t { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 14px; }
+  table.bp-t th, table.bp-t td { border-bottom: 1px solid #d5dae1; padding: 8px 6px; text-align: left; vertical-align: top; color: #1b1f24; }
+  table.bp-t th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #4a5360; }
+  table.bp-t td.num, table.bp-t th.num { text-align: right; white-space: nowrap; }
+  table.bp-t tr.total td { font-weight: 700; font-size: 15px; border-bottom: 2px solid #13233F; }
+  .bp-status { display: inline-block; font-weight: 700; font-size: 13px; padding: 3px 12px; border-radius: 999px; border: 1px solid #1b1f24; }
+  .bp-note { font-size: 12.5px; color: #4a5360; line-height: 1.55; margin: 6px 0 0; }
+  .bp-msg { font-size: 14px; color: var(--ink); }
+  .bp-tools .bp-note { color: var(--ink-soft); margin: 0; }
+  @media (max-width: 560px) { .bp-two { grid-template-columns: 1fr; } .bp-kind { text-align: left; } .bp-doc { padding: 18px; } }
+  @media print {
+    @page { size: A4; margin: 14mm; }
+    body { background: #fff !important; }
+    .trust-strip, .back-link, .bp-tools, .footer-block, header.brand, .skip-link, #giq-footer, footer { display: none !important; }
+    .card-shell { max-width: none; padding: 0; }
+    .app-card { box-shadow: none; border: 0; padding: 0; margin: 0; }
+    .bp-doc { border: 0; padding: 0; }
+  }
+  .ar-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 16px 0; }
+  .ar-fig { border: 1px solid #d5dae1; border-radius: 10px; padding: 10px 12px; }
+  .ar-fig .v { font-size: 24px; font-weight: 700; color: #13233F; } .ar-fig .l { font-size: 12.5px; color: #4a5360; }
+  .bp-doc h2 { font-family: inherit; font-size: 15px; color: #13233F; margin: 18px 0 6px; }
+  .bp-doc .bp-note { color: #4a5360; }
+  .ar-tag { font-size: 13px; color: #4a5360; margin-top: 2px; font-style: italic; }
+  @media print { .ar-fig { break-inside: avoid; } }
+</style>
+<script src="/i18n.js?v=88"></script>
+<script src="/site.js?v=74" defer></script>
+</head>
+<body>
+<div class="trust-strip"><span data-i18n="common.strip">Independent citizen grievance escalation & redressal platform</span><button type="button" class="lang-toggle" data-lang-toggle lang="hi">हिन्दी</button></div>
+  <div class="card-shell">
+    <main class="app-card" id="main" tabindex="-1">
+      <div class="bp-tools"><button type="button" class="bp-btn" id="bp-print" data-i18n="bp.print">Print or save as PDF</button><span class="bp-note" data-i18n="bp.print_h">To save a PDF, choose "Save as PDF" as the printer.</span></div>
+      <div id="bp-doc" aria-live="polite"><p class="bp-msg" data-i18n="bp.loading">Loading…</p></div>
+    </main>
+  </div>
+<script>
+// grieviq-88: a ward's free complaints report from a GrievIQ-assisted pilot,
+// for that ward's councillor's office (private 30-day link). Counts only.
+(function () {
+  "use strict";
+  function T(k, v) { return window.GIQ ? window.GIQ.t(k, v) : k; }
+  function hi() { return window.GIQ && window.GIQ.lang === "hi"; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function day(s) { if (!s) return ""; var d = new Date(s.length === 10 ? s + "T00:00:00+05:30" : s); return isNaN(d) ? s : d.toLocaleDateString(hi() ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
+  function n(v) { return v === "<10" ? T("ar.lt10") : v; }
+  var MARK = '<svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="11" fill="#13233F"/><g transform="translate(6 6) scale(0.75)" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M34.3 11.7A16 16 0 1 0 40 25H33"/><path d="M12.7 35.3 8 43l9.2-4.5z" fill="#fff"/><path d="M20 22l6 6 15-17" stroke="#E8B631"/></g></svg>';
+  var box = document.getElementById("bp-doc"), t = new URLSearchParams(location.search).get("t") || "", data = null, err = null;
+  function fig(v, l) { return '<div class="ar-fig"><div class="v">' + esc(v) + '</div><div class="l">' + esc(l) + "</div></div>"; }
+  function render() {
+    if (err) { box.innerHTML = '<p class="bp-msg" role="alert">' + esc(err) + "</p>"; return; }
+    if (!data) return;
+    var r = data.report;
+    document.title = T("ar.title", { ward: r.ward }) + " — GrievIQ";
+    var rows = r.types.map(function (x) {
+      var name = x.name ? (GIQ.category ? GIQ.category(x.id, x.name) : x.name) : T("ar.other");
+      return '<tr><th scope="row">' + esc(name) + '</th><td class="num">' + esc(n(x.filed)) + '</td><td class="num">' + esc(n(x.open)) + '</td><td class="num">' + esc(n(x.fixed)) + "</td></tr>";
+    }).join("");
+    box.innerHTML = '<article class="bp-doc" aria-labelledby="ar-h">' +
+      '<div class="bp-top"><div><div class="bp-brand">' + MARK + '<span>Griev<span class="iq">IQ</span></span></div><div class="ar-tag">' + esc(T("common.tagline")) + "</div></div>" +
+      '<div class="bp-kind"><h1 id="ar-h">' + esc(T("ar.title", { ward: r.ward })) + '</h1><div class="sub">' + esc(T("ar.period", { from: day(r.from), to: day(r.to) })) + "</div></div></div>" +
+      '<p class="bp-note">' + esc(T("ar.intro")) + "</p>" +
+      '<div class="ar-figs">' + fig(n(r.total.filed), T("ar.filed")) + fig(n(r.total.open), T("ar.open")) + fig(n(r.total.fixed), T("ar.fixed")) +
+        fig(r.medianReplyDays == null ? "—" : T("ar.days", { n: r.medianReplyDays }), T("ar.median")) + "</div>" +
+      (r.types.length ? '<h2>' + esc(T("ar.by_type")) + '</h2><table class="bp-t"><thead><tr><th scope="col">' + esc(T("ar.type")) + '</th><th scope="col" class="num">' + esc(T("ar.filed")) +
+        '</th><th scope="col" class="num">' + esc(T("ar.open")) + '</th><th scope="col" class="num">' + esc(T("ar.fixed")) + "</th></tr></thead><tbody>" + rows + "</tbody></table>" : '<p class="bp-msg">' + esc(T("ar.none")) + "</p>") +
+      '<p class="bp-note">' + esc(T("ar.fw", { fw: n(r.forwarded), rp: n(r.replied) })) + (r.oldestOpenDays != null ? " " + esc(T("ar.oldest", { n: r.oldestOpenDays })) : "") + "</p>" +
+      '<h2>' + esc(T("ar.how_h")) + '</h2><p class="bp-note">' + esc(T("ar.how")) + "</p>" +
+      '<p class="bp-note">' + esc(T("ar.privacy")) + "</p>" +
+      '<h2>' + esc(T("ar.next_h")) + '</h2><p class="bp-note">' + esc(T("ar.next")) + "</p>" +
+      '<p class="bp-note">' + esc(T("ar.made", { d: day(r.madeAt), until: day(data.expiresAt) })) + "</p></article>";
+  }
+  if (!t) { err = T("ar.e_link"); render(); }
+  else fetch("/api/area-report?t=" + encodeURIComponent(t), { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+    if (!x.ok) { err = T(x.j.code === "EXPIRED" ? "ar.e_expired" : "ar.e_link"); render(); return; }
+    data = x.j; render();
+  }).catch(function () { err = T("ar.e_load"); render(); });
+  document.getElementById("bp-print").addEventListener("click", function () { window.print(); });
+  document.addEventListener("giq:lang", render);
+})();
+</script>
+</body>
+</html>

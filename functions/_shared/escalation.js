@@ -29,6 +29,7 @@ import { toUtcMs } from "./time-limits.js";
 // moves to the expected date) and transfers (the clock starts again at the
 // new ward) all come from one place.
 import { effectiveCategory, levelEnds } from "./case-tools.js";
+import { isAssisted } from "./assisted.js";
 
 // grieviq-53: a VACANT seat has nobody to act, so a case never waits there:
 // it goes on to the next level that has someone (the top level keeps it if
@@ -44,8 +45,12 @@ export function skipVacant(chainTiers, index) {
 // reopened case) the reopening at the level it was sent to.
 // grieviq-86: a case sent to the right ward starts again at its first level
 // from the moment it was sent (unless it was reopened later than that).
+// grieviq-88: an assisted case handed over to the ward's office when it
+// joined starts again at the first level from the handover.
 export function clockStart(grievance, chainTiers) {
-  const moved = grievance.transferred_at ? toUtcMs(grievance.transferred_at) : NaN;
+  const tMoved = grievance.transferred_at ? toUtcMs(grievance.transferred_at) : NaN;
+  const handed = grievance.assisted_handed_at ? toUtcMs(grievance.assisted_handed_at) : NaN;
+  const moved = isNaN(handed) ? tMoved : isNaN(tMoved) ? handed : Math.max(tMoved, handed);
   if (grievance.reopened_at && grievance.reopen_start_tier) {
     const ms = toUtcMs(grievance.reopened_at);
     const index = chainTiers.findIndex((t) => t.tier === grievance.reopen_start_tier);
@@ -64,6 +69,13 @@ export function computeEscalation(grievance, categoryIn, chainTiers) {
   const clockHours = (nowMs - start.ms) / (1000 * 60 * 60);
   const ends = levelEnds(grievance, category, chainTiers, start);
   const base = { elapsedHours, clockHours, clockStartMs: start.ms, startIndex: start.index, reopened: start.reopened, levelEnds: ends, priority: !!category.priority };
+
+  // grieviq-88: GrievIQ staff are handling it for a ward whose office hasn't
+  // joined: it stays at the ward level with no time limits, and never moves
+  // up on its own (the offices above haven't been asked to take part).
+  if (isAssisted(grievance) && grievance.status !== "RESOLVED" && grievance.status !== "CLOSED") {
+    return { ...base, levelEnds: chainTiers.map(() => null), currentTierIndex: 0, currentTier: chainTiers[0], ackOverdue: false, needsLegalReview: false, assisted: true };
+  }
 
   // Clock A: acknowledgment overdue check — independent of tier escalation.
   const ackOverdue =

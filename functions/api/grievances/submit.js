@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // "Get updates on this phone" (Oct 2026): a one-time pass, valid 24
     // hours, so only the person who just filed can turn updates on here.
     const updatesPass = await makeFilingPass(env, made.id);
-    return jsonRes({ success: true, tracking_ref: made.trackingRef, next: nextSteps(effectiveCategory({ priority: v.priority }, v.category)), priority: v.priority ? true : undefined, updates_pass: updatesPass || undefined,
+    return jsonRes({ success: true, tracking_ref: made.trackingRef, next: v.assisted ? { assisted: true } : nextSteps(effectiveCategory({ priority: v.priority }, v.category)), priority: v.priority ? true : undefined, updates_pass: updatesPass || undefined,
       // grieviq-57: the member chosen couldn't take complaints just now, so any member can take it.
       seat_fallback: made.seatFallback || undefined });
   } catch (err) {

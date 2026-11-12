@@ -50,6 +50,12 @@ export const PERMISSIONS = {
   // grieviq-86: send a complaint to the right ward or village after the
   // office's own 48 hours (or a second time). Reason required; logged.
   move_cases: ["super_admin", "operations_admin"],
+  // grieviq-88: GrievIQ-assisted wards (a pilot before the ward's office
+  // joins). The super admin starts a pilot and chooses its wards; support
+  // staff forward, follow up and record replies; the auditor reads.
+  manage_pilots: ["super_admin"],
+  view_assisted: ["super_admin", "operations_admin", "support_executive", "auditor"],
+  work_assisted: ["super_admin", "operations_admin", "support_executive"],
   // Item 9a: audit (IIA Global Internal Audit Standards 2024). The auditor
   // stays independent (Standard 7): only the auditor raises, issues,
   // verifies and closes findings; the super admin sees everything and
@@ -237,6 +243,7 @@ export const PAGES = {
   "admin-onboarding": "view_sales",                 // grieviq-83 (opened from a sales lead)
   "admin-staff-records": "view_staff_records",      // grieviq-78
   "admin-misuse": "view_misuse",                    // grieviq-82
+  "admin-assisted": "view_assisted",                // grieviq-88
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)
 };
 export function pagesFor(roleOrRoles) {

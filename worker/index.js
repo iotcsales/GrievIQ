@@ -17,6 +17,7 @@
 //   - GST documents due are issued (grieviq-76)
 //   - sales pipeline: pilot requests in, old contacts out, 9 am follow-ups email
 //   - staff access: contract ends and long absences pause access (grieviq-78)
+//   - GrievIQ-assisted wards: 9 am counts email for staff (grieviq-88)
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
@@ -35,6 +36,7 @@ import { runHelperFilings } from "../functions/_shared/helper-filing.js";
 import { syncTaxDocs } from "../functions/_shared/tax-docs.js";
 import { runSales } from "../functions/_shared/sales.js";
 import { runStaff } from "../functions/_shared/staff-policies.js";
+import { runAssisted } from "../functions/_shared/assisted-run.js";
 
 export async function runScheduled(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
@@ -88,7 +90,10 @@ export async function runScheduled(env, nowMs) {
   // without signing in; contract and probation reminders.
   let staff = null;
   try { staff = await runStaff(env, origin, nowMs, sendEmailNow); } catch (e) { staff = { errors: 1 }; }
-  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers, taxDocs, sales, staff };
+  // grieviq-88: GrievIQ-assisted wards: one 9 am email to staff with counts only.
+  let assisted = null;
+  try { assisted = await runAssisted(env, origin, nowMs, sendEmailNow); } catch (e) { assisted = { errors: 1 }; }
+  return { notices, retention, photos, subscriptions, speed, govReports, followups, onlinePay, helpers, taxDocs, sales, staff, assisted };
 }
 
 export default {

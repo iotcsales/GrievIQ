@@ -21,6 +21,7 @@
 import { liveJoin, areasReady, PILOT_AREA } from "../_shared/areas.js";
 import { seatsReady, isMulti, choosableSeats } from "../_shared/seats.js";
 import { smsRequired } from "../_shared/misuse.js";
+import { assistedFilingMap } from "../_shared/assisted.js";
 
 export async function onRequestGet({ env }) {
   try {
@@ -33,8 +34,11 @@ export async function onRequestGet({ env }) {
 
     // grieviq-57: a ward with several members is open when any seat has an email.
     const seats = await seatsReady(env);
+    // grieviq-88: wards in a GrievIQ-assisted pilot open for filing today.
+    const assisted = await assistedFilingMap(env, Date.now()).catch(() => new Map());
     const unitsResult = await env.DB.prepare(
       `SELECT lu.id, lu.name, lu.unit_type, lu.localities,${seats ? " lu.seat_count," : ""}${ready ? " lu.block, ar.id AS area_id, ar.name AS area_name, ar.slug AS area_slug," : ""}
+              CASE WHEN lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT'${seats ? " OR EXISTS (SELECT 1 FROM ward_seats ws WHERE ws.local_unit_id = lu.id AND ws.rep_email IS NOT NULL)" : ""} THEN '1' ELSE '' END AS rep_open,
               CASE WHEN COALESCE(TRIM(lu.rep_name), '') = '' OR COALESCE(TRIM(lu.rep_phone), '') = '' THEN 1 ELSE 0 END AS rep_missing,
               CASE WHEN mla.id IS NULL OR COALESCE(TRIM(mla.mla_name), '') = '' OR COALESCE(TRIM(mla.mla_phone), '') = '' THEN 1 ELSE 0 END AS mla_missing,
               CASE WHEN mp.id IS NULL OR COALESCE(TRIM(mp.mp_name), '') = '' OR COALESCE(TRIM(mp.mp_phone), '') = '' THEN 1 ELSE 0 END AS mp_missing
@@ -42,9 +46,10 @@ export async function onRequestGet({ env }) {
        LEFT JOIN mla_constituencies mla ON mla.id = lu.mla_constituency_id
        LEFT JOIN mp_constituencies mp ON mp.id = mla.mp_constituency_id
        ${join}
-       WHERE (lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT'${seats ? " OR EXISTS (SELECT 1 FROM ward_seats ws WHERE ws.local_unit_id = lu.id AND ws.rep_email IS NOT NULL)" : ""})
+       WHERE (lu.rep_email IS NOT NULL OR lu.seat_status = 'VACANT'${seats ? " OR EXISTS (SELECT 1 FROM ward_seats ws WHERE ws.local_unit_id = lu.id AND ws.rep_email IS NOT NULL)" : ""}
+              OR lu.id IN (SELECT value FROM json_each(?)))
        ORDER BY lu.name ASC`
-    ).all();
+    ).bind(JSON.stringify(Array.from(assisted.keys()))).all();
     // grieviq-57: the members a citizen may choose in a ward with several
     // members: seat letter and name only (never phone or email), in seat
     // order, no party. Members who can't take complaints now aren't listed.
@@ -54,6 +59,10 @@ export async function onRequestGet({ env }) {
         u.rep_missing = 0;   // several members: "do you know your representative?" doesn't fit
       }
       delete u.seat_count;
+      // grieviq-88: GrievIQ's team handles it (the office hasn't joined); full = today's limit reached.
+      const a = !String(u.rep_open || "") && assisted.get(u.id);
+      if (a) { u.assisted = true; if (a.full) u.assistedFull = true; u.rep_missing = 0; }
+      delete u.rep_open;
     }
 
     return new Response(

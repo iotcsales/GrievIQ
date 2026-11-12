@@ -23,6 +23,7 @@
 import { appealStatus } from "../grievances/appeal.js";
 import { deptTypes, namesOf } from "../../_shared/departments.js";
 import { loadSteps, shapeStepForCitizen } from "../../_shared/dept-steps.js";
+import { loadSteps as loadAssisted, shapeStepsForCitizen as shapeAssisted } from "../../_shared/assisted.js";
 import { resolveChain } from "../../_shared/jurisdiction.js";
 import { computeEscalation } from "../../_shared/escalation.js";
 import { timeLimitStatus } from "../../_shared/time-limits.js";
@@ -210,9 +211,14 @@ async function buildCaseDetail(env, grievance) {
       noInfo = { at: grievance.closed_at, until: new Date(until).toISOString(), canAnswer: !!oq && Date.now() <= until };
     }
   } catch (e) { /* before part56 */ }
+  // grieviq-88: handled by GrievIQ's team (the ward's office hadn't joined): every step.
+  let assisted = null;
+  if (grievance.assisted_pilot) {
+    assisted = { handedAt: grievance.assisted_handed_at || null, steps: shapeAssisted((await loadAssisted(env, [grievance.id])).get(grievance.id) || []) };
+  }
   return {
     case: {
-      updates, question, followers, noInfo,
+      updates, question, followers, noInfo, assisted,
       priority: grievance.priority ? { kind: grievance.priority, on: isPriority(grievance), offAt: grievance.priority_off_at || null } : null,
       helper,
       rating,
@@ -288,6 +294,8 @@ async function caseForEmail(env, email, trackingRef) {
   }
   // grieviq-86: priority, interim replies and transfers (separately, so the page works before part56).
   try { Object.assign(grievance, await env.DB.prepare("SELECT priority, priority_off_at, interims, transferred_at, transfer_count FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part56 */ }
+  // grieviq-88: GrievIQ-assisted wards (separately, so the page works before part57).
+  try { Object.assign(grievance, await env.DB.prepare("SELECT assisted_pilot, assisted_handed_at FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part57 */ }
   // grieviq-82: the "not genuine" closure and appeal (separately, so the page works before part53).
   if (grievance.closure_kind === "NOT_GENUINE") {
     try { Object.assign(grievance, await env.DB.prepare("SELECT not_genuine_reason, not_genuine_at, appeal_at, appeal_decision FROM grievances WHERE id = ?").bind(grievance.id).first()); } catch (e) { /* before part53 */ }

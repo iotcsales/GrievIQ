@@ -4633,6 +4633,232 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part56 adds none)");
 }
 
+// ---- grieviq-88: GrievIQ-assisted wards (a pilot before the ward's office joins) ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const H = 3600000, DAY = 86400000;
+  const fs = await import("node:fs");
+  const MAIL = (process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests") + "/mail.log";
+  const istDay = (ms) => new Date((ms == null ? Date.now() : ms) + 5.5 * H).toISOString().slice(0, 10);
+  const today = istDay(), plus = (n) => istDay(Date.now() + n * DAY);
+  sdb.prepare("INSERT INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id) VALUES ('lu-as1','Swaroop Nagar','URBAN','mla-c',NULL,'lucknow'),('lu-as2','Kakadeo','URBAN','mla-c',NULL,'lucknow')").run();
+  sdb.prepare("INSERT INTO admin_users (id,email,role,name,employee_id) VALUES ('a88','sup88@test.in','support_executive','Sita Support','GIQ-088')").run();
+  for (const x of sdb.prepare("SELECT policy, version FROM staff_policy_acceptances WHERE admin_id = (SELECT id FROM admin_users WHERE email = 'super@test.in')").all())
+    sdb.prepare("INSERT INTO staff_policy_acceptances (id, admin_id, policy, version, accepted_at) VALUES (?, 'a88', ?, ?, ?)").run("t88-" + x.policy, x.policy, x.version, new Date().toISOString());
+  const A = (w, b) => call(w, "POST", "/api/admin/assisted", b);
+  const G = (w, q) => call(w, "GET", "/api/admin/assisted" + (q || ""));
+  let n88 = 0;
+  const file = async (unit, extra) => {
+    n88++;
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-88-" + n88, "cf-connecting-ip": "10.88.1." + n88 },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: unit, description: "Water pipe leaking near the temple gate for a week", citizen_phone: "98788" + String(10000 + n88).slice(-5), consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, body: await x.json() };
+  };
+  const gid = (ref) => sdb.prepare("SELECT id FROM grievances WHERE tracking_ref = ?").get(ref).id;
+  const settle = () => new Promise((res) => setTimeout(res, 400));
+  const outbox = (to, kind) => sdb.prepare("SELECT * FROM email_outbox WHERE to_email = ? AND kind = ? ORDER BY created_at").all(to, kind);
+  const otp = (email) => sdb.prepare("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, ?, 'EMAIL', ?)")
+    .run("otp88-" + Math.random(), new Date(Date.now() + 600000).toISOString(), email, new Date().toISOString());
+  const track = async (email, ref) => { otp(email); return (await call("", "POST", "/api/otp/verify", { email, trackingRef: ref, open: true })).body.case; };
+
+  // Access
+  let r = await G("super@test.in");
+  ok(r.status === 200 && r.body.perms.manage && r.body.perms.work && r.body.pilots.length === 0, "super admin opens Assisted cases", r.body);
+  ok((await G("mod@test.in")).status === 403, "data moderator can't open Assisted cases");
+  r = await G("audit@test.in");
+  ok(r.status === 200 && !r.body.perms.manage && !r.body.perms.work, "auditor reads only");
+  ok((await A("audit@test.in", { action: "note", id: "x", text: "hello there" })).status === 403, "auditor can't act");
+  ok((await A("ops@test.in", { action: "pilot_save", name: "Kanpur pilot", startsOn: today, endsOn: plus(44), dailyCap: 2 })).status === 403, "only the super admin starts a pilot");
+  ok((await call("super@test.in", "GET", "/api/admin/whoami")).body.pages["admin-assisted"].allowed, "the menu shows Assisted cases");
+
+  // Before any pilot, the ward can't take complaints.
+  r = await file("lu-as1");
+  ok(r.status === 400 && r.body.code === "not_open", "no pilot: the ward can't take complaints", r.body);
+
+  // Starting a pilot
+  r = await A("super@test.in", { action: "pilot_save", name: "K", startsOn: plus(-1), endsOn: plus(-3), dailyCap: 0 });
+  ok(r.status === 400 && r.body.fields.name === "LENGTH" && r.body.fields.startsOn === "PAST" && r.body.fields.endsOn === "BEFORE_START" && r.body.fields.dailyCap === "RANGE", "pilot checks", r.body.fields);
+  ok((await A("super@test.in", { action: "pilot_save", name: "Kanpur pilot", startsOn: today, endsOn: plus(130), dailyCap: 2 })).body.fields.endsOn === "TOO_LONG", "a pilot takes filing for 120 days at most");
+  r = await A("super@test.in", { action: "pilot_save", name: "Kanpur pilot", startsOn: today, endsOn: plus(44), dailyCap: 2 });
+  const pid = r.body.id;
+  ok(r.status === 200 && pid, "pilot started (45 days, 2 a day)", r.body);
+  r = await G("super@test.in", "?wards=lucknow");
+  const w1 = r.body.wards.find((w) => w.id === "lu-as1"), wJ = r.body.wards.find((w) => w.id === "lu-hazratganj");
+  ok(w1 && w1.can && wJ && !wJ.can && wJ.why === "JOINED", "ward list says which wards can join a pilot", [w1, wJ]);
+  r = await A("super@test.in", { action: "ward_add", pilotId: pid, unitIds: ["lu-as1", "lu-as2", "lu-hazratganj"] });
+  ok(r.status === 200 && r.body.added.length === 2 && r.body.refused.length === 1 && r.body.refused[0].why === "JOINED", "a ward whose office has joined can't be added", r.body);
+  ok((await A("super@test.in", { action: "ward_add", pilotId: pid, unitIds: ["lu-as1"] })).body.refused[0].why === "IN_PILOT", "a ward is in one pilot at a time");
+
+  // The form and the ward page
+  r = await call("", "GET", "/api/intake-options");
+  const iu = r.body.localUnits.find((u) => u.id === "lu-as1");
+  ok(iu && iu.assisted === true && !iu.assistedFull && !("rep_open" in iu), "the form lists the assisted ward", iu);
+  ok(!r.body.localUnits.find((u) => u.id === "lu-hazratganj").assisted, "a joined ward is not marked assisted");
+
+  // Filing
+  r = await file("lu-as1", { citizen_email: "cit88@x.in", description: "Water pipe leaking near the temple gate. Call me on 98765 43210 please" });
+  const c1Ref = r.body.tracking_ref, c1 = gid(c1Ref);
+  for (let i = 0; i < 20 && outbox("sup88@test.in", "ASSISTED_NEW").length < 1; i++) await settle();
+  ok(r.status === 200 && r.body.next && r.body.next.assisted === true && !r.body.next.ackBy, "filed in an assisted ward: no office time limits promised", r.body);
+  ok(sdb.prepare("SELECT assisted_pilot FROM grievances WHERE id = ?").get(c1).assisted_pilot === pid, "the complaint is marked as assisted");
+  let m = outbox("cit88@x.in", "CITIZEN_ASSISTED_RECEIVED");
+  ok(m.length === 1 && /not joined GrievIQ yet/.test(m[0].html) && /cannot promise/.test(m[0].html) && !outbox("cit88@x.in", "CITIZEN_RECEIVED").length, "the citizen is told honestly who handles it", m.map((x) => x.subject));
+  m = outbox("super@test.in", "ASSISTED_NEW");
+  ok(m.length === 1 && !m[0].html.includes(c1Ref) && !/temple/.test(m[0].html) && outbox("sup88@test.in", "ASSISTED_NEW").length === 1 && !outbox("audit@test.in", "ASSISTED_NEW").length, "staff get an alert with no details", m.map((x) => x.html));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ?").get(c1).n === 0, "no office is alerted (none has joined)");
+  r = await file("lu-as2", { description: "Garbage not lifted from the corner for days now" });
+  const c2Ref = r.body.tracking_ref, c2 = gid(c2Ref);
+  ok(r.status === 200, "second complaint filed");
+  r = await file("lu-as2", { description: "Third complaint today in the pilot wards, over the limit" });
+  ok(r.status === 429 && r.body.code === "assisted_full", "daily limit reached: filing pauses with an honest message", r.body);
+  ok((await call("", "GET", "/api/intake-options")).body.localUnits.find((u) => u.id === "lu-as1").assistedFull === true, "the form knows today's limit is reached");
+  ok((await file("lu-hazratganj")).status === 200, "the limit doesn't touch wards whose office has joined");
+
+  // Offices above never see it, and it never moves up on its own.
+  sdb.prepare("UPDATE grievances SET created_at = ? WHERE id = ?").run(new Date(Date.now() - 40 * DAY).toISOString(), c2);
+  const mlaList = (await call("mla@x.in", "GET", "/api/grievances")).body.grievances || [];
+  ok(!mlaList.some((x) => x.id === c1 || x.id === c2), "an assisted case never moves up to the MLA", mlaList.length);
+  let tc = await track("cit88@x.in", c1Ref);
+  ok(tc && tc.assisted && !tc.assisted.handedAt && tc.ackDueAt === null && tc.tiers.every((t) => !t.dueAt && !t.slaBreached) && tc.currentTierIndex === 0, "Track page: handled by GrievIQ, no office deadlines", tc && [tc.assisted, tc.ackDueAt, tc.tiers]);
+
+  // The staff list
+  r = await G("sup88@test.in");
+  let lc = r.body.cases.find((x) => x.id === c1);
+  ok(lc && lc.state === "NEW" && r.body.stats.open === 2 && r.body.pilots[0].today === 1 && r.body.pilots[0].filed === 2 && r.body.pilots[0].wards.length === 2, "staff list: new, to forward", [lc, r.body.stats]);
+  r = await G("sup88@test.in", "?case=" + c1);
+  ok(r.status === 200 && r.body.case.description.includes("temple") && r.body.case.officeEmail === null && !("citizen_phone" in r.body.case) && !JSON.stringify(r.body).includes("98788"), "staff see the complaint, never the citizen's phone", r.body.case && r.body.case.officeEmail);
+
+  // Forwarding
+  ok((await A("sup88@test.in", { action: "forward", id: c1 })).body.fields.target === "REQUIRED", "forward: choose who");
+  ok((await A("sup88@test.in", { action: "forward", id: c1, office: { channel: "EMAIL" } })).body.fields.officeChannel === "NO_EMAIL", "no official email yet: can't email the office");
+  ok((await A("sup88@test.in", { action: "ward_email", wardRow: "x" })).status === 403, "only the super admin records the office's email");
+  const wrow = (await G("super@test.in")).body.pilots[0].wards.find((w) => w.unitId === "lu-as1").row;
+  ok((await A("super@test.in", { action: "ward_email", wardRow: wrow, officeEmail: "not-an-email", emailSource: "" })).body.fields.officeEmail === "EMAIL", "office email checked");
+  ok((await A("super@test.in", { action: "ward_email", wardRow: wrow, officeEmail: "ward14.office@gov.in", emailSource: "" })).body.fields.emailSource === "REQUIRED", "where the email was found is required");
+  ok((await A("super@test.in", { action: "ward_email", wardRow: wrow, officeEmail: "Ward14.Office@gov.in", emailSource: "Council website, ward contacts page" })).status === 200, "official email recorded with its source");
+  ok((await A("sup88@test.in", { action: "forward", id: c1, office: { channel: "EMAIL" }, minutes: 999 })).body.fields.minutes === "RANGE", "minutes checked");
+  ok((await A("sup88@test.in", { action: "forward", id: c1, dept: { department: "Nope", channel: "CALL" } })).body.fields.department === "UNKNOWN", "unknown department refused");
+  const dk = (await G("sup88@test.in", "?case=" + c1)).body.activeDepartments[0];
+  r = await A("sup88@test.in", { action: "forward", id: c1, office: { channel: "EMAIL" }, dept: { department: dk, channel: "CALL" }, minutes: 12 });
+  ok(r.status === 200 && r.body.sentTo.length === 2, "forwarded to the councillor's office (email) and the department (call)", r.body);
+  const steps1 = sdb.prepare("SELECT * FROM assisted_steps WHERE grievance_id = ? ORDER BY created_at").all(c1);
+  ok(steps1.length === 2 && steps1.reduce((n, s) => n + s.minutes, 0) === 12 && steps1.some((s) => s.target === "DEPT" && s.dept_step_id), "both steps recorded, with the minutes", steps1.map((s) => [s.target, s.minutes]));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM case_dept_steps WHERE grievance_id = ? AND kind = 'FORWARDED' AND actor_role = 'GRIEVIQ_STAFF'").get(c1).n === 1, "the department step is recorded as GrievIQ's");
+  m = outbox("ward14.office@gov.in", "ASSISTED_LINK");
+  const linkTok = m.length ? (m[0].html.match(/office-reply\?t=([A-Za-z0-9_-]+)/) || [])[1] : null;
+  ok(m.length === 1 && linkTok && m[0].html.includes(c1Ref) && !m[0].html.includes("98765") && !m[0].html.includes("cit88") && !m[0].html.includes("temple") && /not an order/.test(m[0].html) && /आदेश नहीं/.test(m[0].html), "the office gets an email with a private reply link: no citizen details, no complaint text, in English and Hindi", m.map((x) => x.html.slice(0, 200)));
+  ok(sdb.prepare("SELECT COUNT(*) n FROM assisted_links WHERE token_hash = ?").get(linkTok || "x").n === 0, "only a hash of the link is kept");
+  m = outbox("cit88@x.in", "CITIZEN_ASSISTED_FORWARDED");
+  ok(m.length === 1 && /Councillor&#39;s office, Swaroop Nagar/.test(m[0].html), "the citizen is told where it went", m.map((x) => x.html));
+
+  // The office's reply link
+  ok((await call("", "GET", "/api/office-reply?t=nope")).status === 404, "a wrong link is refused");
+  r = await call("", "GET", "/api/office-reply?t=" + linkTok);
+  ok(r.status === 200 && r.body.case.ref === c1Ref && r.body.case.description.includes("temple") && !r.body.case.description.includes("98765") && !JSON.stringify(r.body).includes("cit88") && !JSON.stringify(r.body).includes("98788") && r.body.case.open, "the office reads the complaint with any phone number hidden, never the citizen's contact", r.body.case && r.body.case.description);
+  r = await call("", "POST", "/api/office-reply", { t: linkTok, replyKind: "PLANNED", text: "short", repliedBy: "" });
+  ok(r.status === 400 && r.body.fields.text && r.body.fields.repliedBy && r.body.fields.expectedBy === "REQUIRED", "office reply checked", r.body.fields);
+  r = await call("", "POST", "/api/office-reply", { t: linkTok, replyKind: "PLANNED", text: "Pipe repair is in the work list; Jal Kal team will visit this week. JE mobile 98765 11111", expectedBy: plus(5), repliedBy: "R. Verma, Ward office clerk" });
+  ok(r.status === 200, "the office replies through the link", r.body);
+  const rs = sdb.prepare("SELECT * FROM assisted_steps WHERE grievance_id = ? AND kind = 'REPLY'").get(c1);
+  ok(rs && rs.channel === "LINK" && rs.target === "OFFICE" && rs.replied_by === "R. Verma, Ward office clerk" && rs.by_email === null, "the reply is recorded", rs);
+  m = outbox("cit88@x.in", "CITIZEN_ASSISTED_REPLY");
+  ok(m.length === 1 && /Jal Kal team/.test(m[0].html) && !m[0].html.includes("R. Verma"), "the citizen gets the reply (not the official's name)", m.map((x) => x.html));
+  ok(outbox("sup88@test.in", "ASSISTED_REPLY_IN").length === 1 && !outbox("sup88@test.in", "ASSISTED_REPLY_IN")[0].html.includes(c1Ref), "staff hear a reply came, with no details");
+  r = await G("sup88@test.in");
+  ok(r.body.cases.find((x) => x.id === c1).state === "REPLY", "staff list: a reply came in");
+  tc = await track("cit88@x.in", c1Ref);
+  const st = tc.assisted.steps;
+  ok(st.length === 2 && st[0].kind === "FORWARD" && st[0].target === "OFFICE" && st[1].kind === "REPLY" && /Jal Kal/.test(st[1].text) && !/11111/.test(st[1].text) && !JSON.stringify(st).includes("Verma") && tc.deptSteps.length === 1,
+    "Track page: each step, the department through its own steps, phone numbers hidden", st);
+
+  // Follow-ups
+  ok((await A("sup88@test.in", { action: "followup", id: c2, target: "OFFICE", channel: "CALL" })).body.code === "NOT_FORWARDED", "follow-up needs a forwarding first");
+  await A("sup88@test.in", { action: "forward", id: c2, office: { channel: "LETTER" }, minutes: 20 });
+  sdb.prepare("UPDATE assisted_steps SET created_at = ? WHERE grievance_id = ?").run(new Date(Date.now() - 4 * DAY).toISOString(), c2);
+  r = await G("sup88@test.in");
+  lc = r.body.cases.find((x) => x.id === c2);
+  ok(lc.state === "DUE" && r.body.stats.due === 1, "a follow-up is due on day 3", lc);
+  ok((await A("sup88@test.in", { action: "followup", id: c2, target: "OFFICE", channel: "FAX" })).body.fields.channel === "CHANNEL", "follow-up channel checked");
+  ok((await A("sup88@test.in", { action: "followup", id: c2, target: "OFFICE", channel: "CALL", text: "Clerk says the file is with the JE.", minutes: 5 })).status === 200, "follow-up recorded");
+  lc = (await G("sup88@test.in")).body.cases.find((x) => x.id === c2);
+  ok(lc.state === "WAITING" && Math.abs(Date.parse(lc.nextFollowUp) - (Date.now() + 3 * DAY)) < 600000 && lc.minutes === 25, "next follow-up on day 7; minutes add up", lc);
+  ok((await A("sup88@test.in", { action: "reply", id: c2, target: "OFFICE", replyKind: "IN_PROGRESS", text: "Sweepers sent this morning, the JE says.", channel: "CALL", minutes: 3 })).status === 200, "staff record a reply from a call");
+  ok((await A("sup88@test.in", { action: "note", id: c2, text: "Office prefers calls before noon.", minutes: 1 })).status === 200, "staff note");
+  tc = await call("", "GET", "/api/admin/assisted?case=" + c2);
+  r = await G("sup88@test.in");
+  ok(r.body.stats.avgMinutes > 0 && r.body.stats.casesTimed === 2, "average staff minutes per case", r.body.stats);
+
+  // Fixed: the citizen confirms
+  ok((await A("sup88@test.in", { action: "ask_confirm", id: c1, text: "short" })).body.fields.text === "LENGTH", "what was done is required");
+  r = await A("sup88@test.in", { action: "ask_confirm", id: c1, text: "Jal Kal replaced the leaking pipe joint, the ward office says.", minutes: 4 });
+  const g1 = sdb.prepare("SELECT status, resolved_at FROM grievances WHERE id = ?").get(c1);
+  ok(r.status === 200 && g1.status === "PENDING_CONFIRMATION" && g1.resolved_at, "waits for the citizen to confirm", g1);
+  const mail = fs.readFileSync(MAIL, "utf8");
+  ok(/told GrievIQ that the work on your case/.test(mail) && mail.includes(c1Ref), "the citizen's email says the office told GrievIQ, not that their representative did");
+  ok((await A("sup88@test.in", { action: "note", id: c1, text: "more" })).body.code === "CLOSED", "no more work once it waits for the citizen");
+  ok((await call("", "POST", "/api/office-reply", { t: linkTok, replyKind: "OTHER", text: "Another reply after it was marked fixed", repliedBy: "R. Verma" })).body.code === "CLOSED", "the link takes no replies once it's closed");
+
+  // Report link
+  r = await A("sup88@test.in", { action: "report_link", unitId: "lu-as2", send: true });
+  ok(r.body.code === "NO_EMAIL", "can't email a report without the office's official email");
+  r = await A("sup88@test.in", { action: "report_link", unitId: "lu-as1", send: true });
+  const repTok = r.body.link && (r.body.link.match(/t=([A-Za-z0-9_-]+)/) || [])[1];
+  ok(r.status === 200 && repTok && r.body.sentTo === "ward14.office@gov.in" && outbox("ward14.office@gov.in", "ASSISTED_REPORT").length === 1, "report link emailed to the office", r.body);
+  r = await call("", "GET", "/api/area-report?t=" + repTok);
+  const rep = r.body.report;
+  ok(r.status === 200 && rep.ward === "Swaroop Nagar" && rep.total.filed === "<10" && rep.types.length === 1 && rep.types[0].name === null && rep.medianReplyDays === null, "area report: counts under 10 shown as <10, small types together, no median under 10", rep);
+  ok(!JSON.stringify(r.body).includes("temple") && !JSON.stringify(r.body).includes(c1Ref) && !JSON.stringify(r.body).includes("cit88"), "area report has no complaint text, numbers or contacts");
+  ok(sdb.prepare("SELECT opened_count FROM assisted_reports WHERE unit_id = 'lu-as1'").get().opened_count === 1, "report openings counted");
+  const repId = sdb.prepare("SELECT id FROM assisted_reports WHERE unit_id = 'lu-as1'").get().id;
+  await A("sup88@test.in", { action: "report_revoke", reportId: repId });
+  ok((await call("", "GET", "/api/area-report?t=" + repTok)).status === 410, "a switched-off report link stops working");
+
+  // Handover when the office joins
+  r = await file("lu-as1", { citizen_email: "cit88b@x.in", description: "Street light not working outside house 14" });
+  const c3Ref = r.body.tracking_ref, c3 = gid(c3Ref);
+  ok(r.status === 200, "under today's limit again: filing open", r.body);
+  await A("sup88@test.in", { action: "forward", id: c3, office: { channel: "EMAIL" }, minutes: 6 });
+  const tok3 = (outbox("ward14.office@gov.in", "ASSISTED_LINK").pop().html.match(/office-reply\?t=([A-Za-z0-9_-]+)/) || [])[1];
+  ok((await A("sup88@test.in", { action: "handover", unitId: "lu-as1" })).body.code === "NOT_JOINED", "handover only after the office joins");
+  sdb.prepare("UPDATE local_units SET rep_email = 'r88@x.in' WHERE id = 'lu-as1'").run();
+  ok((await G("sup88@test.in")).body.cases.find((x) => x.id === c3).state === "JOINED", "staff see that the office has joined");
+  r = await A("sup88@test.in", { action: "handover", unitId: "lu-as1" });
+  const g3 = sdb.prepare("SELECT status, assisted_handed_at FROM grievances WHERE id = ?").get(c3);
+  ok(r.status === 200 && r.body.handedOver === 1 && g3.assisted_handed_at && g3.status === "OPEN", "open cases handed over", [r.body, g3]);
+  ok(outbox("cit88b@x.in", "CITIZEN_ASSISTED_HANDOVER").length === 1, "the citizen is told the office now has it");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND recipient = 'r88@x.in' AND kind = 'NEW_CASE'").get(c3).n === 1, "the office is alerted");
+  const rl = ((await call("r88@x.in", "GET", "/api/grievances")).body.grievances || []).find((x) => x.id === c3);
+  ok(rl && rl.assistedHistory && rl.assistedHistory.some((s) => s.kind === "FORWARD") && rl.assistedHistory.some((s) => s.kind === "HANDOVER") && Math.abs(Date.parse(rl.respondDueAt) - (Date.now() + 168 * H)) < 600000, "the office sees the case, GrievIQ's earlier steps, and fresh time limits", rl && [rl.assistedHistory, rl.respondDueAt]);
+  ok(!((await call("r88@x.in", "GET", "/api/grievances")).body.grievances || []).some((x) => x.id === c1 && x.status === "OPEN"), "nothing else changes for the office");
+  ok((await call("", "GET", "/api/office-reply?t=" + tok3)).body.code === "REVOKED", "the old reply link stops: the office uses its console now");
+  ok(sdb.prepare("SELECT COUNT(*) n FROM assisted_wards WHERE unit_id = 'lu-as1' AND removed_at IS NULL").get().n === 0, "the ward leaves the pilot");
+  tc = await track("cit88b@x.in", c3Ref);
+  ok(tc.assisted.handedAt && tc.assisted.steps.some((s) => s.kind === "HANDOVER") && tc.tiers[0].dueAt, "Track page: handed over, the office's limits apply", tc.assisted);
+
+  // Morning email to staff (counts only)
+  sdb.prepare("UPDATE assisted_steps SET created_at = ? WHERE grievance_id = ?").run(new Date(Date.now() - 9 * DAY).toISOString(), c2);
+  r = await (await fetch(B + "/__test/run-assisted", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ now: today + "T04:00:00Z" }) })).json();
+  ok(r.sent >= 3 && r.DUE + r.WAITING + r.NEW + r.REPLY >= 1, "9 am: one email to each staff member", r);
+  const m9 = fs.readFileSync(MAIL, "utf8").split("\n").filter((l) => l.includes("assisted cases today"));
+  ok(m9.length >= 3 && !m9.some((l) => l.includes(c2Ref) || l.includes("Garbage")), "the morning email has counts only");
+  r = await (await fetch(B + "/__test/run-assisted", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ now: today + "T05:00:00Z" }) })).json();
+  ok(r.sent === 0, "once a day");
+
+  // Stopping and the end date
+  ok((await A("super@test.in", { action: "pilot_save", id: pid, name: "Kanpur pilot", startsOn: plus(1), endsOn: plus(44), dailyCap: 5 })).body.fields.startsOn === "STARTED", "the first day can't move once filing has started");
+  ok((await A("super@test.in", { action: "pilot_save", id: pid, name: "Kanpur pilot", startsOn: today, endsOn: plus(44), dailyCap: 5 })).status === 200, "daily limit changed");
+  sdb.prepare("UPDATE assisted_pilots SET ends_on = ? WHERE id = ?").run(plus(-1), pid);
+  ok((await file("lu-as2", { description: "After the last filing day of the pilot here" })).body.code === "not_open", "after the last filing day: no new complaints");
+  ok(sdb.prepare("SELECT status FROM grievances WHERE id = ?").get(c2).status === "OPEN" && (await A("sup88@test.in", { action: "note", id: c2, text: "Still following up after the pilot." })).status === 200, "open cases carry on after filing closes");
+  ok((await A("super@test.in", { action: "pilot_stop", id: pid })).status === 200 && (await G("super@test.in")).body.pilots[0].state === "STOPPED", "pilot stopped");
+  const ev = sdb.prepare("SELECT action, COUNT(*) n FROM admin_events WHERE action LIKE 'assisted_%' GROUP BY action").all().reduce((o, x) => (o[x.action] = x.n, o), {});
+  ok(ev.assisted_pilot_started === 1 && ev.assisted_forwarded >= 3 && ev.assisted_handed_over === 1 && ev.assisted_report_link === 1 && ev.assisted_office_email_set === 1, "every step logged", ev);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part57 adds none)");
+  // Out of the way of the browser tests, which count Lucknow's wards.
+  sdb.prepare("UPDATE local_units SET area_id = 'kanpur' WHERE id IN ('lu-as1', 'lu-as2')").run();
+}
+
 // ---- audit trail ----
 const { DatabaseSync } = await import("node:sqlite");
 const db = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));

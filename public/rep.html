@@ -22,8 +22,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- English / Hindi text, shared with the citizen pages -->
-<script src="/i18n.js?v=86"></script>
-<script src="/guide-content.js?v=87"></script>
+<script src="/i18n.js?v=88"></script>
+<script src="/guide-content.js?v=88"></script>
 <script src="/guide.js?v=80"></script>
 <script src="/vendor/qrcode/qrcode.js?v=1"></script>
 <script src="/pay.js?v=41"></script>
@@ -4150,10 +4150,23 @@ function ctLevel(c, tier) {
   if (tier === 'LOCAL') return T(c.localUnit && c.localUnit.type === 'RURAL' ? 'level.pradhan' : 'level.corporator');
   return T({ MAYOR: 'level.mayor', MLA: 'level.mla', MP: 'level.mp' }[tier] || 'rep.tier_local');
 }
+// grieviq-88: what GrievIQ's team did before this office joined (handed-over cases).
+function renderAssistedHistory(c) {
+  var list = c.assistedHistory || [];
+  if (!list.length) return '';
+  return '<div class="ct-hist"><h4 class="ct-hist-h">' + esc(T('rep.as_hist_h')) + '</h4><ul>' + list.map(function(u) {
+    var when = '<span class="muted-inline">' + esc(formatDate(u.at)) + '</span>';
+    if (u.kind === 'FORWARD') return '<li><b>' + esc(T('status.as_fw', { to: GIQ.officeName(u.targetName) })) + '</b> ' + when + '</li>';
+    if (u.kind === 'FOLLOWUP') return '<li><b>' + esc(T('status.as_fu', { to: GIQ.officeName(u.targetName) })) + '</b> ' + when + '</li>';
+    if (u.kind === 'REPLY') return '<li><b>' + esc(T('status.as_reply', { to: GIQ.officeName(u.targetName), kind: T('as.rk_' + u.replyKind) })) + '</b> ' + when + (u.text ? '<br>"' + esc(u.text) + '"' : '') + '</li>';
+    if (u.kind === 'HANDOVER') return '<li><b>' + esc(T('rep.as_handover')) + '</b> ' + when + '</li>';
+    return '';
+  }).join('') + '</ul></div>';
+}
 function renderCaseUpdates(c) {
   var list = c.updates || [];
-  if (!list.length) return '';
-  return '<div class="ct-hist"><h4 class="ct-hist-h">' + esc(T('rep.ct_hist_h')) + '</h4><ul>' + list.map(function(u) {
+  if (!list.length) return renderAssistedHistory(c);
+  return renderAssistedHistory(c) + '<div class="ct-hist"><h4 class="ct-hist-h">' + esc(T('rep.ct_hist_h')) + '</h4><ul>' + list.map(function(u) {
     var when = '<span class="muted-inline">' + esc(formatDate(u.at)) + '</span>';
     if (u.kind === 'QUESTION') {
       return '<li><b>' + esc(T('rep.ct_h_q', { level: ctLevel(c, u.tier) })) + '</b> ' + when + '<br>"' + esc(u.text) + '"<br>' +

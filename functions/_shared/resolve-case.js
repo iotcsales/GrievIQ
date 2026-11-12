@@ -26,7 +26,10 @@ function emailDate(iso, lang) {
 }
 // Returns { status, warning?, detail? }. actorEmail is who marked it
 // resolved (the representative or office manager who approved it).
-export async function finalizeResolution(env, request, grievance, currentTier, note, actorEmail) {
+// opts.assisted (grieviq-88): GrievIQ staff recorded that the office or
+// department says it is done (a ward whose office hasn't joined).
+export async function finalizeResolution(env, request, grievance, currentTier, note, actorEmail, opts) {
+  const assisted = !!(opts && opts.assisted);
   const grievanceId = grievance.id;
   const now = new Date().toISOString();
   const hasEmail = !!grievance.citizen_email;
@@ -68,13 +71,15 @@ export async function finalizeResolution(env, request, grievance, currentTier, n
           ? `आपकी GrievIQ शिकायत ${grievance.tracking_ref} को निस्तारित बताया गया है`
           : `Your GrievIQ case ${grievance.tracking_ref} has been marked resolved`,
         html: grievance.lang === "hi"
-          ? `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
-             <p>जनप्रतिनिधि के अनुसार की गई कार्यवाही: <em>${escHtml(note)}</em></p>
+          ? (assisted ? `<p>कार्यालय या विभाग ने GrievIQ को बताया है कि आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर काम हो गया है।</p>
+             <p>उनके अनुसार: <em>${escHtml(note)}</em></p>` : `<p>आपकी शिकायत <strong>${grievance.tracking_ref}</strong> पर कार्यवाही कर रहे जनप्रतिनिधि ने इसे निस्तारित बताया है।</p>
+             <p>जनप्रतिनिधि के अनुसार की गई कार्यवाही: <em>${escHtml(note)}</em></p>`) + `
              <p>कृपया "मेरी शिकायतों की स्थिति" पृष्ठ पर जाकर अपना ईमेल दर्ज करें और बताएँ कि क्या समस्या वास्तव में हल हुई है:</p>
              <p><a href="${statusUrl}">${statusUrl}</a></p>
              <p>यदि ${byDate} तक (${CONFIRM_DAYS} दिन में) आपका उत्तर नहीं मिलता, तो शिकायत "निस्तारित (नागरिक द्वारा पुष्टि नहीं)" के रूप में बंद कर दी जाएगी।</p>`
-          : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
-             <p>What the representative says was done: <em>${escHtml(note)}</em></p>
+          : (assisted ? `<p>The office or department has told GrievIQ that the work on your case <strong>${grievance.tracking_ref}</strong> is done.</p>
+             <p>What they say was done: <em>${escHtml(note)}</em></p>` : `<p>The representative handling your case <strong>${grievance.tracking_ref}</strong> has marked it as resolved.</p>
+             <p>What the representative says was done: <em>${escHtml(note)}</em></p>`) + `
              <p>Please visit our status page and enter your email to confirm whether this actually fixed the problem:</p>
              <p><a href="${statusUrl}">${statusUrl}</a></p>
              <p>If we don't hear from you by ${byDate} (${CONFIRM_DAYS} days), the case will be closed as "Resolved (not confirmed by citizen)".</p>`,

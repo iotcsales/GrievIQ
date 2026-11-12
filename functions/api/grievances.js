@@ -34,6 +34,7 @@ import { officerNames } from "../_shared/dept-cases.js";
 import { dashboardOffices } from "../_shared/dept-auth.js";
 import { ROLE, canManageCases, isViewOnly, officeKey, jobProfile, WORKLOAD_WARN } from "../_shared/team.js";
 import { seatsReady, letterOf } from "../_shared/seats.js";
+import { isAssisted, loadSteps as loadAssistedSteps, shapeStepsForOffice } from "../_shared/assisted.js";
 import { loadUpdates, supporterCounts, questionStatus, transferStatus, isPriority, readInterims, shapeUpdatesForOffice, unitNamesFor } from "../_shared/case-tools.js";
 import { clockStart } from "../_shared/escalation.js";
 
@@ -182,7 +183,8 @@ export async function onRequestGet(context) {
   const categoryById = new Map((batch[0].results || []).map((c) => [c.id, c]));
   for (let i = 1; i < batch.length; i += 8) {
     for (const g of batch[i].results || []) {
-      if (!grievanceById.has(g.id)) grievanceById.set(g.id, g);
+      // grieviq-88: GrievIQ staff handle assisted cases until the office's handover.
+      if (!grievanceById.has(g.id) && !isAssisted(g)) grievanceById.set(g.id, g);
     }
     for (const e of batch[i + 1].results || []) {
       if (!eventById.has(e.id)) eventById.set(e.id, e);
@@ -418,6 +420,7 @@ export async function onRequestGet(context) {
       transfer: canManageCases(myRole) ? transferStatus(grievance) : null,
       hasCitizenEmail: !!(grievance.citizen_email && String(grievance.citizen_email).includes("@")),
       _g: grievance,
+      _assisted: !!grievance.assisted_handed_at,
       // grieviq-57: a ward with several members. For a member's office: whether
       // the case is still open to every member (take it first) or its own, and
       // whether it may give it back. For the levels above: who handles it.
@@ -529,6 +532,13 @@ export async function onRequestGet(context) {
     c.questions = questionStatus(c._g, rows);
     c.followers = followersBy.get(c.id) || 0;
     delete c._g;
+  }
+  // grieviq-88: what GrievIQ's team did before the office joined (handed-over cases).
+  const handedIds = visible.filter((c) => c._assisted).map((c) => c.id);
+  const assistedBy = handedIds.length ? await loadAssistedSteps(env, handedIds) : new Map();
+  for (const c of visible) {
+    if (c._assisted) c.assistedHistory = shapeStepsForOffice(assistedBy.get(c.id) || []);
+    delete c._assisted;
   }
   // Citizen ratings (grieviq-30): the representative and office managers see
   // the citizen's rating on a closed case; field workers and office

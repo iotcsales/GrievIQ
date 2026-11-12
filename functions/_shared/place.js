@@ -12,6 +12,7 @@
 //     Phone numbers and emails are never returned (approved Sept 2026).
 //   - a 30-day snapshot: complaints filed and resolved -- counts only.
 
+import { assistedFiling } from "./assisted.js";
 import { resolveChain } from "./jurisdiction.js";
 import { settleOverdueConfirmations } from "./confirmation.js";
 import { PILOT_AREA, areasReady } from "./areas.js";
@@ -65,6 +66,13 @@ export async function placeInfo(env, localUnitId) {
       : await env.DB.prepare("SELECT id, name FROM local_units").all();
     if ((all || []).some((r) => r.id !== lu.id && wardSlug(r.name) === slug)) slug = "";
   }
+  // grieviq-88: a ward whose office hasn't joined, in a GrievIQ-assisted pilot.
+  let openForFiling = chain.tiers[0].multi ? chain.tiers[0].seats.some((x) => x.email && x.status !== "VACANT") : has(lu.rep_email);
+  let assisted = null;
+  if (!openForFiling) {
+    const af = await assistedFiling(env, lu.id, Date.now()).catch(() => null);
+    if (af && af.open) { openForFiling = !af.full; assisted = { full: af.full }; }
+  }
   return {
     id: lu.id,
     name: lu.name,
@@ -79,7 +87,8 @@ export async function placeInfo(env, localUnitId) {
     mlaConstituency: chain.mla ? chain.mla.name : null,
     mpConstituency: chain.mp ? chain.mp.name : null,
     localities: lu.localities || null,
-    openForFiling: chain.tiers[0].multi ? chain.tiers[0].seats.some((x) => x.email && x.status !== "VACANT") : has(lu.rep_email),
+    openForFiling,
+    assisted,
     // Names only -- never phone or email.
     levels: chain.tiers.map((t) => ({ tier: t.tier, label: t.label, name: has(t.name) ? String(t.name).trim() : null })),
     // grieviq-57: a ward with several members: every seat, in seat order,

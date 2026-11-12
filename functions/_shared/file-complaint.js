@@ -15,6 +15,7 @@ import { checkAttachedPhotos } from "./citizen-photo-checks.js";
 import { pointInGeometry } from "./geo.js";
 import { liveJoin } from "./areas.js";
 import { isMulti, seatsOfUnit, choosableSeats, seatsReady } from "./seats.js";
+import { assistedFiling } from "./assisted.js";
 import { PRIORITY_KINDS } from "./case-tools.js";
 
 // 32 letters/digits (no O/0/I/1 ambiguity). 256 is an exact multiple of 32,
@@ -152,7 +153,15 @@ export async function checkComplaint(env, input) {
   const wardOpen = multi
     ? wardSeats.some((x) => x.email && x.status !== "VACANT") || wardSeats.every((x) => x.status === "VACANT")
     : hasText(localUnit.rep_email) || localUnit.seat_status === "VACANT";   // grieviq-53: vacant seats go to the next level
-  if (!wardOpen) return bad(400, { error: "This area can't take complaints yet. Please choose another area.", code: "not_open" });
+  // grieviq-88: a ward whose office hasn't joined, in a GrievIQ-assisted
+  // pilot: open on the pilot's filing days, up to its daily limit.
+  let assisted = null;
+  if (!wardOpen) {
+    const af = await assistedFiling(env, localUnit.id, Date.now());
+    if (!af || !af.open) return bad(400, { error: "This area can't take complaints yet. Please choose another area.", code: "not_open" });
+    if (af.full) return bad(429, { error: "Our team has taken all the complaints it can handle well today in this area. Please come back tomorrow. Someone in danger now? Call 112.", code: "assisted_full" });
+    assisted = af.pilotId;
+  }
 
   // grieviq-82: a number or email GrievIQ has stopped from filing for a time (with a reason,
   // approved by a second person). Same reply for the phone and the email.
@@ -167,7 +176,7 @@ export async function checkComplaint(env, input) {
     ? Array.from(new Set(photo_ids.filter((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))).slice(0, 3)
     : [];
   return { ok: true, v: {
-    category, localUnit, multi,
+    category, localUnit, multi, assisted,
     category_id, local_unit_id, description: String(description).trim(),
     phone: String(citizen_phone).replace(/\D/g, ""), email: trimmedEmail || null,
     location_detail: String(location_detail || "").trim() || null,
@@ -226,6 +235,8 @@ export async function createComplaint(env, v, opts) {
     try { await env.DB.prepare("UPDATE grievances SET priority = ? WHERE id = ?").bind(v.priority, id).run(); }
     catch (e) { if (!/no such column/i.test(String(e && e.message))) throw e; v.priority = null; }
   }
+  // grieviq-88: handled by GrievIQ staff (the ward's office hasn't joined).
+  if (v.assisted) await env.DB.prepare("UPDATE grievances SET assisted_pilot = ? WHERE id = ?").bind(v.assisted, id).run();
   // grieviq-73: filed with help from a Community helper (the office sees only that).
   if (opts.helperId) await env.DB.prepare("UPDATE grievances SET helper_id = ? WHERE id = ?").bind(opts.helperId, id).run();
 
@@ -291,6 +302,7 @@ export async function createComplaint(env, v, opts) {
     id, tracking_ref: trackingRef, category_id: v.category_id, local_unit_id: v.local_unit_id, created_at: new Date().toISOString(),
     citizen_email: v.email || null, lang: v.lang, status: "OPEN",
     seat_choice: v.multi ? (seatOwner || "ANY") : null, seat_owner: seatOwner, priority: v.priority || null,
+    assisted_pilot: v.assisted || null,
   });
   if (typeof opts.waitUntil === "function") opts.waitUntil(told); else await told;
   return { id, trackingRef, seatFallback };

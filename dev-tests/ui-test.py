@@ -1761,7 +1761,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 31), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 32), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-assisted", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -4981,6 +4981,140 @@ window.Razorpay.prototype.open = function () {
         if theme == "light": shot(p, "86-admin-case")
         ok(not errs, "admin case tools: no script errors " + theme, errs)
         ctx.close()
+
+    # ---------- grieviq-88: GrievIQ-assisted wards ----------
+    import hashlib as _h88
+    _d88 = _sq86.connect(os.path.join(WORK, "test.db"), timeout=10)
+    _now88 = _dt86.datetime.now(_dt86.timezone.utc)
+    _iso88 = lambda m=0: (_now88 + _dt86.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    _day88 = lambda d=0: (_now88 + _dt86.timedelta(hours=5.5, days=d)).strftime("%Y-%m-%d")
+    TOK88, REP88 = "Ab" * 22, "Rp" * 22
+    _hash88 = lambda t: _h88.sha256(("grieviq-assisted:" + t).encode()).hexdigest()
+    for _t, _c, _v in (("assisted_pilots", "id", "pilot-ui88"), ("assisted_wards", "id", "w-ui88"), ("assisted_steps", "grievance_id", "g88a"), ("assisted_steps", "grievance_id", "g88b"), ("assisted_links", "id", "l88"), ("assisted_reports", "id", "r88"), ("grievances", "id", "g88a"), ("grievances", "id", "g88b"), ("grievance_otp", "email", "cit88ui2@x.in")):
+        _d88.execute("DELETE FROM %s WHERE %s = ?" % (_t, _c), (_v,))
+    _d88.execute("INSERT OR IGNORE INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id) VALUES ('lu-as3','Govind Nagar','URBAN','mla-c',NULL,'lucknow')")
+    _d88.execute("INSERT INTO assisted_pilots (id, name, starts_on, ends_on, daily_cap, created_by, created_at) VALUES ('pilot-ui88', 'Kanpur Nov 2026', ?, ?, 20, 'super@test.in', ?)", (_day88(), _day88(44), _iso88()))
+    _d88.execute("INSERT INTO assisted_wards (id, pilot_id, unit_id, office_email, email_source, added_by, added_at) VALUES ('w-ui88', 'pilot-ui88', 'lu-as3', 'govind.office@gov.in', 'Council website, ward contacts', 'super@test.in', ?)", (_iso88(),))
+    for gid, ref, em, desc, mins, prio in (("g88a", "GRV-88AS01", "cit88ui@x.in", "Open manhole outside the primary school gate, children walk past", 120, "OPEN_MANHOLE"),
+                                          ("g88b", "GRV-88AS02", "cit88ui2@x.in", "Water pipe leaking near the temple for a week", 3000, None)):
+        _d88.execute("INSERT INTO grievances (id, tracking_ref, citizen_phone, citizen_email, local_unit_id, category_id, status, description, current_tier, created_at, priority, assisted_pilot) VALUES (?, ?, '9811188000', ?, 'lu-as3', 'water-sanitation', 'OPEN', ?, 'LOCAL', ?, ?, 'pilot-ui88')",
+                     (gid, ref, em, desc, _iso88(-mins), prio))
+    _d88.execute("INSERT INTO assisted_steps (id, grievance_id, kind, target, target_name, channel, minutes, by_email, created_at) VALUES ('s88a', 'g88b', 'FORWARD', 'OFFICE', 'Councillor''s office, Govind Nagar', 'EMAIL', 12, 'sup88@test.in', ?)", (_iso88(-2800),))
+    _d88.execute("INSERT INTO assisted_steps (id, grievance_id, kind, target, target_name, channel, reply_kind, expected_by, text, replied_by, created_at) VALUES ('s88b', 'g88b', 'REPLY', 'OFFICE', 'Councillor''s office, Govind Nagar', 'LINK', 'PLANNED', ?, 'Jal Kal team will repair the pipe joint this week.', 'R. Verma, clerk', ?)", (_day88(4), _iso88(-600)))
+    _d88.execute("INSERT INTO assisted_links (id, grievance_id, token_hash, target, target_name, sent_to, created_by, created_at, expires_at) VALUES ('l88', 'g88b', ?, 'OFFICE', 'Councillor''s office, Govind Nagar', 'govind.office@gov.in', 'sup88@test.in', ?, ?)", (_hash88(TOK88), _iso88(-2800), _iso88(60 * 24 * 25)))
+    _d88.execute("INSERT INTO assisted_reports (id, unit_id, pilot_id, token_hash, created_by, created_at, expires_at) VALUES ('r88', 'lu-as3', 'pilot-ui88', ?, 'sup88@test.in', ?, ?)", (_hash88(REP88), _iso88(), _iso88(60 * 24 * 30)))
+    _d88.commit()
+
+    # Staff page
+    for theme, lang, width in (("dark", "en", 1280), ("light", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        _d88.execute("DELETE FROM assisted_steps WHERE grievance_id = 'g88a'"); _d88.commit()
+        ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+        p.goto(B + "/admin-assisted.html"); p.wait_for_selector(".as-case")
+        ok(p.locator("#as-c-g88a .as-tag.hot").count() >= 2 and p.locator(".as-tile").count() == 4, "assisted: new case with priority and state tags, four figures " + tag)
+        ok(not re.findall(r"\bas\.\w+|\badm\.\w+|\bct\.pk_\w+", p.inner_text("#main")), "assisted: every label translated " + tag, re.findall(r"\bas\.\w+|\badm\.\w+", p.inner_text("#main"))[:5])
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "assisted list AA, no sideways scroll " + tag, bad[:4])
+        p.click('[data-open="g88a"]'); p.wait_for_selector("#as-d-g88a form[data-form=forward]")
+        ok(p.evaluate("document.activeElement.id") == "as-d-g88a" and "children walk past" in p.inner_text("#as-d-g88a") and p.locator("#as-d-g88a .hl-flag").count() == 1, "assisted: the case opens, focused, with the danger note " + tag)
+        if lang == "en":
+            p.uncheck("#fw-o"); p.click("form[data-form=forward] button[type=submit]"); p.wait_for_selector("form[data-form=forward] .ferr")
+            ok(p.get_attribute("#fw-o", "aria-invalid") == "true" and p.evaluate("document.activeElement.id") == "fw-o", "forward: nothing chosen, said next to the choice " + tag)
+            bad = p.evaluate(CONTRAST_JS)
+            ok(not bad and no_hscroll(p), "forward form AA " + tag, bad[:4])
+            p.locator("#as-d-g88a").screenshot(path=os.path.join(SHOTS, "88-assisted-case.png"))
+            p.check("#fw-o"); p.select_option("#fw-o-ch", "LETTER"); p.fill("#fw-min", "10")
+            with p.expect_response(lambda r: r.request.method == "POST" and "/api/admin/assisted" in r.url): p.click("form[data-form=forward] button[type=submit]")
+            p.wait_for_selector("#as-msg.success")
+            ok(_d88.execute("SELECT COUNT(*) FROM assisted_steps WHERE grievance_id = 'g88a' AND kind = 'FORWARD' AND channel = 'LETTER' AND minutes = 10").fetchone()[0] == 1, "forward: saved from the page " + tag)
+            p.wait_for_selector("#as-d-g88a form[data-form=followup]", state="attached")
+            ok(p.locator("#as-d-g88a .as-hist li").count() >= 1, "forward: shown in the history " + tag)
+        else:
+            p.locator("#main").screenshot(path=os.path.join(SHOTS, "88-assisted-list-hi-375.png"))
+        p.click("#as-tab-pilots"); p.wait_for_selector(".as-pilot")
+        ok(p.locator(".as-pilot").count() >= 1 and "govind.office@gov.in" in p.inner_text("#as-panel") and p.locator("[data-replink='lu-as3']").count() == 1, "pilots tab: the pilot, its wards and the office email " + tag)
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p) and not re.findall(r"\bas\.\w+", p.inner_text("#main")), "pilots tab AA, translated, no sideways scroll " + tag, bad[:4])
+        if lang == "en": shot(p, "88-assisted-pilots")
+        ok(not errs, "assisted page: no script errors " + tag, errs)
+        ctx.close()
+    ctx, p, errs = P("audit@test.in", width=1280)
+    p.goto(B + "/admin-assisted.html"); p.wait_for_selector(".as-case")
+    p.click('[data-open="g88b"]'); p.wait_for_selector("#as-d-g88b .as-hist")
+    ok(p.locator("#as-d-g88b form").count() == 0, "auditor reads, with no forms")
+    ok(not errs, "auditor: no script errors", errs); ctx.close()
+
+    # The office's reply page and the area report
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/office-reply?t=" + TOK88); p.wait_for_selector("#or-form")
+        txt = p.inner_text("#main")
+        ok("GRV-88AS02" in txt and "temple" in txt and "9811188000" not in txt and "cit88ui2" not in txt and "Jal Kal team" in txt, "reply page: the complaint and earlier replies, no citizen contact " + tag)
+        ok(not re.findall(r"\b(or|as|common)\.\w+", txt), "reply page: translated " + tag, re.findall(r"\b(or|as)\.\w+", txt)[:5])
+        p.click("#or-form button[type=submit]"); p.wait_for_selector(".or-err")
+        ok(p.evaluate("document.activeElement.name") == "rk" and p.locator(".or-err").count() == 3, "reply page: errors by each field, first one focused " + tag, p.locator(".or-err").count())
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "reply page AA, no sideways scroll " + tag, bad[:4])
+        p.screenshot(path=os.path.join(SHOTS, "88-office-reply-%s.png" % lang), full_page=True)
+        p.check("input[name=rk][value=IN_PROGRESS]"); p.fill("#or-text", "The pipe joint is being replaced today by the Jal Kal team."); p.fill("#or-who", "R. Verma, clerk")
+        with p.expect_response(lambda r: r.request.method == "POST" and "/api/office-reply" in r.url): p.click("#or-form button[type=submit]")
+        p.wait_for_selector("#or-done")
+        ok(p.evaluate("document.activeElement.id") == "or-done" and _d88.execute("SELECT COUNT(*) FROM assisted_steps WHERE grievance_id = 'g88b' AND reply_kind = 'IN_PROGRESS'").fetchone()[0] >= 1, "reply page: sent, thank-you focused " + tag)
+        ok(not p.evaluate(CONTRAST_JS), "reply page done AA " + tag)
+        p.goto(B + "/area-report?t=" + REP88); p.wait_for_selector(".bp-doc")
+        txt = p.inner_text("#main")
+        ok("Govind Nagar" in txt and "temple" not in txt and "GRV-88" not in txt and not re.findall(r"\bar\.\w+", txt), "area report: counts only, translated " + tag)
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "area report AA, no sideways scroll " + tag, bad[:4])
+        p.screenshot(path=os.path.join(SHOTS, "88-area-report-%s.png" % lang), full_page=True)
+        p.goto(B + "/office-reply?t=" + "x" * 44); p.wait_for_selector(".or-bad")
+        ok(p.get_attribute(".or-bad", "role") == "alert", "reply page: a wrong link says so " + tag)
+        ok(not errs, "reply page and report: no script errors " + tag, errs)
+        ctx.close()
+
+    # Filing in an assisted ward, and the Track page
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        _d88.execute("UPDATE assisted_pilots SET daily_cap = 20 WHERE id = 'pilot-ui88'"); _d88.commit()
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s');localStorage.setItem('griq-place',JSON.stringify({id:'lu-as3'}))}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.route("**/maps.googleapis.com/**", lambda rt: rt.abort())
+        p.goto(B + "/submit"); p.wait_for_selector("#assistedNote:not([hidden])")
+        ok(("not joined" in p.inner_text("#assistedNote")) if lang == "en" else ("नहीं जुड़ा" in p.inner_text("#assistedNote")), "filing: the honest notice before filing " + tag)
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "filing notice AA " + tag, bad[:4])
+        p.locator("#assistedNote").screenshot(path=os.path.join(SHOTS, "88-submit-notice-%s.png" % lang))
+        today_n = _d88.execute("SELECT COUNT(*) FROM grievances WHERE assisted_pilot = 'pilot-ui88' AND REPLACE(REPLACE(created_at,'T',' '),'Z','') >= ?", ((_now88.replace(hour=0, minute=0, second=0) - _dt86.timedelta(hours=5.5)).strftime("%Y-%m-%d %H:%M:%S"),)).fetchone()[0]
+        _d88.execute("UPDATE assisted_pilots SET daily_cap = ? WHERE id = 'pilot-ui88'", (max(1, today_n),)); _d88.commit()
+        p.reload(); p.wait_for_selector("#areaOpenError:not(:empty)")
+        ok("112" in p.inner_text("#areaOpenError") and p.is_hidden("#assistedNote"), "filing: today's limit reached, said plainly " + tag)
+        ok(not errs, "filing in an assisted ward: no script errors " + tag, errs)
+        _d88.execute("INSERT INTO grievance_otp (id, phone, otp_code, purpose, verified, expires_at, email, channel, verified_at) VALUES (?, '', '', 'STATUS_CHECK', 1, ?, 'cit88ui2@x.in', 'EMAIL', ?)", ("otp88" + lang, _iso88(10), _iso88()))
+        _d88.commit()
+        real = ctx.request.post(B + "/api/otp/verify", data={"email": "cit88ui2@x.in", "trackingRef": "GRV-88AS02", "open": True}).json()
+        def r88(rt, _req=None, real=real):
+            u = rt.request.url
+            if u.endswith("/api/otp/request"): rt.fulfill(status=200, body='{"ok":true}', headers={"content-type": "application/json"})
+            elif u.endswith("/api/otp/verify"): rt.fulfill(status=200, body=_js86.dumps(real), headers={"content-type": "application/json"})
+            else: rt.continue_()
+        p.route("**/api/otp/**", r88)
+        p.goto(B + "/status.html?ref=GRV-88AS02"); p.wait_for_timeout(400)
+        p.fill("#email", "cit88ui2@x.in"); p.click("#entry-submit"); p.wait_for_selector(".otp-digit")
+        fill_otp(p); p.click("#otp-submit"); p.wait_for_selector("#status-updates li")
+        txt = p.inner_text("#screen-status")
+        ok(p.locator("#status-updates li").count() >= 3 and ("GrievIQ" in txt) and not re.findall(r"\bstatus\.as_\w+|\bas\.rk_\w+", txt) and "R. Verma" not in txt, "Track: GrievIQ's steps and the office's replies, translated " + tag, re.findall(r"\bstatus\.\w+", txt)[:4])
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "Track page (assisted) AA " + tag, bad[:4])
+        p.screenshot(path=os.path.join(SHOTS, "88-track-%s.png" % lang), full_page=True)
+        ok(not errs, "Track (assisted): no script errors " + tag, errs)
+        ctx.close()
+    _d88.execute("UPDATE assisted_pilots SET stopped_at = ? WHERE id = 'pilot-ui88'", (_iso88(),)); _d88.commit()
 
     br.close()
 

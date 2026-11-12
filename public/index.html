@@ -424,7 +424,7 @@
     .home-more > .feedback-card { order: 0; grid-column: 2; grid-row: 1; font-size: 13.5px; }
   }
 </style>
-<script src="/i18n.js?v=86"></script>
+<script src="/i18n.js?v=88"></script>
 <script src="/notice-card.js?v=3"></script>
 <script>
   (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
@@ -700,7 +700,8 @@
       '<p class="loc-snap">' + T('home.loc_snapshot', { filed: Number(p.last30Days.filed) || 0, resolved: Number(p.last30Days.resolved) || 0 }) + '</p>' +
       (p.openForFiling
         ? '<a class="task-card primary-task loc-cta" href="/submit" id="loc-report"><span class="task-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span><span><span class="task-title">' + esc(T('home.loc_report_here')) + '</span><span class="task-sub" style="display:block">' + esc(p.name) + '</span></span><span class="task-arrow" aria-hidden="true">→</span></a>'
-        : '<div class="loc-warn">' + esc(T('home.loc_not_open')) + '</div>') +
+        : '<div class="loc-warn">' + esc(T(p.assisted && p.assisted.full ? 'home.loc_assisted_full' : 'home.loc_not_open')) + '</div>') +
+      (p.assisted && !p.assisted.full ? '<p class="loc-snap">' + esc(T('home.loc_assisted')) + '</p>' : '') +
       '<div class="loc-share"><span>' + esc(T('home.loc_share')) + '</span>' +
         '<a class="loc-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(shareText) + '">' + esc(T('home.loc_whatsapp')) + '</a>' +
         '<button type="button" class="loc-small" id="loc-copy">' + esc(T('home.loc_copy')) + '</button>' +

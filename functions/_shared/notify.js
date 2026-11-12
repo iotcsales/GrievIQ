@@ -483,6 +483,8 @@ function updateEmail(kind, g, info, origin, lang, follower) {
   const lvl = hi ? (LEVEL_HI[info.label] || info.label || "") : (LEVEL_EN[info.label] || info.label || "");
   const foot = hi ? `<p>स्थिति देखें: <a href="${esc(url)}">${esc(url)}</a></p>` + (follower ? "<p>आपको यह ईमेल इसलिए मिला क्योंकि आपने कहा था कि यह आपकी भी समस्या है।</p>" : "") + "<p>GrievIQ कभी भी आपसे पैसे या OTP नहीं माँगता।</p>"
     : `<p>Track it: <a href="${esc(url)}">${esc(url)}</a></p>` + (follower ? "<p>You get this email because you said this is your problem too.</p>" : "") + "<p>GrievIQ never asks you for money or for a code.</p>";
+  // grieviq-88: "Councillor's office, <ward>" (stored in English) in the email's language.
+  if (hi && info.toName) info = Object.assign({}, info, { toName: String(info.toName).replace(/Councillor's office, /g, "पार्षद का कार्यालय, ") });
   const subjHead = follower ? (hi ? "जिस शिकायत को आप देख रहे हैं: " : "A complaint you follow: ") : (hi ? "आपकी शिकायत " : "Your complaint ");
   switch (kind) {
     case "QUESTION": return hi ? { subject: `आपकी शिकायत ${g.tracking_ref} के बारे में एक प्रश्न`, html: `<p>आपकी शिकायत ${head} पर काम कर रहे कार्यालय ने आपसे एक प्रश्न पूछा है।</p><p>उत्तर देने के लिए GrievIQ पर अपनी शिकायतें खोलें और अपने ईमेल पर आया कोड डालें। आपका फ़ोन नंबर और ईमेल कार्यालय को नहीं दिखता।</p><p>यदि 7 दिन में उत्तर नहीं मिला, तो कार्यालय इसे "पर्याप्त जानकारी नहीं" कहकर बंद कर सकता है; तब भी आप 30 दिन के भीतर उत्तर देकर इसे फिर खोल सकते हैं।</p>` + foot }
@@ -497,8 +499,25 @@ function updateEmail(kind, g, info, origin, lang, follower) {
       : { subject: subjHead + `${g.tracking_ref} has moved up`, html: `<p>The complaint ${head} has now gone to the ${esc(lvl)}.</p>` + foot };
     case "FIXED": return hi ? { subject: subjHead + `${g.tracking_ref} निस्तारित बताई गई`, html: `<p>कार्यालय ने शिकायत ${head} को निस्तारित बताया है। जिस व्यक्ति ने इसे दर्ज किया था, वह पुष्टि करेगा कि यह ठीक हुई या नहीं।</p><p>यदि यह आपके लिए अब भी ठीक नहीं है, तो इसे नई शिकायत के रूप में दर्ज करें।</p>` + foot }
       : { subject: subjHead + `${g.tracking_ref} is marked fixed`, html: `<p>The office has marked the complaint ${head} fixed. The person who filed it will confirm whether it really is.</p><p>If it is still not fixed for you, file it as a new complaint.</p>` + foot };
+    // grieviq-88: GrievIQ-assisted wards (the ward's office hasn't joined).
+    case "ASSISTED_RECEIVED": return hi ? { subject: `आपकी शिकायत ${g.tracking_ref} दर्ज हो गई`, html: `<p>आपकी शिकायत ${head} दर्ज हो गई है।</p><p>आपके पार्षद का कार्यालय अभी GrievIQ से नहीं जुड़ा है। GrievIQ की टीम आपकी शिकायत पार्षद के कार्यालय और संबंधित विभाग को उनके आधिकारिक संपर्कों पर भेजेगी, फ़ॉलो-अप करेगी, और हर उत्तर आपकी शिकायत के पृष्ठ पर दिखाएगी। हम काम पूरा होने या किसी समय का वादा नहीं कर सकते।</p><p>आपका फ़ोन नंबर और ईमेल किसी कार्यालय को नहीं दिया जाता।</p>` + foot }
+      : { subject: `Your complaint ${g.tracking_ref} has been filed`, html: `<p>Your complaint ${head} has been filed.</p><p>Your councillor's office has not joined GrievIQ yet. The GrievIQ team will send your complaint to the councillor's office and the department through their official contacts, follow up, and post every reply on your Track page. We cannot promise a fix or a time.</p><p>Your phone number and email are never given to any office.</p>` + foot };
+    case "ASSISTED_FORWARDED": return hi ? { subject: subjHead + `${g.tracking_ref} आगे भेजी गई`, html: `<p>GrievIQ ने शिकायत ${head} यहाँ भेज दी है: <strong>${esc(info.toName || "")}</strong>।</p><p>उत्तर आने पर हम आपको बताएँगे।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} has been sent on`, html: `<p>GrievIQ has sent the complaint ${head} to <strong>${esc(info.toName || "")}</strong>.</p><p>We will tell you when they reply.</p>` + foot };
+    case "ASSISTED_REPLY": return hi ? { subject: subjHead + `${g.tracking_ref}: ${info.toName ? "उत्तर मिला" : "नई जानकारी"}`, html: `<p>शिकायत ${head} पर ${esc(info.toName || "कार्यालय")} का उत्तर:</p>${info.text ? `<p>"${esc(info.text)}"</p>` : ""}${date ? `<p><strong>अनुमानित तारीख:</strong> ${esc(date)}</p>` : ""}` + foot }
+      : { subject: subjHead + `${g.tracking_ref}: a reply`, html: `<p>On the complaint ${head}, ${esc(info.toName || "the office")} replied:</p>${info.text ? `<p>"${esc(info.text)}"</p>` : ""}${date ? `<p><strong>Expected by:</strong> ${esc(date)}</p>` : ""}` + foot };
+    case "ASSISTED_HANDOVER": return hi ? { subject: subjHead + `${g.tracking_ref} अब आपके पार्षद के कार्यालय के पास`, html: `<p>आपके पार्षद का कार्यालय अब GrievIQ से जुड़ गया है। शिकायत ${head} अब सीधे उनके पास है, और उनकी समय-सीमा अभी से शुरू होती है।</p>` + foot }
+      : { subject: subjHead + `${g.tracking_ref} is now with your councillor's office`, html: `<p>Your councillor's office has now joined GrievIQ. The complaint ${head} is now with them directly, and their time limits start now.</p>` + foot };
     default: return null;
   }
+}
+// grieviq-88: GrievIQ staff who work on assisted cases (for alerts with no details).
+async function assistedStaffEmails(env) {
+  try {
+    const roles = ["super_admin", "operations_admin", "support_executive"];
+    const { results } = await env.DB.prepare(`SELECT LOWER(email) AS email FROM admin_users WHERE role IN (${roles.map(() => "?").join(",")}) AND COALESCE(status, 'PRESENT') <> 'LEFT'`).bind(...roles).all();
+    return (results || []).map((r) => r.email).filter(Boolean);
+  } catch (e) { return []; }
 }
 export async function emailCaseUpdate(env, origin, g, kind, info) {
   try {
@@ -577,13 +596,27 @@ export async function notifyNewCase(env, origin, g, preload) {
     const chain = (preload && preload.chain) || await resolveChain(env, g.local_unit_id);
     const category = (preload && preload.category) || await env.DB.prepare("SELECT * FROM grievance_categories WHERE id = ?").bind(g.category_id).first();
     if (!chain || !category) return;
+    // grieviq-88: a ward whose office hasn't joined: GrievIQ staff handle it.
+    // The citizen hears that, and staff get an alert with no details in it.
+    if (g.assisted_pilot && !g.assisted_handed_at) {
+      await emailCaseUpdate(env, origin, g, "ASSISTED_RECEIVED", { wardName: chain.localUnit.name, category, stamp: "0" });
+      for (const to of await assistedStaffEmails(env)) {
+        await queueEmail(env, to, "ASSISTED_NEW", "ASN:" + g.id + ":" + low(to), "A new complaint is waiting in Assisted cases",
+          `<p>A new complaint has been filed in a GrievIQ-assisted ward.</p><p>Open Assisted cases in the GrievIQ admin panel to forward it: <a href="${esc(origin)}/admin-assisted.html">${esc(origin)}/admin-assisted.html</a></p><p>This email has no details of the complaint.</p>`, null);
+      }
+      await setState(env, g.id, 0, "");
+      await flushOutbox(env, 10);
+      return;
+    }
     const offices = chainOffices(chain);
     // grieviq-53: a vacant seat is skipped; the complaint starts with the next level.
     const startIdx = skipVacant(chain.tiers, 0);
     const first = offices[startIdx];
     // grieviq-86: priority limits; a case sent here from another ward starts its clock then.
     const eff = effectiveCategory(g, category);
-    const created = toUtcMs(g.transferred_at || g.created_at) || Date.now();
+    // grieviq-88: an assisted case handed over when the ward's office joined starts then too.
+    const restart = g.transferred_at || g.assisted_handed_at || null;
+    const created = toUtcMs(restart || g.created_at) || Date.now();
     const ackMs = eff.ack_sla_hours ? created + eff.ack_sla_hours * 3600000 : null;
     const dueMs = levelDueMs(g, category, chain.tiers, startIdx);
     // grieviq-57: in a ward with several members, the member the citizen
@@ -594,7 +627,7 @@ export async function notifyNewCase(env, origin, g, preload) {
     for (const o of targets) {
       const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
       await createNotices(env, origin, people, {
-        kind: KIND.NEW_CASE, key: "NEW:" + g.id + (seatsMode ? ":" + o.id : "") + (g.transferred_at ? ":" + g.transferred_at : ""), officeTier: o.tier, officeId: o.id, g, category,
+        kind: KIND.NEW_CASE, key: "NEW:" + g.id + (seatsMode ? ":" + o.id : "") + (restart ? ":" + restart : ""), officeTier: o.tier, officeId: o.id, g, category,
         wardName: chain.localUnit.name, dueMs, data: Object.assign(ackMs ? { ackDue: new Date(ackMs).toISOString() } : {}, seatsMode && !g.seat_owner ? { pool: true } : {},
           isPriority(g) ? { priority: true } : {}, g.transferred_at ? { moved: true } : {}),
       });
@@ -604,7 +637,7 @@ export async function notifyNewCase(env, origin, g, preload) {
         await queueEmail(env, p, "PRIORITY_ALERT", "PRI:" + g.id + ":" + (g.transferred_at || "") + ":" + p, m.subject, m.html, null);
       }
     }
-    if (g.transferred_at) { await setState(env, g.id, startIdx, g.reopened_at || ""); await flushOutbox(env, 10); return; }
+    if (restart) { await setState(env, g.id, startIdx, g.reopened_at || ""); await flushOutbox(env, 10); return; }
     const who = seatsMode ? wardWords(chain, g) : {};
     await emailCitizen(env, origin, "RECEIVED", g, Object.assign({ category, wardName: chain.localUnit.name, label: first.label, ackMs, dueMs }, who));
     await setState(env, g.id, startIdx, "");
