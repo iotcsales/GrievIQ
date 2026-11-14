@@ -59,6 +59,34 @@
     "adm.nav_accounts": "Accounts",
     "adm.nav_misuse": "Misuse",
     "adm.nav_assisted": "Assisted cases",
+    "adm.nav_alerts": "My alerts",
+    "al.bar_label": "Needs you now",
+    "al.bar_one": "1 thing needs someone now",
+    "al.bar_n": "{n} things need someone now",
+    "al.bar_mine_one": "You have taken 1 thing that is still open",
+    "al.bar_mine_n": "You have taken {n} things that are still open",
+    "al.k_PILOT_REQUEST": "Pilot request",
+    "al.k_ASSISTED_NEW": "Assisted-ward complaint",
+    "al.k_ASSISTED_DANGER": "Danger complaint (assisted ward)",
+    "al.k_STAFF_DANGER": "Danger complaint at GrievIQ staff",
+    "al.waiting": "waiting {n} min",
+    "al.waiting_h": "waiting {h} h {m} min",
+    "al.out_of_hours": "arrived outside working hours: alerts start at {time}",
+    "al.take": "I'll take it",
+    "al.open": "Open",
+    "al.you_took": "You took this at {time}.",
+    "al.next_PILOT_REQUEST": "Call back, then mark it Contacted on Pilot requests.",
+    "al.next_ASSISTED_NEW": "Forward it on Assisted cases.",
+    "al.next_ASSISTED_DANGER": "Forward it on Assisted cases now.",
+    "al.next_STAFF_DANGER": "Open Exceptions and get the office to act now.",
+    "al.taken_by_other": "{name} has already taken it.",
+    "al.take_failed": "Couldn't take it. Please try again.",
+    "al.chime_on": "Chime on",
+    "al.chime_muted": "Chime muted until {time}",
+    "al.chime_mute": "Mute the chime for 1 hour",
+    "al.chime_unmute": "Turn the chime back on",
+    "al.new_item": "New: {what}",
+    "al.settings": "My alerts",
   };
   var PAGE_NAMES = {
     "admin-dashboard": "Dashboard", "admin-cases": "Cases", "admin-checks": "Checks", "admin-audit": "Audit",
@@ -277,7 +305,7 @@
   // groups as large buttons. The links themselves are the page's own (moved,
   // not copied), so translations and the role rules above keep working.
   var GROUPS = [
-    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-cases", "admin-assisted", "admin-checks", "admin-exceptions", "admin-reviews", "admin-misuse", "admin-feedback", "admin-ratings", "admin-messages"] },
+    { id: "daily", key: "adm.nav_g_daily", pages: ["admin-alerts", "admin-cases", "admin-assisted", "admin-checks", "admin-exceptions", "admin-reviews", "admin-misuse", "admin-feedback", "admin-ratings", "admin-messages"] },
     { id: "data", key: "adm.nav_g_data", pages: ["admin-areas", "admin-departments", "admin-dept-performance", "admin-jurisdiction", "admin-handovers", "admin-import", "admin-import-wards", "admin-change-requests", "admin-issue-types"] },
     { id: "people", key: "adm.nav_g_people", pages: ["admin-staff", "admin-staff-records", "admin-helpers", "admin-gov", "admin-audit", "admin-retention", "admin-photos", "admin-copies"] },
     { id: "offices", key: "adm.nav_g_offices", pages: ["admin-site-settings", "admin-subscriptions", "admin-bills", "admin-accounts", "admin-sales", "admin-notices", "admin-pilot-requests", "admin-speed"] },
@@ -402,7 +430,7 @@
   }
   // Prices & site details and Pilot requests (grieviq-39), at the end.
   function addOfficeLinks(nav) {
-    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"], ["admin-bills", "adm.nav_bills"], ["admin-copies", "adm.nav_copies"], ["admin-subscriptions", "adm.nav_subscriptions"], ["admin-speed", "adm.nav_speed"], ["admin-gov", "adm.nav_gov"], ["admin-handovers", "adm.nav_handovers"], ["admin-notices", "adm.nav_notices"], ["admin-helpers", "adm.nav_helpers"], ["admin-accounts", "adm.nav_accounts"], ["admin-sales", "adm.nav_sales"], ["admin-staff-records", "adm.nav_staff_records"], ["admin-misuse", "adm.nav_misuse"], ["admin-assisted", "adm.nav_assisted"]].forEach(function (x) {
+    [["admin-site-settings", "adm.nav_site_settings"], ["admin-pilot-requests", "adm.nav_pilot_requests"], ["admin-bills", "adm.nav_bills"], ["admin-copies", "adm.nav_copies"], ["admin-subscriptions", "adm.nav_subscriptions"], ["admin-speed", "adm.nav_speed"], ["admin-gov", "adm.nav_gov"], ["admin-handovers", "adm.nav_handovers"], ["admin-notices", "adm.nav_notices"], ["admin-helpers", "adm.nav_helpers"], ["admin-accounts", "adm.nav_accounts"], ["admin-sales", "adm.nav_sales"], ["admin-staff-records", "adm.nav_staff_records"], ["admin-misuse", "adm.nav_misuse"], ["admin-assisted", "adm.nav_assisted"], ["admin-alerts", "adm.nav_alerts"]].forEach(function (x) {
       if (nav.querySelector('a[href*="' + x[0] + '"]')) return;
       var a = document.createElement("a");
       a.href = "/" + x[0] + ".html";
@@ -478,7 +506,7 @@
     if (!guideLoading) {
       guideLoading = [];
       var left = 2;
-      ["/guide-content.js?v=87", "/guide.js?v=80"].forEach(function (src) {
+      ["/guide-content.js?v=89", "/guide.js?v=80"].forEach(function (src) {
         var sc = document.createElement("script"); sc.src = src; sc.async = false;
         sc.onload = function () { if (--left === 0) { var q = guideLoading; guideLoading = null; q.forEach(function (f) { f(); }); } };
         sc.onerror = function () { guideLoading = null; };
@@ -594,6 +622,140 @@
     new MutationObserver(function () { scanFind(); }).observe(document.body, { childList: true, subtree: true });
   });
 
+  // ---- grieviq-89: "Needs you now" (every admin page) ----
+  // Urgent items for this person's role, until someone takes each one. The
+  // list is checked every 30 seconds while the page is in view, and at once
+  // when a phone alert arrives. A short chime repeats every 2 minutes while an
+  // item nobody has taken is waiting (browsers allow sound only after the
+  // page has been clicked once); it can be muted for an hour. Nothing
+  // personal is shown: the kind, the place or ward and how long it waited.
+  var AL = { items: [], seen: {}, timer: null, chimeAt: 0, audio: null, gesture: false, busy: false, msg: {} };
+  var MUTE_KEY = "giq-alert-mute-until";
+  function muteUntil() { try { return Number(localStorage.getItem(MUTE_KEY)) || 0; } catch (e) { return AL.muteLocal || 0; } }
+  function setMute(v) { AL.muteLocal = v; try { if (v) localStorage.setItem(MUTE_KEY, String(v)); else localStorage.removeItem(MUTE_KEY); } catch (e) { /* this tab only */ } }
+  function hhmm(ms) { var d = new Date(ms); return d.toLocaleTimeString(document.documentElement.lang === "hi" ? "hi-IN" : "en-IN", { hour: "numeric", minute: "2-digit" }); }
+  function canAlerts() { return info && info.pages && info.pages["admin-alerts"] && info.pages["admin-alerts"].allowed; }
+  style.textContent +=
+    ".adm-al{margin:0 0 18px;border-radius:10px;border:2px solid #c9463c;background:#3a1f1f;color:#fbe9e7;padding:12px 14px}" +
+    "html.light-theme .adm-al{background:#fdecea;color:#5b1610;border-color:#b3261e}" +
+    ".adm-al.calm{border-color:var(--admin-border,#334);background:var(--admin-panel,rgba(127,127,127,.06));color:var(--admin-text,inherit)}" +
+    ".adm-al-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:space-between;margin:0 0 8px}" +
+    ".adm-al-h h2{font-size:15px;margin:0;display:flex;align-items:center;gap:8px}" +
+    ".adm-al-dot{width:10px;height:10px;border-radius:50%;background:#ff6b5e;box-shadow:0 0 0 3px rgba(255,107,94,.3)}" +
+    "html.light-theme .adm-al-dot{background:#b3261e}" +
+    ".adm-al.calm .adm-al-dot{background:var(--admin-muted,#9aa4b2);box-shadow:none}" +
+    ".adm-al ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}" +
+    ".adm-al li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.18)}" +
+    "html.light-theme .adm-al li{background:#fff}" +
+    ".adm-al li .k{font-weight:700}.adm-al li .w{flex:1 1 200px;font-size:13.5px}" +
+    ".adm-al li.danger .k::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;background:currentColor;margin-right:7px;vertical-align:1px}" +
+    ".adm-al button,.adm-al a.btn{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}" +
+    ".adm-al .take{background:#fff;color:#7a1b13;border:0}html.light-theme .adm-al .take{background:#b3261e;color:#fff}" +
+    ".adm-al.calm .take{background:var(--admin-accent-fill,#3d6be0);color:#fff}" +
+    ".adm-al a.btn{border:1px solid currentColor;color:inherit}" +
+    ".adm-al .chime{background:none;border:1px solid currentColor;color:inherit;font-weight:500;font-size:13px;min-height:36px}" +
+    ".adm-al .mine{flex-basis:100%;font-size:13.5px;margin:0}" +
+    ".adm-al .err{flex-basis:100%;font-size:13.5px;margin:0;font-weight:600}" +
+    ".adm-al button:focus-visible,.adm-al a:focus-visible{outline:3px solid #FFDD00;outline-offset:2px}" +
+    ".adm-al .set{font-size:13px;color:inherit;display:inline-flex;align-items:center;min-height:36px;padding:0 4px}" +
+    ".adm-al-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}";
+  function alertBox() {
+    var box = document.getElementById("adm-alerts");
+    if (box) return box;
+    var main = document.querySelector("main");
+    if (!main) return null;
+    box = document.createElement("section"); box.id = "adm-alerts"; box.className = "adm-al"; box.hidden = true;
+    box.setAttribute("aria-labelledby", "adm-al-h");
+    main.insertBefore(box, main.firstChild);
+    var live = document.createElement("div"); live.id = "adm-al-live"; live.className = "adm-al-live"; live.setAttribute("aria-live", "polite");
+    document.body.appendChild(live);
+    return box;
+  }
+  function waitText(m) { return m >= 60 ? t("al.waiting_h", { h: Math.floor(m / 60), m: m % 60 }) : t("al.waiting", { n: m }); }
+  function drawAlerts() {
+    var box = alertBox(); if (!box) return;
+    var list = AL.items.filter(function (a) { return !a.takenBy || a.mine; });
+    if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
+    var open = list.filter(function (a) { return !a.takenBy; });
+    var mine = list.filter(function (a) { return a.mine; });
+    box.hidden = false;
+    box.classList.toggle("calm", !open.some(function (a) { return a.alerting; }));
+    var had = document.activeElement && document.activeElement.closest && document.activeElement.closest("#adm-alerts") ? document.activeElement.getAttribute("data-id") + "|" + document.activeElement.className : null;
+    var mu = muteUntil(), muted = mu > Date.now();
+    var title = open.length ? t(open.length === 1 ? "al.bar_one" : "al.bar_n", { n: open.length }) : t(mine.length === 1 ? "al.bar_mine_one" : "al.bar_mine_n", { n: mine.length });
+    box.innerHTML = '<div class="adm-al-h"><h2 id="adm-al-h"><span class="adm-al-dot" aria-hidden="true"></span>' + esc(title) + "</h2>" +
+      '<span><button type="button" class="chime" aria-pressed="' + (muted ? "true" : "false") + '" title="' + esc(t(muted ? "al.chime_unmute" : "al.chime_mute")) + '">' +
+      esc(muted ? t("al.chime_muted", { time: hhmm(mu) }) : "🔔 " + t("al.chime_on")) + '</button> <a class="set" href="/admin-alerts.html">' + esc(t("al.settings")) + "</a></span></div>" +
+      "<ul>" + list.map(function (a) {
+        var where = a.where ? esc(a.where) + " · " : "";
+        var state = a.waitsForHours ? t("al.out_of_hours", { time: hhmm(Date.parse(a.releaseAt)) }) : waitText(a.waitingMin);
+        var row = '<li class="' + (a.danger ? "danger" : "") + '" data-alert="' + esc(a.id) + '"><span class="k">' + esc(t("al.k_" + a.kind)) + '</span><span class="w">' + where + esc(state) + "</span>";
+        if (a.mine) row += '<a class="btn" data-id="' + esc(a.id) + '" href="' + esc(a.page) + '">' + esc(t("al.open")) + '</a><p class="mine">' + esc(t("al.you_took", { time: hhmm(Date.parse(a.takenAt)) }) + " " + t("al.next_" + a.kind)) + "</p>";
+        else row += '<button type="button" class="take" data-id="' + esc(a.id) + '"' + (AL.busy ? " disabled" : "") + ">" + esc(t("al.take")) + "</button>";
+        if (AL.msg[a.id]) row += '<p class="err" role="alert">' + esc(AL.msg[a.id]) + "</p>";
+        return row + "</li>";
+      }).join("") + "</ul>";
+    box.querySelector(".chime").addEventListener("click", function () { AL.gesture = true; setMute(muteUntil() > Date.now() ? 0 : Date.now() + 3600000); drawAlerts(); var c = box.querySelector(".chime"); if (c) c.focus(); });
+    box.querySelectorAll(".take").forEach(function (b) { b.addEventListener("click", function () { takeAlert(b.getAttribute("data-id")); }); });
+    if (had) { var parts = had.split("|"); var el = box.querySelector('[data-id="' + parts[0] + '"]') || box.querySelector(".chime"); if (el) el.focus(); }
+  }
+  function takeAlert(id) {
+    AL.busy = true; AL.gesture = true; delete AL.msg[id]; drawAlerts();
+    fetch("/api/admin/alerts", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "take", id: id }) })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+      .then(function (x) {
+        AL.busy = false;
+        if (!x.ok) AL.msg[id] = x.b && x.b.code === "TAKEN" ? t("al.taken_by_other", { name: x.b.takenBy || "" }) : t("al.take_failed");
+        loadAlerts(function () { var el = document.querySelector('#adm-alerts a[data-id="' + id + '"]') || document.querySelector("#adm-alerts .chime"); if (el) el.focus(); });
+      })
+      .catch(function () { AL.busy = false; AL.msg[id] = t("al.take_failed"); drawAlerts(); });
+  }
+  function beep() {
+    try {
+      var C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      AL.audio = AL.audio || new C();
+      var ctx = AL.audio; if (ctx.state === "suspended") ctx.resume();
+      [0, 0.28].forEach(function (off, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = i ? 1046 : 784;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + off);
+        g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + off + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + off + 0.25);
+        o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + off); o.stop(ctx.currentTime + off + 0.27);
+      });
+    } catch (e) { /* no sound on this browser */ }
+  }
+  function maybeChime(fresh) {
+    var waiting = AL.items.some(function (a) { return a.alerting; });
+    if (!waiting || document.hidden || muteUntil() > Date.now() || !AL.gesture) return;
+    if (fresh || Date.now() - AL.chimeAt >= 120000) { AL.chimeAt = Date.now(); beep(); }
+  }
+  function loadAlerts(cb) {
+    if (!canAlerts()) return;
+    fetch("/api/admin/alerts?bar=1", { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.items) return;
+        var fresh = d.items.filter(function (a) { return a.alerting && !AL.seen[a.id]; });
+        d.items.forEach(function (a) { AL.seen[a.id] = 1; });
+        AL.items = d.items;
+        drawAlerts();
+        if (fresh.length) { var live = document.getElementById("adm-al-live"); if (live) live.textContent = t("al.new_item", { what: fresh.map(function (a) { return t("al.k_" + a.kind); }).join(", ") }); }
+        maybeChime(fresh.length > 0);
+        if (cb) cb();
+      })
+      .catch(function () {});
+  }
+  function startAlerts() {
+    if (!canAlerts() || AL.timer) return;
+    loadAlerts();
+    AL.timer = setInterval(function () { if (!document.hidden) loadAlerts(); }, 30000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) loadAlerts(); });
+    ["pointerdown", "keydown"].forEach(function (ev) { window.addEventListener(ev, function () { AL.gesture = true; }, { passive: true, capture: true }); });
+    try { if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", function (e) { if (e.data && e.data.type === "giq-push") loadAlerts(); }); } catch (e) { /* ignore */ }
+  }
+  window.GIQ_ALERTS = { load: loadAlerts, draw: drawAlerts, state: AL, beep: beep };   // for tests and the My alerts page
+
   fetch("/api/admin/whoami", { credentials: "same-origin", headers: { Accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : (r.status === 403 ? r.json().then(function (b) { return { blocked: b }; }) : null); })
     .then(function (d) {
@@ -603,9 +765,9 @@
       if (!d || !d.pages) { root.classList.remove("adm-nav-pending"); return; }
       info = d;
       window.GIQ_ADMIN = d;
-      ready(function () { run(); showCovering(); showSalesCode(); showPolicies(); drawAccount(); });
+      ready(function () { run(); showCovering(); showSalesCode(); showPolicies(); drawAccount(); startAlerts(); });
     })
     .catch(function () { root.classList.remove("adm-nav-pending"); });
 
-  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); drawSalesCode(); drawPolicies(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
+  document.addEventListener("giq:lang", function () { if (blocked) showBlocked(); if (info) { applyPage(); drawCovering(); drawSalesCode(); drawPolicies(); if (AL.items.length) drawAlerts(); } drawAccount(); drawSkip(); tidyGroups(); if (document.getElementById("adm-idle")) tick(); });
 })();

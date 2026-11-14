@@ -3,7 +3,10 @@
 //
 // Cloudflare Pages can't run anything on a timer, so this small Worker does
 // it, using the same database and the same code as the website
-// (functions/_shared). It runs every hour, on the hour in India:
+// (functions/_shared). grieviq-89: it runs every 5 minutes for the alerts
+// that can't be missed ("Needs you now" for GrievIQ staff, danger-complaint
+// reminders, alerts held for an office's quiet hours), and the rest once an
+// hour, on the hour in India (the run at minute 30 UTC):
 //   - tells offices about cases that have just moved up to them (and the
 //     citizen, if they gave an email); catches up any new-complaint notice
 //     that failed at filing time
@@ -21,7 +24,7 @@
 // Opening the Worker's own address only shows a short status line; it
 // can't be used to trigger anything.
 
-import { runNotifications } from "../functions/_shared/notify.js";
+import { runNotifications, runFrequent } from "../functions/_shared/notify.js";
 import { settleOverdueConfirmations } from "../functions/_shared/confirmation.js";
 import { runRetention, RUN_BATCH } from "../functions/_shared/retention.js";
 import { purgeDuePhotos } from "../functions/_shared/photo-store.js";
@@ -38,7 +41,19 @@ import { runSales } from "../functions/_shared/sales.js";
 import { runStaff } from "../functions/_shared/staff-policies.js";
 import { runAssisted } from "../functions/_shared/assisted-run.js";
 
+// The hourly jobs run in the 5-minute run that falls at minute 30 to 34 UTC
+// (on the hour in India), as before grieviq-89.
+export function isHourlyRun(nowMs) { const m = new Date(nowMs).getUTCMinutes(); return m >= 30 && m < 35; }
+
 export async function runScheduled(env, nowMs) {
+  const origin = env.SITE_ORIGIN || "https://grieviq.in";
+  let frequent = null;
+  try { frequent = await runFrequent(env, origin, nowMs); } catch (e) { frequent = { errors: 1 }; }
+  if (!isHourlyRun(nowMs)) return { frequent };
+  return Object.assign({ frequent }, await runHourly(env, nowMs));
+}
+
+export async function runHourly(env, nowMs) {
   const origin = env.SITE_ORIGIN || "https://grieviq.in";
   await settleOverdueConfirmations(env);
   const notices = await runNotifications(env, origin, nowMs);
@@ -101,6 +116,6 @@ export default {
     ctx.waitUntil(runScheduled(env, event.scheduledTime || Date.now()).then((r) => console.log(JSON.stringify(r))));
   },
   async fetch() {
-    return new Response("GrievIQ scheduler is installed. It runs every hour.", { headers: { "Content-Type": "text/plain" } });
+    return new Response("GrievIQ scheduler is installed. It runs every 5 minutes.", { headers: { "Content-Type": "text/plain" } });
   },
 };

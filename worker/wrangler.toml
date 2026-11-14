@@ -9,8 +9,9 @@ main = "index.js"
 compatibility_date = "2026-09-01"
 
 [triggers]
-# Minute 30 of every hour in UTC = on the hour in India (9:30 UTC is 3:00 pm IST).
-crons = ["30 * * * *"]
+# grieviq-89: every 5 minutes (alerts that can't be missed). The hourly jobs run
+# in the run at minute 30 of every hour UTC = on the hour in India.
+crons = ["*/5 * * * *"]
 
 [vars]
 SITE_ORIGIN = "https://grieviq.in"

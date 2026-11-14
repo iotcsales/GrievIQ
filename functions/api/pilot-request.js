@@ -17,6 +17,7 @@ import { checkDailyLimits, deviceParts } from "../_shared/daily-limit.js";
 import { liveVersion } from "../_shared/site-settings.js";
 import { sendEmailNow } from "../_shared/dept-auth.js";
 import { importPilotRequests } from "../_shared/sales.js";
+import { createStaffAlert } from "../_shared/alerts.js";
 
 export const OFFICE_KINDS = ["PRADHAN", "COUNCILLOR", "MAYOR", "MLA", "MP", "DEPARTMENT", "OTHER"];
 export const CONSENT_TEXT = {
@@ -58,11 +59,12 @@ export async function onRequestPost(context) {
   if (!lim.ok) return json({ error: "DAILY_LIMIT", which: lim.hit === "pilot-mobile" ? "MOBILE" : "DEVICE" }, 429);
 
   const now = new Date().toISOString();
+  const reqId = crypto.randomUUID();
   try {
     await env.DB.prepare("DELETE FROM pilot_requests WHERE created_at < ?").bind(new Date(Date.now() - 365 * 86400000).toISOString()).run();
     await env.DB.prepare(
       "INSERT INTO pilot_requests (id, created_at, name, office_kind, place, mobile, email, lang, consent_at, consent_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).bind(crypto.randomUUID(), now, name, office, place, mobile, email || null, lang, now, CONSENT_TEXT[lang]).run();
+    ).bind(reqId, now, name, office, place, mobile, email || null, lang, now, CONSENT_TEXT[lang]).run();
   } catch (e) {
     if (/no such table/i.test(String(e && e.message))) return json({ error: "NOT_READY" }, 503);
     throw e;
@@ -70,6 +72,11 @@ export async function onRequestPost(context) {
   // grieviq-77: it goes into the sales pipeline at once (the hourly job and
   // the Sales page also pick it up if this step fails).
   try { await importPilotRequests(env); } catch (e) { /* picked up later */ }
+  // grieviq-89: "Needs you now" for the sales team (phones and the admin bar),
+  // in GrievIQ's working hours; the 5-minute job repeats it until someone takes it.
+  const origin = new URL(request.url).origin;
+  const alerting = createStaffAlert(env, origin, "PILOT_REQUEST", reqId).catch(() => null);
+  if (typeof context.waitUntil === "function") context.waitUntil(alerting); else await alerting;
   // A content-free alert to the published contact address.
   const live = await liveVersion(env);
   const to = live.data.company && live.data.company.supportEmail;

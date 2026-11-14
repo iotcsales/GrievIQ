@@ -10,6 +10,7 @@
 
 import { needsSalesCode } from "../../_shared/sales-code.js";
 import { getVerifiedAdmin, allows } from "../../_shared/get-verified-admin.js";
+import { markDone } from "../../_shared/alerts.js";
 
 const json = (b, status) => Response.json(b, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const maskMobile = (m) => m ? m.slice(0, 2) + "XXXXXX" + m.slice(-2) : "";
@@ -52,5 +53,6 @@ export async function onRequestPost({ request, env }) {
   await env.DB.prepare("UPDATE pilot_requests SET status = ?, note = ?, status_at = ?, status_by = ? WHERE id = ?").bind(status, note || null, now, auth.email, r.id).run();
   await env.DB.prepare("INSERT INTO admin_events (id, actor_email, action, target, detail) VALUES (?, ?, ?, ?, ?)")
     .bind(crypto.randomUUID(), auth.email, "pilot_request_updated", r.id, JSON.stringify({ before: r.status, after: status, noteChanged: (r.note || "") !== note })).run();
+  if (status !== "NEW") await markDone(env, "PILOT_REQUEST", r.id, status);     // grieviq-89: its alert stops
   return json({ ok: true, status, statusAt: now, statusBy: auth.email });
 }

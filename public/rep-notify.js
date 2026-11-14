@@ -12,10 +12,17 @@
 // window.GIQN_CFG = { api, scope, keys, openCase } before this file loads:
 // api = the notices address, scope = where phone alerts belong (/dept),
 // keys = wording to use instead of the rep console's, openCase(id).
+//
+// grieviq-89: the office's quiet hours (default 10 pm to 7 am), set at the
+// foot of the panel by the representative or an office manager (any
+// officer on the department dashboard): alerts that aren't about danger
+// wait out the quiet hours on phones; danger-to-life alerts always come.
 (function () {
   'use strict';
   var CFG = window.GIQN_CFG || {};
   var API = CFG.api || '/api/notifications', SCOPE = CFG.scope || '/rep';
+  var QAPI = CFG.quietApi || (SCOPE === '/dept' ? '/api/dept/quiet-hours' : '/api/quiet-hours');
+  var quiet = null, qOpen = false, qDraft = {}, qMsg = {};
   var T = function (k, v) { var key = (CFG.keys && CFG.keys[k]) || k; return window.GIQ ? window.GIQ.t(key, v) : key; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
   var lang = function () { return window.GIQ && window.GIQ.lang === 'hi' ? 'hi' : 'en'; };
@@ -39,7 +46,11 @@
     var wt = [n.ward, type].filter(Boolean).join(' · ');
     var due = n.dueAt ? when(n.dueAt) : '', ack = d.ackDue ? when(d.ackDue) : '';
     switch (n.kind) {
-      case 'NEW_CASE': return { t: T('rn.k_new_t', { ref: n.ref }), b: wt + ' · ' + (due ? T('rn.k_new_b', { ack: ack, due: due }) : T('rn.k_new_legal')) };
+      case 'NEW_CASE': return { t: (d.priority ? T('rn.k_prio') + ' ' : '') + T('rn.k_new_t', { ref: n.ref }), b: wt + ' · ' + (d.priority ? T('rn.k_prio_b') + ' · ' : '') + (due ? T('rn.k_new_b', { ack: ack, due: due }) : T('rn.k_new_legal')) };
+      case 'WARD_OPEN': return { t: T('rn.k_wopen_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_wopen_b') };
+      case 'ANSWER': return { t: T('rn.k_answer_t', { ref: n.ref }), b: wt + ' · ' + T(d.reopened ? 'rn.k_answer_reopened' : 'rn.k_answer_b') };
+      case 'PRIO_REMIND': return { t: T('rn.k_prem_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_prem_b', { h: d.hours }) };
+      case 'DEPT_O_PRIO': return { t: T('rn.k_oprio_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_oprio_b', { h: d.hours }) };
       case 'MOVED_UP': return { t: T('rn.k_up_t', { ref: n.ref }), b: wt + ' · ' + T(d.reason === 'REOPENED' ? 'rn.k_up_reopened' : 'rn.k_up_time') + (due ? ' ' + T('rn.k_act_by', { due: due }) : '') };
       case 'DAILY': {
         var p = [];
@@ -57,7 +68,7 @@
       case 'DEPT_OVERDUE': return { t: T('rn.k_dod_t', { who: d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept), ref: n.ref }), b: wt + ' · ' + T('rn.k_dod_b', { days: d.days }) };
       case 'DEPT_REPLY': { var who = d.office || (window.GIQ ? GIQ.dept(d.dept) : d.dept); return { t: T('rn.k_dr_t', { who: who, ref: n.ref }), b: wt + ' · ' + T('rn.k_dr_' + d.kind, { who: who, date: d.expectedDate || '' }) }; }
       // grieviq-35: department officers
-      case 'DEPT_O_NEW': return { t: T('rn.k_onew_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_onew_b') };
+      case 'DEPT_O_NEW': return { t: (d.priority ? T('rn.k_prio') + ' ' : '') + T('rn.k_onew_t', { ref: n.ref }), b: wt + ' · ' + (d.priority ? T('rn.k_prio_b') + ' · ' : '') + T('rn.k_onew_b') };
       case 'DEPT_O_BACK': return { t: T('rn.k_oback_t', { ref: n.ref }), b: wt + ' · ' + T(d.partly ? 'rn.k_oback_partly' : 'rn.k_oback_not') };
       case 'DEPT_O_FU': return { t: T(d.type === 'REMIND' ? 'rn.k_fu_remind_t' : d.type === 'OVERDUE' ? 'rn.k_fu_late_t' : 'rn.k_fu_new_t', { ref: d.ref || n.ref || '' }), b: T(d.type === 'REMIND' ? 'rn.k_fu_remind_b' : d.type === 'OVERDUE' ? 'rn.k_fu_late_b' : 'rn.k_fu_new_b') };
       case 'DEPT_O_LATE': return { t: T('rn.k_olate_t', { ref: n.ref }), b: wt + ' · ' + T('rn.k_olate_b', { days: d.days }) };
@@ -105,6 +116,13 @@
     '.rn-dlg textarea[aria-invalid=true]{border-color:var(--red)}' +
     '.rn-err{color:var(--red);font-size:12.5px;margin:4px 0 0}' +
     '.rn-close{float:right;min-width:44px;min-height:44px;border:0;background:none;font-size:22px;cursor:pointer;color:var(--steel)}' +
+    '.rn-quiet{border-top:1px solid var(--line);padding:4px 14px 12px;font-size:13px}' +
+    '.rn-quiet summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;color:var(--ink)}' +
+    '.rn-qhelp{margin:0 0 8px;color:var(--steel-2);line-height:1.45}.rn-qnow{margin:0 0 6px;font-weight:600}.rn-qfor{margin:8px 0 4px}' +
+    '.rn-qoff{display:flex;align-items:center;gap:8px;min-height:44px}.rn-qoff input{width:20px;height:20px}' +
+    '.rn-qt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 10px}' +
+    '.rn-qt input{font:inherit;min-height:40px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}' +
+    '.rn-quiet summary:focus-visible,.rn-q input:focus-visible,.rn-q button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}' +
     '@media (max-width:600px){.rn-panel{position:fixed;left:12px;right:12px;top:64px;width:auto}}';
   document.head.appendChild(css);
 
@@ -134,7 +152,55 @@
         return '<li class="rn-item' + (n.read ? '' : ' unread') + '"><button type="button" data-n="' + esc(n.id) + '">' +
           (n.read ? '' : '<span class="visually-hidden">' + esc(T('rn.unread')) + ' </span>') +
           '<span class="rn-t">' + esc(x.t) + '</span><span class="rn-b">' + esc(x.b) + '</span><span class="rn-w">' + esc(when(n.at)) + '</span></button></li>';
-      }).join('') + '</ul>' : '<p class="rn-empty">' + esc(T('rn.empty')) + '</p>');
+      }).join('') + '</ul>' : '<p class="rn-empty">' + esc(T('rn.empty')) + '</p>') + quietHtml();
+  }
+
+  // ---- quiet hours (grieviq-89) ----
+  function quietHtml() {
+    if (!quiet || !quiet.offices || !quiet.offices.length) return '';
+    var body = quiet.offices.map(function (o, i) {
+      var k = o.tier + ':' + o.id, d = qDraft[k] || { from: o.from, to: o.to, off: o.off };
+      var now = o.off ? T('qh.off_now') : T('qh.now', { from: o.from, to: o.to }) + (o.isDefault ? ' ' + T('qh.default') : '');
+      var m = qMsg[k];
+      return '<form class="rn-q" data-q="' + i + '">' + (quiet.offices.length > 1 ? '<p class="rn-qfor"><strong>' + esc(T('qh.for', { name: (window.GIQ && GIQ.level ? GIQ.level(o.label || '') + ' – ' : '') + (o.name || '') })) + '</strong></p>' : '') +
+        '<p class="rn-qnow">' + esc(now) + '</p>' +
+        '<label class="rn-qoff"><input type="checkbox" data-qf="off"' + (d.off ? ' checked' : '') + '> ' + esc(T('qh.off')) + '</label>' +
+        '<div class="rn-qt"><label for="rn-qf' + i + '">' + esc(T('qh.from')) + '</label><input type="time" id="rn-qf' + i + '" data-qf="from" value="' + esc(d.from) + '"' + (d.off ? ' disabled' : '') + '>' +
+        '<label for="rn-qt' + i + '">' + esc(T('qh.to')) + '</label><input type="time" id="rn-qt' + i + '" data-qf="to" value="' + esc(d.to) + '"' + (d.off ? ' disabled' : '') + '></div>' +
+        '<button type="submit" class="rn-btn sec">' + esc(T('qh.save')) + '</button>' +
+        '<p class="rn-status' + (m && m.err ? ' err' : '') + '" role="status" id="rn-qs' + i + '">' + esc(m ? m.text : '') + '</p></form>';
+    }).join('');
+    return '<details class="rn-quiet" id="rn-quiet"' + (qOpen ? ' open' : '') + '><summary>' + esc(T('qh.h')) + '</summary><p class="rn-qhelp">' + esc(T('qh.help')) + '</p>' + body + '</details>';
+  }
+  async function loadQuiet() {
+    try { var r = await fetch(QAPI, { cache: 'no-store' }); if (!r.ok) return; quiet = await r.json(); if (open) redraw(); } catch (e) { /* the panel works without it */ }
+  }
+  function attachQuiet() {
+    var det = document.getElementById('rn-quiet');
+    if (!det) return;
+    det.addEventListener('toggle', function () { qOpen = det.open; });
+    det.querySelectorAll('form.rn-q').forEach(function (f) {
+      var o = quiet.offices[Number(f.getAttribute('data-q'))], k = o.tier + ':' + o.id;
+      function read() { return { from: f.querySelector('[data-qf=from]').value, to: f.querySelector('[data-qf=to]').value, off: f.querySelector('[data-qf=off]').checked }; }
+      f.addEventListener('input', function () { qDraft[k] = read(); });
+      f.querySelector('[data-qf=off]').addEventListener('change', function () { qDraft[k] = read(); var off = qDraft[k].off; f.querySelectorAll('input[type=time]').forEach(function (x) { x.disabled = off; }); });
+      f.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var v = read();
+        if (!v.off && v.from === v.to) { qMsg[k] = { text: T('qh.e_same'), err: true }; redraw(); focusQ(k); return; }
+        try {
+          var r = await fetch(QAPI, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v.off ? { tier: o.tier, id: o.id, off: true } : { tier: o.tier, id: o.id, from: v.from, to: v.to }) });
+          var j = await r.json().catch(function () { return {}; });
+          if (!r.ok) { qMsg[k] = { text: j.fields && j.fields.to === 'SAME' ? T('qh.e_same') : (j.error && j.error !== 'CHECK_FIELDS' ? j.error : T('qh.e')), err: true }; }
+          else { Object.assign(o, j.setting); delete qDraft[k]; qMsg[k] = { text: T('qh.saved') }; }
+        } catch (x) { qMsg[k] = { text: T('qh.e'), err: true }; }
+        redraw(); focusQ(k);
+      });
+    });
+  }
+  function focusQ(k) {
+    var i = quiet.offices.findIndex(function (o) { return o.tier + ':' + o.id === k; });
+    var el = document.getElementById('rn-qs' + i); if (el) { el.setAttribute('tabindex', '-1'); el.focus(); }
   }
 
   // ---- phone notifications ----
@@ -211,12 +277,13 @@
     var on = document.getElementById('rn-on'); if (on) on.addEventListener('click', turnOn);
     var off = document.getElementById('rn-off'); if (off) off.addEventListener('click', turnOff);
     var te = document.getElementById('rn-test'); if (te) te.addEventListener('click', test);
+    attachQuiet();
     document.querySelectorAll('#rn-panel [data-n]').forEach(function (b) {
       b.addEventListener('click', function () { go(b.getAttribute('data-n')); });
     });
   }
   function redraw() { var had = document.activeElement && document.activeElement.id; drawBell(); if (had && document.getElementById(had)) document.getElementById(had).focus(); }
-  function show() { open = true; drawBell(); var h = document.getElementById('rn-h'); if (h) h.focus(); load().then(markSeen); }
+  function show() { open = true; drawBell(); var h = document.getElementById('rn-h'); if (h) h.focus(); load().then(markSeen); if (!quiet) loadQuiet(); }
   // Opening the list counts as seeing what is in it: no 6-hour reminder email
   // for those (the automatic check every minute never counts).
   function markSeen() {

@@ -40,6 +40,7 @@ import { officeCaseList } from "./dept-cases.js";
 import { officerRecipient } from "./dept-auth.js";
 import { effectiveCategory, isPriority } from "./case-tools.js";
 import { caseLocalOffices, isMulti, seatsOfUnits, wardLevelStatus, seatsReady } from "./seats.js";
+import { officeQuiet, quietUntil, createStaffAlert, runStaffAlerts } from "./alerts.js";
 
 export const KIND = {
   NEW_CASE: "NEW_CASE", MOVED_UP: "MOVED_UP", DAILY: "DAILY", ASSIGNED: "ASSIGNED", FIX_REPORT: "FIX_REPORT",
@@ -53,8 +54,15 @@ export const KIND = {
   WARD_OPEN: "WARD_OPEN",         // grieviq-57: a case came back open to every member of the ward
   DEPT_O_FU: "DEPT_O_FU",         // grieviq-65: a follow-up request for their office (new, reminder, overdue)
   ANSWER: "ANSWER",               // grieviq-86: the citizen answered the office's question
+  PRIO_REMIND: "PRIO_REMIND",     // grieviq-89: a danger complaint still not acknowledged (2 and 4 hours)
+  DEPT_O_PRIO: "DEPT_O_PRIO",     // grieviq-89: a danger complaint forwarded 4 hours ago, no reply yet
 };
-const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE, KIND.DEPT_O_FU]);
+const OFFICER_KINDS = new Set([KIND.DEPT_O_NEW, KIND.DEPT_O_BACK, KIND.DEPT_O_LATE, KIND.DEPT_O_FU, KIND.DEPT_O_PRIO]);
+// grieviq-89: about danger to life or health: never held for quiet hours.
+const DANGER_KINDS = new Set([KIND.PRIO_REMIND, KIND.DEPT_O_PRIO]);
+export function isDangerNotice(n) { return DANGER_KINDS.has(n.kind) || !!parseData(n).priority; }
+export const PRIO_REMIND_HOURS = [2, 4];
+export const DEPT_PRIO_HOURS = 4;
 // Kinds that get the 6-hour reminder email. The others already have their
 // own email (audit observations, admin nudges).
 const EMAIL_BACKUP = new Set([KIND.NEW_CASE, KIND.WARD_OPEN, KIND.MOVED_UP, KIND.DAILY, KIND.ASSIGNED, KIND.FIX_REPORT, KIND.ANNOUNCEMENT, KIND.REPLY, KIND.DEPT_OVERDUE, KIND.DEPT_REPLY, KIND.ANSWER]);
@@ -202,8 +210,16 @@ export function noticeText(n, lang) {
       return { title: hi ? who + " ने उत्तर दिया: " + n.tracking_ref : who + " replied: " + n.tracking_ref, body: wt + (hi ? "। " : ". ") + (hi ? who + " ने " : who + " ") + what };
     }
     case KIND.DEPT_O_NEW:
-      return { title: hi ? "आपके कार्यालय के लिए नई शिकायत: " + n.tracking_ref : "New complaint for your office: " + n.tracking_ref,
-        body: wt + (hi ? "। देखने और उत्तर देने के लिए खोलें।" : ". Open it to see the complaint and reply.") };
+      return { title: (d.priority ? (hi ? "प्राथमिकता: " : "Priority: ") : "") + (hi ? "आपके कार्यालय के लिए नई शिकायत: " + n.tracking_ref : "New complaint for your office: " + n.tracking_ref),
+        body: wt + (d.priority ? (hi ? "। जान या स्वास्थ्य को अभी ख़तरा।" : ". Danger to life or health right now.") : "") + (hi ? "। देखने और उत्तर देने के लिए खोलें।" : ". Open it to see the complaint and reply.") };
+    case KIND.PRIO_REMIND:
+      return { title: hi ? "जान के ख़तरे वाली शिकायत स्वीकार नहीं हुई: " + n.tracking_ref : "Danger complaint not acknowledged: " + n.tracking_ref,
+        body: wt + (hi ? "। जान या स्वास्थ्य को ख़तरा। " + d.hours + " घंटे से प्रतीक्षा। कृपया अभी खोलें और स्वीकार करें।"
+          : ". Danger to life or health. Waiting " + d.hours + " hours. Please open and acknowledge it now.") };
+    case KIND.DEPT_O_PRIO:
+      return { title: hi ? "प्राथमिकता शिकायत पर अभी उत्तर नहीं: " + n.tracking_ref : "No reply yet on a priority complaint: " + n.tracking_ref,
+        body: wt + (hi ? "। जान या स्वास्थ्य को ख़तरा। " + d.hours + " घंटे पहले भेजी गई। कृपया अभी उत्तर दें।"
+          : ". Danger to life or health. Sent " + d.hours + " hours ago. Please reply now.") };
     case KIND.DEPT_O_BACK:
       return { title: hi ? "मौके की जाँच के बाद वापस भेजी गई: " + n.tracking_ref : "Sent back after the check on site: " + n.tracking_ref,
         body: wt + (hi ? (d.partly ? "। जाँच में आंशिक रूप से ठीक मिला।" : "। जाँच में ठीक नहीं मिला।") + " कृपया काम पूरा करके फिर उत्तर दें।"
@@ -296,7 +312,7 @@ export async function reminderEmails(env, origin, nowMs) {
     rows = (await env.DB.prepare(
       `SELECT id, recipient FROM notifications
        WHERE read_at IS NULL AND seen_at IS NULL AND pushed_at IS NULL AND emailed_at IS NULL
-         AND kind IN (SELECT value FROM json_each(?)) AND created_at <= ? AND created_at >= ? AND recipient NOT LIKE 'dept:%' 
+         AND kind IN (SELECT value FROM json_each(?)) AND created_at <= ? AND created_at >= ? AND recipient NOT LIKE 'dept:%' AND held_until IS NULL 
        ORDER BY recipient, created_at`
     ).bind(kinds, new Date(now - REMIND_AFTER_HOURS * 3600000).toISOString(), new Date(now - REMIND_MAX_AGE_DAYS * 86400000).toISOString()).all()).results || [];
   } catch (e) { return 0; }
@@ -345,7 +361,27 @@ export async function createNotices(env, origin, recipients, base) {
 }
 
 // Push to each person's devices; email those no device took.
-export async function deliver(env, origin, rows) {
+export async function deliver(env, origin, rows, opts) {
+  // grieviq-89: an office's quiet hours (default 10 pm to 7 am): a notice
+  // that isn't about danger stays in the bell and its phone alert waits
+  // until they end (releaseHeld).
+  if (!(opts && opts.noHold)) {
+    const cache = new Map();
+    const nowMs = Date.now();
+    const kept = [];
+    for (const n of rows) {
+      let until = null;
+      if (n.office_tier && n.office_id != null && !isDangerNotice(n)) {
+        try { until = quietUntil(await officeQuiet(env, n.office_tier, n.office_id, cache), nowMs); } catch (e) { until = null; }
+      }
+      if (until) {
+        try { await env.DB.prepare("UPDATE notifications SET held_until = ? WHERE id = ?").bind(new Date(until).toISOString(), n.id).run(); n.held_until = new Date(until).toISOString(); }
+        catch (e) { kept.push(n); }      // before part58: deliver now
+      } else kept.push(n);
+    }
+    rows = kept;
+    if (!rows.length) return;
+  }
   const people = Array.from(new Set(rows.map((r) => r.recipient)));
   let subs = [];
   if (pushConfigured(env) && people.length) {
@@ -511,7 +547,10 @@ function updateEmail(kind, g, info, origin, lang, follower) {
     default: return null;
   }
 }
-// grieviq-88: GrievIQ staff who work on assisted cases (for alerts with no details).
+async function staffAlertsOn(env) {
+  try { await env.DB.prepare("SELECT id FROM staff_alerts LIMIT 1").first(); return true; } catch (e) { return false; }
+}
+// grieviq-88: GrievIQ staff who work on assisted cases (before part58 only).
 async function assistedStaffEmails(env) {
   try {
     const roles = ["super_admin", "operations_admin", "support_executive"];
@@ -600,9 +639,13 @@ export async function notifyNewCase(env, origin, g, preload) {
     // The citizen hears that, and staff get an alert with no details in it.
     if (g.assisted_pilot && !g.assisted_handed_at) {
       await emailCaseUpdate(env, origin, g, "ASSISTED_RECEIVED", { wardName: chain.localUnit.name, category, stamp: "0" });
-      for (const to of await assistedStaffEmails(env)) {
-        await queueEmail(env, to, "ASSISTED_NEW", "ASN:" + g.id + ":" + low(to), "A new complaint is waiting in Assisted cases",
-          `<p>A new complaint has been filed in a GrievIQ-assisted ward.</p><p>Open Assisted cases in the GrievIQ admin panel to forward it: <a href="${esc(origin)}/admin-assisted.html">${esc(origin)}/admin-assisted.html</a></p><p>This email has no details of the complaint.</p>`, null);
+      // grieviq-89: "Needs you now" for the staff who forward them (danger: day or night).
+      const made = await createStaffAlert(env, origin, isPriority(g) ? "ASSISTED_DANGER" : "ASSISTED_NEW", g.id);
+      if (made === null && !(await staffAlertsOn(env))) {
+        for (const to of await assistedStaffEmails(env)) {
+          await queueEmail(env, to, "ASSISTED_NEW", "ASN:" + g.id + ":" + low(to), "A new complaint is waiting in Assisted cases",
+            `<p>A new complaint has been filed in a GrievIQ-assisted ward.</p><p>Open Assisted cases in the GrievIQ admin panel to forward it: <a href="${esc(origin)}/admin-assisted.html">${esc(origin)}/admin-assisted.html</a></p><p>This email has no details of the complaint.</p>`, null);
+        }
       }
       await setState(env, g.id, 0, "");
       await flushOutbox(env, 10);
@@ -655,7 +698,7 @@ export async function notifyMovedUp(env, origin, g, chain, category, index, reas
   const marker = (g.reopened_at || "") + (g.transferred_at ? "|" + g.transferred_at : "");
   await createNotices(env, origin, people, {
     kind: KIND.MOVED_UP, key: "UP:" + g.id + ":" + index + ":" + marker, officeTier: o.tier, officeId: o.id, g, category,
-    wardName: chain.localUnit.name, dueMs, data: { reason, level: o.tier },
+    wardName: chain.localUnit.name, dueMs, data: Object.assign({ reason, level: o.tier }, isPriority(g) ? { priority: true } : {}),
   });
   await emailCitizen(env, origin, "MOVED_UP", g, { category, wardName: chain.localUnit.name, label: o.label, dueMs, reason, indexKey: index + ":" + marker });
   await emailCaseUpdate(env, origin, g, "MOVED_UP", { category, wardName: chain.localUnit.name, label: o.label, stamp: index + ":" + marker });
@@ -718,11 +761,13 @@ export async function notifyObservation(env, origin, emails, obsId, office, what
 
 // ------------------------------------------------------ the hourly job
 // Loads every open case with its chain and category in a few queries.
-async function openCasesWithChains(env) {
+// onlyPriority (grieviq-89, the 5-minute job): danger complaints only.
+async function openCasesWithChains(env, onlyPriority) {
+  const w = onlyPriority ? " AND priority IS NOT NULL AND priority <> '' AND priority_off_at IS NULL" : "";
   const [cases, cats, units, mlas, mps, mbs] = await env.DB.batch([
-    env.DB.prepare(`SELECT * FROM grievances WHERE status IN ('OPEN','ACKNOWLEDGED')`),
+    env.DB.prepare(`SELECT * FROM grievances WHERE status IN ('OPEN','ACKNOWLEDGED')` + w),
     env.DB.prepare("SELECT * FROM grievance_categories"),
-    env.DB.prepare("SELECT * FROM local_units WHERE id IN (SELECT local_unit_id FROM grievances WHERE status IN ('OPEN','ACKNOWLEDGED'))"),
+    env.DB.prepare("SELECT * FROM local_units WHERE id IN (SELECT local_unit_id FROM grievances WHERE status IN ('OPEN','ACKNOWLEDGED')" + w + ")"),
     env.DB.prepare("SELECT * FROM mla_constituencies"),
     env.DB.prepare("SELECT * FROM mp_constituencies"),
     env.DB.prepare("SELECT * FROM municipal_bodies"),
@@ -816,6 +861,107 @@ export async function runNotifications(env, origin, nowMs) {
   return done;
 }
 
+// ------------------------------------------------- the 5-minute job (grieviq-89)
+// Notices held for an office's quiet hours go out when they end. A new
+// complaint for a department office that no phone took is emailed then.
+export async function releaseHeld(env, origin, nowMs) {
+  const now = new Date(nowMs || Date.now()).toISOString();
+  let rows = [];
+  try {
+    rows = (await env.DB.prepare("SELECT * FROM notifications WHERE held_until IS NOT NULL AND held_until <= ? ORDER BY created_at LIMIT 200").bind(now).all()).results || [];
+  } catch (e) { return 0; }
+  if (!rows.length) return 0;
+  await env.DB.prepare("UPDATE notifications SET held_until = NULL WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(rows.map((r) => r.id))).run();
+  const live = rows.filter((r) => !r.read_at && !r.seen_at);
+  if (live.length) await deliver(env, origin, live, { noHold: true });
+  const deptNew = live.filter((r) => r.kind === KIND.DEPT_O_NEW);
+  if (deptNew.length) {
+    const { results } = await env.DB.prepare("SELECT recipient FROM notifications WHERE id IN (SELECT value FROM json_each(?)) AND pushed_at IS NOT NULL").bind(JSON.stringify(deptNew.map((r) => r.id))).all();
+    const pushed = new Set((results || []).map((r) => r.recipient));
+    for (const r of deptNew) {
+      if (pushed.has(r.recipient)) continue;
+      const o = await env.DB.prepare("SELECT id, email, name FROM dept_officers WHERE id = ? AND status = 'ACTIVE'").bind(String(r.recipient).slice(5)).first();
+      const key = String(r.dedupe_key).split("|")[0].replace(/^DEPTNEW:/, "");
+      if (o) await deptNewEmail(env, origin, o, key);
+    }
+    await flushOutbox(env, 10);
+  }
+  return live.length;
+}
+
+// The offices that hold a case now: the current level's office, or the ward
+// members' offices for the ward level of a ward with several members.
+async function currentOffices(env, g, chain, idx) {
+  const o0 = chainOffices(chain)[idx];
+  if (!o0) return [];
+  if (o0.tier === "LOCAL" && chain.tiers[0].multi) return (await caseLocalOffices(env, g, chain.localUnit)).map((x) => ({ tier: "LOCAL", id: x.id, email: x.email }));
+  return [o0];
+}
+
+// A danger complaint not acknowledged gets a reminder at 2 and at 4 hours
+// (day or night) to the office that holds it; a danger complaint forwarded
+// to a department office on the dashboard with no reply after 4 hours gets
+// one reminder to its officers. Returns the danger complaints that have
+// reached GrievIQ staff: not acknowledged in time, with an office that has
+// no one on GrievIQ, or past the last level's time.
+export async function runDangerReminders(env, origin, list, nowMs) {
+  const now = nowMs || Date.now();
+  const out = { reminders: 0, dept: 0, staff: [] };
+  for (const { g, category, chain } of list) {
+    try {
+      if (!isPriority(g) || (g.assisted_pilot && !g.assisted_handed_at)) continue;
+      const r = computeEscalation(g, category, chain.tiers);
+      const offices = await currentOffices(env, g, chain, r.currentTierIndex);
+      const ends = r.levelEnds || [];
+      const lastEnd = ends.length ? ends[ends.length - 1] : null;
+      if (r.ackOverdue || !offices.some((o) => o.email) || (lastEnd != null && now >= lastEnd)) { out.staff.push(g.id); continue; }
+      if (g.acknowledged_at) continue;
+      const waitedH = (now - r.clockStartMs) / 3600000;
+      const due = PRIO_REMIND_HOURS.filter((h) => waitedH >= h);
+      if (!due.length) continue;
+      const h = due[due.length - 1];
+      for (const o of offices) {
+        const people = await officeRecipients(env, o.tier, o.id, chain.localUnit.id, o.email);
+        const made = await createNotices(env, origin, people, { kind: KIND.PRIO_REMIND, key: "PRIREM:" + g.id + ":" + r.clockStartMs + ":" + h + ":" + o.tier + ":" + o.id,
+          officeTier: o.tier, officeId: o.id, g, category, wardName: chain.localUnit.name, data: { hours: h, priority: true } });
+        out.reminders += made;
+      }
+    } catch (e) { /* next case */ }
+  }
+  // Departments.
+  try {
+    const ids = list.filter((x) => isPriority(x.g)).map((x) => x.g.id);
+    const stepsBy = ids.length ? await loadSteps(env, ids) : new Map();
+    for (const { g } of list) {
+      const steps = stepsBy.get(g.id);
+      if (!steps || !steps.length) continue;
+      const last = steps[steps.length - 1];
+      if (last.kind !== STEP.FORWARDED || !last.office_id) continue;
+      const age = now - Date.parse(last.created_at);
+      if (age < DEPT_PRIO_HOURS * 3600000 || age > 48 * 3600000) continue;
+      out.dept += (await notifyDeptOfficers(env, origin, last.office_id, g, KIND.DEPT_O_PRIO, "DEPTPRIO:" + last.id, { hours: DEPT_PRIO_HOURS, priority: true })).length;
+    }
+  } catch (e) { /* ignore */ }
+  return out;
+}
+
+// Every 5 minutes (worker): held notices, danger reminders, staff alerts.
+export async function runFrequent(env, origin, nowMs) {
+  const now = nowMs || Date.now();
+  const done = { released: 0, danger: null, staff: null, errors: 0 };
+  try { done.released = await releaseHeld(env, origin, now); } catch (e) { done.errors++; }
+  let staffDanger = null;
+  try {
+    const list = await openCasesWithChains(env, true);
+    const d = await runDangerReminders(env, origin, list, now);
+    staffDanger = d.staff;
+    done.danger = { reminders: d.reminders, dept: d.dept, atStaff: d.staff.length };
+  } catch (e) { done.errors++; }
+  try { done.staff = await runStaffAlerts(env, origin, now, staffDanger); } catch (e) { done.errors++; }
+  try { await flushOutbox(env, 20); } catch (e) { done.errors++; }
+  return done;
+}
+
 // Departments stage 3: when a department's target time passes on an open
 // case, the representative's office that forwarded it is told once (per
 // forwarding or sent-back field check: the dedupe key carries the due time).
@@ -898,18 +1044,26 @@ export async function notifyDeptOfficers(env, origin, officeId, g, kind, key, da
 // phone or computer didn't take it (alerts not turned on) is emailed
 // instead (no details, only the link). key: the forwarding step's id.
 export async function notifyDeptForwarded(env, origin, officeId, key, g) {
-  const officers = await notifyDeptOfficers(env, origin, officeId, g, KIND.DEPT_O_NEW, "DEPTNEW:" + key);
+  const officers = await notifyDeptOfficers(env, origin, officeId, g, KIND.DEPT_O_NEW, "DEPTNEW:" + key, isPriority(g) ? { priority: true } : null);
   if (!officers.length) return 0;
   let pushed = new Set();
   try {
-    const { results } = await env.DB.prepare("SELECT recipient FROM notifications WHERE dedupe_key IN (SELECT value FROM json_each(?)) AND pushed_at IS NOT NULL")
+    // grieviq-89: held for quiet hours: the email goes when they end, if no phone took it.
+    const { results } = await env.DB.prepare("SELECT recipient FROM notifications WHERE dedupe_key IN (SELECT value FROM json_each(?)) AND (pushed_at IS NOT NULL OR held_until IS NOT NULL)")
       .bind(JSON.stringify(officers.map((o) => "DEPTNEW:" + key + "|" + officerRecipient(o.id)))).all();
     pushed = new Set((results || []).map((r) => r.recipient));
   } catch (e) { /* email everyone */ }
-  const url = origin + "/dept";
   let emailed = 0;
   for (const o of officers) {
     if (pushed.has(officerRecipient(o.id))) continue;
+    await deptNewEmail(env, origin, o, key);
+    emailed++;
+  }
+  if (emailed) await flushOutbox(env, 10);
+  return officers.length;
+}
+async function deptNewEmail(env, origin, o, key) {
+    const url = origin + "/dept";
     const html = "<p>Dear " + esc(o.name) + ",</p><p>A complaint has just been sent to your office on GrievIQ. Please open the department dashboard to see it and reply.</p>" +
       `<p><a href="${esc(url)}">Open the department dashboard</a></p>` +
       "<p>To get these alerts on your phone instead, open the bell on the dashboard and turn on alerts.</p>" +
@@ -919,10 +1073,6 @@ export async function notifyDeptForwarded(env, origin, officeId, key, g) {
       "<p>ये सूचनाएँ अपने फ़ोन पर पाने के लिए डैशबोर्ड पर घंटी खोलें और सूचनाएँ चालू करें।</p>" +
       "<p>सुरक्षा के लिए GrievIQ ईमेल में शिकायत का विवरण नहीं भेजता और कभी आपका साइन-इन कोड नहीं माँगता।</p>";
     await queueEmail(env, o.email, "DEPT_NEW", "DEPTNEW:" + o.id + ":" + key, "GrievIQ: a new complaint for your office · आपके कार्यालय के लिए नई शिकायत", html, null);
-    emailed++;
-  }
-  if (emailed) await flushOutbox(env, 10);
-  return officers.length;
 }
 
 // grieviq-32: 9:00 am, one short email to each department officer whose

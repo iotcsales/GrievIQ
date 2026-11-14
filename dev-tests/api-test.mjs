@@ -4697,15 +4697,22 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(!r.body.localUnits.find((u) => u.id === "lu-hazratganj").assisted, "a joined ward is not marked assisted");
 
   // Filing
+  // grieviq-89: staff alerts all day here, so the first alert goes out at once.
+  sdb.prepare("INSERT OR REPLACE INTO admin_settings (key, value, updated_by, updated_at) VALUES ('staff_alert_hours', ?, 'test', ?)").run(JSON.stringify({ days: [0, 1, 2, 3, 4, 5, 6], from: "00:00", to: "23:59" }), new Date().toISOString());
+  const alertMails = (to) => (fs.existsSync(MAIL) ? fs.readFileSync(MAIL, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []).filter((x) => (x.to || []).includes(to) && /Needs you now/.test(x.subject));
+  const sup88Before = alertMails("sup88@test.in").length;
   r = await file("lu-as1", { citizen_email: "cit88@x.in", description: "Water pipe leaking near the temple gate. Call me on 98765 43210 please" });
   const c1Ref = r.body.tracking_ref, c1 = gid(c1Ref);
-  for (let i = 0; i < 20 && outbox("sup88@test.in", "ASSISTED_NEW").length < 1; i++) await settle();
+  for (let i = 0; i < 20 && alertMails("sup88@test.in").length <= sup88Before; i++) await settle();
   ok(r.status === 200 && r.body.next && r.body.next.assisted === true && !r.body.next.ackBy, "filed in an assisted ward: no office time limits promised", r.body);
   ok(sdb.prepare("SELECT assisted_pilot FROM grievances WHERE id = ?").get(c1).assisted_pilot === pid, "the complaint is marked as assisted");
   let m = outbox("cit88@x.in", "CITIZEN_ASSISTED_RECEIVED");
   ok(m.length === 1 && /not joined GrievIQ yet/.test(m[0].html) && /cannot promise/.test(m[0].html) && !outbox("cit88@x.in", "CITIZEN_RECEIVED").length, "the citizen is told honestly who handles it", m.map((x) => x.subject));
-  m = outbox("super@test.in", "ASSISTED_NEW");
-  ok(m.length === 1 && !m[0].html.includes(c1Ref) && !/temple/.test(m[0].html) && outbox("sup88@test.in", "ASSISTED_NEW").length === 1 && !outbox("audit@test.in", "ASSISTED_NEW").length, "staff get an alert with no details", m.map((x) => x.html));
+  // grieviq-89: "Needs you now" for operations and support staff (no phone alerts on: by email), no details.
+  m = alertMails("sup88@test.in").slice(sup88Before);
+  const al1 = sdb.prepare("SELECT * FROM staff_alerts WHERE kind = 'ASSISTED_NEW' AND item_id = ?").get(c1);
+  ok(al1 && al1.alerted_at && m.length === 1 && !m[0].html.includes(c1Ref) && !/temple|Swaroop/.test(m[0].html) && alertMails("ops@test.in").some((x) => x.html.includes("admin-assisted")) &&
+    !alertMails("audit@test.in").length && !outbox("sup88@test.in", "ASSISTED_NEW").length, "staff get an alert with no details", [al1, m.map((x) => x.html)]);
   ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ?").get(c1).n === 0, "no office is alerted (none has joined)");
   r = await file("lu-as2", { description: "Garbage not lifted from the corner for days now" });
   const c2Ref = r.body.tracking_ref, c2 = gid(c2Ref);
@@ -4857,6 +4864,289 @@ ok(g.body.gapReports.some((x) => x.unitId === "lu-hazratganj" && x.department ==
   ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part57 adds none)");
   // Out of the way of the browser tests, which count Lucknow's wards.
   sdb.prepare("UPDATE local_units SET area_id = 'kanpur' WHERE id IN ('lu-as1', 'lu-as2')").run();
+}
+
+// ---- grieviq-89: alerts that can't be missed ----
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createHash } = await import("node:crypto");
+  const sdb = ((d) => (d.exec("PRAGMA busy_timeout = 5000"), d))(new DatabaseSync(process.argv[2] || "test.db"));
+  const fs = await import("node:fs");
+  const WORK = process.env.GRIEVIQ_TEST_DIR || "/tmp/grieviq-tests";
+  const H = 3600000, MIN = 60000;
+  const mails = () => fs.readFileSync(WORK + "/mail.log", "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const pushes = () => fs.readFileSync(WORK + "/push.log", "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const to = (list, who) => list.filter((m) => (m.to || []).includes(who));
+  const iso = (ms) => new Date(ms).toISOString();
+  const settle = () => new Promise((res) => setTimeout(res, 300));
+  const run = async () => (await fetch(B + "/__test/run-frequent", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+  const AL = (w, q) => call(w, "GET", "/api/admin/alerts" + (q || ""));
+  const ALP = (w, b) => call(w, "POST", "/api/admin/alerts", b);
+  const alertOf = (kind, item) => sdb.prepare("SELECT * FROM staff_alerts WHERE kind = ? AND item_id = ?").get(kind, String(item));
+  const ALLDAY = JSON.stringify({ days: [0, 1, 2, 3, 4, 5, 6], from: "00:00", to: "23:59" });
+  const allDay = () => sdb.prepare("INSERT OR REPLACE INTO admin_settings (key, value, updated_by, updated_at) VALUES ('staff_alert_hours', ?, 'test', ?)").run(ALLDAY, iso(Date.now()));
+  allDay();
+  const kp = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const p256dh = Buffer.from(new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey))).toString("base64url");
+  const authKey = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64url");
+  let n89 = 0;
+  const pilot = (extra) => { n89++; return fetch(B + "/api/pilot-request", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "10.89.0." + n89, "user-agent": "pilot-89-" + n89 },
+    body: JSON.stringify(Object.assign({ name: "Kiran Verma", office: "COUNCILLOR", place: "Kanpur Ward 7", mobile: "98989" + String(10000 + n89).slice(-5), consent: true, form_loaded_at: Date.now() - 60000 }, extra || {})) }).then(async (x) => ({ status: x.status, body: await x.json() })); };
+  const lastPilot = () => sdb.prepare("SELECT id FROM pilot_requests ORDER BY created_at DESC LIMIT 1").get().id;
+  const SM = "sm@test.in", SX = "sx@test.in";
+
+  // Access
+  ok((await AL("audit@test.in")).status === 403 && (await AL("mod@test.in")).status === 403 && (await AL("deo@test.in")).status === 403, "auditor, moderator and data entry have no alerts");
+  let r = await AL(SM);
+  ok(r.status === 200 && r.body.ready && r.body.kinds.map((k) => k.kind).join() === "PILOT_REQUEST" && !r.body.canHours && !r.body.log, "sales manager: pilot requests only, no working-hours setting", r.body.kinds);
+  r = await AL("ops@test.in");
+  ok(r.status === 200 && ["ASSISTED_DANGER", "STAFF_DANGER", "PILOT_REQUEST", "ASSISTED_NEW"].every((k) => r.body.kinds.some((x) => x.kind === k)) && r.body.kinds.find((x) => x.kind === "STAFF_DANGER").locked, "operations admin: all four, danger locked on", r.body.kinds);
+  r = await AL("sup88@test.in");
+  ok(!r.body.kinds.some((x) => x.kind === "PILOT_REQUEST" || x.kind === "STAFF_DANGER") && r.body.kinds.some((x) => x.kind === "ASSISTED_DANGER"), "support: assisted wards only", r.body.kinds);
+  r = await AL("super@test.in");
+  ok(r.body.canHours && r.body.log && r.body.log.summary.length === 4 && r.body.hours.from === "00:00", "super admin: working hours and the 30-day log", r.body.log && r.body.log.summary);
+  ok((await call(SM, "GET", "/api/admin/whoami")).body.pages["admin-alerts"].allowed && !(await call("audit@test.in", "GET", "/api/admin/whoami")).body.pages["admin-alerts"].allowed, "the menu shows My alerts to the staff who get them");
+
+  // A pilot request: at once, content-free, to the sales team
+  sdb.prepare("UPDATE staff_alerts SET done_at = ?, done_reason = 'TEST' WHERE done_at IS NULL").run(iso(Date.now()));
+  r = await ALP(SM, { action: "subscribe", subscription: { endpoint: "https://fcm.googleapis.com/fcm/send/sm-phone-89", keys: { p256dh, auth: authKey } }, lang: "en", device: "Android · Chrome" });
+  ok(r.status === 200 && sdb.prepare("SELECT email FROM push_subscriptions WHERE endpoint LIKE '%sm-phone-89'").get().email === "staff:" + SM, "phone alerts on for a staff member (kept apart from any office account)", r.body);
+  const pu0 = pushes().length, m0 = mails().length;
+  r = await ALP(SM, { action: "test" });
+  ok(r.status === 200 && r.body.sent === 1 && pushes().length === pu0 + 1, "test alert reaches the phone", r.body);
+  r = await pilot();
+  const p1 = lastPilot();
+  for (let i = 0; i < 20 && !(alertOf("PILOT_REQUEST", p1) || {}).alerted_at; i++) await settle();
+  let a1 = alertOf("PILOT_REQUEST", p1);
+  ok(r.status === 200 && a1 && a1.alerted_at && !a1.always, "pilot request: alert at once (working hours)", a1);
+  let ms = mails().slice(m0).filter((m) => /Needs you now/.test(m.subject));
+  ok(pushes().slice(pu0 + 1).some((p) => p.endpoint.includes("sm-phone-89")) && !to(ms, SM).length, "the manager's phone took it, so no email to them");
+  ok(to(ms, SX).length === 1 && !ms.some((m) => /Kiran|98989|Ward 7/.test(m.html + m.subject)) && /admin-pilot-requests/.test(to(ms, SX)[0].html) && !to(ms, "sup88@test.in").length && !to(ms, "super@test.in").length,
+    "no phone: the first alert by email, with no name, number or place; not to other roles", ms.map((m) => m.to));
+  r = await AL(SM, "?bar=1");
+  let it = r.body.items.find((x) => x.id === a1.id);
+  ok(it && it.kind === "PILOT_REQUEST" && it.where === "Kanpur Ward 7" && it.alerting && !it.takenBy && it.page === "/admin-pilot-requests.html", "the red bar shows it (kind, place, waiting time)", it);
+  ok(!(await AL("sup88@test.in", "?bar=1")).body.items.some((x) => x.id === a1.id), "support staff don't see pilot requests");
+
+  // 15 minutes, then 1 hour
+  sdb.prepare("UPDATE staff_alerts SET alerted_at = ? WHERE id = ?").run(iso(Date.now() - 16 * MIN), a1.id);
+  const pu1 = pushes().length;
+  r = await run();
+  a1 = alertOf("PILOT_REQUEST", p1);
+  ok(r.staff.again >= 1 && a1.realerted_at && !a1.escalated_at && pushes().slice(pu1).some((p) => p.endpoint.includes("sm-phone-89")), "not taken in 15 minutes: alerted again", r);
+  r = await run();
+  ok(r.staff.again === 0, "only once");
+  sdb.prepare("UPDATE staff_alerts SET alerted_at = ? WHERE id = ?").run(iso(Date.now() - 61 * MIN), a1.id);
+  const m1 = mails().length;
+  r = await run();
+  a1 = alertOf("PILOT_REQUEST", p1);
+  ms = to(mails().slice(m1), "super@test.in");
+  ok(a1.escalated_at && ms.length === 1 && /Nobody has taken this for an hour/.test(ms[0].subject) && !/Kiran|Ward 7/.test(ms[0].html), "not taken in 1 hour: the super admin is alerted and emailed (no details)", ms.map((m) => m.subject));
+  r = await run();
+  ok(r.staff.escalated === 0, "the super admin is told once");
+
+  // I'll take it: one owner
+  r = await ALP(SX, { action: "take", id: a1.id });
+  ok(r.status === 200 && r.body.page === "/admin-pilot-requests.html" && alertOf("PILOT_REQUEST", p1).taken_by === SX, "I'll take it", r.body);
+  r = await ALP(SM, { action: "take", id: a1.id });
+  ok(r.status === 409 && r.body.code === "TAKEN" && r.body.takenBy === "Sara Sales", "the second person is told who has it", r.body);
+  ok((await ALP("sup88@test.in", { action: "take", id: a1.id })).status === 404, "someone outside the role can't take it");
+  it = (await AL(SM, "?bar=1")).body.items.find((x) => x.id === a1.id);
+  ok(it && it.takenBy === "Sara Sales" && !it.alerting && !it.mine, "others see who took it; alerts stop", it);
+  it = (await AL(SX, "?bar=1")).body.items.find((x) => x.id === a1.id);
+  ok(it && it.mine && it.takenBy === "ME", "the owner sees it as theirs");
+  const pu2 = pushes().length;
+  sdb.prepare("UPDATE staff_alerts SET realerted_at = NULL WHERE id = ?").run(a1.id);
+  await run();
+  ok(!alertOf("PILOT_REQUEST", p1).realerted_at && pushes().length === pu2, "a taken item alerts nobody again");
+  // 4 working hours: one reminder to the owner only
+  sdb.prepare("UPDATE staff_alerts SET taken_at = ? WHERE id = ?").run(iso(Date.now() - 5 * H), a1.id);
+  const m2 = mails().length;
+  r = await run();
+  ms = mails().slice(m2).filter((m) => /still open/.test(m.subject));
+  ok(r.staff.ownerReminders === 1 && ms.length === 1 && ms[0].to[0] === SX, "still open 4 working hours later: one reminder, to the owner", ms.map((m) => m.to));
+  ok((await run()).staff.ownerReminders === 0, "the reminder goes once");
+  // Done when the work is done
+  r = await call(SX, "POST", "/api/admin/pilot-requests", { id: p1, status: "CONTACTED", note: "Called back" });
+  a1 = alertOf("PILOT_REQUEST", p1);
+  ok(r.status === 200 && a1.done_at && a1.done_reason === "CONTACTED" && !(await AL(SM, "?bar=1")).body.items.some((x) => x.id === a1.id), "marked Contacted: the alert is finished", a1);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'alert_taken' AND target = ?").get(a1.id).n === 1, "taking is logged");
+
+  // My settings: switch a kind off (not danger)
+  r = await ALP(SM, { action: "pref", kind: "PILOT_REQUEST", on: false });
+  ok(r.status === 200 && !(await AL(SM)).body.kinds[0].on, "a staff member switches pilot-request alerts off for themselves");
+  ok((await ALP("ops@test.in", { action: "pref", kind: "STAFF_DANGER", on: false })).body.code === "LOCKED", "danger alerts can't be switched off");
+  ok((await ALP(SM, { action: "pref", kind: "STAFF_DANGER", on: false })).status === 400, "only kinds of one's own role");
+  const pu3 = pushes().length, m3 = mails().length;
+  await pilot();
+  const p2 = lastPilot();
+  for (let i = 0; i < 20 && !(alertOf("PILOT_REQUEST", p2) || {}).alerted_at; i++) await settle();
+  ok(alertOf("PILOT_REQUEST", p2).alerted_at && !pushes().slice(pu3).some((p) => p.endpoint.includes("sm-phone-89")) && to(mails().slice(m3), SX).length === 1, "switched off: that person gets nothing; the rest of the team still does");
+  await ALP(SM, { action: "pref", kind: "PILOT_REQUEST", on: true });
+  // Sales executives covering another state don't get a request from a state they don't cover
+  sdb.prepare("UPDATE pilot_requests SET status = 'CLOSED' WHERE id = ?").run(p2);
+  await run();
+  ok(alertOf("PILOT_REQUEST", p2).done_at, "closed on its page: finished on the next run");
+
+  // Working hours (super admin)
+  ok((await ALP("ops@test.in", { action: "hours", days: [1], from: "09:00", to: "19:00" })).status === 403, "only the super admin sets working hours");
+  r = await ALP("super@test.in", { action: "hours", days: [], from: "19:00", to: "09:00" });
+  ok(r.status === 400 && r.body.fields.days === "REQUIRED" && r.body.fields.to === "AFTER", "working hours checked", r.body);
+  const tomorrow = (new Date(Date.now() + 5.5 * H).getUTCDay() + 1) % 7;
+  r = await ALP("super@test.in", { action: "hours", days: [tomorrow], from: "09:00", to: "19:00" });
+  ok(r.status === 200 && sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'alert_hours'").get().n >= 1, "working hours saved and logged", r.body);
+  const m4 = mails().length;
+  await pilot();
+  const p3 = lastPilot();
+  for (let i = 0; i < 10 && !alertOf("PILOT_REQUEST", p3); i++) await settle();
+  let a3 = alertOf("PILOT_REQUEST", p3);
+  const rel = Date.parse(a3.release_at);
+  ok(a3 && !a3.alerted_at && rel > Date.now() && new Date(rel + 5.5 * H).getUTCHours() === 9 && new Date(rel + 5.5 * H).getUTCDay() === tomorrow && !to(mails().slice(m4), SX).some((m) => /Needs you now/.test(m.subject)), "outside working hours: it waits until they start", a3);
+  it = (await AL(SM, "?bar=1")).body.items.find((x) => x.id === a3.id);
+  ok(it && it.waitsForHours && !it.alerting, "the bar shows it is waiting for working hours", it);
+  await run();
+  ok(!alertOf("PILOT_REQUEST", p3).alerted_at, "the 5-minute job keeps it waiting");
+  r = await ALP("super@test.in", { action: "hours", days: [0, 1, 2, 3, 4, 5, 6], from: "00:00", to: "23:59" });
+  a3 = alertOf("PILOT_REQUEST", p3);
+  ok(Date.parse(a3.release_at) <= Date.now() + 1000, "new working hours: waiting items start at the new time");
+  await run();
+  ok(alertOf("PILOT_REQUEST", p3).alerted_at, "and alert on the next run");
+  sdb.prepare("UPDATE pilot_requests SET status = 'CLOSED' WHERE id = ?").run(p3);
+  r = await AL("super@test.in");
+  const pr = r.body.log.summary.find((x) => x.kind === "PILOT_REQUEST");
+  ok(pr.count >= 3 && pr.missedHour >= 1 && r.body.log.recent.some((x) => x.takenBy === "Sara Sales"), "the log: counts, missed the hour, who took them", pr);
+
+  // Danger complaints: offices get reminders at 2 and 4 hours, day or night
+  sdb.prepare("INSERT INTO local_units (id,name,unit_type,mla_constituency_id,rep_email,area_id) VALUES ('lu-al1','Alert Nagar','URBAN','mla-c','r89@x.in','lucknow')").run();
+  const fileIn = async (extra) => {
+    n89++;
+    const x = await fetch(B + "/api/grievances/submit", { method: "POST", headers: { "content-type": "application/json", "user-agent": "ua-89-" + n89, "cf-connecting-ip": "10.89.1." + n89 },
+      body: JSON.stringify(Object.assign({ category_id: "water-sanitation", local_unit_id: "lu-al1", description: "Open manhole on the main road near the school gate", citizen_phone: "98789" + String(10000 + n89).slice(-5), consent: true, form_loaded_at: Date.now() - 60000, lang: "en" }, extra || {})) });
+    return { status: x.status, body: await x.json() };
+  };
+  const gid = (ref) => sdb.prepare("SELECT id FROM grievances WHERE tracking_ref = ?").get(ref).id;
+  r = await call("r89@x.in", "POST", "/api/notifications", { action: "subscribe", subscription: { endpoint: "https://fcm.googleapis.com/fcm/send/r89-phone", keys: { p256dh, auth: authKey } }, lang: "en", device: "Android · Chrome" });
+  ok(r.status === 200, "the councillor turned phone alerts on", r.body);
+  r = await fileIn({ priority: "OPEN_MANHOLE" });
+  ok(r.status === 200 && r.body.priority === true, "danger complaint filed", r.body);
+  const d1 = gid(r.body.tracking_ref);
+  await run();
+  ok(!sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'PRIO_REMIND'").get(d1).n, "no reminder before 2 hours");
+  sdb.prepare("UPDATE grievances SET created_at = ? WHERE id = ?").run(iso(Date.now() - 2.2 * H), d1);
+  const pu4 = pushes().length;
+  r = await run();
+  let rem = sdb.prepare("SELECT * FROM notifications WHERE grievance_id = ? AND kind = 'PRIO_REMIND'").all(d1);
+  ok(r.danger.reminders === 1 && rem.length === 1 && rem[0].recipient === "r89@x.in" && JSON.parse(rem[0].data).hours === 2 && rem[0].pushed_at && pushes().slice(pu4).some((p) => p.endpoint.includes("r89-phone")), "2 hours not acknowledged: reminder to the office", rem);
+  await run();
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'PRIO_REMIND'").get(d1).n === 1, "once at 2 hours");
+  sdb.prepare("UPDATE grievances SET created_at = ? WHERE id = ?").run(iso(Date.now() - 4.2 * H), d1);
+  // Quiet hours now: the danger reminder still goes at once
+  const istMin = Math.floor(((Date.now() + 5.5 * H) % (24 * H)) / MIN);
+  const hm = (m) => String(Math.floor(((m + 1440) % 1440) / 60)).padStart(2, "0") + ":" + String(((m + 1440) % 1440) % 60).padStart(2, "0");
+  r = await call("r89@x.in", "POST", "/api/quiet-hours", { tier: "LOCAL", id: "lu-al1", from: hm(istMin - 60), to: hm(istMin + 60) });
+  ok(r.status === 200 && r.body.setting.from === hm(istMin - 60) && !r.body.setting.isDefault, "the office sets its quiet hours", r.body);
+  const pu5 = pushes().length;
+  r = await run();
+  rem = sdb.prepare("SELECT * FROM notifications WHERE grievance_id = ? AND kind = 'PRIO_REMIND' ORDER BY created_at").all(d1);
+  ok(rem.length === 2 && JSON.parse(rem[1].data).hours === 4 && !rem[1].held_until && rem[1].pushed_at && pushes().slice(pu5).some((p) => p.endpoint.includes("r89-phone")), "4 hours: second reminder, even in quiet hours", rem.map((x) => [x.data, x.held_until]));
+  ok(rem.every((x) => !/manhole|school/i.test(x.data || "")), "reminders carry no complaint text");
+  // A complaint that isn't about danger waits out the quiet hours
+  const pu6 = pushes().length;
+  r = await fileIn({ description: "Water supply is low pressure in the mornings" });
+  const n1 = gid(r.body.tracking_ref);
+  for (let i = 0; i < 10 && !sdb.prepare("SELECT id FROM notifications WHERE grievance_id = ? AND kind = 'NEW_CASE'").get(n1); i++) await settle();
+  let nc = sdb.prepare("SELECT * FROM notifications WHERE grievance_id = ? AND kind = 'NEW_CASE'").get(n1);
+  ok(nc && nc.held_until && Date.parse(nc.held_until) > Date.now() && !nc.pushed_at && !pushes().slice(pu6).some((p) => p.endpoint.includes("r89-phone")), "quiet hours: the alert is in the bell, the phone alert waits", nc);
+  ok((await call("r89@x.in", "GET", "/api/notifications")).body.items.some((x) => x.id === nc.id), "it is in the bell at once");
+  sdb.prepare("UPDATE notifications SET created_at = ? WHERE id = ?").run(iso(Date.now() - 7 * H), nc.id);
+  const st2 = (sql, b) => ({ bind: (...y) => st2(sql, y), all: async () => ({ results: sdb.prepare(sql).all(...(b || [])).map((q) => ({ ...q })) }),
+    first: async () => { const q = sdb.prepare(sql).get(...(b || [])); return q ? { ...q } : null; }, run: async () => { const q = sdb.prepare(sql).run(...(b || [])); return { meta: { changes: Number(q.changes) } }; } });
+  const nf = await import(WORK + "/build-8788/_shared/notify.js");
+  await nf.reminderEmails({ DB: { prepare: (sql) => st2(sql, []), batch: async (l) => Promise.all(l.map((q) => q.all())) } }, "https://grieviq.in", Date.now());
+  ok(!sdb.prepare("SELECT emailed_at FROM notifications WHERE id = ?").get(nc.id).emailed_at, "no reminder email while it is held");
+  r = await call("r89@x.in", "GET", "/api/quiet-hours");
+  ok(r.status === 200 && r.body.offices.length === 1 && r.body.offices[0].canChange && r.body.offices[0].from === hm(istMin - 60), "the office reads its quiet hours", r.body);
+  ok((await call("r89@x.in", "POST", "/api/quiet-hours", { tier: "LOCAL", id: "lu-al1", from: "22:00", to: "22:00" })).body.fields.to === "SAME", "quiet hours checked");
+  ok((await call("r89@x.in", "POST", "/api/quiet-hours", { tier: "LOCAL", id: "lu-hazratganj", from: "22:00", to: "07:00" })).status === 403, "an office can't change another office's quiet hours");
+  r = await call("r89@x.in", "POST", "/api/quiet-hours", { tier: "LOCAL", id: "lu-al1", off: true });
+  ok(r.status === 200 && r.body.setting.off, "quiet hours switched off", r.body);
+  const pu7 = pushes().length;
+  r = await run();
+  nc = sdb.prepare("SELECT * FROM notifications WHERE id = ?").get(nc.id);
+  ok(r.released >= 1 && !nc.held_until && nc.pushed_at && pushes().slice(pu7).some((p) => p.endpoint.includes("r89-phone")), "the held alert goes out", [r, nc]);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM admin_events WHERE action = 'office_quiet_hours'").get().n >= 2, "quiet-hour changes are logged");
+  r = await call("r1@x.in", "GET", "/api/quiet-hours");
+  ok(r.status === 200 && r.body.offices.some((o) => o.id === "lu-hazratganj" && o.from === "22:00" && o.to === "07:00" && o.isDefault), "default quiet hours: 10 pm to 7 am", r.body.offices);
+
+  // Danger complaint not acknowledged in 24 hours: it reaches GrievIQ staff, day or night
+  sdb.prepare("UPDATE grievances SET created_at = ? WHERE id = ?").run(iso(Date.now() - 25 * H), d1);
+  sdb.prepare("INSERT OR REPLACE INTO admin_settings (key, value, updated_by, updated_at) VALUES ('staff_alert_hours', ?, 'test', ?)").run(JSON.stringify({ days: [tomorrow], from: "09:00", to: "19:00" }), iso(Date.now()));
+  const m5 = mails().length;
+  r = await run();
+  let ad = alertOf("STAFF_DANGER", d1);
+  ms = mails().slice(m5).filter((m) => /Needs you now/.test(m.subject));
+  ok(r.danger.atStaff >= 1 && ad && ad.always && ad.alerted_at && to(ms, "ops@test.in").length === 1 && !ms.some((m) => /manhole|Alert Nagar/i.test(m.html)), "danger complaint at staff: operations alerted at once, outside working hours too", [r.danger, ad]);
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'PRIO_REMIND'").get(d1).n === 2, "the office reminders stop once it is with staff");
+  it = (await AL("ops@test.in", "?bar=1")).body.items[0];
+  ok(it && it.id === ad.id && it.danger && it.page === "/admin-exceptions.html" && it.where.includes("Alert Nagar"), "danger first in the bar", it);
+  ok(!(await AL("sup88@test.in", "?bar=1")).body.items.some((x) => x.id === ad.id), "support staff don't get danger complaints at staff (operations do)");
+  sdb.prepare("UPDATE grievances SET acknowledged_at = ?, status = 'ACKNOWLEDGED' WHERE id = ?").run(iso(Date.now()), d1);
+  r = await run();
+  ok(alertOf("STAFF_DANGER", d1).done_at && alertOf("STAFF_DANGER", d1).done_reason === "NO_LONGER", "acknowledged: the staff alert finishes", alertOf("STAFF_DANGER", d1));
+  allDay();
+
+  // Department officers: a danger complaint forwarded with no reply in 4 hours
+  const OFF2 = "ae.zone3@nic.in";
+  const offRow = sdb.prepare("SELECT id, office_id FROM dept_officers WHERE email = ? AND status = 'ACTIVE'").get(OFF2);
+  r = await fileIn({ priority: "OPEN_MANHOLE", description: "Second open manhole near the market" });
+  const d2 = gid(r.body.tracking_ref);
+  sdb.prepare("UPDATE grievances SET acknowledged_at = ?, status = 'ACKNOWLEDGED' WHERE id = ?").run(iso(Date.now()), d2);
+  sdb.prepare("INSERT INTO case_dept_steps (id, grievance_id, kind, department, office_id, office_name, channel, actor, actor_role, by_office_tier, by_office_id, created_at) VALUES ('ds89', ?, 'FORWARDED', 'Water Supply', ?, 'Jal Kal', 'DASHBOARD', 'r89@x.in', 'REPRESENTATIVE', 'LOCAL', 'lu-al1', ?)")
+    .run(d2, offRow.office_id, iso(Date.now() - 3 * H));
+  await run();
+  ok(!sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'DEPT_O_PRIO'").get(d2).n, "no department reminder before 4 hours");
+  sdb.prepare("UPDATE case_dept_steps SET created_at = ? WHERE id = 'ds89'").run(iso(Date.now() - 4.5 * H));
+  r = await run();
+  const dp = sdb.prepare("SELECT * FROM notifications WHERE grievance_id = ? AND kind = 'DEPT_O_PRIO'").all(d2);
+  ok(r.danger.dept >= 1 && dp.some((x) => x.recipient === "dept:" + offRow.id) && dp.every((x) => !x.held_until), "4 hours with no reply: the department's officers get a reminder", dp.map((x) => x.recipient));
+  await run();
+  ok(sdb.prepare("SELECT COUNT(*) n FROM notifications WHERE grievance_id = ? AND kind = 'DEPT_O_PRIO'").get(d2).n === dp.length, "once");
+  // The department's quiet hours
+  const code = "246889";
+  sdb.prepare("INSERT INTO dept_codes (id, email, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").run("api89", OFF2, createHash("sha256").update(OFF2 + ":" + code).digest("hex"), iso(Date.now() + 600000), iso(Date.now()));
+  const vr = await fetch(B + "/api/dept/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: OFF2, code }) });
+  const CK = (vr.headers.get("set-cookie") || "").split(";")[0];
+  sdb.prepare("DELETE FROM dept_codes WHERE id = 'api89'").run();
+  const dq = async (method, body) => { const x = await fetch(B + "/api/dept/quiet-hours", { method, headers: { cookie: CK, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, body: await x.json() }; };
+  r = await dq("GET");
+  ok(vr.status === 200 && r.status === 200 && r.body.offices[0].tier === "DEPT" && r.body.offices[0].from === "22:00", "a department officer reads the office's quiet hours", r.body);
+  r = await dq("POST", { from: "21:00", to: "06:30" });
+  ok(r.status === 200 && r.body.setting.from === "21:00" && r.body.setting.to === "06:30", "and changes them", r.body);
+  ok((await fetch(B + "/api/dept/quiet-hours")).status === 401, "signed out: refused");
+
+  // A complaint in a GrievIQ-assisted ward that is about danger: day or night
+  // (ASSISTED_DANGER), done when forwarded (tested with the assisted wards above).
+  ok(sdb.prepare("SELECT COUNT(*) n FROM staff_alerts WHERE kind = 'ASSISTED_NEW' AND done_at IS NOT NULL AND done_reason = 'FORWARDED'").get().n >= 1, "assisted-ward alerts finish when the complaint is forwarded");
+
+  // Someone leaving GrievIQ: their phones stop, what they took goes back
+  sdb.prepare("INSERT INTO admin_users (id,email,role,name,employee_id) VALUES ('a89','sx89@test.in','sales_executive','Lata Sales','GIQ-089')").run();
+  sdb.prepare("INSERT INTO staff_alerts (id, kind, item_id, always, created_at, release_at, alerted_at, taken_by, taken_at) VALUES ('sa89', 'PILOT_REQUEST', 'p-89-x', 0, ?, ?, ?, 'sx89@test.in', ?)").run(iso(Date.now()), iso(Date.now()), iso(Date.now()), iso(Date.now()));
+  sdb.prepare("INSERT INTO push_subscriptions (id, email, endpoint, p256dh, auth, created_at) VALUES ('ps89', 'staff:sx89@test.in', 'https://fcm.googleapis.com/fcm/send/sx89', ?, ?, ?)").run(p256dh, authKey, iso(Date.now()));
+  sdb.prepare("INSERT INTO pilot_requests (id, created_at, name, office_kind, place, mobile, lang, consent_at, consent_text) VALUES ('p-89-x', ?, 'X', 'MLA', 'Somewhere', '9898900000', 'en', ?, 'x')").run(iso(Date.now()), iso(Date.now()));
+  r = await call("super@test.in", "POST", "/api/admin/staff", { action: "left", email: "sx89@test.in", lastDay: new Date(Date.now() + 5.5 * H).toISOString().slice(0, 10), reason: "Moved to another company" });
+  const back = sdb.prepare("SELECT * FROM staff_alerts WHERE id = 'sa89'").get();
+  ok(r.status === 200 && !back.taken_by && !back.alerted_at && !sdb.prepare("SELECT id FROM push_subscriptions WHERE id = 'ps89'").get(), "a person who leaves: phones off, what they took goes back to the team", [r.body, back]);
+  sdb.prepare("DELETE FROM pilot_requests WHERE id = 'p-89-x'").run();
+  await run();
+
+  // The scheduler: every 5 minutes; the hourly jobs once an hour as before
+  r = await (await fetch(B + "/__test/hourly-run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ times: ["2026-11-14T09:30:00Z", "2026-11-14T09:35:00Z", "2026-11-14T09:00:00Z", "2026-11-14T09:34:59Z"] }) })).json();
+  ok(JSON.stringify(r.hourly) === "[true,false,false,true]", "hourly jobs run only in the run at minute 30 UTC", r);
+  ok(sdb.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger'").get().n === 44, "still 44 triggers (part58 adds none)");
+  // Tidy up for the browser tests
+  sdb.prepare("UPDATE grievances SET status = 'CLOSED' WHERE local_unit_id = 'lu-al1'").run();
+  sdb.prepare("UPDATE local_units SET area_id = 'kanpur' WHERE id = 'lu-al1'").run();
+  sdb.prepare("UPDATE staff_alerts SET done_at = ?, done_reason = 'TEST' WHERE done_at IS NULL").run(iso(Date.now()));
 }
 
 // ---- audit trail ----

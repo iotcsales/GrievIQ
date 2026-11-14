@@ -39,6 +39,7 @@ import { dashboardOffices } from "../../_shared/dept-auth.js";
 import { notifyDeptForwarded, notifyNewCase, emailCaseUpdate, queueEmail, flushOutbox } from "../../_shared/notify.js";
 import { finalizeResolution } from "../../_shared/resolve-case.js";
 import { maskPersonal } from "../../_shared/misuse.js";
+import { markDone } from "../../_shared/alerts.js";
 
 const json = (body, status) => Response.json(body, { status: status || 200, headers: { "Cache-Control": "no-store" } });
 const has = (roles, perm) => [].concat(roles).some((r) => (PERMISSIONS[perm] || []).includes(r));
@@ -415,6 +416,7 @@ async function forward(ctx, b) {
     if (deptChannel === "EMAIL") await sendLink(ctx, g, "DEPT", dName, deptOffice.email);
     sentTo.push(dName);
   }
+  for (const k of ["ASSISTED_NEW", "ASSISTED_DANGER"]) await markDone(env, k, g.id, "FORWARDED");     // grieviq-89
   await emailCaseUpdate(env, origin, g, "ASSISTED_FORWARDED", { wardName: g.ward_name, category: { id: g.category_id, name: g.cat_name }, toName: sentTo.join(" · "), stamp: now });
   await logEvent(env, auth.email, "assisted_forwarded", g.id, { trackingRef: g.tracking_ref, office: office || null, dept: dept ? { department: deptKey, office: deptOffice ? deptOffice.id : null, channel: deptChannel } : null, minutes });
   return json({ ok: true, sentTo });

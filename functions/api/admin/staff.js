@@ -456,6 +456,9 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare("UPDATE admin_users SET status = 'LEFT', left_at = ?, left_reason = ?, leave_until = NULL, access_paused = 0, updated_at = ? WHERE LOWER(email) = ?").bind(lastDay, reason, now, email).run();
     await env.DB.prepare("UPDATE staff_covers SET ended_at = ?, ended_by = ?, end_reason = 'Left GrievIQ' WHERE (LOWER(away_email) = ? OR LOWER(cover_email) = ?) AND ended_at IS NULL").bind(now, auth.email, email, email).run();
     await logEvent(env, auth.email, "staff_left", email, { lastDay, reason, role: p.role });
+    // grieviq-89: their phones stop getting "Needs you now"; what they had taken goes back to the team.
+    try { await env.DB.prepare("DELETE FROM push_subscriptions WHERE email = ?").bind("staff:" + email).run(); } catch (e) { /* ignore */ }
+    try { await env.DB.prepare("UPDATE staff_alerts SET taken_by = NULL, taken_at = NULL, alerted_at = NULL, realerted_at = NULL, escalated_at = NULL, owner_reminded_at = NULL WHERE taken_by = ? AND done_at IS NULL").bind(email).run(); } catch (e) { /* before part58 */ }
     await endDuties(env, auth.email, p.id, email, DUTIES, "Left GrievIQ");
     // grieviq-78: their confidentiality duty continues (ISO 27001 6.5); the
     // leaving checklist opens on the Staff records page.

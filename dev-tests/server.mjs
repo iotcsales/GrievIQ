@@ -302,6 +302,18 @@ http.createServer(async (req, res) => {
       const out = await m.runAssisted(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now(), md.sendEmailNow);
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
     }
+    // Test only (grieviq-89): the 5-minute job (held notices, danger reminders, staff alerts) at a chosen time.
+    if (url.pathname === "/__test/run-frequent" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(build, "_shared", "notify.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      const out = await m.runFrequent(env, "http://localhost:" + port, b.now ? Date.parse(b.now) : Date.now());
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
+    }
+    if (url.pathname === "/__test/hourly-run" && req.method === "POST") {
+      const m = await import(pathToFileURL(path.join(repo, "worker", "index.js")).href);
+      const b = JSON.parse(body ? body.toString() : "{}");
+      res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ hourly: (b.times || []).map((t) => m.isHourlyRun(Date.parse(t))) }));
+    }
     // Test only: is a private file still kept? { key } -> { exists }
     if (url.pathname === "/__test/r2-has" && req.method === "POST") {
       const b = JSON.parse(body ? body.toString() : "{}");

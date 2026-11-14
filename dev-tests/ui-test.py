@@ -1761,7 +1761,7 @@ with sync_playwright() as pw:
         ctx.close()
 
     # Admin console: Help shows the parts for the person's role
-    for who, want in (("super@test.in", 32), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-assisted", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
+    for who, want in (("super@test.in", 33), ("deo@test.in", ["gqd-data", "gqd-addrep", "gqd-seats", "gqd-handover"]), ("audit@test.in", ["gqd-misuse", "gqd-assisted", "gqd-bills", "gqd-onlinepay", "gqd-helpers", "gqd-subs", "gqd-notices", "gqd-gov", "gqd-accounts", "gqd-onboarding", "gqd-staff", "gqd-audit", "gqd-retention"])):
         for theme in ("dark", "light"):
             ctx, p, errs = P(who, theme=theme, width=375 if who.startswith("deo") else 1280)
             p.goto(B + "/admin-dashboard.html"); p.wait_for_selector("#adm-help", state="attached")
@@ -5115,6 +5115,122 @@ window.Razorpay.prototype.open = function () {
         ok(not errs, "Track (assisted): no script errors " + tag, errs)
         ctx.close()
     _d88.execute("UPDATE assisted_pilots SET stopped_at = ? WHERE id = 'pilot-ui88'", (_iso88(),)); _d88.commit()
+
+    # ---------- grieviq-89: alerts that can't be missed ----------
+    _d89 = _sq86.connect(os.path.join(WORK, "test.db"), timeout=10)
+    _now89 = _dt86.datetime.now(_dt86.timezone.utc)
+    _iso89 = lambda m=0: (_now89 + _dt86.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    _d89.execute("UPDATE staff_alerts SET done_at = ?, done_reason = 'TEST' WHERE done_at IS NULL", (_iso89(),))
+    for _t, _c, _v in (("staff_alerts", "id", "ui89-p"), ("staff_alerts", "id", "ui89-d"), ("pilot_requests", "id", "p-ui89"), ("grievances", "id", "g89d"), ("staff_alert_prefs", "email", "super@test.in"), ("office_quiet_hours", "office_id", "lu-hazratganj")):
+        _d89.execute("DELETE FROM %s WHERE %s = ?" % (_t, _c), (_v,))
+    _d89.execute("INSERT OR REPLACE INTO admin_settings (key, value, updated_by, updated_at) VALUES ('staff_alert_hours', ?, 'test', ?)", (_js86.dumps({"days": [0, 1, 2, 3, 4, 5, 6], "from": "09:00", "to": "19:00"}), _iso89()))
+    _d89.execute("INSERT INTO pilot_requests (id, created_at, name, office_kind, place, mobile, lang, consent_at, consent_text) VALUES ('p-ui89', ?, 'Kiran Verma', 'COUNCILLOR', 'Kanpur Ward 9', '9898912345', 'en', ?, 'x')", (_iso89(-23), _iso89(-23)))
+    _d89.execute("INSERT INTO grievances (id, tracking_ref, citizen_phone, local_unit_id, category_id, status, description, current_tier, created_at, priority) VALUES ('g89d', 'GRV-89DG01', '9811189000', 'lu-hazratganj', 'water-sanitation', 'OPEN', 'Open manhole by the school', 'LOCAL', ?, 'OPEN_MANHOLE')", (_iso89(-60 * 25),))
+    def _seed89():
+        _d89.execute("DELETE FROM staff_alerts WHERE id IN ('ui89-p', 'ui89-d')")
+        _d89.execute("INSERT INTO staff_alerts (id, kind, item_id, always, created_at, release_at, alerted_at) VALUES ('ui89-p', 'PILOT_REQUEST', 'p-ui89', 0, ?, ?, ?)", (_iso89(-23), _iso89(-23), _iso89(-23)))
+        _d89.execute("INSERT INTO staff_alerts (id, kind, item_id, always, created_at, release_at, alerted_at) VALUES ('ui89-d', 'STAFF_DANGER', 'g89d', 1, ?, ?, ?)", (_iso89(-6), _iso89(-6), _iso89(-6)))
+        _d89.commit()
+
+    # The red bar on every admin page
+    for theme, lang, width in (("dark", "en", 1280), ("light", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        _seed89()
+        ctx, p, errs = P("ops@test.in", width=width, theme=theme, lang=lang)
+        p.goto(B + "/admin-cases.html"); p.wait_for_selector("#adm-alerts:not([hidden]) li")
+        rows = p.locator("#adm-alerts li")
+        ok(rows.count() == 2 and "danger" in (rows.nth(0).get_attribute("class") or "") and p.locator("#adm-alerts .take").count() == 2, "bar: two items, danger first " + tag, rows.count())
+        txt = p.inner_text("#adm-alerts")
+        ok("Kanpur Ward 9" in txt and "Hazratganj" in txt and "Kiran" not in txt and "98989" not in txt and "manhole" not in txt and not re.findall(r"\bal\.\w+", txt), "bar: place or ward and waiting time only, translated " + tag, txt[:200])
+        ok(p.get_attribute("#adm-alerts", "aria-labelledby") == "adm-al-h" and p.locator("#adm-al-live[aria-live=polite]").count() == 1, "bar: a labelled region, new items announced " + tag)
+        bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('#adm-alerts')", 1))
+        ok(not bad and no_hscroll(p), "bar AA, no sideways scroll " + tag, bad[:4])
+        ok(not p.evaluate(CONTRAST_JS), "the page under the bar AA too " + tag, p.evaluate(CONTRAST_JS)[:4])
+        tgt = p.evaluate("() => Array.from(document.querySelectorAll('#adm-alerts button, #adm-alerts a')).filter(e => { const r = e.getBoundingClientRect(); return r.height < 24 || r.width < 24; }).length")
+        ok(tgt == 0, "bar: targets at least 24 px " + tag, tgt)
+        p.locator("#adm-alerts").screenshot(path=os.path.join(SHOTS, "89-bar-%s-%d.png" % (lang, width)))
+        p.click("#adm-alerts .chime")
+        ok(p.get_attribute("#adm-alerts .chime", "aria-pressed") == "true" and p.evaluate("document.activeElement.classList.contains('chime')"), "chime muted for an hour, focus kept " + tag)
+        p.click("#adm-alerts .chime")
+        ok(p.get_attribute("#adm-alerts .chime", "aria-pressed") == "false", "chime back on " + tag)
+        with p.expect_response(lambda r: r.request.method == "POST" and "/api/admin/alerts" in r.url): p.click('#adm-alerts li[data-alert="ui89-p"] .take')
+        p.wait_for_selector('#adm-alerts a.btn[data-id="ui89-p"]')
+        ok(_d89.execute("SELECT taken_by FROM staff_alerts WHERE id = 'ui89-p'").fetchone()[0] == "ops@test.in" and p.evaluate("document.activeElement.getAttribute('data-id')") == "ui89-p", "I'll take it: mine, focus on Open " + tag)
+        mine = p.inner_text('#adm-alerts li[data-alert="ui89-p"]')
+        ok(("Contacted" in mine) if lang == "en" else ("संपर्क किया" in mine), "taken: what to do next " + tag, mine)
+        ok(not p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('#adm-alerts')", 1)), "bar after taking AA " + tag)
+        if lang == "en": p.locator("#adm-alerts").screenshot(path=os.path.join(SHOTS, "89-bar-taken.png"))
+        ok(not errs, "bar: no script errors " + tag, errs)
+        ctx.close()
+    # Someone else sees it taken (not in their bar), and the bar is gone for roles without alerts
+    ctx, p, errs = P("super@test.in")
+    p.goto(B + "/admin-cases.html"); p.wait_for_selector("#adm-alerts:not([hidden]) li")
+    ok(p.locator('#adm-alerts li[data-alert="ui89-p"]').count() == 0 and p.locator('#adm-alerts li[data-alert="ui89-d"]').count() == 1, "taken by someone else: gone from my bar")
+    ok(not errs, "super bar: no script errors", errs); ctx.close()
+    ctx, p, errs = P("audit@test.in")
+    p.goto(B + "/admin-cases.html"); p.wait_for_timeout(1500)
+    ok(p.locator("#adm-alerts:not([hidden])").count() == 0, "auditor: no alert bar"); ctx.close()
+
+    # My alerts page
+    for theme, lang, width in (("dark", "en", 1280), ("light", "hi", 375), ("light", "en", 1280)):
+        tag = "%s %s %d" % (theme, lang, width)
+        ctx, p, errs = P("super@test.in", width=width, theme=theme, lang=lang)
+        p.goto(B + "/admin-alerts.html"); p.wait_for_selector("#al-kinds-h")
+        txt = p.inner_text("#main")
+        ok(p.locator(".al-kinds input").count() == 4 and p.locator(".al-kinds input[disabled]").count() == 2 and p.locator("#al-hours").count() == 1 and p.locator("#al-log-h").count() == 1, "My alerts: kinds (danger locked), working hours, the log " + tag)
+        ok(not re.findall(r"\b(al|adm)\.\w+", txt) and "Kiran" not in txt, "My alerts: translated, no personal details " + tag, re.findall(r"\bal\.\w+", txt)[:5])
+        bad = p.evaluate(CONTRAST_JS)
+        ok(not bad and no_hscroll(p), "My alerts AA, no sideways scroll " + tag, bad[:4])
+        shot(p, "89-my-alerts-%s-%s-%d" % (theme, lang, width))
+        if tag == "dark en 1280":
+            with p.expect_response(lambda r: r.request.method == "POST"): p.uncheck("#al-k-PILOT_REQUEST")
+            p.wait_for_selector("#al-msg.success")
+            ok(_d89.execute("SELECT COUNT(*) FROM staff_alert_prefs WHERE email = 'super@test.in' AND kind = 'PILOT_REQUEST'").fetchone()[0] == 1 and p.evaluate("document.activeElement.id") == "al-k-PILOT_REQUEST", "switching a kind off is saved, focus stays " + tag)
+            with p.expect_response(lambda r: r.request.method == "POST"): p.check("#al-k-PILOT_REQUEST")
+            p.fill("#al-from", "19:00"); p.fill("#al-to", "09:00"); p.click("#al-hours button[type=submit]")
+            p.wait_for_selector("#al-hours-err:not([hidden])")
+            ok("after" in p.inner_text("#al-hours-err"), "working hours: end before start is refused on the page " + tag)
+            p.fill("#al-from", "09:00"); p.fill("#al-to", "19:00"); p.uncheck("#al-d-0")
+            with p.expect_response(lambda r: r.request.method == "POST"): p.click("#al-hours button[type=submit]")
+            p.wait_for_selector("#al-msg.success")
+            ok("Monday to Saturday" in p.inner_text("#al-msg"), "working hours saved: Monday to Saturday " + tag, p.inner_text("#al-msg"))
+            p.check("#al-d-0")
+            with p.expect_response(lambda r: r.request.method == "POST"): p.click("#al-hours button[type=submit]")
+        ok(not errs, "My alerts: no script errors " + tag, errs)
+        ctx.close()
+    ctx, p, errs = P("sm@test.in")
+    p.goto(B + "/admin-alerts.html"); p.wait_for_selector("#al-kinds-h")
+    ok(p.locator(".al-kinds input").count() == 1 and p.locator("#al-hours").count() == 0 and p.locator("#al-log-h").count() == 0, "sales manager: pilot requests only, no settings for everyone")
+    ok(not errs, "sales My alerts: no script errors", errs); ctx.close()
+
+    # Quiet hours in the office's bell
+    for theme, lang, width in (("light", "en", 1280), ("dark", "hi", 375)):
+        tag = "%s %s %d" % (theme, lang, width)
+        ctx = br.new_context(viewport={"width": width, "height": 900}, color_scheme=theme)
+        ctx.add_cookies([{"name": "test_email", "value": "r1@x.in", "url": B}])
+        ctx.add_init_script("try{localStorage.setItem('%s','%s');localStorage.setItem('griq-theme','%s')}catch(e){}" % (LANGKEY, lang, theme))
+        p = ctx.new_page(); errs = []
+        p.on("pageerror", lambda e: errs.append(str(e)))
+        p.goto(B + "/rep"); p.wait_for_selector("#rn-bell", timeout=15000)
+        p.click("#rn-bell"); p.wait_for_selector("#rn-quiet summary")
+        p.click("#rn-quiet summary")
+        txt = p.inner_text("#rn-quiet")
+        ok(("22:00" in txt and "07:00" in txt) and not re.findall(r"\bqh\.\w+", txt), "bell: quiet hours, 10 pm to 7 am by default, translated " + tag, txt[:200])
+        bad = p.evaluate(CONTRAST_JS.replace("createTreeWalker(document.body", "createTreeWalker(document.querySelector('#rn-panel')", 1))
+        ok(not bad, "quiet hours AA " + tag, bad[:4])
+        p.fill("#rn-qf0", "21:30")
+        with p.expect_response(lambda r: r.request.method == "POST" and "/api/quiet-hours" in r.url): p.click("#rn-quiet button[type=submit]")
+        p.wait_for_selector("#rn-qs0:not(:empty)")
+        ok(_d89.execute("SELECT quiet_from FROM office_quiet_hours WHERE office_id = 'lu-hazratganj'").fetchone()[0] == "21:30" and p.evaluate("document.activeElement.id") == "rn-qs0", "quiet hours saved from the bell, result announced " + tag)
+        p.locator("#rn-panel").screenshot(path=os.path.join(SHOTS, "89-quiet-hours-%s.png" % lang))
+        ok(not errs, "quiet hours: no script errors " + tag, errs)
+        _d89.execute("DELETE FROM office_quiet_hours WHERE office_id = 'lu-hazratganj'"); _d89.commit()
+        ctx.close()
+    _d89.execute("UPDATE staff_alerts SET done_at = ?, done_reason = 'TEST' WHERE done_at IS NULL", (_iso89(),))
+    _d89.execute("UPDATE grievances SET status = 'CLOSED' WHERE id = 'g89d'")
+    _d89.execute("INSERT OR REPLACE INTO admin_settings (key, value, updated_by, updated_at) VALUES ('staff_alert_hours', ?, 'test', ?)", (_js86.dumps({"days": [0, 1, 2, 3, 4, 5, 6], "from": "09:00", "to": "19:00"}), _iso89()))
+    _d89.commit()
+
 
     br.close()
 

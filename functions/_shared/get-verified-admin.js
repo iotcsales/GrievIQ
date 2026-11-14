@@ -202,6 +202,11 @@ export const PERMISSIONS = {
   check_helpers: ["helper_checker"],
   approve_helpers: ["helper_approver"],
   refund_helper_fees: ["super_admin", "operations_admin", "accounts_manager", "helper_approver"],
+  // grieviq-89: "Needs you now" alerts for the staff whose job they are
+  // (pilot requests: sales; assisted wards: operations and support; danger
+  // complaints at staff: operations). GrievIQ's working hours: super admin.
+  use_alerts: ["super_admin", "operations_admin", "support_executive", "sales_executive", "sales_manager"],
+  manage_alert_hours: ["super_admin"],
 };
 
 // Which admin pages each role may open (the menu shows only these). A page
@@ -244,6 +249,7 @@ export const PAGES = {
   "admin-staff-records": "view_staff_records",      // grieviq-78
   "admin-misuse": "view_misuse",                    // grieviq-82
   "admin-assisted": "view_assisted",                // grieviq-88
+  "admin-alerts": "use_alerts",                     // grieviq-89
   "admin-helpers": ["view_helpers", "view_helper_payments"], // grieviq-72; payments only for accounts (grieviq-75)
 };
 export function pagesFor(roleOrRoles) {
